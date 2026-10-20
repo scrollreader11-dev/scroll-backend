@@ -283,30 +283,6 @@
     } catch (e) { return ''; }
   }
 
-  // ---- about:blank cloak ----
-  function openAboutBlank() {
-    try {
-      var w = window.open('about:blank', '_blank');
-      if (!w) { showToast('Allow pop-ups to use about:blank mode.'); return; }
-      var html = '<!doctype html><html><head><title>Google</title>' +
-        '<link rel="icon" href="https://www.google.com/favicon.ico">' +
-        '<style>html,body{margin:0;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block}</style></head>' +
-        '<body><iframe src="' + location.origin + '"></iframe></body></html>';
-      w.document.open(); w.document.write(html); w.document.close();
-      // send the visible tab to a harmless decoy
-      location.replace('https://classroom.google.com');
-    } catch (e) { showToast('Could not open about:blank mode.'); }
-  }
-  function addCloakButton() {
-    if (document.getElementById('sh-cloak') || window.top !== window.self) return;
-    var b = el('button', 'position:fixed;left:12px;bottom:12px;z-index:2147483000;background:rgba(11,22,38,.82);color:#9fb0c8;' +
-      'border:1px solid #27406a;border-radius:10px;padding:8px 12px;font:600 12px system-ui;cursor:pointer;opacity:.7', '🛡 Cloak');
-    b.id = 'sh-cloak'; b.title = 'Open in about:blank (hides this site)';
-    b.onmouseenter = function () { b.style.opacity = '1'; }; b.onmouseleave = function () { b.style.opacity = '.7'; };
-    b.onclick = openAboutBlank;
-    document.body.appendChild(b);
-  }
-
   function beat() {
     if (stopped) return;
     fetch('/api/presence', {
@@ -323,7 +299,7 @@
     }).catch(function () {});
   }
 
-  function start() { loadGameLabels(); addCloakButton(); beat(); setInterval(beat, 12000); }
+  function start() { loadGameLabels(); beat(); setInterval(beat, 12000); }
   function boot() { if (nickname) start(); else askNickname(start); }
   if (document.body) boot();
   else document.addEventListener('DOMContentLoaded', boot);
