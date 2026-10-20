@@ -16,6 +16,11 @@ const distDir = join(__dirname, 'dist');
 // Static file server for the built site. single:true = SPA fallback to index.html.
 const serve = sirv(distDir, { dev: false, etag: true, single: true });
 
+function sendJson(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(obj));
+}
+
 const httpServer = createServer((req, res) => {
   const url = (req.url || '/').split('?')[0];
 
@@ -25,7 +30,15 @@ const httpServer = createServer((req, res) => {
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
 
-  // Non-existent API routes must 404 (never fall back to index.html as HTML,
+  // Legal/policy gate: report already-accepted so the gate never blocks the app.
+  if (url === '/api/legal/status') {
+    return sendJson(res, 200, { accepted: true, needsCaptcha: false, gate: false, version: '1' });
+  }
+  if (url === '/api/legal/accept') {
+    return sendJson(res, 200, { ok: true, accepted: true, version: '1' });
+  }
+
+  // Other non-existent API routes 404 (never fall back to index.html as HTML,
   // which would break the game list's JSON parsing).
   if (url.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
