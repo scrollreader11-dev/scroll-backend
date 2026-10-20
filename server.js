@@ -296,6 +296,9 @@ async function proxyUpstream(req, res) {
     };
     if (req.headers['range']) headers['range'] = req.headers['range'];
     const up = await fetch(target, { headers, redirect: 'follow' });
+    // Upstream's gate answers protected assets with 403 "CAPTCHA_REQUIRED".
+    // Never forward that — it's just a missing asset to us. Return 404.
+    if (up.status === 403) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
     const outHeaders = {
       'content-type': up.headers.get('content-type') || 'application/octet-stream',
       'cache-control': 'public, max-age=86400',
