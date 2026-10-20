@@ -3,6 +3,11 @@
 // Serves the website (dist/) AND the Wisp proxy backend on the
 // SAME origin. Same-origin is what the proxy engine needs, so
 // games tunnel correctly (this is why static-only hosts fail).
+//
+// The open-source build ships the catalog + thumbnails but NOT
+// the actual game files (they live under /storage/ag/... and
+// /iframe.html on petezahgames.com). Any asset missing locally
+// is transparently proxied from UPSTREAM so games/apps load.
 // ============================================================
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
@@ -13,12 +18,52 @@ import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = join(__dirname, 'dist');
 
-// Static file server for the built site. single:true = SPA fallback to index.html.
-const serve = sirv(distDir, { dev: false, etag: true, single: true });
+// Where the real game files / app icons / iframe loader are hosted.
+const UPSTREAM = 'https://petezahgames.com';
+
+// sirv WITHOUT single — we handle SPA fallback + upstream proxy ourselves,
+// so a missing asset (a game file) doesn't get index.html served as its body.
+const serve = sirv(distDir, { dev: false, etag: true });
 
 function sendJson(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(obj));
+}
+
+function looksLikeFile(path) {
+  const last = path.split('/').pop() || '';
+  return last.includes('.');
+}
+
+// Proxy a missing asset from the upstream games host and stream it back
+// from our own origin (so the game loads inside our iframe).
+async function proxyUpstream(req, res) {
+  const target = UPSTREAM + req.url;
+  try {
+    const headers = {
+      'user-agent': req.headers['user-agent'] || 'Mozilla/5.0',
+      'accept': req.headers['accept'] || '*/*',
+    };
+    if (req.headers['range']) headers['range'] = req.headers['range'];
+
+    const up = await fetch(target, { headers, redirect: 'follow' });
+    const outHeaders = {
+      'content-type': up.headers.get('content-type') || 'application/octet-stream',
+      'cache-control': 'public, max-age=86400',
+      'access-control-allow-origin': '*',
+    };
+    for (const h of ['content-range', 'accept-ranges', 'content-length']) {
+      const v = up.headers.get(h);
+      if (v) outHeaders[h] = v;
+    }
+    res.writeHead(up.status, outHeaders);
+    if (req.method === 'HEAD') { res.end(); return; }
+    const buf = Buffer.from(await up.arrayBuffer());
+    res.end(buf);
+  } catch (e) {
+    res.writeHead(502, { 'Content-Type': 'text/plain' });
+    res.end('Upstream fetch failed');
+  }
 }
 
 const httpServer = createServer((req, res) => {
@@ -38,8 +83,7 @@ const httpServer = createServer((req, res) => {
     return sendJson(res, 200, { ok: true, accepted: true, version: '1' });
   }
 
-  // Other non-existent API routes 404 (never fall back to index.html as HTML,
-  // which would break the game list's JSON parsing).
+  // Other non-existent API routes 404 (never fall back to index.html as HTML).
   if (url.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end('{"error":"not found"}');
@@ -47,8 +91,14 @@ const httpServer = createServer((req, res) => {
   }
 
   serve(req, res, () => {
-    res.writeHead(404);
-    res.end('Not found');
+    // Not found locally.
+    if (looksLikeFile(url)) {
+      // An asset (game file, icon, iframe.html, missing thumbnail) -> upstream.
+      return proxyUpstream(req, res);
+    }
+    // A client-side route -> serve the SPA shell.
+    req.url = '/index.html';
+    serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   });
 });
 
