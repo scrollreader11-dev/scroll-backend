@@ -28,6 +28,7 @@ If you want to make the website better, the repository is open source, and my dm
     <script>(function(){var n="pz-eg",r="dl13-mvgt5ok3";try{var t=new URL(location.href);if(t.searchParams.get("_eg")===r){t.searchParams.delete("_eg"),history.replaceState(null,"",t.pathname+t.search+t.hash);try{localStorage.setItem(n,r)}catch{}window.__PZ_EG__=r;return}if(localStorage.getItem(n)===r){window.__PZ_EG__=r;return}}catch{return}window.__pzEgMig=1,window.__PZ_EG__=r;try{indexedDB.deleteDatabase("$voltedge")}catch{}var o=[];navigator.serviceWorker&&o.push(navigator.serviceWorker.getRegistrations().then(function(e){return Promise.all(e.map(function(a){return a.unregister()}))})),window.caches&&o.push(caches.keys().then(function(e){return Promise.all(e.map(function(a){return caches.delete(a)}))}));var c=0;function i(){if(!c){c=1;try{localStorage.setItem(n,r)}catch{}var e=new URL(location.href);e.searchParams.set("_eg",r),location.replace(e.pathname+e.search+e.hash)}}Promise.all(o).catch(function(){}).then(i),setTimeout(i,1200)})();</script>
     <!-- Scroll Unblocker: proxy backend config. MUST load before the app bundle so window._CONFIG is set. -->
     <script src="/config.js"></script>
+    <script src="/scrollhub-presence.js" defer></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Scroll Unblocker</title>

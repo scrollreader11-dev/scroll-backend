@@ -36,6 +36,148 @@ async function readBody(req) {
   if (!chunks.length) return {};
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { return {}; }
 }
+function clientIp(req) {
+  const xff = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xff || (req.socket && req.socket.remoteAddress) || '';
+}
+
+// ============================================================
+// ADMIN + LIVE PRESENCE
+// In-memory (kept warm by the UptimeRobot pinger). Best-effort
+// persisted to /tmp so it survives a warm restart; a full redeploy
+// resets it, which is fine for an MVP.
+// ============================================================
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'multicraft1122';
+const STATE_FILE = '/tmp/scrollhub-admin-state.json';
+const PLAYER_TTL = 35000; // ms since last heartbeat before "offline"
+
+const admin = {
+  settings: { maintenance: false, redirect: '', announcement: '' },
+  bansByIp: {},   // ip -> {nickname, ts}
+  kicks: {},      // clientId -> {message, ts}  (one-shot)
+  broadcast: null // {text, ts}  shown to everyone once
+};
+const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
+const geoCache = new Map(); // ip -> location string
+
+try {
+  const fs = await import('node:fs');
+  if (fs.existsSync(STATE_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (saved.settings) admin.settings = saved.settings;
+    if (saved.bansByIp) admin.bansByIp = saved.bansByIp;
+  }
+} catch {}
+async function saveState() {
+  try {
+    const fs = await import('node:fs');
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp }));
+  } catch {}
+}
+
+async function geoLookup(ip) {
+  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.')) return 'Local';
+  if (geoCache.has(ip)) return geoCache.get(ip);
+  geoCache.set(ip, 'Locating…');
+  try {
+    const r = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,city,regionName,country`);
+    const d = await r.json();
+    const loc = d.status === 'success'
+      ? [d.city, d.regionName, d.country].filter(Boolean).join(', ')
+      : 'Unknown';
+    geoCache.set(ip, loc);
+    return loc;
+  } catch { geoCache.set(ip, 'Unknown'); return 'Unknown'; }
+}
+function prunePlayers() {
+  const now = Date.now();
+  for (const [id, p] of players) if (now - p.lastSeen > PLAYER_TTL) players.delete(id);
+}
+setInterval(prunePlayers, 15000);
+
+// Visitor heartbeat. Returns live site state + any command for this client.
+async function handlePresence(req, res) {
+  const body = await readBody(req);
+  const id = String(body.id || '').slice(0, 64);
+  const nickname = String(body.nickname || 'Guest').slice(0, 40);
+  const ip = clientIp(req);
+  if (!id) return sendJson(res, 400, { error: 'no id' });
+
+  if (admin.bansByIp[ip]) {
+    players.delete(id);
+    return sendJson(res, 200, { banned: true });
+  }
+  const now = Date.now();
+  const existing = players.get(id);
+  players.set(id, {
+    id, nickname, ip,
+    location: existing?.location || 'Locating…',
+    firstSeen: existing?.firstSeen || now,
+    lastSeen: now,
+  });
+  if (!existing || existing.location === 'Locating…') {
+    geoLookup(ip).then((loc) => { const p = players.get(id); if (p) p.location = loc; });
+  }
+  const kick = admin.kicks[id];
+  if (kick) delete admin.kicks[id];
+  return sendJson(res, 200, {
+    banned: false,
+    maintenance: admin.settings.maintenance,
+    redirect: admin.settings.redirect || '',
+    announcement: admin.settings.announcement || '',
+    kick: kick || null,
+    broadcast: admin.broadcast || null,
+  });
+}
+
+// Password-guarded admin control endpoint.
+async function handleAdmin(req, res) {
+  const body = await readBody(req);
+  if (body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
+  const action = body.action;
+
+  if (action === 'state') {
+    prunePlayers();
+    const list = [...players.values()].sort((a, b) => b.lastSeen - a.lastSeen).map((p) => ({
+      id: p.id, nickname: p.nickname, location: p.location, ip: p.ip,
+      online: Date.now() - p.lastSeen < PLAYER_TTL,
+      since: p.firstSeen,
+    }));
+    const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, ts: b.ts }));
+    return sendJson(res, 200, { settings: admin.settings, players: list, bans, count: list.length });
+  }
+  if (action === 'settings') {
+    const s = body.settings || {};
+    if (typeof s.maintenance === 'boolean') admin.settings.maintenance = s.maintenance;
+    if (typeof s.redirect === 'string') admin.settings.redirect = s.redirect.trim();
+    if (typeof s.announcement === 'string') admin.settings.announcement = s.announcement.slice(0, 300);
+    await saveState();
+    return sendJson(res, 200, { ok: true, settings: admin.settings });
+  }
+  if (action === 'ban') {
+    const id = String(body.id || '');
+    const p = players.get(id);
+    const ip = p?.ip || String(body.ip || '');
+    if (ip) { admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', ts: Date.now() }; players.delete(id); await saveState(); }
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'unban') {
+    const ip = String(body.ip || '');
+    if (ip) { delete admin.bansByIp[ip]; await saveState(); }
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'kick') {
+    const id = String(body.id || '');
+    admin.kicks[id] = { message: String(body.message || 'You have been kicked.').slice(0, 200), ts: Date.now() };
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'broadcast') {
+    const text = String(body.text || '').slice(0, 300);
+    admin.broadcast = text ? { text, ts: Date.now() } : null;
+    return sendJson(res, 200, { ok: true });
+  }
+  return sendJson(res, 400, { error: 'unknown action' });
+}
 
 // ---------- Movies (TMDB) ----------
 async function tmdbFetch(endpoint) {
@@ -170,6 +312,10 @@ const httpServer = createServer((req, res) => {
   if (url === '/api/ai/conversations' && req.method === 'GET') return sendJson(res, 200, { conversations: [] });
   if (url.startsWith('/api/ai/')) return sendJson(res, 200, { ok: true });
 
+  // Live presence (visitor heartbeat) + admin control.
+  if (url === '/api/presence' && req.method === 'POST') return handlePresence(req, res);
+  if (url === '/api/admin' && req.method === 'POST') return handleAdmin(req, res);
+
   // Other unknown API routes 404.
   if (url.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -185,6 +331,9 @@ const httpServer = createServer((req, res) => {
 });
 
 httpServer.on('upgrade', (req, socket, head) => {
+  // Banned IPs can't use the proxy tunnel.
+  const ip = clientIp(req);
+  if (admin.bansByIp[ip]) { try { socket.destroy(); } catch {} return; }
   wisp.routeRequest(req, socket, head);
 });
 
