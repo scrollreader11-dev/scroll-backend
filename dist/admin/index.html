@@ -109,10 +109,67 @@
     <div class="card">
       <h2>Banned</h2>
       <table>
-        <thead><tr><th>Nickname</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
-        <tbody id="bans"><tr><td colspan="3" class="muted">None</td></tr></tbody>
+        <thead><tr><th>Nickname</th><th>Reason</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
+        <tbody id="bans"><tr><td colspan="4" class="muted">None</td></tr></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- PLAYER PROFILE MODAL -->
+<div id="modal" class="hide" style="position:fixed;inset:0;z-index:999;background:rgba(2,6,14,.72);display:flex;align-items:center;justify-content:center;padding:16px">
+  <div style="max-width:520px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:20px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div>
+        <div id="mName" style="font-size:1.3rem;font-weight:800">Player</div>
+        <div id="mMeta" class="muted" style="font-size:.84rem;margin-top:3px"></div>
+      </div>
+      <button id="mClose" class="ghost sm">✕</button>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="label">Fun</div>
+      <div class="row">
+        <button class="sm" data-act="freeze">❄ Freeze</button>
+        <button class="sm ghost" data-act="unfreeze">Unfreeze</button>
+        <button class="sm" data-act="shake">📳 Shake screen</button>
+        <button class="sm" data-act="flash">⚡ Flash screen</button>
+        <button class="sm amber" data-act="rickroll">🎵 Rickroll</button>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="label">Send a message</div>
+      <div class="row"><input id="mMsg" type="text" placeholder="Type a message…" />
+        <button class="sm" data-act="popup">Popup</button>
+        <button class="sm ghost" data-act="toast">Toast</button>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="label">Rename their browser tab</div>
+      <div class="row"><input id="mTitle" type="text" placeholder="e.g. Google Classroom" />
+        <button class="sm" data-act="tabtitle">Set tab</button></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="label">Redirect them to a game</div>
+      <div class="row"><input id="mGame" type="text" placeholder="Search a game…" list="gameList" />
+        <button class="sm" data-act="togame">Send to game</button></div>
+      <datalist id="gameList"></datalist>
+      <div class="row" style="margin-top:8px"><input id="mUrl" type="text" placeholder="…or any URL (https://…)" />
+        <button class="sm ghost" data-act="tourl">Redirect</button></div>
+    </div>
+
+    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+      <div class="label">Moderation</div>
+      <div class="row"><button class="amber sm" data-act="kickrow">Kick</button></div>
+      <div class="label" style="margin-top:12px">Ban for…</div>
+      <div id="offenseList" class="row" style="gap:6px"></div>
+      <div class="row" style="margin-top:8px"><input id="mCustomBan" type="text" placeholder="Custom reason…" />
+        <button class="red sm" data-act="banrow">Ban</button></div>
+    </div>
+    <div id="mFlash" class="flash"></div>
   </div>
 </div>
 
@@ -122,6 +179,12 @@
   try { PW = sessionStorage.getItem('sh_admin_pw') || ''; } catch (e) {}
   var $ = function (id) { return document.getElementById(id); };
 
+  var OFFENSES = ['Spamming', 'Harassment', 'Inappropriate language', 'NSFW / explicit', 'Cheating / exploiting',
+    'Ban evasion', 'Advertising', 'Impersonation', 'Threats', 'Being disruptive'];
+  var playerMap = {};   // id -> player
+  var currentId = null; // player open in modal
+  var games = [];       // {label, url}
+
   function api(action, extra) {
     var body = Object.assign({ password: PW, action: action }, extra || {});
     return fetch('/api/admin', {
@@ -129,7 +192,7 @@
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, data: j }; }); });
   }
 
-  function showDash() { $('login').classList.add('hide'); $('dash').classList.remove('hide'); tick(); }
+  function showDash() { $('login').classList.add('hide'); $('dash').classList.remove('hide'); tick(); loadGames(); }
   function showLogin() { $('dash').classList.add('hide'); $('login').classList.remove('hide'); }
 
   $('loginBtn').onclick = function () {
@@ -161,30 +224,97 @@
     if (!redirFocused) $('redir').value = s.redirect || '';
     if (!annFocused) $('ann').value = s.announcement || '';
 
+    playerMap = {};
     var pb = $('players');
     if (!players.length) pb.innerHTML = '<tr><td colspan="4" class="muted">No one online right now.</td></tr>';
     else pb.innerHTML = players.map(function (p) {
-      return '<tr><td><strong>' + esc(p.nickname) + '</strong></td>' +
+      playerMap[p.id] = p;
+      return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--blue2);text-decoration:none;font-weight:700">' +
+        esc(p.nickname) + '</a>' + (p.frozen ? ' <span class="pill">frozen</span>' : '') + '</td>' +
         '<td class="muted">' + esc(p.location) + '</td>' +
         '<td><span class="dot ' + (p.online ? 'on' : 'off') + '"></span>' + (p.online ? 'Online' : 'Idle') + '</td>' +
-        '<td style="text-align:right"><button class="amber sm" data-kick="' + esc(p.id) + '">Kick</button> ' +
-        '<button class="red sm" data-ban="' + esc(p.id) + '">Ban</button></td></tr>';
+        '<td style="text-align:right"><button class="sm" data-open="' + esc(p.id) + '">Manage</button></td></tr>';
     }).join('');
 
+    // keep the open modal's frozen pill fresh
+    if (currentId && playerMap[currentId]) refreshModalMeta(playerMap[currentId]);
+
     var bb = $('bans');
-    if (!bans.length) bb.innerHTML = '<tr><td colspan="3" class="muted">None</td></tr>';
+    if (!bans.length) bb.innerHTML = '<tr><td colspan="4" class="muted">None</td></tr>';
     else bb.innerHTML = bans.map(function (b) {
-      return '<tr><td>' + esc(b.nickname) + '</td><td class="muted">' + esc(b.ip) + '</td>' +
+      return '<tr><td>' + esc(b.nickname) + '</td><td class="muted">' + esc(b.reason || '—') + '</td><td class="muted">' + esc(b.ip) + '</td>' +
         '<td style="text-align:right"><button class="ghost sm" data-unban="' + esc(b.ip) + '">Unban</button></td></tr>';
     }).join('');
   }
 
-  document.addEventListener('click', function (e) {
-    var t = e.target;
-    if (t.dataset.ban) { api('ban', { id: t.dataset.ban }).then(tick); }
-    else if (t.dataset.kick) { var m = prompt('Kick message (optional):', 'You have been kicked.'); if (m !== null) api('kick', { id: t.dataset.kick, message: m }).then(function () { flash('Kicked.'); }); }
-    else if (t.dataset.unban) { api('unban', { ip: t.dataset.unban }).then(tick); }
+  // ----- player profile modal -----
+  function mflash(msg) { $('mFlash').textContent = msg; setTimeout(function () { $('mFlash').textContent = ''; }, 2000); }
+  function refreshModalMeta(p) {
+    $('mName').innerHTML = esc(p.nickname) + (p.frozen ? ' <span class="pill">frozen</span>' : '');
+    $('mMeta').textContent = p.location + ' · ' + (p.online ? 'online' : 'idle') + ' · ' + (p.ip || '');
+  }
+  function openProfile(id) {
+    var p = playerMap[id]; if (!p) return;
+    currentId = id;
+    refreshModalMeta(p);
+    $('mMsg').value = ''; $('mTitle').value = ''; $('mGame').value = ''; $('mUrl').value = ''; $('mCustomBan').value = '';
+    $('modal').classList.remove('hide');
+  }
+  function closeModal() { currentId = null; $('modal').classList.add('hide'); }
+  $('mClose').onclick = closeModal;
+  $('modal').addEventListener('click', function (e) { if (e.target === $('modal')) closeModal(); });
+
+  function cmd(type, extra) {
+    if (!currentId) return;
+    api('command', { id: currentId, cmd: Object.assign({ type: type }, extra || {}) });
+  }
+
+  // offense chips
+  OFFENSES.forEach(function (o) {
+    var b = document.createElement('button');
+    b.className = 'red sm'; b.textContent = o; b.dataset.offense = o;
+    $('offenseList').appendChild(b);
   });
+
+  document.addEventListener('click', function (e) {
+    var t = e.target, id;
+    if (t.dataset.open) { e.preventDefault(); openProfile(t.dataset.open); return; }
+    if (t.dataset.unban) { api('unban', { ip: t.dataset.unban }).then(tick); return; }
+    if (t.dataset.offense) {
+      if (!currentId) return;
+      api('ban', { id: currentId, reason: t.dataset.offense }).then(function () { mflash('Banned: ' + t.dataset.offense); closeModal(); tick(); });
+      return;
+    }
+    var act = t.dataset.act; if (!act) return;
+    if (act === 'freeze') { api('freeze', { id: currentId, on: true }).then(function () { mflash('Frozen.'); tick(); }); }
+    else if (act === 'unfreeze') { api('freeze', { id: currentId, on: false }).then(function () { mflash('Unfrozen.'); tick(); }); }
+    else if (act === 'shake') { cmd('shake'); mflash('Shaking their screen.'); }
+    else if (act === 'flash') { cmd('flash'); mflash('Flashing their screen.'); }
+    else if (act === 'rickroll') { cmd('rickroll'); mflash('Rickrolled!'); }
+    else if (act === 'popup') { var v = $('mMsg').value.trim(); if (v) { cmd('popup', { text: v }); mflash('Popup sent.'); } }
+    else if (act === 'toast') { var v2 = $('mMsg').value.trim(); if (v2) { cmd('message', { text: v2 }); mflash('Message sent.'); } }
+    else if (act === 'tabtitle') { var ti = $('mTitle').value.trim(); if (ti) { cmd('tabtitle', { title: ti }); mflash('Tab renamed.'); } }
+    else if (act === 'togame') {
+      var g = gameByLabel[$('mGame').value.trim().toLowerCase()];
+      if (g) { cmd('redirect', { url: g }); mflash('Sent to game.'); } else { mflash('Pick a game from the list.'); }
+    }
+    else if (act === 'tourl') { var u = $('mUrl').value.trim(); if (u) { cmd('redirect', { url: u }); mflash('Redirected.'); } }
+    else if (act === 'kickrow') { var km = prompt('Kick message:', 'You have been kicked.'); if (km !== null) { api('kick', { id: currentId, message: km }).then(function () { mflash('Kicked.'); closeModal(); }); } }
+    else if (act === 'banrow') { var r = $('mCustomBan').value.trim() || 'Banned by admin'; api('ban', { id: currentId, reason: r }).then(function () { mflash('Banned.'); closeModal(); tick(); }); }
+  });
+
+  // load game list for the "send to game" picker
+  var gameByLabel = {};
+  function loadGames() {
+    fetch('/storage/data/collection.json').then(function (r) { return r.json(); }).then(function (d) {
+      games = (d.games || []).filter(function (g) { return g.url && g.label; });
+      var dl = $('gameList'); dl.innerHTML = '';
+      games.slice(0, 1500).forEach(function (g) {
+        gameByLabel[g.label.toLowerCase()] = g.url;
+        var o = document.createElement('option'); o.value = g.label; dl.appendChild(o);
+      });
+    }).catch(function () {});
+  }
 
   $('maintSw').onclick = function () {
     var on = $('maintSw').className.indexOf('on2') === -1;

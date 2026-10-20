@@ -53,9 +53,11 @@ const PLAYER_TTL = 35000; // ms since last heartbeat before "offline"
 
 const admin = {
   settings: { maintenance: false, redirect: '', announcement: '' },
-  bansByIp: {},   // ip -> {nickname, ts}
+  bansByIp: {},   // ip -> {nickname, reason, ts}
   kicks: {},      // clientId -> {message, ts}  (one-shot)
-  broadcast: null // {text, ts}  shown to everyone once
+  broadcast: null,// {text, ts}  shown to everyone once
+  commands: {},   // clientId -> [ {type, ...} ]  (one-shot queue)
+  frozen: {}      // clientId -> true  (persistent until unfrozen)
 };
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
 const geoCache = new Map(); // ip -> location string
@@ -105,7 +107,7 @@ async function handlePresence(req, res) {
 
   if (admin.bansByIp[ip]) {
     players.delete(id);
-    return sendJson(res, 200, { banned: true });
+    return sendJson(res, 200, { banned: true, reason: admin.bansByIp[ip].reason || '' });
   }
   const now = Date.now();
   const existing = players.get(id);
@@ -120,6 +122,8 @@ async function handlePresence(req, res) {
   }
   const kick = admin.kicks[id];
   if (kick) delete admin.kicks[id];
+  const commands = admin.commands[id] || [];
+  if (commands.length) delete admin.commands[id];
   return sendJson(res, 200, {
     banned: false,
     maintenance: admin.settings.maintenance,
@@ -127,6 +131,8 @@ async function handlePresence(req, res) {
     announcement: admin.settings.announcement || '',
     kick: kick || null,
     broadcast: admin.broadcast || null,
+    frozen: !!admin.frozen[id],
+    commands,
   });
 }
 
@@ -142,8 +148,9 @@ async function handleAdmin(req, res) {
       id: p.id, nickname: p.nickname, location: p.location, ip: p.ip,
       online: Date.now() - p.lastSeen < PLAYER_TTL,
       since: p.firstSeen,
+      frozen: !!admin.frozen[p.id],
     }));
-    const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, ts: b.ts }));
+    const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, reason: b.reason || '', ts: b.ts }));
     return sendJson(res, 200, { settings: admin.settings, players: list, bans, count: list.length });
   }
   if (action === 'settings') {
@@ -158,7 +165,8 @@ async function handleAdmin(req, res) {
     const id = String(body.id || '');
     const p = players.get(id);
     const ip = p?.ip || String(body.ip || '');
-    if (ip) { admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', ts: Date.now() }; players.delete(id); await saveState(); }
+    const reason = String(body.reason || '').slice(0, 120);
+    if (ip) { admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', reason, ts: Date.now() }; players.delete(id); delete admin.frozen[id]; await saveState(); }
     return sendJson(res, 200, { ok: true });
   }
   if (action === 'unban') {
@@ -174,6 +182,26 @@ async function handleAdmin(req, res) {
   if (action === 'broadcast') {
     const text = String(body.text || '').slice(0, 300);
     admin.broadcast = text ? { text, ts: Date.now() } : null;
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'freeze') {
+    const id = String(body.id || '');
+    if (body.on) admin.frozen[id] = true; else delete admin.frozen[id];
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'command') {
+    const id = String(body.id || '');
+    const cmd = body.cmd || {};
+    const type = String(cmd.type || '');
+    const ALLOWED = ['popup', 'message', 'redirect', 'shake', 'flash', 'tabtitle', 'rickroll'];
+    if (!id || !ALLOWED.includes(type)) return sendJson(res, 400, { error: 'bad command' });
+    const clean = { type, ts: Date.now() };
+    if (cmd.text != null) clean.text = String(cmd.text).slice(0, 300);
+    if (cmd.url != null) clean.url = String(cmd.url).slice(0, 500);
+    if (cmd.title != null) clean.title = String(cmd.title).slice(0, 120);
+    if (!admin.commands[id]) admin.commands[id] = [];
+    admin.commands[id].push(clean);
+    if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
     return sendJson(res, 200, { ok: true });
   }
   return sendJson(res, 400, { error: 'unknown action' });

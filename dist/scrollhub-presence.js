@@ -79,12 +79,66 @@
     box.appendChild(btn); o.appendChild(box); document.body.appendChild(o);
   }
 
+  // ---- fun effects ----
+  function ensureFx() {
+    if (document.getElementById('sh-fx')) return;
+    var st = el('style'); st.id = 'sh-fx';
+    st.textContent =
+      '@keyframes sh-shake{0%,100%{transform:translate(0,0)}10%{transform:translate(-8px,4px)}20%{transform:translate(8px,-4px)}' +
+      '30%{transform:translate(-8px,-4px)}40%{transform:translate(8px,4px)}50%{transform:translate(-6px,6px)}' +
+      '60%{transform:translate(6px,-6px)}70%{transform:translate(-6px,-2px)}80%{transform:translate(6px,2px)}90%{transform:translate(-4px,4px)}}' +
+      '.sh-shaking{animation:sh-shake .5s ease-in-out 6}' +
+      '@keyframes sh-flash{0%{background:#ff3b3b}25%{background:#3bdcff}50%{background:#b53bff}75%{background:#3bff6a}100%{background:#ffd23b}}';
+    document.head.appendChild(st);
+  }
+  function shakeScreen() {
+    ensureFx();
+    var t = document.body; t.classList.remove('sh-shaking'); void t.offsetWidth; t.classList.add('sh-shaking');
+    setTimeout(function () { t.classList.remove('sh-shaking'); }, 3200);
+  }
+  function flashScreen() {
+    ensureFx();
+    var f = el('div', 'position:fixed;inset:0;z-index:2147483600;pointer-events:none;opacity:.85;animation:sh-flash .18s linear 10');
+    document.body.appendChild(f);
+    setTimeout(function () { f.remove(); }, 1900);
+  }
+  function showToast(text) {
+    var t = el('div', 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483600;background:#0b1626;' +
+      'border:1px solid #27406a;color:#fff;font-family:system-ui,sans-serif;font-size:.92rem;padding:12px 18px;border-radius:12px;' +
+      'box-shadow:0 8px 30px rgba(0,0,0,.45);max-width:80vw;text-align:center');
+    t.textContent = text; document.body.appendChild(t);
+    setTimeout(function () { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 400); }, 5000);
+  }
+
+  var frozenOverlay = null;
+  function setFrozen(on) {
+    if (on) {
+      if (!frozenOverlay) {
+        frozenOverlay = fullOverlay('❄ Frozen', 'An administrator has frozen your screen. Please wait…', '#6ea8fe');
+        frozenOverlay.style.cursor = 'not-allowed';
+        document.body.appendChild(frozenOverlay);
+      }
+    } else if (frozenOverlay) { frozenOverlay.remove(); frozenOverlay = null; }
+  }
+
+  function runCommand(c) {
+    if (!c || !c.type) return;
+    if (c.type === 'popup') showPopup(c.text || '');
+    else if (c.type === 'message') showToast(c.text || '');
+    else if (c.type === 'shake') shakeScreen();
+    else if (c.type === 'flash') flashScreen();
+    else if (c.type === 'tabtitle') { try { document.title = c.title || c.text || document.title; } catch (e) {} }
+    else if (c.type === 'redirect') { if (c.url) { try { location.href = c.url; } catch (e) {} } }
+    else if (c.type === 'rickroll') { try { location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'; } catch (e) {} }
+  }
+
   var stopped = false, maintOverlay = null;
   function apply(state) {
     if (stopped) return;
     if (state.banned) {
       stopped = true;
-      document.body.appendChild(fullOverlay('Access blocked', 'You have been banned by an administrator.', '#e06a74'));
+      var why = state.reason ? ('Reason: ' + state.reason) : 'You have been banned by an administrator.';
+      document.body.appendChild(fullOverlay('Access blocked', why, '#e06a74'));
       return;
     }
     if (state.kick) {
@@ -105,6 +159,7 @@
         document.body.appendChild(maintOverlay);
       }
     } else if (maintOverlay) { maintOverlay.remove(); maintOverlay = null; }
+    setFrozen(!!state.frozen);
     showAnnouncement(state.announcement);
     if (state.broadcast && state.broadcast.ts) {
       var seen = '';
@@ -114,6 +169,7 @@
         showPopup(state.broadcast.text);
       }
     }
+    if (Array.isArray(state.commands)) state.commands.forEach(runCommand);
   }
 
   function beat() {
