@@ -1,0 +1,30 @@
+SCROLL UNBLOCKER — BACKEND DEPLOY (Render.com FREE)
+====================================================
+
+STEP 1 — Push these files to a NEW GitHub repo:
+  - Go to github.com → New repository → call it "scroll-backend"
+  - Upload server.js and package.json
+
+STEP 2 — Deploy on Render (free):
+  - Go to render.com → New → Web Service
+  - Connect your GitHub → select "scroll-backend"
+  - Settings:
+      Name:         scroll-backend (or anything)
+      Environment:  Node
+      Build Command: npm install
+      Start Command: npm start
+  - Click "Create Web Service"
+  - Wait ~2 min for it to deploy
+  - Your backend URL will look like:
+      https://scroll-backend-xxxx.onrender.com
+
+STEP 3 — Update your frontend config:
+  - Open the ScrollUnblocker-dist.zip you downloaded
+  - Open dist/config.js in Notepad
+  - Find the line that says:
+      const WISP_URL = 'wss://YOUR-RENDER-URL-HERE.onrender.com/';
+  - Replace with YOUR actual Render URL (wss:// not https://)
+  - Save, then re-drag the dist folder to Netlify
+
+NOTE: Render free tier sleeps after 15 min with no traffic.
+      First game load after sleep takes ~30 seconds. Normal after that.
