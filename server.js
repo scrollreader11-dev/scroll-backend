@@ -61,6 +61,7 @@ const admin = {
 };
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
 const geoCache = new Map(); // ip -> location string
+const stats = { peakOnline: 0, peakAt: 0, hourly: new Array(24).fill(0), gamePlays: {}, totalSessions: 0 };
 
 try {
   const fs = await import('node:fs');
@@ -68,14 +69,16 @@ try {
     const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
     if (saved.settings) admin.settings = saved.settings;
     if (saved.bansByIp) admin.bansByIp = saved.bansByIp;
+    if (saved.stats) Object.assign(stats, saved.stats);
   }
 } catch {}
 async function saveState() {
   try {
     const fs = await import('node:fs');
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp }));
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats }));
   } catch {}
 }
+setInterval(saveState, 60000);
 
 async function geoLookup(ip) {
   if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.')) return 'Local';
@@ -141,6 +144,15 @@ async function handlePresence(req, res) {
   }
   const now = Date.now();
   const existing = players.get(id);
+  // analytics
+  try {
+    stats.hourly[new Date().getHours()]++;
+    if (!existing) stats.totalSessions++;
+    if (activity && activity.indexOf('\u{1F3AE}') === 0 && activity !== (existing && existing.activity)) {
+      const gn = activity.replace(/^\u{1F3AE}\s*/u, '').trim();
+      if (gn && gn !== 'In a game') stats.gamePlays[gn] = (stats.gamePlays[gn] || 0) + 1;
+    }
+  } catch (e) {}
   players.set(id, {
     id, nickname, ip,
     activity: activity || existing?.activity || '',
@@ -185,7 +197,13 @@ async function handleAdmin(req, res) {
       frozenUntil: admin.frozen[p.id] || 0,
     }));
     const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, reason: b.reason || '', ts: b.ts, until: b.until || 0 }));
-    return sendJson(res, 200, { settings: admin.settings, players: list, bans, count: list.length });
+    const online = list.filter((p) => p.online).length;
+    if (online > stats.peakOnline) { stats.peakOnline = online; stats.peakAt = Date.now(); }
+    const topGames = Object.entries(stats.gamePlays).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, plays]) => ({ name, plays }));
+    return sendJson(res, 200, {
+      settings: admin.settings, players: list, bans, count: list.length,
+      stats: { peakOnline: stats.peakOnline, peakAt: stats.peakAt, hourly: stats.hourly, topGames, totalSessions: stats.totalSessions },
+    });
   }
   if (action === 'settings') {
     const s = body.settings || {};

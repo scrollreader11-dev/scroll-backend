@@ -87,6 +87,18 @@
     </div>
 
     <div class="card">
+      <h2>Analytics</h2>
+      <div class="grid">
+        <div class="statbox"><div class="muted" style="font-size:.78rem">Peak online</div><div class="stat" id="aPeak">0</div><div class="muted" id="aPeakAt" style="font-size:.7rem"></div></div>
+        <div class="statbox"><div class="muted" style="font-size:.78rem">Total sessions</div><div class="stat" id="aSessions">0</div></div>
+      </div>
+      <div class="label" style="margin-top:16px">Busiest hours (0–23, server time)</div>
+      <div id="aHours" style="display:flex;align-items:flex-end;gap:3px;height:84px;margin-top:6px"></div>
+      <div class="label" style="margin-top:16px">Most-played games</div>
+      <table><tbody id="aGames"><tr><td class="muted">No plays yet</td></tr></tbody></table>
+    </div>
+
+    <div class="card">
       <h2>Site controls</h2>
       <div class="field">
         <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode (closes the site for everyone)</span></label>
@@ -265,6 +277,27 @@
         '<td class="muted">' + esc(b.ip) + '</td>' +
         '<td style="text-align:right"><button class="ghost sm" data-unban="' + esc(b.ip) + '">Unban</button></td></tr>';
     }).join('');
+
+    if (d.stats) renderStats(d.stats);
+  }
+
+  function renderStats(s) {
+    $('aPeak').textContent = s.peakOnline || 0;
+    $('aPeakAt').textContent = s.peakAt ? ('at ' + new Date(s.peakAt).toLocaleString()) : '';
+    $('aSessions').textContent = s.totalSessions || 0;
+    var hrs = s.hourly || [];
+    var max = Math.max.apply(null, hrs.concat([1]));
+    $('aHours').innerHTML = hrs.map(function (v, h) {
+      var ht = Math.round((v / max) * 78) + 2;
+      return '<div title="' + h + ':00 — ' + v + ' pings" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px">' +
+        '<div style="width:100%;height:' + ht + 'px;background:var(--blue);border-radius:3px 3px 0 0;opacity:' + (v ? 1 : 0.3) + '"></div>' +
+        '<div style="font-size:8px;color:var(--mut)">' + (h % 6 === 0 ? h : '') + '</div></div>';
+    }).join('');
+    var g = s.topGames || [];
+    $('aGames').innerHTML = g.length ? g.map(function (x, i) {
+      return '<tr><td style="width:26px;color:var(--mut)">' + (i + 1) + '</td><td><strong>' + esc(x.name) + '</strong></td>' +
+        '<td style="text-align:right;color:var(--blue2)">' + x.plays + ' plays</td></tr>';
+    }).join('') : '<tr><td class="muted">No plays yet</td></tr>';
   }
 
   // ----- player profile modal -----
