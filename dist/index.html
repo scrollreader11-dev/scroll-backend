@@ -1,0 +1,457 @@
+<!--
+
+If you want to take a break from looking at the boring code, look at my amazing art skills
+
+      ___         ___                       ___           ___           ___           ___     
+     /  /\       /  /\          ___        /  /\         /  /\         /  /\         /__/\    
+    /  /::\     /  /:/_        /  /\      /  /:/_       /  /::|       /  /::\        \  \:\   
+   /  /:/\:\   /  /:/ /\      /  /:/     /  /:/ /\     /  /:/:|      /  /:/\:\        \__\:\  
+  /  /:/~/:/  /  /:/ /:/_    /  /:/     /  /:/ /:/_   /  /:/|:|__   /  /:/~/::\   ___ /  /::\ 
+ /__/:/ /:/  /__/:/ /:/ /\  /  /::\    /__/:/ /:/ /\ /__/:/ |:| /\ /__/:/ /:/\:\ /__/\  /:/\:\
+ \  \:\/:/   \  \:\/:/ /:/ /__/:/\:\   \  \:\/:/ /:/ \__\/  |:|/:/ \  \:\/:/__\/ \  \:\/:/__\/
+  \  \::/     \  \::/ /:/  \__\/  \:\   \  \::/ /:/      |  |:/:/   \  \::/       \  \::/     
+   \  \:\      \  \:\/:/        \  \:\   \  \:\/:/       |  |::/     \  \:\        \  \:\     
+    \  \:\      \  \::/          \__\/    \  \::/        |  |:/       \  \:\        \  \:\    
+     \__\/       \__\/                     \__\/         |__|/         \__\/         \__\/    
+
+That was pretty awesome, I know.  
+
+If you want to make the website better, the repository is open source, and my dms are always open on discord!
+
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>(function(){var n="pz-eg",r="dl13-mvgt5ok3";try{var t=new URL(location.href);if(t.searchParams.get("_eg")===r){t.searchParams.delete("_eg"),history.replaceState(null,"",t.pathname+t.search+t.hash);try{localStorage.setItem(n,r)}catch{}window.__PZ_EG__=r;return}if(localStorage.getItem(n)===r){window.__PZ_EG__=r;return}}catch{return}window.__pzEgMig=1,window.__PZ_EG__=r;try{indexedDB.deleteDatabase("$voltedge")}catch{}var o=[];navigator.serviceWorker&&o.push(navigator.serviceWorker.getRegistrations().then(function(e){return Promise.all(e.map(function(a){return a.unregister()}))})),window.caches&&o.push(caches.keys().then(function(e){return Promise.all(e.map(function(a){return caches.delete(a)}))}));var c=0;function i(){if(!c){c=1;try{localStorage.setItem(n,r)}catch{}var e=new URL(location.href);e.searchParams.set("_eg",r),location.replace(e.pathname+e.search+e.hash)}}Promise.all(o).catch(function(){}).then(i),setTimeout(i,1200)})();</script>
+    <!-- Scroll Unblocker: proxy backend config. MUST load before the app bundle so window._CONFIG is set. -->
+    <script src="/config.js"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Scroll Unblocker</title>
+    <meta
+      name="title"
+      content="Scroll Unblocker"
+    />
+    <meta
+      name="description"
+      content="Create flashcards, take quizzes, track your progress with advanced analytics, and master any subject with confidence."
+    />
+    <meta
+      name="keywords"
+      content="Study, Flashcards, Quiz, Analytics, HypeStudy, Learning, Education, Study Tools, Exam Prep, Student Platform, Secure Study, Online Learning, Study Platform, Test Preparation, Academic Success"
+    />
+    <meta name="author" content="Scroll Unblocker" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f8f6f1" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="English" />
+    <meta name="revisit-after" content="7 days" />
+    <meta name="rating" content="General" />
+    <meta name="distribution" content="global" />
+    <meta name="copyright" content="Scroll Unblocker" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="Scroll Unblocker — Secure Study Platform for Students"
+    />
+    <meta
+      property="og:description"
+      content="Secure, animated, and modern study platform. Master your subjects with interactive flashcards, dynamic quizzes, comprehensive analytics, and powerful study tools."
+    />
+    <meta property="og:image" content="/logo.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Scroll Unblocker" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://hypestudy.com/" />
+    <meta name="twitter:site" content="@hypestudy" />
+    <meta name="twitter:creator" content="@hypestudy" />
+    <meta
+      name="twitter:title"
+      content="Scroll Unblocker — Secure Study Platform for Students"
+    />
+    <meta
+      name="twitter:description"
+      content="Secure, animated, and modern study platform. Interactive flashcards, quizzes, analytics, and everything you need to excel in your studies."
+    />
+    <meta name="twitter:image" content="/logo.png" />
+    <meta
+      name="twitter:image:alt"
+      content="HypeStudy Logo - Secure Study Platform"
+    />
+    <meta name="application-name" content="Scroll Unblocker" />
+    <meta name="apple-mobile-web-app-title" content="Scroll Unblocker" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#f8f6f1" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SHE360M0YP"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-SHE360M0YP", { send_page_view: true, transport_type: "beacon" });
+    </script>
+    <script>
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || [];
+        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+        var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s),
+          dl = l != "dataLayer" ? "&l=" + l : "";
+        j.async = true;
+        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, "script", "dataLayer", "GTM-WPH7NCG4");
+    </script>
+    <style>
+      html, body {
+        height: 100dvh;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        background-color: #020810;
+        position: relative;
+      }
+      #root {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100dvh !important;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        z-index: 10;
+        background-color: #020810;
+      }
+      .education-is-key {
+        display: none !important;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BaxQDvip.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/glyphs-kjNvKJFl.js">
+    <link rel="modulepreload" crossorigin href="/assets/datastore-CViX11-Y.js">
+    <link rel="modulepreload" crossorigin href="/assets/periodic-table-DTazo-I-.js">
+    <link rel="modulepreload" crossorigin href="/assets/kinematics-uP1EfKAe.js">
+    <link rel="modulepreload" crossorigin href="/assets/research-CbaPnZZw.js">
+    <link rel="modulepreload" crossorigin href="/assets/microscope-B9fYpeRk.js">
+    <link rel="modulepreload" crossorigin href="/assets/chemistry-lab-CUL_CaRe.js">
+    <link rel="modulepreload" crossorigin href="/assets/reading-list-Le6v6Ogp.js">
+    <link rel="modulepreload" crossorigin href="/assets/modules-CG3EgSr3.js">
+    <link rel="modulepreload" crossorigin href="/assets/portfolio-yaLzazzk.js">
+    <link rel="modulepreload" crossorigin href="/assets/earth-science-F2PvHUF8.js">
+    <link rel="modulepreload" crossorigin href="/assets/meteorology-N9mFUa5_.js">
+    <link rel="modulepreload" crossorigin href="/assets/algebra-CHeW18tU.js">
+    <link rel="modulepreload" crossorigin href="/assets/syllabus-D-FZRB5M.js">
+    <link rel="modulepreload" crossorigin href="/assets/student-portal-DzPbosTv.js">
+    <link rel="modulepreload" crossorigin href="/assets/lab-safety-DbDrmP4U.js">
+    <link rel="modulepreload" crossorigin href="/assets/geometry-CV4-BjTa.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BNn3g8u8.css">
+  </head>
+  <body>
+    <noscript
+      ><iframe
+        src="https://www.googletagmanager.com/ns.html?id=GTM-WPH7NCG4"
+        height="0"
+        width="0"
+        style="display: none; visibility: hidden"
+      ></iframe
+    ></noscript>
+    <div id="root"></div>
+
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+  </body>
+</html>

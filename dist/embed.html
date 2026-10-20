@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PeteZah</title>
+    <link rel="icon" href="/logo.png" />
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: #020810;
+        color: #a8b8cc;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #iframe-container {
+        width: 100%;
+        height: 100%;
+      }
+      #iframe-container iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: #fff;
+      }
+      #status {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        pointer-events: none;
+        z-index: 2;
+        background: #020810;
+        transition: opacity 0.2s ease;
+      }
+      #status.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #status p {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+      }
+    </style>
+    <script src="/m4thx/index.js?v=dl13"></script>
+    <script src="/q9vx/sj.all.js?v=dl13"></script>
+    <script src="/config.js"></script>
+  </head>
+  <body>
+    <div id="status"><p>Loading…</p></div>
+    <div id="iframe-container"></div>
+    <script>
+      (function () {
+        function c(a) {
+          return a.map(function (n) {
+            return String.fromCharCode(n);
+          }).join("");
+        }
+        var loadCtrl = c([36, 118, 111, 108, 116, 101, 100, 103, 101, 76, 111, 97, 100, 67, 111, 110, 116, 114, 111, 108, 108, 101, 114]);
+        var ctrlName = c([86, 111, 108, 116, 101, 100, 103, 101, 67, 111, 110, 116, 114, 111, 108, 108, 101, 114]);
+        var muxName = c([67, 108, 105, 112, 77, 117, 120]);
+        var muxConn = c([67, 108, 105, 112, 77, 117, 120, 67, 111, 110, 110, 101, 99, 116, 105, 111, 110]);
+        var setT = c([98, 105, 110, 100, 84, 114, 97, 110, 115, 102, 101, 114]);
+        var streamKey = c([108, 105, 110, 107]);
+        var makeFrame = c([111, 112, 101, 110, 83, 117, 114, 102, 97, 99, 101]);
+        var encodeName = c([115, 101, 97, 108, 72, 114, 101, 102, 115]);
+        var codecKey = c([104, 121, 112, 101, 115, 116, 117, 100, 121, 95, 112, 120, 95, 107, 49]);
+        var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+        function codecEncode(url) {
+          if (!url) return url;
+          var x = "";
+          for (var i = 0; i < url.length; i++) {
+            x += String.fromCharCode(url.charCodeAt(i) ^ codecKey.charCodeAt(i % codecKey.length));
+          }
+          var o = "";
+          for (var j = 0; j < x.length; j++) {
+            var ch = x.charCodeAt(j);
+            o += alphabet[(ch >> 12) & 63] + alphabet[(ch >> 6) & 63] + alphabet[ch & 63];
+          }
+          return o;
+        }
+        function codecDecode(url) {
+          if (!url) return url;
+          var x = "";
+          for (var i = 0; i + 2 < url.length; i += 3) {
+            var a = alphabet.indexOf(url[i]);
+            var b = alphabet.indexOf(url[i + 1]);
+            var cc = alphabet.indexOf(url[i + 2]);
+            if (a < 0 || b < 0 || cc < 0) break;
+            x += String.fromCharCode((a << 12) | (b << 6) | cc);
+          }
+          var o = "";
+          for (var j = 0; j < x.length; j++) {
+            o += String.fromCharCode(x.charCodeAt(j) ^ codecKey.charCodeAt(j % codecKey.length));
+          }
+          return o;
+        }
+
+        function setStatus(text) {
+          var el = document.getElementById("status");
+          if (!el) return;
+          if (!text) {
+            el.classList.add("hide");
+            return;
+          }
+          el.classList.remove("hide");
+          el.querySelector("p").textContent = text;
+        }
+
+        function parseHashUrl() {
+          var raw = window.location.hash.slice(1).trim();
+          if (!raw) return "";
+          try {
+            raw = decodeURIComponent(raw);
+          } catch (e) {}
+          if (!/^https?:\/\//i.test(raw)) {
+            raw = "https://" + raw.replace(/^\/+/, "");
+          }
+          try {
+            var u = new URL(raw);
+            if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+            return u.href;
+          } catch (e) {
+            return "";
+          }
+        }
+
+        function hostOf(url) {
+          try {
+            return new URL(url).hostname.toLowerCase();
+          } catch (e) {
+            return "";
+          }
+        }
+
+        function isPremiumHost(host) {
+          var h = String(host || "").toLowerCase();
+          if (h.startsWith("www.")) h = h.slice(4);
+          if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com") return true;
+          if (h.endsWith(".youtube.com") || h.endsWith(".youtu.be")) return true;
+          if (h === "reddit.com" || h === "redd.it") return true;
+          if (h.endsWith(".reddit.com") || h.endsWith(".redd.it")) return true;
+          return false;
+        }
+
+        function streamUrlFor(target) {
+          var premium = isPremiumHost(hostOf(target));
+          var path = premium ? "/api/websocket-premium/" : "/api/websocket/";
+          if (typeof _CONFIG !== "undefined" && _CONFIG.streamurl && !premium) {
+            return _CONFIG.streamurl;
+          }
+          return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + path;
+        }
+
+        function waitFor(fn, ms) {
+          return new Promise(function (resolve, reject) {
+            var start = Date.now();
+            var t = setInterval(function () {
+              try {
+                if (fn()) {
+                  clearInterval(t);
+                  resolve();
+                  return;
+                }
+              } catch (e) {}
+              if (Date.now() - start > ms) {
+                clearInterval(t);
+                reject(new Error("timeout"));
+              }
+            }, 50);
+          });
+        }
+
+        var bareurl =
+          (typeof _CONFIG !== "undefined" && _CONFIG.bareurl) ||
+          location.protocol + "//" + location.host + "/api/edge/";
+
+        var engine = null;
+        var connection = null;
+        var boundStream = "";
+        var initPromise = null;
+
+        async function waitForTransport(streamurl) {
+          var attempts = 0;
+          while (attempts < 40) {
+            try {
+              var o1 = {};
+              o1[streamKey] = streamurl;
+              await connection[setT]("/e7px/index.mjs", [o1]);
+              return;
+            } catch (e1) {
+              try {
+                var o2 = {};
+                o2[streamKey] = streamurl;
+                await connection[setT]("/l9cx/index.mjs", [o2]);
+                return;
+              } catch (e2) {
+                try {
+                  await connection[setT]("/m4thx/index.mjs", [bareurl]);
+                  return;
+                } catch (e3) {
+                  attempts++;
+                  if (attempts >= 40) throw new Error("transport");
+                  await new Promise(function (r) {
+                    setTimeout(r, 150);
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        async function initEngine() {
+          if (initPromise) return initPromise;
+          initPromise = (async function () {
+            await waitFor(function () {
+              return typeof window[loadCtrl] === "function";
+            }, 12000);
+            var packed = window[loadCtrl]();
+            var Ctrl = packed[ctrlName];
+            if (!Ctrl) throw new Error("controller");
+            engine = new Ctrl({
+              prefix: "/afsd123k2/",
+              files: {
+                wasm: "/q9vx/ld.bin",
+                all: "/q9vx/sj.all.js?v=dl13",
+                sync: "/q9vx/sj.sync.js?v=dl13",
+              },
+              flags: { sourcemaps: false, rewriterLogs: false, captureErrors: true },
+              codec: { encode: codecEncode, decode: codecDecode },
+            });
+            try {
+              await navigator.serviceWorker.register("/1k123.js?v=dl13", {
+                updateViaCache: "none",
+                scope: "/",
+              });
+              await navigator.serviceWorker.ready;
+            } catch (e) {}
+            await waitFor(function () {
+              return !!(window[muxName] && window[muxName][muxConn]);
+            }, 8000);
+            connection = new window[muxName][muxConn]("/m4thx/worker.js");
+            await engine.init();
+          })().catch(function (err) {
+            initPromise = null;
+            throw err;
+          });
+          return initPromise;
+        }
+
+        async function bindStream(target) {
+          var streamurl = streamUrlFor(target);
+          if (boundStream === streamurl) return;
+          await waitForTransport(streamurl);
+          boundStream = streamurl;
+        }
+
+        async function openInProxy(url) {
+          await initEngine();
+          await bindStream(url);
+          var container = document.getElementById("iframe-container");
+          container.innerHTML = "";
+          var scFrame = engine[makeFrame]();
+          var encoded = engine[encodeName](url);
+          scFrame.frame.style.cssText = "width:100%;height:100%;border:none;display:block;background:#fff";
+          scFrame.frame.src = encoded;
+          scFrame.frame.addEventListener("load", function () {
+            setStatus("");
+          });
+          container.appendChild(scFrame.frame);
+          document.title = hostOf(url) || "PeteZah";
+          setTimeout(function () {
+            setStatus("");
+          }, 4000);
+        }
+
+        async function loadFromHash() {
+          var url = parseHashUrl();
+          if (!url) {
+            setStatus("Add a URL after # — e.g. /embed.html#https://example.com");
+            return;
+          }
+          setStatus("Opening…");
+          try {
+            await openInProxy(url);
+          } catch (e) {
+            setStatus("Could not start. Refresh and try again.");
+          }
+        }
+
+        window.addEventListener("hashchange", loadFromHash);
+        if (document.readyState === "complete" || document.readyState === "interactive") {
+          loadFromHash();
+        } else {
+          window.addEventListener("DOMContentLoaded", loadFromHash);
+        }
+      })();
+    </script>
+  </body>
+</html>

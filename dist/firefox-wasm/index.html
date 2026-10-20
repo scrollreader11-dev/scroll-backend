@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PeteZah VM</title>
+    <link id="favicon" rel="icon" type="image/png" href="/logo.png" />
+    <link rel="stylesheet" href="./pete-vm.css" />
+    <script type="module" crossorigin src="./assets/index-D39giZCc.js"></script>
+  </head>
+  <body>
+  <script>
+    try {
+      var k = "chrome-demo-opts";
+      var o = JSON.parse(localStorage.getItem(k) || "{}");
+      var proto = location.protocol === "https:" ? "wss:" : "ws:";
+      o.wisp = proto + "//" + location.host + "/api/websocket-3/";
+      if (o.gpu === undefined) o.gpu = true;
+      if (o.jit === undefined) o.jit = false;
+      localStorage.setItem(k, JSON.stringify(o));
+    } catch (e) {}
+
+    (function () {
+      if (window.top !== window.self) {
+        window.top.location.replace(location.href);
+        return;
+      }
+      var sid = "";
+      function beat() {
+        fetch("/api/firefox-vm/heartbeat", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid || undefined }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (d && d.sessionId) sid = d.sessionId; })
+          .catch(function () {});
+      }
+      beat();
+      setInterval(beat, 15000);
+      function end() {
+        if (!sid) return;
+        var body = JSON.stringify({ sessionId: sid });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon("/api/firefox-vm/end", new Blob([body], { type: "application/json" }));
+        }
+      }
+      window.addEventListener("pagehide", end);
+      document.addEventListener("DOMContentLoaded", function () {
+        if (!self.crossOriginIsolated) {
+          var w = document.getElementById("pz-coi-warn");
+          if (w) w.style.display = "block";
+        }
+      });
+    })();
+  </script>
+
+    <section id="splash" aria-live="polite">
+      <a class="pz-exit" href="/">← Back to PeteZah</a>
+
+      <main class="stage">
+        <div id="splash-shell" class="stage-inner" data-phase="loading">
+          <div class="pz-hero">
+            <img
+              class="pz-hero-art"
+              src="/logo.png"
+              width="120"
+              height="120"
+              alt="PeteZah"
+              decoding="async"
+              onerror="this.src='logo.webp'"
+            />
+            <h1 class="pz-hero-title">PeteZah VM</h1>
+            <p class="pz-hero-sub">Firefox in your browser</p>
+          </div>
+
+          <!-- Kept for Puter chrome-demo JS expectations; visually hidden -->
+          <div class="logo-lockup" hidden aria-hidden="true">
+            <span class="logo-tile firefox-tile">
+              <img class="project-logo" src="logo.webp" alt="" />
+            </span>
+          </div>
+          <h1 id="project-title" class="splash-title" hidden>PeteZah VM</h1>
+          <p class="project-copy" hidden></p>
+
+          <div id="pz-coi-warn">
+            This tab is not cross-origin isolated, so WASM workers cannot start.
+            Open <strong>/firefox-wasm/</strong> as a top-level page (not an iframe) and ensure COOP/COEP headers are present.
+          </div>
+
+          <div id="stage-card" class="launch-panel" data-phase="loading">
+            <div class="panel-loading" aria-label="Loading Firefox">
+              <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="progress-fill" class="progress-fill"></div>
+              </div>
+              <div class="progress-meta">
+                <span id="progress-phase">Preparing</span>
+                <span id="progress-percent"></span>
+              </div>
+              <p id="splash-status" class="splash-status">Preparing PeteZah VM…</p>
+            </div>
+
+            <div class="panel-ready" aria-label="Launch">
+              <button id="start-btn" type="button" class="start-btn">
+                Launch Firefox
+              </button>
+              <p id="jspi-note" class="jspi-note" hidden></p>
+              <details class="advanced">
+                <summary>Advanced options</summary>
+                <div class="splash-controls">
+                  <label class="option-card">
+                    <input type="checkbox" id="opt-gpu" />
+                    <span class="option-copy">
+                      <strong>GPU acceleration</strong>
+                      <span>WebGL-based rendering for web content.</span>
+                    </span>
+                  </label>
+                  <label class="option-card">
+                    <input type="checkbox" id="opt-jit" />
+                    <span class="option-copy">
+                      <strong>Enable JIT</strong>
+                      <span>Experimental JS → WASM JIT. Expect bugs.</span>
+                    </span>
+                  </label>
+                  <label class="wisp-field">
+                    <span>Wisp server</span>
+                    <span class="wisp-copy">
+                      WebSocket proxy that tabs load web content through.
+                    </span>
+                    <input type="text" id="opt-wisp" spellcheck="false" autocomplete="off" aria-label="Wisp server" />
+                  </label>
+                  <p class="branding-note">
+                    Virginia relay by default (/api/websocket-3/). Fallback: /api/websocket/
+                  </p>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <section class="startup-console" aria-label="Startup console">
+            <p class="phase-kicker">Startup log</p>
+            <div id="console-output" class="console-box" role="log" aria-label="Startup console output"></div>
+          </section>
+        </div>
+      </main>
+    </section>
+    <canvas id="screen" width="1024" height="768" tabindex="0"></canvas>
+  </body>
+</html>

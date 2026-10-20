@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Scroll Unblocker — Admin</title>
+<link rel="icon" href="/logo.svg"/>
+<style>
+:root {
+  --bg:       #0a0a0f;
+  --surface:  #12101e;
+  --card:     #1a1728;
+  --border:   #2a2445;
+  --accent:   #7c5cbf;
+  --accent2:  #a07ee0;
+  --accent3:  #c4a0f0;
+  --text:     #e8e0f5;
+  --muted:    #8a82a8;
+  --success:  #4caf7d;
+  --danger:   #e05555;
+  --warn:     #e0a055;
+  --sidebar-w: 240px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+
+/* ══════════════════════════════════
+   LOGIN
+══════════════════════════════════ */
+#login-screen{
+  display:flex;align-items:center;justify-content:center;
+  height:100vh;background:var(--bg);
+  background-image:radial-gradient(ellipse at 30% 20%, rgba(124,92,191,0.18) 0%, transparent 60%),
+                   radial-gradient(ellipse at 70% 80%, rgba(90,61,153,0.12) 0%, transparent 55%);
+}
+.login-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:44px 36px;width:min(90vw, 360px);
+  box-shadow:0 0 80px rgba(124,92,191,0.2), 0 24px 60px rgba(0,0,0,0.5);
+  display:flex;flex-direction:column;gap:18px;align-items:center;
+}
+.login-logo{width:72px;height:72px;filter:drop-shadow(0 0 16px rgba(160,126,224,0.6));}
+.login-box h1{font-size:22px;font-weight:800;letter-spacing:0.3px;text-align:center;}
+.login-box p{color:var(--muted);font-size:13px;text-align:center;margin-top:-8px;}
+.login-box input{
+  width:100%;padding:14px 16px;background:var(--card);
+  border:1.5px solid var(--border);border-radius:10px;
+  color:var(--text);font-size:15px;outline:none;transition:border-color .2s;
+}
+.login-box input:focus{border-color:var(--accent);}
+.login-box button{
+  width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#5a3d99);
+  border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;
+  cursor:pointer;transition:transform .15s,box-shadow .15s;
+  box-shadow:0 4px 20px rgba(124,92,191,0.4);
+}
+.login-box button:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(124,92,191,0.5);}
+.login-box button:active{transform:translateY(0);}
+.login-error{color:var(--danger);font-size:13px;text-align:center;display:none;}
+
+/* ══════════════════════════════════
+   SHELL LAYOUT
+══════════════════════════════════ */
+#app{display:none;height:100vh;}
+.shell{display:flex;height:100vh;overflow:hidden;position:relative;}
+
+/* Overlay for mobile sidebar */
+.sidebar-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99;
+  backdrop-filter:blur(2px);
+}
+.sidebar-overlay.show{display:block;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;z-index:100;transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.sidebar-brand{
+  padding:18px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.sidebar-brand img{width:34px;height:34px;filter:drop-shadow(0 0 8px rgba(160,126,224,0.5));}
+.brand-text .name{font-weight:800;font-size:15px;color:var(--text);}
+.brand-text .tag{font-size:10px;color:var(--accent2);letter-spacing:1.2px;text-transform:uppercase;}
+nav.sidebar-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
+.nav-group-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:10px 12px 4px;}
+.nav-link{
+  display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;
+  cursor:pointer;color:var(--muted);font-size:13.5px;font-weight:500;
+  transition:all .15s;user-select:none;border:none;background:none;width:100%;text-align:left;
+}
+.nav-link:hover{background:rgba(124,92,191,0.12);color:var(--text);}
+.nav-link.active{background:rgba(124,92,191,0.2);color:var(--accent2);font-weight:600;}
+.nav-link svg{width:15px;height:15px;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
+.sidebar-footer{padding:10px 8px;border-top:1px solid var(--border);}
+
+/* ── TOPBAR ── */
+.topbar{
+  padding:0 20px;height:56px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface);position:sticky;top:0;z-index:10;flex-shrink:0;
+}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.hamburger{
+  display:none;background:none;border:none;color:var(--text);cursor:pointer;
+  padding:6px;border-radius:8px;
+}
+.hamburger:hover{background:var(--card);}
+.topbar h2{font-size:17px;font-weight:800;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.status-pill{
+  display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;
+}
+.status-pill.online{background:rgba(76,175,125,0.15);color:var(--success);border:1px solid rgba(76,175,125,0.3);}
+.status-pill.maint{background:rgba(224,160,85,0.15);color:var(--warn);border:1px solid rgba(224,160,85,0.3);}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+/* ── MAIN AREA ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.content{flex:1;overflow-y:auto;padding:20px;}
+
+/* ══════════════════════════════════
+   PAGE COMPONENTS
+══════════════════════════════════ */
+.page{display:none;}
+.page.active{display:block;}
+
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;right:0;width:60px;height:60px;
+  background:radial-gradient(circle at top right, rgba(124,92,191,0.15), transparent 70%);
+}
+.stat-emoji{font-size:20px;margin-bottom:8px;}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;}
+.stat-val{font-size:26px;font-weight:900;color:var(--text);line-height:1;}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.stat-sub.green{color:var(--success);}
+.stat-sub.red{color:var(--danger);}
+.stat-sub.purple{color:var(--accent2);}
+
+/* Section cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+.card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.card-title svg{width:15px;height:15px;color:var(--accent2);}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 16px;border-radius:9px;border:none;cursor:pointer;
+  font-size:13px;font-weight:600;transition:all .15s;min-height:40px;
+  font-family:inherit;
+}
+.btn-sm{padding:7px 12px;font-size:12px;min-height:34px;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#5a3d99);color:#fff;box-shadow:0 2px 12px rgba(124,92,191,0.3);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(124,92,191,0.4);}
+.btn-danger{background:linear-gradient(135deg,#e05555,#b03030);color:#fff;box-shadow:0 2px 10px rgba(224,85,85,0.3);}
+.btn-danger:hover{transform:translateY(-1px);}
+.btn-warn{background:linear-gradient(135deg,#e0a055,#b07030);color:#fff;}
+.btn-warn:hover{transform:translateY(-1px);}
+.btn-ghost{background:var(--border);color:var(--text);}
+.btn-ghost:hover{background:var(--muted);color:#fff;}
+.btn-success{background:linear-gradient(135deg,#4caf7d,#2d8055);color:#fff;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+.btn:active{transform:translateY(1px)!important;}
+
+/* Form elements */
+.form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.form-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;font-weight:600;}
+.form-input,.form-select,.form-textarea{
+  width:100%;padding:11px 13px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:9px;color:var(--text);font-size:14px;outline:none;
+  transition:border-color .2s;font-family:inherit;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+.form-textarea{resize:vertical;min-height:80px;}
+.form-select option{background:var(--surface);}
+.form-hint{font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* Toggle */
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 0;border-bottom:1px solid var(--border);gap:12px;
+}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-info .toggle-name{font-size:14px;font-weight:600;color:var(--text);}
+.toggle-info .toggle-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+.toggle{
+  width:46px;height:26px;background:var(--border);border-radius:13px;
+  cursor:pointer;transition:background .2s;flex-shrink:0;position:relative;
+}
+.toggle.on{background:var(--accent);}
+.toggle::after{
+  content:'';position:absolute;top:3px;left:3px;
+  width:20px;height:20px;border-radius:50%;background:#fff;
+  transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,0.4);
+}
+.toggle.on::after{transform:translateX(20px);}
+
+/* Table */
+.table-wrap{overflow-x:auto;border-radius:10px;}
+.data-table{width:100%;border-collapse:collapse;font-size:13px;min-width:500px;}
+.data-table th{text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.data-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tbody tr:hover td{background:rgba(124,92,191,0.06);}
+.game-img{width:34px;height:34px;border-radius:7px;object-fit:cover;background:var(--border);}
+
+/* Pills/badges */
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.pill-green{background:rgba(76,175,125,0.15);color:var(--success);}
+.pill-red{background:rgba(224,85,85,0.15);color:var(--danger);}
+.pill-purple{background:rgba(124,92,191,0.2);color:var(--accent2);}
+.pill-warn{background:rgba(224,160,85,0.15);color:var(--warn);}
+
+/* Color swatches */
+.swatch-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.swatch{width:34px;height:34px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:border-color .15s, transform .15s;}
+.swatch:hover{transform:scale(1.1);}
+.swatch.active{border-color:#fff;transform:scale(1.12);}
+
+/* Color picker area */
+.color-picker-wrap{display:flex;align-items:center;gap:12px;margin-top:10px;}
+.color-picker-wrap input[type=color]{
+  width:44px;height:44px;border:none;border-radius:9px;cursor:pointer;background:none;padding:0;
+}
+.color-preview{width:44px;height:44px;border-radius:9px;border:1.5px solid var(--border);}
+
+/* Announce preview */
+.announce-preview{
+  border-radius:9px;padding:12px 16px;font-size:14px;margin-top:12px;display:none;
+  border-left:3px solid var(--accent);
+}
+
+/* Alert / info box */
+.info-box{
+  background:rgba(124,92,191,0.1);border:1px solid rgba(124,92,191,0.3);
+  border-radius:10px;padding:12px 14px;font-size:13px;color:var(--accent3);margin-bottom:16px;
+}
+.warn-box{
+  background:rgba(224,160,85,0.1);border:1px solid rgba(224,160,85,0.3);
+  border-radius:10px;padding:12px 14px;font-size:13px;color:var(--warn);margin-bottom:16px;display:none;
+}
+.warn-box.show{display:block;}
+.danger-box{
+  background:rgba(224,85,85,0.1);border:1px solid rgba(224,85,85,0.3);
+  border-radius:10px;padding:12px 14px;font-size:13px;color:var(--danger);margin-bottom:16px;display:none;
+}
+.danger-box.show{display:block;}
+
+/* Activity feed */
+.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.activity-item:last-child{border-bottom:none;}
+.a-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.a-purple{background:var(--accent);}
+.a-green{background:var(--success);}
+.a-red{background:var(--danger);}
+.a-warn{background:var(--warn);}
+.a-text{font-size:13px;color:var(--text);}
+.a-time{font-size:11px;color:var(--muted);margin-top:2px;}
+
+/* Ban list items */
+.ban-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:var(--surface);border:1px solid var(--border);
+  border-radius:9px;margin-bottom:8px;gap:10px;
+}
+.ban-item:last-child{margin-bottom:0;}
+.ban-info{flex:1;min-width:0;}
+.ban-id{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ban-meta{font-size:11px;color:var(--muted);}
+.ban-reason{font-size:11px;color:var(--danger);margin-top:2px;}
+
+/* Redirect card */
+.redirect-card{
+  background:rgba(224,85,85,0.08);border:1px solid rgba(224,85,85,0.25);
+  border-radius:12px;padding:16px;margin-bottom:12px;
+}
+.redirect-card.active-redirect{background:rgba(224,85,85,0.15);border-color:rgba(224,85,85,0.5);}
+
+/* Quick action row */
+.quick-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;}
+.quick-btn{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:16px 12px;cursor:pointer;text-align:center;transition:all .15s;
+  color:var(--text);font-size:13px;font-weight:600;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.quick-btn:hover{border-color:var(--accent);background:rgba(124,92,191,0.1);}
+.quick-btn .q-icon{font-size:22px;}
+
+/* Search */
+.search-wrap{display:flex;gap:10px;margin-bottom:14px;}
+.search-wrap .form-input{flex:1;}
+
+/* Key tag */
+.key-tag{
+  display:inline-block;background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;padding:3px 9px;font-family:monospace;font-size:12px;color:var(--accent2);
+}
+
+/* Section divider */
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:13px 18px;font-size:13px;font-weight:600;color:var(--text);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:9999;opacity:0;transform:translateY(20px);
+  transition:all .3s;pointer-events:none;display:flex;align-items:center;gap:10px;max-width:300px;
+}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast-icon{font-size:16px;}
+
+/* ══════════════════════════════════
+   MOBILE RESPONSIVE
+══════════════════════════════════ */
+@media (max-width: 768px) {
+  :root{--sidebar-w: 260px;}
+  .sidebar{
+    position:fixed;top:0;left:0;height:100%;
+    transform:translateX(-100%);
+  }
+  .sidebar.open{transform:translateX(0);}
+  .hamburger{display:flex;}
+  .main{width:100%;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .quick-row{grid-template-columns:repeat(2,1fr);}
+  .content{padding:14px;}
+  .topbar{padding:0 14px;}
+  .topbar h2{font-size:15px;}
+  .btn-row{flex-direction:column;}
+  .btn-row .btn{width:100%;justify-content:center;}
+  .toggle-row{gap:8px;}
+  .toggle-info .toggle-name{font-size:13px;}
+  .card{padding:16px;}
+  .toast{bottom:16px;right:16px;left:16px;max-width:none;}
+}
+@media (max-width: 480px) {
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .login-box{padding:32px 24px;}
+  .stat-val{font-size:22px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <img class="login-logo" src="/logo.svg" alt="Scroll Unblocker"/>
+    <div>
+      <h1>Admin Panel</h1>
+      <p>Scroll Unblocker Control Center</p>
+    </div>
+    <input class="form-input" type="password" id="pw-input" placeholder="Enter admin password" autocomplete="current-password"/>
+    <div class="login-error" id="login-err">❌ Incorrect password. Try again.</div>
+    <button onclick="doLogin()">Sign In →</button>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"><span class="toast-icon" id="toast-icon">✅</span><span id="toast-msg"></span></div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+  <div class="shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <img src="/logo.svg" alt=""/>
+        <div class="brand-text">
+          <div class="name">Scroll Admin</div>
+          <div class="tag">Control Panel</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-group-label">Overview</div>
+        <button class="nav-link active" onclick="nav('dashboard',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </button>
+
+        <div class="nav-group-label">Moderation</div>
+        <button class="nav-link" onclick="nav('users',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Ban / Kick / Redirect
+          <span class="nav-badge" id="ban-count-badge" style="display:none"></span>
+        </button>
+        <button class="nav-link" onclick="nav('announcements',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Announcements
+        </button>
+
+        <div class="nav-group-label">Content</div>
+        <button class="nav-link" onclick="nav('games',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01M17 12h.01M7 12h4m-2-2v4"/></svg>
+          Games
+        </button>
+
+        <div class="nav-group-label">Config</div>
+        <button class="nav-link" onclick="nav('appearance',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+          Appearance
+        </button>
+        <button class="nav-link" onclick="nav('disguise',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Tab Disguise
+        </button>
+        <button class="nav-link" onclick="nav('settings',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Site Settings
+        </button>
+        <button class="nav-link" onclick="nav('password',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Change Password
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-link" onclick="logout()" style="color:var(--danger);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="hamburger" onclick="toggleSidebar()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h2 id="page-title">Dashboard</h2>
+        </div>
+        <div class="topbar-right">
+          <div class="status-pill online" id="status-pill"><div class="status-dot"></div><span id="status-text">Online</span></div>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- ─── MAINTENANCE WARNING ─── -->
+        <div class="warn-box" id="maint-bar">⚠️ Maintenance mode is <strong>active</strong>. All visitors see the maintenance page.</div>
+        <div class="danger-box" id="redirect-bar">🚨 Global redirect is <strong>active</strong>. All visitors are being redirected.</div>
+
+        <!-- ════════ DASHBOARD ════════ -->
+        <div class="page active" id="page-dashboard">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-emoji">🎮</div>
+              <div class="stat-label">Games</div>
+              <div class="stat-val" id="s-games">—</div>
+              <div class="stat-sub green" id="s-games-sub">in catalog</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-emoji">🚫</div>
+              <div class="stat-label">Banned</div>
+              <div class="stat-val" id="s-bans">0</div>
+              <div class="stat-sub red">users banned</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-emoji">📢</div>
+              <div class="stat-label">Banner</div>
+              <div class="stat-val" id="s-banner">Off</div>
+              <div class="stat-sub purple" id="s-banner-sub">no active notice</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-emoji">🌐</div>
+              <div class="stat-label">Mode</div>
+              <div class="stat-val" id="s-mode">Live</div>
+              <div class="stat-sub green" id="s-mode-sub">serving visitors</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Quick Actions
+            </div>
+            <div class="quick-row">
+              <div class="quick-btn" onclick="nav('users', document.querySelector('[onclick*=users]'))">
+                <div class="q-icon">🚫</div>
+                Ban User
+              </div>
+              <div class="quick-btn" onclick="triggerGlobalKick()">
+                <div class="q-icon">👢</div>
+                Kick All
+              </div>
+              <div class="quick-btn" onclick="nav('announcements', document.querySelector('[onclick*=announcements]'))">
+                <div class="q-icon">📢</div>
+                Announce
+              </div>
+              <div class="quick-btn" onclick="triggerLockdown()">
+                <div class="q-icon">🔒</div>
+                Lockdown
+              </div>
+              <div class="quick-btn" onclick="window.open('/','_blank')">
+                <div class="q-icon">🌐</div>
+                View Site
+              </div>
+              <div class="quick-btn" onclick="nav('appearance', document.querySelector('[onclick*=appearance]'))">
+                <div class="q-icon">🎨</div>
+                Colors
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Activity Log
+            </div>
+            <div id="activity-feed">
+              <div class="activity-item">
+                <div class="a-dot a-purple"></div>
+                <div><div class="a-text">Admin panel session started</div><div class="a-time">Just now</div></div>
+              </div>
+              <div class="activity-item">
+                <div class="a-dot a-green"></div>
+                <div><div class="a-text">Site is online and serving traffic</div><div class="a-time">—</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ BAN / KICK / REDIRECT ════════ -->
+        <div class="page" id="page-users">
+
+          <!-- GLOBAL REDIRECT -->
+          <div class="card redirect-card" id="redirect-card">
+            <div class="card-title" style="color:var(--danger)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Global Redirect
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Redirect All Visitors</div>
+                <div class="toggle-desc">Sends every visitor to the URL below immediately on page load</div>
+              </div>
+              <div class="toggle" id="redirect-toggle" onclick="toggleGlobalRedirect()"></div>
+            </div>
+            <div style="margin-top:14px">
+              <div class="form-row">
+                <div class="form-label">Redirect URL</div>
+                <input class="form-input" type="url" id="redirect-url" placeholder="https://classroom.google.com"/>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-danger" onclick="saveGlobalRedirect()">Save &amp; Apply Redirect</button>
+                <button class="btn btn-ghost" onclick="clearGlobalRedirect()">Clear Redirect</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KICK ALL -->
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"/></svg>
+              Kick Users
+            </div>
+            <div class="form-row">
+              <div class="form-label">Kick Destination URL</div>
+              <input class="form-input" type="url" id="kick-url" placeholder="https://google.com"/>
+              <div class="form-hint">Where to send kicked users. Leave blank to send to Google.</div>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Kick Message</div>
+              <input class="form-input" type="text" id="kick-msg" placeholder="You have been removed from this site."/>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-warn" onclick="kickAll()">👢 Kick All Visitors</button>
+              <button class="btn btn-ghost btn-sm" onclick="previewKickPage()">Preview Kick Page</button>
+            </div>
+          </div>
+
+          <!-- BAN USER -->
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              Ban User
+            </div>
+            <div class="form-row">
+              <div class="form-label">User ID / IP / Username</div>
+              <input class="form-input" type="text" id="ban-id-input" placeholder="Enter user ID, IP, or username"/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Reason (optional)</div>
+              <input class="form-input" type="text" id="ban-reason-input" placeholder="e.g. Spam, abuse, cheating..."/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Ban Duration</div>
+              <select class="form-select" id="ban-duration">
+                <option value="permanent">Permanent</option>
+                <option value="1d">1 Day</option>
+                <option value="7d">7 Days</option>
+                <option value="30d">30 Days</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-danger" onclick="addBan()">🚫 Ban User</button>
+            </div>
+          </div>
+
+          <!-- BAN LIST -->
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Banned Users
+              <span class="pill pill-red" id="ban-count-pill">0 banned</span>
+            </div>
+            <div id="ban-list-empty" style="color:var(--muted);font-size:13px;padding:8px 0;">No users banned yet.</div>
+            <div id="ban-list"></div>
+            <div style="margin-top:12px;display:none" id="ban-clear-row">
+              <button class="btn btn-ghost btn-sm" onclick="clearAllBans()">Clear All Bans</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ ANNOUNCEMENTS ════════ -->
+        <div class="page" id="page-announcements">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              Site Announcement Banner
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Show Announcement</div>
+                <div class="toggle-desc">Displays a banner to all visitors at the top of the site</div>
+              </div>
+              <div class="toggle" id="ann-toggle" onclick="toggleAnn()"></div>
+            </div>
+            <div style="height:14px"></div>
+            <div class="form-row">
+              <div class="form-label">Announcement Text</div>
+              <textarea class="form-textarea" id="ann-text" placeholder="Type your announcement here..." oninput="previewAnn()"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Banner Color</div>
+              <div class="swatch-row">
+                <div class="swatch active" style="background:#7c5cbf" data-c="#7c5cbf" onclick="setAnnColor('#7c5cbf',this)"></div>
+                <div class="swatch" style="background:#4caf7d" data-c="#4caf7d" onclick="setAnnColor('#4caf7d',this)"></div>
+                <div class="swatch" style="background:#e05555" data-c="#e05555" onclick="setAnnColor('#e05555',this)"></div>
+                <div class="swatch" style="background:#e0a055" data-c="#e0a055" onclick="setAnnColor('#e0a055',this)"></div>
+                <div class="swatch" style="background:#4a90d9" data-c="#4a90d9" onclick="setAnnColor('#4a90d9',this)"></div>
+                <div class="swatch" style="background:#e055a0" data-c="#e055a0" onclick="setAnnColor('#e055a0',this)"></div>
+              </div>
+            </div>
+            <div class="announce-preview" id="ann-preview"></div>
+            <div style="height:14px"></div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="saveAnn()">Save Announcement</button>
+              <button class="btn btn-ghost" onclick="clearAnn()">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ GAMES ════════ -->
+        <div class="page" id="page-games">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01M17 12h.01M7 12h4m-2-2v4"/></svg>
+              Game Catalog
+            </div>
+            <div class="search-wrap">
+              <input class="form-input" type="text" id="game-search" placeholder="🔍  Search games..." oninput="filterGames(this.value)"/>
+              <button class="btn btn-ghost btn-sm" onclick="loadGames()">↺ Reload</button>
+            </div>
+            <div id="games-status" style="color:var(--muted);font-size:13px;padding:8px 0;">Loading game catalog...</div>
+            <div class="table-wrap">
+              <table class="data-table" id="games-table" style="display:none">
+                <thead><tr><th>Art</th><th>Title</th><th>Category</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody id="games-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ APPEARANCE ════════ -->
+        <div class="page" id="page-appearance">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+              Theme Color
+            </div>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Changes the accent color across the entire panel in real time.</p>
+            <div class="form-label" style="margin-bottom:8px;">Preset Colors</div>
+            <div class="swatch-row" id="theme-swatches">
+              <div class="swatch active" style="background:#7c5cbf" data-c="#7c5cbf" onclick="setTheme('#7c5cbf',this)"></div>
+              <div class="swatch" style="background:#e05590" data-c="#e05590" onclick="setTheme('#e05590',this)"></div>
+              <div class="swatch" style="background:#4a90d9" data-c="#4a90d9" onclick="setTheme('#4a90d9',this)"></div>
+              <div class="swatch" style="background:#4caf7d" data-c="#4caf7d" onclick="setTheme('#4caf7d',this)"></div>
+              <div class="swatch" style="background:#e0a055" data-c="#e0a055" onclick="setTheme('#e0a055',this)"></div>
+              <div class="swatch" style="background:#e05555" data-c="#e05555" onclick="setTheme('#e05555',this)"></div>
+              <div class="swatch" style="background:#30c0c0" data-c="#30c0c0" onclick="setTheme('#30c0c0',this)"></div>
+            </div>
+            <div style="height:16px"></div>
+            <div class="form-label" style="margin-bottom:8px;">Custom Color</div>
+            <div class="color-picker-wrap">
+              <input type="color" id="custom-color" value="#7c5cbf" oninput="setThemeCustom(this.value)"/>
+              <div class="form-hint">Pick any custom color you want</div>
+            </div>
+            <div style="height:16px"></div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="saveTheme()">Save Color</button>
+              <button class="btn btn-ghost" onclick="resetTheme()">Reset Default</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Branding
+            </div>
+            <div class="form-row">
+              <div class="form-label">Site Name</div>
+              <input class="form-input" type="text" id="brand-name" value="Scroll Unblocker"/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Discord Server Link</div>
+              <input class="form-input" type="url" id="brand-discord" placeholder="https://discord.gg/yourserver"/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Footer Text</div>
+              <input class="form-input" type="text" id="brand-footer" placeholder="© 2024 Scroll Unblocker"/>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="saveBranding()">Save Branding</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ TAB DISGUISE ════════ -->
+        <div class="page" id="page-disguise">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Tab Disguise
+            </div>
+            <div class="info-box">💡 Tab disguise makes the browser tab look like another site (e.g. Google Classroom) to avoid suspicion.</div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Enable Tab Disguise</div>
+                <div class="toggle-desc">Changes the tab title and icon automatically on load</div>
+              </div>
+              <div class="toggle" id="disguise-toggle" onclick="toggleDisguise()"></div>
+            </div>
+            <div style="height:14px"></div>
+            <div class="form-row">
+              <div class="form-label">Disguise Tab Title</div>
+              <input class="form-input" type="text" id="d-title" placeholder="Google Classroom"/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Disguise Favicon URL</div>
+              <input class="form-input" type="url" id="d-favicon" placeholder="https://www.google.com/favicon.ico"/>
+            </div>
+            <hr class="divider"/>
+            <div class="form-row">
+              <div class="form-label">Panic Key</div>
+              <input class="form-input" type="text" id="d-panic-key" placeholder="Escape" maxlength="20"/>
+              <div class="form-hint">Current key: <span class="key-tag" id="panic-key-display">—</span> — Pressing this instantly redirects the tab.</div>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Panic Redirect URL</div>
+              <input class="form-input" type="url" id="d-panic-url" placeholder="https://classroom.google.com"/>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="saveDisguise()">Save Disguise</button>
+              <button class="btn btn-warn" onclick="testPanic()">Test Panic Key</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ SITE SETTINGS ════════ -->
+        <div class="page" id="page-settings">
+          <div class="card">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Site Controls
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Maintenance Mode</div>
+                <div class="toggle-desc">Shows a maintenance page to all visitors</div>
+              </div>
+              <div class="toggle" id="maint-toggle" onclick="toggleMaint()"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Proxy / Unblocker</div>
+                <div class="toggle-desc">Allow the web proxy feature to work</div>
+              </div>
+              <div class="toggle on" id="proxy-toggle" onclick="toggleSetting('proxyEnabled', 'proxy-toggle')"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Games Section</div>
+                <div class="toggle-desc">Show the games page to visitors</div>
+              </div>
+              <div class="toggle on" id="games-visible-toggle" onclick="toggleSetting('gamesVisible', 'games-visible-toggle')"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-name">Chat / AI Features</div>
+                <div class="toggle-desc">Enable the AI chat functionality</div>
+              </div>
+              <div class="toggle on" id="ai-toggle" onclick="toggleSetting('aiEnabled', 'ai-toggle')"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">⚡ Danger Zone</div>
+            <div class="btn-row">
+              <button class="btn btn-danger" onclick="triggerLockdown()">🔒 Full Lockdown</button>
+              <button class="btn btn-warn" onclick="clearAllBans()">Clear All Bans</button>
+              <button class="btn btn-ghost" onclick="clearGlobalRedirect()">Clear Global Redirect</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════ CHANGE PASSWORD ════════ -->
+        <div class="page" id="page-password">
+          <div class="card" style="max-width:420px">
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Change Password
+            </div>
+            <div class="form-row">
+              <div class="form-label">Current Password</div>
+              <input class="form-input" type="password" id="cp-cur"/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">New Password</div>
+              <input class="form-input" type="password" id="cp-new"/>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Confirm New Password</div>
+              <input class="form-input" type="password" id="cp-conf"/>
+            </div>
+            <div id="cp-msg" style="font-size:13px;margin-bottom:12px;display:none;padding:10px;border-radius:8px;"></div>
+            <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main -->
+  </div><!-- /shell -->
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════
+//  CONFIG & UTILS
+// ══════════════════════════════════════
+const DEFAULT_PW = 'multicraft1122';
+
+function getPW()  { return localStorage.getItem('su_pw') || DEFAULT_PW; }
+function getS()   { return JSON.parse(localStorage.getItem('su_settings') || '{}'); }
+function saveS(o) { localStorage.setItem('su_settings', JSON.stringify({...getS(),...o})); }
+function getBans(){ return JSON.parse(localStorage.getItem('su_bans') || '[]'); }
+function saveBans(b){ localStorage.setItem('su_bans', JSON.stringify(b)); }
+
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  const icons = {success:'✅', error:'❌', warn:'⚠️', info:'ℹ️'};
+  document.getElementById('toast-icon').textContent = icons[type]||'✅';
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+function addLog(text, cls='a-purple') {
+  const feed = document.getElementById('activity-feed');
+  const d = document.createElement('div');
+  d.className='activity-item';
+  const now=new Date().toLocaleTimeString();
+  d.innerHTML=`<div class="a-dot ${cls}"></div><div><div class="a-text">${text}</div><div class="a-time">${now}</div></div>`;
+  feed.prepend(d);
+}
+
+// ══════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════
+function doLogin() {
+  const pw = document.getElementById('pw-input').value;
+  if (pw === getPW()) {
+    sessionStorage.setItem('su_sess','1');
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    initApp();
+  } else {
+    const err = document.getElementById('login-err');
+    err.style.display='block';
+    document.getElementById('pw-input').value='';
+    document.getElementById('pw-input').focus();
+  }
+}
+document.getElementById('pw-input').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+function logout() {
+  sessionStorage.removeItem('su_sess');
+  location.reload();
+}
+
+if (sessionStorage.getItem('su_sess')==='1') {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  window.addEventListener('DOMContentLoaded', initApp);
+}
+
+// ══════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════
+function nav(id, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active'));
+  const page = document.getElementById('page-'+id);
+  if (page) page.classList.add('active');
+  if (el)   el.classList.add('active');
+  const titles={dashboard:'Dashboard',users:'Ban / Kick / Redirect',announcements:'Announcements',games:'Games',appearance:'Appearance',disguise:'Tab Disguise',settings:'Site Settings',password:'Change Password'};
+  document.getElementById('page-title').textContent = titles[id]||id;
+  closeSidebar();
+  if (id==='games') loadGames();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+function initApp() {
+  loadAllSettings();
+  updateDashboard();
+  loadGames();
+  renderBanList();
+  applyTheme(getS().themeColor||'#7c5cbf');
+}
+
+function loadAllSettings() {
+  const s = getS();
+  // toggles
+  if (s.maintenanceMode) { document.getElementById('maint-toggle').classList.add('on'); document.getElementById('maint-bar').classList.add('show'); }
+  if (s.proxyEnabled===false) document.getElementById('proxy-toggle').classList.remove('on');
+  if (s.gamesVisible===false) document.getElementById('games-visible-toggle').classList.remove('on');
+  if (s.aiEnabled===false) document.getElementById('ai-toggle').classList.remove('on');
+  if (s.globalRedirect) { document.getElementById('redirect-toggle').classList.add('on'); document.getElementById('redirect-bar').classList.add('show'); document.getElementById('redirect-card').classList.add('active-redirect'); }
+  if (s.redirectUrl) document.getElementById('redirect-url').value=s.redirectUrl;
+  if (s.kickUrl) document.getElementById('kick-url').value=s.kickUrl;
+  if (s.kickMsg) document.getElementById('kick-msg').value=s.kickMsg;
+  if (s.brandName) document.getElementById('brand-name').value=s.brandName;
+  if (s.brandDiscord) document.getElementById('brand-discord').value=s.brandDiscord;
+  if (s.brandFooter) document.getElementById('brand-footer').value=s.brandFooter;
+  if (s.disguise) document.getElementById('disguise-toggle').classList.add('on');
+  if (s.dTitle) document.getElementById('d-title').value=s.dTitle;
+  if (s.dFavicon) document.getElementById('d-favicon').value=s.dFavicon;
+  if (s.dPanicKey) { document.getElementById('d-panic-key').value=s.dPanicKey; document.getElementById('panic-key-display').textContent=s.dPanicKey; }
+  if (s.dPanicUrl) document.getElementById('d-panic-url').value=s.dPanicUrl;
+  if (s.themeColor) { applyTheme(s.themeColor); document.getElementById('custom-color').value=s.themeColor; }
+  const ann=JSON.parse(localStorage.getItem('su_ann')||'{}');
+  if (ann.text) document.getElementById('ann-text').value=ann.text;
+  if (ann.on) document.getElementById('ann-toggle').classList.add('on');
+  updateStatusPill();
+}
+
+function updateDashboard() {
+  const s=getS(); const bans=getBans();
+  document.getElementById('s-bans').textContent=bans.length;
+  document.getElementById('ban-count-pill').textContent=bans.length+' banned';
+  const badge=document.getElementById('ban-count-badge');
+  if(bans.length>0){badge.style.display='';badge.textContent=bans.length;}else{badge.style.display='none';}
+  document.getElementById('s-mode').textContent=s.maintenanceMode?'Maint.':s.globalRedirect?'Redirect':'Live';
+  document.getElementById('s-mode-sub').textContent=s.maintenanceMode?'maintenance active':s.globalRedirect?'redirect active':'serving visitors';
+  const ann=JSON.parse(localStorage.getItem('su_ann')||'{}');
+  document.getElementById('s-banner').textContent=ann.on&&ann.text?'On':'Off';
+  document.getElementById('s-banner-sub').textContent=ann.on&&ann.text?(ann.text.slice(0,24)+'…'):'no active notice';
+}
+
+function updateStatusPill() {
+  const s=getS();
+  const pill=document.getElementById('status-pill');
+  const txt=document.getElementById('status-text');
+  if(s.maintenanceMode){pill.className='status-pill maint';txt.textContent='Maintenance';}
+  else if(s.globalRedirect){pill.className='status-pill maint';txt.textContent='Redirecting';}
+  else{pill.className='status-pill online';txt.textContent='Online';}
+}
+
+// ══════════════════════════════════════
+//  THEME COLOR
+// ══════════════════════════════════════
+function applyTheme(hex) {
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent2', adjustColor(hex, 30));
+  document.documentElement.style.setProperty('--accent3', adjustColor(hex, 60));
+}
+function adjustColor(hex, amt) {
+  let r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  r=Math.min(255,r+amt); g=Math.min(255,g+amt); b=Math.min(255,b+amt);
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function setTheme(hex, el) {
+  applyTheme(hex);
+  document.getElementById('custom-color').value=hex;
+  document.querySelectorAll('#theme-swatches .swatch').forEach(s=>s.classList.remove('active'));
+  if(el) el.classList.add('active');
+}
+function setThemeCustom(hex) {
+  applyTheme(hex);
+  document.querySelectorAll('#theme-swatches .swatch').forEach(s=>s.classList.remove('active'));
+}
+function saveTheme() {
+  const hex=document.getElementById('custom-color').value;
+  saveS({themeColor:hex});
+  toast('Theme color saved!');
+  addLog('Theme color changed to '+hex);
+}
+function resetTheme() {
+  const def='#7c5cbf';
+  applyTheme(def);
+  document.getElementById('custom-color').value=def;
+  saveS({themeColor:def});
+  toast('Theme reset to default.');
+}
+
+// ══════════════════════════════════════
+//  BAN / KICK / REDIRECT
+// ══════════════════════════════════════
+function addBan() {
+  const id=document.getElementById('ban-id-input').value.trim();
+  const reason=document.getElementById('ban-reason-input').value.trim();
+  const dur=document.getElementById('ban-duration').value;
+  if(!id){toast('Enter a user ID to ban.','error');return;}
+  const bans=getBans();
+  if(bans.find(b=>b.id===id)){toast('User already banned.','warn');return;}
+  bans.push({id,reason:reason||'No reason given',duration:dur,date:new Date().toLocaleString()});
+  saveBans(bans);
+  renderBanList();
+  document.getElementById('ban-id-input').value='';
+  document.getElementById('ban-reason-input').value='';
+  updateDashboard();
+  toast(`Banned: ${id}`,'success');
+  addLog(`Banned user: ${id}`,'a-red');
+}
+
+function unban(id) {
+  const bans=getBans().filter(b=>b.id!==id);
+  saveBans(bans);
+  renderBanList();
+  updateDashboard();
+  toast(`Unbanned: ${id}`);
+  addLog(`Unbanned user: ${id}`,'a-green');
+}
+
+function clearAllBans() {
+  if(!confirm('Clear ALL bans? This cannot be undone.'))return;
+  saveBans([]);
+  renderBanList();
+  updateDashboard();
+  toast('All bans cleared.');
+  addLog('All bans cleared','a-warn');
+}
+
+function renderBanList() {
+  const bans=getBans();
+  const list=document.getElementById('ban-list');
+  const empty=document.getElementById('ban-list-empty');
+  const clearRow=document.getElementById('ban-clear-row');
+  const pill=document.getElementById('ban-count-pill');
+  pill.textContent=bans.length+' banned';
+  if(bans.length===0){empty.style.display='';list.innerHTML='';clearRow.style.display='none';return;}
+  empty.style.display='none';
+  clearRow.style.display='';
+  list.innerHTML=bans.map(b=>`
+    <div class="ban-item">
+      <div class="ban-info">
+        <div class="ban-id">🚫 ${b.id}</div>
+        <div class="ban-meta">${b.duration} · ${b.date}</div>
+        <div class="ban-reason">${b.reason}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="unban('${b.id}')">Unban</button>
+    </div>
+  `).join('');
+}
+
+function kickAll() {
+  const url=document.getElementById('kick-url').value||'https://google.com';
+  saveS({kickUrl:url, kickMsg:document.getElementById('kick-msg').value});
+  toast('Kick applied — all new visitors will be redirected.','warn');
+  addLog('Kicked all visitors to: '+url,'a-warn');
+}
+
+function previewKickPage() {
+  const msg=document.getElementById('kick-msg').value||'You have been removed from this site.';
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Kicked</title><style>body{background:#0a0a0f;color:#e8e0f5;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;}h1{font-size:48px;}p{color:#8a82a8;margin-top:12px;}</style></head><body><div><h1>🚫</h1><h2>Access Denied</h2><p>${msg}</p></div></body></html>`);
+}
+
+function toggleGlobalRedirect() {
+  const t=document.getElementById('redirect-toggle');
+  t.classList.toggle('on');
+  const on=t.classList.contains('on');
+  saveS({globalRedirect:on});
+  document.getElementById('redirect-bar').classList.toggle('show',on);
+  document.getElementById('redirect-card').classList.toggle('active-redirect',on);
+  updateDashboard(); updateStatusPill();
+  addLog('Global redirect '+(on?'enabled':'disabled'), on?'a-red':'a-green');
+}
+
+function saveGlobalRedirect() {
+  const url=document.getElementById('redirect-url').value;
+  if(!url){toast('Enter a URL first.','error');return;}
+  saveS({redirectUrl:url,globalRedirect:true});
+  document.getElementById('redirect-toggle').classList.add('on');
+  document.getElementById('redirect-bar').classList.add('show');
+  document.getElementById('redirect-card').classList.add('active-redirect');
+  updateDashboard(); updateStatusPill();
+  toast('Global redirect saved and active.','warn');
+  addLog('Global redirect set to: '+url,'a-red');
+}
+
+function clearGlobalRedirect() {
+  saveS({globalRedirect:false,redirectUrl:''});
+  document.getElementById('redirect-toggle').classList.remove('on');
+  document.getElementById('redirect-bar').classList.remove('show');
+  document.getElementById('redirect-card').classList.remove('active-redirect');
+  document.getElementById('redirect-url').value='';
+  updateDashboard(); updateStatusPill();
+  toast('Global redirect cleared.');
+}
+
+function triggerGlobalKick() {
+  if(!confirm('Send ALL current visitors to Google? This sets a global redirect.'))return;
+  document.getElementById('redirect-url').value='https://google.com';
+  saveGlobalRedirect();
+}
+
+function triggerLockdown() {
+  if(!confirm('⚠️ FULL LOCKDOWN: Enable maintenance mode AND redirect all visitors?'))return;
+  saveS({maintenanceMode:true,globalRedirect:true,redirectUrl:'https://google.com'});
+  document.getElementById('maint-toggle').classList.add('on');
+  document.getElementById('redirect-toggle').classList.add('on');
+  document.getElementById('maint-bar').classList.add('show');
+  document.getElementById('redirect-bar').classList.add('show');
+  updateDashboard(); updateStatusPill();
+  toast('🔒 Lockdown activated.','warn');
+  addLog('FULL LOCKDOWN activated','a-red');
+}
+
+// ══════════════════════════════════════
+//  ANNOUNCEMENTS
+// ══════════════════════════════════════
+let annColor='#7c5cbf';
+function toggleAnn() {
+  document.getElementById('ann-toggle').classList.toggle('on');
+  saveAnn();
+}
+function setAnnColor(c,el) {
+  annColor=c;
+  document.querySelectorAll('.swatch-row .swatch').forEach(s=>s.classList.remove('active'));
+  if(el) el.classList.add('active');
+  previewAnn();
+}
+function previewAnn() {
+  const t=document.getElementById('ann-text').value;
+  const p=document.getElementById('ann-preview');
+  if(t){p.style.display='block';p.textContent=t;p.style.borderLeftColor=annColor;p.style.background=annColor+'22';}
+  else p.style.display='none';
+}
+function saveAnn() {
+  const on=document.getElementById('ann-toggle').classList.contains('on');
+  const text=document.getElementById('ann-text').value;
+  localStorage.setItem('su_ann',JSON.stringify({on,text,color:annColor}));
+  updateDashboard();
+  toast('Announcement saved.');
+  addLog('Announcement '+(on?'activated':'updated'));
+}
+function clearAnn() {
+  document.getElementById('ann-text').value='';
+  document.getElementById('ann-toggle').classList.remove('on');
+  document.getElementById('ann-preview').style.display='none';
+  localStorage.removeItem('su_ann');
+  updateDashboard();
+  toast('Announcement cleared.');
+}
+
+// ══════════════════════════════════════
+//  GAMES
+// ══════════════════════════════════════
+let allGames=[]; let hiddenGames=JSON.parse(localStorage.getItem('su_hidden')||'[]');
+async function loadGames() {
+  const stat=document.getElementById('games-status');
+  const table=document.getElementById('games-table');
+  stat.style.display=''; table.style.display='none';
+  stat.textContent='Loading game catalog...';
+  try {
+    const r=await fetch('/storage/data/collection.json');
+    const d=await r.json();
+    allGames=Array.isArray(d)?d:(d.collection||d.games||Object.values(d));
+    document.getElementById('s-games').textContent=allGames.length;
+    renderGames(allGames);
+    stat.style.display='none'; table.style.display='table';
+  } catch(e) {
+    stat.textContent='⚠️ Could not load collection.json. Is the site running?';
+  }
+}
+function renderGames(list) {
+  const body=document.getElementById('games-body');
+  body.innerHTML=list.slice(0,300).map(g=>{
+    const id=g.url||g.id||g.name||'';
+    const hidden=hiddenGames.includes(id);
+    return`<tr>
+      <td><img class="game-img" src="${g.img||g.image||''}" onerror="this.style.opacity=.3" alt=""/></td>
+      <td style="font-weight:600">${g.name||g.title||'—'}</td>
+      <td><span class="pill pill-purple">${g.category||g.type||'—'}</span></td>
+      <td><span class="pill ${hidden?'pill-red':'pill-green'}">${hidden?'Hidden':'Visible'}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="toggleGame('${id}',this)">${hidden?'Show':'Hide'}</button></td>
+    </tr>`;
+  }).join('');
+}
+function filterGames(q) { renderGames(allGames.filter(g=>(g.name||g.title||'').toLowerCase().includes(q.toLowerCase()))); }
+function toggleGame(id, btn) {
+  const i=hiddenGames.indexOf(id);
+  if(i===-1) hiddenGames.push(id); else hiddenGames.splice(i,1);
+  localStorage.setItem('su_hidden',JSON.stringify(hiddenGames));
+  const hidden=hiddenGames.includes(id);
+  const row=btn.closest('tr');
+  row.querySelector('.pill').className='pill '+(hidden?'pill-red':'pill-green');
+  row.querySelector('.pill').textContent=hidden?'Hidden':'Visible';
+  btn.textContent=hidden?'Show':'Hide';
+}
+
+// ══════════════════════════════════════
+//  SETTINGS TOGGLES
+// ══════════════════════════════════════
+function toggleMaint() {
+  const t=document.getElementById('maint-toggle');
+  t.classList.toggle('on');
+  const on=t.classList.contains('on');
+  saveS({maintenanceMode:on});
+  document.getElementById('maint-bar').classList.toggle('show',on);
+  updateDashboard(); updateStatusPill();
+  toast('Maintenance mode '+(on?'enabled':'disabled'), on?'warn':'success');
+  addLog('Maintenance mode '+(on?'enabled':'disabled'), on?'a-warn':'a-green');
+}
+function toggleSetting(key, toggleId) {
+  const t=document.getElementById(toggleId);
+  t.classList.toggle('on');
+  const obj={}; obj[key]=t.classList.contains('on');
+  saveS(obj);
+  toast('Setting updated.');
+}
+
+// ══════════════════════════════════════
+//  BRANDING
+// ══════════════════════════════════════
+function saveBranding() {
+  saveS({brandName:document.getElementById('brand-name').value,brandDiscord:document.getElementById('brand-discord').value,brandFooter:document.getElementById('brand-footer').value});
+  toast('Branding saved!');
+  addLog('Branding updated');
+}
+
+// ══════════════════════════════════════
+//  DISGUISE
+// ══════════════════════════════════════
+function toggleDisguise() {
+  document.getElementById('disguise-toggle').classList.toggle('on');
+  saveS({disguise:document.getElementById('disguise-toggle').classList.contains('on')});
+}
+function saveDisguise() {
+  const key=document.getElementById('d-panic-key').value;
+  document.getElementById('panic-key-display').textContent=key||'—';
+  saveS({dTitle:document.getElementById('d-title').value,dFavicon:document.getElementById('d-favicon').value,dPanicKey:key,dPanicUrl:document.getElementById('d-panic-url').value,disguise:document.getElementById('disguise-toggle').classList.contains('on')});
+  toast('Disguise settings saved!');
+}
+function testPanic() {
+  const url=document.getElementById('d-panic-url').value;
+  if(url) window.open(url,'_blank');
+  else toast('Set a panic URL first.','error');
+}
+
+// ══════════════════════════════════════
+//  CHANGE PASSWORD
+// ══════════════════════════════════════
+function changePassword() {
+  const cur=document.getElementById('cp-cur').value;
+  const nw=document.getElementById('cp-new').value;
+  const conf=document.getElementById('cp-conf').value;
+  const msg=document.getElementById('cp-msg');
+  msg.style.display='block';
+  if(cur!==getPW()){msg.style.background='rgba(224,85,85,.1)';msg.style.color='var(--danger)';msg.textContent='❌ Current password is wrong.';return;}
+  if(nw.length<6){msg.style.background='rgba(224,85,85,.1)';msg.style.color='var(--danger)';msg.textContent='❌ New password must be at least 6 characters.';return;}
+  if(nw!==conf){msg.style.background='rgba(224,85,85,.1)';msg.style.color='var(--danger)';msg.textContent='❌ Passwords do not match.';return;}
+  localStorage.setItem('su_pw',nw);
+  msg.style.background='rgba(76,175,125,.1)';msg.style.color='var(--success)';msg.textContent='✅ Password updated!';
+  document.getElementById('cp-cur').value='';
+  document.getElementById('cp-new').value='';
+  document.getElementById('cp-conf').value='';
+  addLog('Admin password changed');
+}
+</script>
+</body>
+</html>

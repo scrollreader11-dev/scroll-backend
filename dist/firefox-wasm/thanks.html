@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Thanks for using PeteZah VMs</title>
+  <link rel="icon" href="/logo.png" />
+  <style>
+    :root {
+      --bg0: #020810;
+      --line: hsla(210, 40%, 80%, 0.12);
+      --text: #e8f0fa;
+      --muted: hsla(210, 20%, 70%, 0.55);
+      --accent: #4d8dff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      color: var(--text);
+      font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg0);
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 18px;
+    }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: hsla(216, 28%, 9%, 0.96);
+      padding: 32px 26px 26px;
+      text-align: center;
+    }
+    .brand {
+      font-size: 1.5rem;
+      font-weight: 750;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .eyebrow {
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 1.2rem;
+      font-weight: 650;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+    p {
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .credits {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .credits a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .credits a:hover { text-decoration: underline; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: hsla(216, 28%, 12%, 0.9);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 550;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="eyebrow">PeteZah VMs</div>
+      <div class="brand">PeteZah</div>
+      <div class="pill">Firefox · WebAssembly</div>
+      <h1>Thanks for using PeteZah’s VMs</h1>
+      <p>
+        You’re running a real Gecko browser compiled to WebAssembly, right inside PeteZah.
+        Browse freely from here — this tab is yours.
+      </p>
+      <p style="margin-bottom: 0">
+        Sign in keeps sessions secure. Enjoy the VM.
+      </p>
+      <div class="credits">
+        Powered by
+        <a href="https://github.com/HeyPuter/firefox-wasm" target="_blank" rel="noreferrer">Firefox in WebAssembly</a>
+        from
+        <a href="https://developer.puter.com/labs/firefox-wasm/" target="_blank" rel="noreferrer">Puter Labs</a>.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
