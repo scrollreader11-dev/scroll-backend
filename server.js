@@ -52,13 +52,19 @@ async function proxyUpstream(req, res) {
       'cache-control': 'public, max-age=86400',
       'access-control-allow-origin': '*',
     };
-    for (const h of ['content-range', 'accept-ranges', 'content-length']) {
-      const v = up.headers.get(h);
-      if (v) outHeaders[h] = v;
+    // NOTE: fetch() auto-decompresses, so upstream's content-length/encoding no
+    // longer match the bytes we send. Never forward content-length or
+    // content-encoding here — Node sets the correct length from the buffer.
+    // accept-ranges/content-range are only meaningful for byte-range replies.
+    if (up.status === 206) {
+      for (const h of ['content-range', 'accept-ranges']) {
+        const v = up.headers.get(h);
+        if (v) outHeaders[h] = v;
+      }
     }
-    res.writeHead(up.status, outHeaders);
-    if (req.method === 'HEAD') { res.end(); return; }
+    if (req.method === 'HEAD') { res.writeHead(up.status, outHeaders); res.end(); return; }
     const buf = Buffer.from(await up.arrayBuffer());
+    res.writeHead(up.status, outHeaders);
     res.end(buf);
   } catch (e) {
     res.writeHead(502, { 'Content-Type': 'text/plain' });
