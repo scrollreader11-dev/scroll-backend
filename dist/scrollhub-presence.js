@@ -121,15 +121,100 @@
     } else if (frozenOverlay) { frozenOverlay.remove(); frozenOverlay = null; }
   }
 
+  // ---- rickroll: play in-page via YouTube embed (no redirect) ----
+  function playRickroll() {
+    var old = document.getElementById('sh-rr'); if (old) old.remove();
+    var wrap = el('div', 'position:fixed;right:16px;bottom:16px;z-index:2147483600;width:260px;background:#0b1626;border:1px solid #27406a;border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.6)');
+    wrap.id = 'sh-rr';
+    var f = el('iframe', 'width:260px;height:150px;border:0;display:block');
+    f.allow = 'autoplay; encrypted-media';
+    f.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0';
+    var bar = el('div', 'display:flex;justify-content:space-between;align-items:center;padding:6px 10px;color:#cfe;font:600 12px system-ui', '🎵 Now playing');
+    var x = el('span', 'cursor:pointer;font-weight:800;color:#9fb0c8', '×');
+    x.onclick = function () { wrap.remove(); };
+    bar.appendChild(x);
+    wrap.appendChild(f); wrap.appendChild(bar);
+    document.body.appendChild(wrap);
+  }
+
+  // ---- jumpscare: original horrifying animatronic + synth scream ----
+  var FACE_SVG = '<svg viewBox="0 0 400 440" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">' +
+    '<defs><radialGradient id="g" cx="50%" cy="45%" r="60%"><stop offset="0%" stop-color="#3a0f0a"/><stop offset="100%" stop-color="#0a0302"/></radialGradient>' +
+    '<radialGradient id="eye" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff6c2"/><stop offset="45%" stop-color="#ffd21a"/><stop offset="100%" stop-color="#b35a00"/></radialGradient></defs>' +
+    '<rect width="400" height="440" fill="url(#g)"/>' +
+    '<polygon points="60,30 150,120 90,150" fill="#20110c"/><polygon points="340,30 250,120 310,150" fill="#20110c"/>' +
+    '<polygon points="200,60 90,150 70,330 200,430 330,330 310,150" fill="#4a150d"/>' +
+    '<path d="M200,70 L186,250 L200,420" stroke="#1c0804" stroke-width="2" fill="none" opacity=".7"/>' +
+    '<path d="M120,160 L150,210 M280,160 L250,210" stroke="#1c0804" stroke-width="3" opacity=".6"/>' +
+    '<ellipse cx="138" cy="190" rx="46" ry="36" fill="#000"/><circle cx="138" cy="190" r="30" fill="url(#eye)"/><ellipse cx="138" cy="190" rx="6" ry="24" fill="#000"/>' +
+    '<ellipse cx="262" cy="190" rx="46" ry="36" fill="#000"/><circle cx="262" cy="190" r="30" fill="url(#eye)"/><ellipse cx="262" cy="190" rx="6" ry="24" fill="#000"/>' +
+    '<polygon points="200,240 165,300 235,300" fill="#30100a"/><ellipse cx="200" cy="250" rx="20" ry="14" fill="#060101"/>' +
+    '<path d="M95,300 Q200,340 305,300 L285,405 Q200,445 115,405 Z" fill="#120302"/>' +
+    // upper teeth
+    '<g fill="#efe7cf">' +
+    '<polygon points="110,306 134,306 122,352"/><polygon points="138,308 162,308 150,360"/><polygon points="166,310 190,310 178,364"/>' +
+    '<polygon points="194,310 218,310 206,364"/><polygon points="222,308 246,308 234,360"/><polygon points="250,306 274,306 262,352"/><polygon points="278,304 300,304 289,346"/>' +
+    // lower teeth
+    '<polygon points="122,404 146,404 134,360"/><polygon points="150,408 174,408 162,366"/><polygon points="178,410 202,410 190,368"/>' +
+    '<polygon points="206,410 230,410 218,368"/><polygon points="234,408 258,408 246,366"/><polygon points="262,404 286,404 274,360"/></g>' +
+    '<path d="M70,330 L50,360 M330,330 L350,360" stroke="#1c0804" stroke-width="4" opacity=".6"/>' +
+    '</svg>';
+
+  function scream() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ctx = new AC(); if (ctx.state === 'suspended') ctx.resume();
+      var t0 = ctx.currentTime, dur = 1.7;
+      var master = ctx.createGain(); master.gain.setValueAtTime(0.95, t0);
+      master.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); master.connect(ctx.destination);
+      // distorted noise
+      var buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate), d = buf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      var noise = ctx.createBufferSource(); noise.buffer = buf;
+      var ws = ctx.createWaveShaper(), cv = new Float32Array(1024);
+      for (var j = 0; j < 1024; j++) { var x = j / 512 - 1; cv[j] = Math.tanh(x * 9); }
+      ws.curve = cv; var ng = ctx.createGain(); ng.gain.value = 0.55;
+      noise.connect(ng); ng.connect(ws); ws.connect(master);
+      // descending screech
+      var o1 = ctx.createOscillator(); o1.type = 'sawtooth';
+      o1.frequency.setValueAtTime(1300, t0); o1.frequency.exponentialRampToValueAtTime(140, t0 + dur);
+      var g1 = ctx.createGain(); g1.gain.value = 0.32; o1.connect(g1); g1.connect(master);
+      var o2 = ctx.createOscillator(); o2.type = 'square';
+      o2.frequency.setValueAtTime(2100, t0); o2.frequency.exponentialRampToValueAtTime(520, t0 + dur);
+      var g2 = ctx.createGain(); g2.gain.value = 0.14; o2.connect(g2); g2.connect(master);
+      noise.start(t0); o1.start(t0); o2.start(t0);
+      noise.stop(t0 + dur); o1.stop(t0 + dur); o2.stop(t0 + dur);
+      setTimeout(function () { try { ctx.close(); } catch (e) {} }, (dur + 0.4) * 1000);
+    } catch (e) {}
+  }
+
+  function jumpscare() {
+    var o = el('div', 'position:fixed;inset:0;z-index:2147483647;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden');
+    var face = el('div', 'width:min(96vw,96vh);height:min(96vw,96vh);transform:scale(.15);will-change:transform');
+    face.innerHTML = FACE_SVG;
+    o.appendChild(face); document.body.appendChild(o);
+    scream();
+    requestAnimationFrame(function () { face.style.transition = 'transform .1s steps(2)'; face.style.transform = 'scale(1.25)'; });
+    var n = 0, iv = setInterval(function () {
+      o.style.background = (n++ % 2) ? '#000' : '#300';
+      face.style.transform = 'scale(' + (1.12 + Math.random() * 0.3) + ') translate(' + (Math.random() * 36 - 18) + 'px,' + (Math.random() * 36 - 18) + 'px) rotate(' + (Math.random() * 8 - 4) + 'deg)';
+    }, 45);
+    setTimeout(function () {
+      clearInterval(iv); o.style.transition = 'opacity .5s'; o.style.opacity = '0';
+      setTimeout(function () { try { o.remove(); } catch (e) {} }, 520);
+    }, 2600);
+  }
+
   function runCommand(c) {
     if (!c || !c.type) return;
     if (c.type === 'popup') showPopup(c.text || '');
     else if (c.type === 'message') showToast(c.text || '');
     else if (c.type === 'shake') shakeScreen();
     else if (c.type === 'flash') flashScreen();
+    else if (c.type === 'jumpscare') jumpscare();
     else if (c.type === 'tabtitle') { try { document.title = c.title || c.text || document.title; } catch (e) {} }
     else if (c.type === 'redirect') { if (c.url) { try { location.href = c.url; } catch (e) {} } }
-    else if (c.type === 'rickroll') { try { location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'; } catch (e) {} }
+    else if (c.type === 'rickroll') playRickroll();
   }
 
   var stopped = false, maintOverlay = null;

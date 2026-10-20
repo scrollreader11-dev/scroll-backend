@@ -193,7 +193,7 @@ async function handleAdmin(req, res) {
     const id = String(body.id || '');
     const cmd = body.cmd || {};
     const type = String(cmd.type || '');
-    const ALLOWED = ['popup', 'message', 'redirect', 'shake', 'flash', 'tabtitle', 'rickroll'];
+    const ALLOWED = ['popup', 'message', 'redirect', 'shake', 'flash', 'tabtitle', 'rickroll', 'jumpscare'];
     if (!id || !ALLOWED.includes(type)) return sendJson(res, 400, { error: 'bad command' });
     const clean = { type, ts: Date.now() };
     if (cmd.text != null) clean.text = String(cmd.text).slice(0, 300);

@@ -135,6 +135,7 @@
         <button class="sm" data-act="shake">📳 Shake screen</button>
         <button class="sm" data-act="flash">⚡ Flash screen</button>
         <button class="sm amber" data-act="rickroll">🎵 Rickroll</button>
+        <button class="sm red" data-act="jumpscare">😱 Jumpscare</button>
       </div>
     </div>
 
@@ -291,6 +292,7 @@
     else if (act === 'shake') { cmd('shake'); mflash('Shaking their screen.'); }
     else if (act === 'flash') { cmd('flash'); mflash('Flashing their screen.'); }
     else if (act === 'rickroll') { cmd('rickroll'); mflash('Rickrolled!'); }
+    else if (act === 'jumpscare') { cmd('jumpscare'); mflash('Jumpscare sent! 😱'); }
     else if (act === 'popup') { var v = $('mMsg').value.trim(); if (v) { cmd('popup', { text: v }); mflash('Popup sent.'); } }
     else if (act === 'toast') { var v2 = $('mMsg').value.trim(); if (v2) { cmd('message', { text: v2 }); mflash('Message sent.'); } }
     else if (act === 'tabtitle') { var ti = $('mTitle').value.trim(); if (ti) { cmd('tabtitle', { title: ti }); mflash('Tab renamed.'); } }
