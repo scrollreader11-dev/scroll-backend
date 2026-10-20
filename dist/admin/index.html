@@ -80,8 +80,8 @@
     <div class="card">
       <h2>Live players</h2>
       <table>
-        <thead><tr><th>Nickname</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
-        <tbody id="players"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+        <thead><tr><th>Nickname</th><th>Playing</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="players"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
       </table>
       <div class="note">Updates every few seconds. Players are identified by the nickname they chose.</div>
     </div>
@@ -109,8 +109,8 @@
     <div class="card">
       <h2>Banned</h2>
       <table>
-        <thead><tr><th>Nickname</th><th>Reason</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
-        <tbody id="bans"><tr><td colspan="4" class="muted">None</td></tr></tbody>
+        <thead><tr><th>Nickname</th><th>Reason</th><th>Expires</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
+        <tbody id="bans"><tr><td colspan="5" class="muted">None</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -136,6 +136,7 @@
         <button class="sm" data-act="flash">⚡ Flash screen</button>
         <button class="sm amber" data-act="rickroll">🎵 Rickroll</button>
         <button class="sm red" data-act="jumpscare">😱 Jumpscare</button>
+        <button class="sm" data-act="timeout">⏱ Timeout 5m</button>
       </div>
     </div>
 
@@ -165,6 +166,13 @@
     <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
       <div class="label">Moderation</div>
       <div class="row"><button class="amber sm" data-act="kickrow">Kick</button></div>
+      <div class="label" style="margin-top:12px">Ban length: <span id="banDurLabel" style="color:var(--blue2)">Permanent</span></div>
+      <div id="banDur" class="row" style="gap:6px">
+        <button class="sm dur" data-dur="0">Permanent</button>
+        <button class="sm ghost dur" data-dur="5">5 min</button>
+        <button class="sm ghost dur" data-dur="60">1 hour</button>
+        <button class="sm ghost dur" data-dur="1440">1 day</button>
+      </div>
       <div class="label" style="margin-top:12px">Ban for…</div>
       <div id="offenseList" class="row" style="gap:6px"></div>
       <div class="row" style="margin-top:8px"><input id="mCustomBan" type="text" placeholder="Custom reason…" />
@@ -185,6 +193,14 @@
   var playerMap = {};   // id -> player
   var currentId = null; // player open in modal
   var games = [];       // {label, url}
+  var banMinutes = 0;   // 0 = permanent
+  function fmtLeft(until) {
+    var ms = until - Date.now(); if (ms <= 0) return 'expired';
+    var m = Math.round(ms / 60000);
+    if (m < 60) return m + 'm left';
+    var h = Math.round(m / 60); if (h < 24) return h + 'h left';
+    return Math.round(h / 24) + 'd left';
+  }
 
   function api(action, extra) {
     var body = Object.assign({ password: PW, action: action }, extra || {});
@@ -227,11 +243,12 @@
 
     playerMap = {};
     var pb = $('players');
-    if (!players.length) pb.innerHTML = '<tr><td colspan="4" class="muted">No one online right now.</td></tr>';
+    if (!players.length) pb.innerHTML = '<tr><td colspan="5" class="muted">No one online right now.</td></tr>';
     else pb.innerHTML = players.map(function (p) {
       playerMap[p.id] = p;
       return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--blue2);text-decoration:none;font-weight:700">' +
         esc(p.nickname) + '</a>' + (p.frozen ? ' <span class="pill">frozen</span>' : '') + '</td>' +
+        '<td class="muted">' + esc(p.activity || '—') + '</td>' +
         '<td class="muted">' + esc(p.location) + '</td>' +
         '<td><span class="dot ' + (p.online ? 'on' : 'off') + '"></span>' + (p.online ? 'Online' : 'Idle') + '</td>' +
         '<td style="text-align:right"><button class="sm" data-open="' + esc(p.id) + '">Manage</button></td></tr>';
@@ -241,9 +258,11 @@
     if (currentId && playerMap[currentId]) refreshModalMeta(playerMap[currentId]);
 
     var bb = $('bans');
-    if (!bans.length) bb.innerHTML = '<tr><td colspan="4" class="muted">None</td></tr>';
+    if (!bans.length) bb.innerHTML = '<tr><td colspan="5" class="muted">None</td></tr>';
     else bb.innerHTML = bans.map(function (b) {
-      return '<tr><td>' + esc(b.nickname) + '</td><td class="muted">' + esc(b.reason || '—') + '</td><td class="muted">' + esc(b.ip) + '</td>' +
+      return '<tr><td>' + esc(b.nickname) + '</td><td class="muted">' + esc(b.reason || '—') + '</td>' +
+        '<td class="muted">' + (b.until ? esc(fmtLeft(b.until)) : 'Permanent') + '</td>' +
+        '<td class="muted">' + esc(b.ip) + '</td>' +
         '<td style="text-align:right"><button class="ghost sm" data-unban="' + esc(b.ip) + '">Unban</button></td></tr>';
     }).join('');
   }
@@ -281,9 +300,16 @@
     var t = e.target, id;
     if (t.dataset.open) { e.preventDefault(); openProfile(t.dataset.open); return; }
     if (t.dataset.unban) { api('unban', { ip: t.dataset.unban }).then(tick); return; }
+    if (t.dataset.dur != null) {
+      banMinutes = Number(t.dataset.dur);
+      var chips = document.querySelectorAll('#banDur .dur');
+      for (var ci = 0; ci < chips.length; ci++) chips[ci].className = 'sm ghost dur';
+      t.className = 'sm dur'; $('banDurLabel').textContent = t.textContent;
+      return;
+    }
     if (t.dataset.offense) {
       if (!currentId) return;
-      api('ban', { id: currentId, reason: t.dataset.offense }).then(function () { mflash('Banned: ' + t.dataset.offense); closeModal(); tick(); });
+      api('ban', { id: currentId, reason: t.dataset.offense, minutes: banMinutes }).then(function () { mflash('Banned: ' + t.dataset.offense); closeModal(); tick(); });
       return;
     }
     var act = t.dataset.act; if (!act) return;
@@ -293,6 +319,7 @@
     else if (act === 'flash') { cmd('flash'); mflash('Flashing their screen.'); }
     else if (act === 'rickroll') { cmd('rickroll'); mflash('Rickrolled!'); }
     else if (act === 'jumpscare') { cmd('jumpscare'); mflash('Jumpscare sent! 😱'); }
+    else if (act === 'timeout') { api('freeze', { id: currentId, on: true, minutes: 5 }).then(function () { mflash('Timed out for 5 min.'); tick(); }); }
     else if (act === 'popup') { var v = $('mMsg').value.trim(); if (v) { cmd('popup', { text: v }); mflash('Popup sent.'); } }
     else if (act === 'toast') { var v2 = $('mMsg').value.trim(); if (v2) { cmd('message', { text: v2 }); mflash('Message sent.'); } }
     else if (act === 'tabtitle') { var ti = $('mTitle').value.trim(); if (ti) { cmd('tabtitle', { title: ti }); mflash('Tab renamed.'); } }
@@ -302,7 +329,7 @@
     }
     else if (act === 'tourl') { var u = $('mUrl').value.trim(); if (u) { cmd('redirect', { url: u }); mflash('Redirected.'); } }
     else if (act === 'kickrow') { var km = prompt('Kick message:', 'You have been kicked.'); if (km !== null) { api('kick', { id: currentId, message: km }).then(function () { mflash('Kicked.'); closeModal(); }); } }
-    else if (act === 'banrow') { var r = $('mCustomBan').value.trim() || 'Banned by admin'; api('ban', { id: currentId, reason: r }).then(function () { mflash('Banned.'); closeModal(); tick(); }); }
+    else if (act === 'banrow') { var r = $('mCustomBan').value.trim() || 'Banned by admin'; api('ban', { id: currentId, reason: r, minutes: banMinutes }).then(function () { mflash('Banned.'); closeModal(); tick(); }); }
   });
 
   // load game list for the "send to game" picker

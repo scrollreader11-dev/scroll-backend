@@ -97,22 +97,53 @@ function prunePlayers() {
 }
 setInterval(prunePlayers, 15000);
 
+// ---- auto-filter for offensive nicknames ----
+const BAD_WORDS = [
+  'nigger', 'nigga', 'faggot', 'fag', 'retard', 'kike', 'spic', 'chink', 'coon',
+  'cunt', 'fuck', 'shit', 'bitch', 'dick', 'pussy', 'cock', 'whore', 'slut',
+  'rape', 'nazi', 'hitler', 'kys', 'pedo',
+];
+function cleanNick(nick) {
+  const low = nick.toLowerCase().replace(/[^a-z]/g, '');
+  for (const w of BAD_WORDS) {
+    if (low.includes(w)) return 'Guest' + Math.floor(1000 + Math.random() * 9000);
+  }
+  return nick;
+}
+
+// ---- timed-ban + timed-freeze helpers (auto-expire) ----
+function banActive(ip) {
+  const b = admin.bansByIp[ip];
+  if (!b) return null;
+  if (b.until && Date.now() > b.until) { delete admin.bansByIp[ip]; saveState(); return null; }
+  return b;
+}
+function frozenActive(id) {
+  if (!(id in admin.frozen)) return false;
+  const until = admin.frozen[id];
+  if (until && Date.now() > until) { delete admin.frozen[id]; return false; }
+  return true;
+}
+
 // Visitor heartbeat. Returns live site state + any command for this client.
 async function handlePresence(req, res) {
   const body = await readBody(req);
   const id = String(body.id || '').slice(0, 64);
-  const nickname = String(body.nickname || 'Guest').slice(0, 40);
+  const nickname = cleanNick(String(body.nickname || 'Guest').slice(0, 40));
+  const activity = String(body.activity || '').slice(0, 80);
   const ip = clientIp(req);
   if (!id) return sendJson(res, 400, { error: 'no id' });
 
-  if (admin.bansByIp[ip]) {
+  const ban = banActive(ip);
+  if (ban) {
     players.delete(id);
-    return sendJson(res, 200, { banned: true, reason: admin.bansByIp[ip].reason || '' });
+    return sendJson(res, 200, { banned: true, reason: ban.reason || '', nickname });
   }
   const now = Date.now();
   const existing = players.get(id);
   players.set(id, {
     id, nickname, ip,
+    activity: activity || existing?.activity || '',
     location: existing?.location || 'Locating…',
     firstSeen: existing?.firstSeen || now,
     lastSeen: now,
@@ -126,12 +157,13 @@ async function handlePresence(req, res) {
   if (commands.length) delete admin.commands[id];
   return sendJson(res, 200, {
     banned: false,
+    nickname, // sanitized — client updates its stored nick if it changed
     maintenance: admin.settings.maintenance,
     redirect: admin.settings.redirect || '',
     announcement: admin.settings.announcement || '',
     kick: kick || null,
     broadcast: admin.broadcast || null,
-    frozen: !!admin.frozen[id],
+    frozen: frozenActive(id),
     commands,
   });
 }
@@ -146,11 +178,13 @@ async function handleAdmin(req, res) {
     prunePlayers();
     const list = [...players.values()].sort((a, b) => b.lastSeen - a.lastSeen).map((p) => ({
       id: p.id, nickname: p.nickname, location: p.location, ip: p.ip,
+      activity: p.activity || '',
       online: Date.now() - p.lastSeen < PLAYER_TTL,
       since: p.firstSeen,
-      frozen: !!admin.frozen[p.id],
+      frozen: frozenActive(p.id),
+      frozenUntil: admin.frozen[p.id] || 0,
     }));
-    const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, reason: b.reason || '', ts: b.ts }));
+    const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, reason: b.reason || '', ts: b.ts, until: b.until || 0 }));
     return sendJson(res, 200, { settings: admin.settings, players: list, bans, count: list.length });
   }
   if (action === 'settings') {
@@ -166,7 +200,9 @@ async function handleAdmin(req, res) {
     const p = players.get(id);
     const ip = p?.ip || String(body.ip || '');
     const reason = String(body.reason || '').slice(0, 120);
-    if (ip) { admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', reason, ts: Date.now() }; players.delete(id); delete admin.frozen[id]; await saveState(); }
+    const mins = Number(body.minutes) || 0; // 0 = permanent
+    const until = mins > 0 ? Date.now() + mins * 60000 : 0;
+    if (ip) { admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', reason, ts: Date.now(), until }; players.delete(id); delete admin.frozen[id]; await saveState(); }
     return sendJson(res, 200, { ok: true });
   }
   if (action === 'unban') {
@@ -186,7 +222,9 @@ async function handleAdmin(req, res) {
   }
   if (action === 'freeze') {
     const id = String(body.id || '');
-    if (body.on) admin.frozen[id] = true; else delete admin.frozen[id];
+    const mins = Number(body.minutes) || 0; // 0 = until manually unfrozen
+    if (body.on) admin.frozen[id] = mins > 0 ? Date.now() + mins * 60000 : 0;
+    else delete admin.frozen[id];
     return sendJson(res, 200, { ok: true });
   }
   if (action === 'command') {
@@ -362,9 +400,9 @@ const httpServer = createServer((req, res) => {
 });
 
 httpServer.on('upgrade', (req, socket, head) => {
-  // Banned IPs can't use the proxy tunnel.
+  // Banned IPs can't use the proxy tunnel (respects timed-ban expiry).
   const ip = clientIp(req);
-  if (admin.bansByIp[ip]) { try { socket.destroy(); } catch {} return; }
+  if (banActive(ip)) { try { socket.destroy(); } catch {} return; }
   wisp.routeRequest(req, socket, head);
 });
 
