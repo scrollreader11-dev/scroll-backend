@@ -283,8 +283,18 @@
     } catch (e) { return ''; }
   }
 
+  // expose identity to same-origin pages (the chat reads these cookies)
+  function syncCookies() {
+    try {
+      var base = ';path=/;max-age=31536000;samesite=lax';
+      document.cookie = 'sh_cid=' + encodeURIComponent(cid) + base;
+      document.cookie = 'sh_nick=' + encodeURIComponent(nickname || 'Guest') + base;
+    } catch (e) {}
+  }
+
   function beat() {
     if (stopped) return;
+    syncCookies();
     fetch('/api/presence', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -299,7 +309,7 @@
     }).catch(function () {});
   }
 
-  function start() { loadGameLabels(); beat(); setInterval(beat, 12000); }
+  function start() { syncCookies(); loadGameLabels(); beat(); setInterval(beat, 12000); }
   function boot() { if (nickname) start(); else askNickname(start); }
   if (document.body) boot();
   else document.addEventListener('DOMContentLoaded', boot);

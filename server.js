@@ -413,11 +413,166 @@ async function proxyUpstream(req, res) {
     if (!enc && len) outHeaders['content-length'] = len;
     res.writeHead(up.status, outHeaders);
     if (req.method === 'HEAD' || !up.body) { res.end(); return; }
-    // Stream straight through — no full buffering in memory.
-    Readable.fromWeb(up.body).pipe(res).on('error', function () { try { res.destroy(); } catch (e) {} });
+    // Stream straight through — no full buffering in memory. Guard both ends so
+    // an interrupted game download can never crash the whole server.
+    const src = Readable.fromWeb(up.body);
+    src.on('error', function () { try { res.destroy(); } catch (e) {} });
+    res.on('close', function () { try { src.destroy(); } catch (e) {} });
+    src.pipe(res);
   } catch (e) {
     try { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end('Upstream fetch failed'); } catch (e2) {}
   }
+}
+
+// ============================================================
+// CHAT — one shared ScrollHub server with custom channels (tabs).
+// Identity comes from the nickname cookie the presence script sets.
+// ============================================================
+const CHAT_FILE = '/tmp/scrollhub-chat.json';
+const chat = {
+  channels: [
+    { id: 'general', name: 'general', description: 'Main chat', category: 'Text channels', slowmodeSeconds: 0, canSend: true },
+    { id: 'games', name: 'games', description: 'Talk about games', category: 'Text channels', slowmodeSeconds: 0, canSend: true },
+  ],
+  messages: { general: [], games: [] },
+  rev: { general: 1, games: 1 },
+};
+try {
+  const fs = await import('node:fs');
+  if (fs.existsSync(CHAT_FILE)) {
+    const s = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8'));
+    if (Array.isArray(s.channels) && s.channels.length) chat.channels = s.channels;
+    if (s.messages) chat.messages = s.messages;
+    if (s.rev) chat.rev = s.rev;
+  }
+} catch (e) {}
+async function saveChat() {
+  try {
+    const fs = await import('node:fs');
+    // cap stored messages per channel
+    const trimmed = {};
+    for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-150);
+    fs.writeFileSync(CHAT_FILE, JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev }));
+  } catch (e) {}
+}
+setInterval(saveChat, 60000);
+
+function parseCookies(req) {
+  const out = {}; const h = req.headers.cookie || '';
+  h.split(';').forEach(function (p) { const i = p.indexOf('='); if (i > 0) out[p.slice(0, i).trim()] = p.slice(i + 1).trim(); });
+  return out;
+}
+function colorFor(seed) {
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return 'hsl(' + (h % 360) + ' 70% 66%)';
+}
+function chatViewer(req) {
+  const c = parseCookies(req);
+  let nick = 'Guest'; try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : 'Guest'; } catch (e) {}
+  nick = cleanNick(String(nick).slice(0, 40)) || 'Guest';
+  const cid = String(c.sh_cid || ('anon-' + clientIp(req))).slice(0, 64);
+  return { id: cid, username: nick, avatar: '', color: colorFor(cid), rank: '', owner: false };
+}
+function chatStanding(req, v) {
+  const ip = clientIp(req);
+  return { muted: !!banActive(ip), timedOut: frozenActive(v.id), until: 0 };
+}
+function chatBootPayload(req) {
+  const v = chatViewer(req);
+  const ch = chat.channels[0] ? chat.channels[0].id : 'general';
+  return {
+    live: true, join: true,
+    guild: { name: 'ScrollHub', tag: 'SH' },
+    channels: chat.channels,
+    channelId: ch,
+    messages: (chat.messages[ch] || []).slice(-120),
+    hasMore: false,
+    rev: String(chat.rev[ch] || 1),
+    emotes: {},
+    viewer: v,
+    powers: { messages: true, timeout: false, ban: false, roles: false, channels: true },
+    roles: [],
+    standing: chatStanding(req, v),
+    rules: { accepted: true, items: [] },
+    announcements: [],
+  };
+}
+function chatFeed(req, res, q) {
+  const ch = q.get('channel') || 'general';
+  if (!chat.messages[ch]) return sendJson(res, 200, { channelId: ch, messages: [], rev: '0', hasMore: false });
+  const v = q.get('v') || '0';
+  if (v === String(chat.rev[ch])) return sendJson(res, 200, { channelId: ch, unchanged: true, rev: v });
+  return sendJson(res, 200, { channelId: ch, messages: chat.messages[ch].slice(-120), rev: String(chat.rev[ch]), hasMore: false });
+}
+async function chatSend(req, res) {
+  const body = await readBody(req);
+  const ch = String(body.channelId || 'general');
+  const content = String(body.content || '').slice(0, 1200).trim();
+  if (!chat.messages[ch]) return sendJson(res, 400, { error: 'Unknown channel' });
+  if (!content) return sendJson(res, 400, { error: 'Empty message' });
+  const v = chatViewer(req);
+  if (banActive(clientIp(req))) return sendJson(res, 403, { error: 'You are banned.' });
+  if (frozenActive(v.id)) return sendJson(res, 403, { error: 'You are timed out.' });
+  const note = {
+    id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    channelId: ch, content, author: v, at: Date.now(), edited: 0, system: false, kind: '',
+    reply: null, images: [], gif: '',
+  };
+  const replyTo = String(body.replyTo || '');
+  if (replyTo) { const src = chat.messages[ch].find((m) => m.id === replyTo); if (src) note.reply = { id: src.id, content: src.content, author: src.author.username }; }
+  chat.messages[ch].push(note);
+  if (chat.messages[ch].length > 400) chat.messages[ch] = chat.messages[ch].slice(-400);
+  chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  return sendJson(res, 200, { ok: true, message: note });
+}
+async function chatEdit(req, res) {
+  const body = await readBody(req);
+  const ch = String(body.channelId || 'general'); const v = chatViewer(req);
+  const m = (chat.messages[ch] || []).find((x) => x.id === body.messageId);
+  if (!m) return sendJson(res, 404, { error: 'Not found' });
+  if (m.author.id !== v.id) return sendJson(res, 403, { error: 'Not your message' });
+  m.content = String(body.content || '').slice(0, 1200); m.edited = Date.now();
+  chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  return sendJson(res, 200, { ok: true });
+}
+async function chatDelete(req, res) {
+  const body = await readBody(req);
+  const ch = String(body.channelId || 'general'); const v = chatViewer(req);
+  const arr = chat.messages[ch]; if (!arr) return sendJson(res, 404, { error: 'No channel' });
+  const i = arr.findIndex((x) => x.id === body.messageId);
+  if (i < 0) return sendJson(res, 404, { error: 'Not found' });
+  if (arr[i].author.id !== v.id) return sendJson(res, 403, { error: 'Not your message' });
+  arr.splice(i, 1); chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  return sendJson(res, 200, { ok: true });
+}
+async function chatChannel(req, res) {
+  const body = await readBody(req);
+  if (body.remove) {
+    const id = String(body.id || '');
+    if (chat.channels.length <= 1) return sendJson(res, 400, { error: 'Keep at least one channel' });
+    chat.channels = chat.channels.filter((c) => c.id !== id);
+    delete chat.messages[id]; delete chat.rev[id];
+    await saveChat();
+    return sendJson(res, 200, { ok: true });
+  }
+  const name = String(body.name || '').slice(0, 40).trim();
+  if (!name) return sendJson(res, 400, { error: 'Channel name required' });
+  const desc = String(body.description || '').slice(0, 120);
+  const cat = String(body.category || 'Text channels').slice(0, 40);
+  const slow = Number(body.slowmodeSeconds) || 0;
+  const ro = !!body.readOnly;
+  let id = String(body.id || '');
+  const existing = id && chat.channels.find((c) => c.id === id);
+  if (existing) {
+    existing.name = name; existing.description = desc; existing.category = cat; existing.slowmodeSeconds = slow; existing.readOnly = ro;
+  } else {
+    id = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'channel');
+    let base = id, n = 2; while (chat.channels.some((c) => c.id === id)) id = base + '-' + (n++);
+    chat.channels.push({ id, name, description: desc, category: cat, slowmodeSeconds: slow, readOnly: ro, canSend: true });
+    chat.messages[id] = []; chat.rev[id] = 1;
+  }
+  await saveChat();
+  return sendJson(res, 200, { ok: true, id });
 }
 
 const httpServer = createServer((req, res) => {
@@ -451,6 +606,19 @@ const httpServer = createServer((req, res) => {
   // AI conversation history — stubbed so the UI works with local-only history.
   if (url === '/api/ai/conversations' && req.method === 'GET') return sendJson(res, 200, { conversations: [] });
   if (url.startsWith('/api/ai/')) return sendJson(res, 200, { ok: true });
+
+  // Chat (one shared server, custom channels).
+  if (url === '/api/chat/boot') return sendJson(res, 200, chatBootPayload(req));
+  if (url === '/api/chat/feed') return chatFeed(req, res, parsed.searchParams);
+  if (url === '/api/chat/send' && req.method === 'POST') return chatSend(req, res);
+  if (url === '/api/chat/edit' && req.method === 'POST') return chatEdit(req, res);
+  if (url === '/api/chat/delete' && req.method === 'POST') return chatDelete(req, res);
+  if (url === '/api/chat/channel' && req.method === 'POST') return chatChannel(req, res);
+  if (url === '/api/chat/face') { if (req.method === 'POST') return sendJson(res, 200, { ok: true }); return sendJson(res, 200, { signedIn: true, emotes: {} }); }
+  if (url === '/api/chat/commands') return sendJson(res, 200, { commands: [] });
+  if (url === '/api/chat/pass') return sendJson(res, 200, {});
+  if (url === '/api/announcements/active') return sendJson(res, 200, { announcements: [] });
+  if (url.startsWith('/api/chat/')) return sendJson(res, 200, { ok: true }); // typing/rules/logout/report/etc.
 
   // Live presence (visitor heartbeat) + admin control.
   if (url === '/api/presence' && req.method === 'POST') return handlePresence(req, res);
