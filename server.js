@@ -57,8 +57,16 @@ const admin = {
   kicks: {},      // clientId -> {message, ts}  (one-shot)
   broadcast: null,// {text, ts}  shown to everyone once
   commands: {},   // clientId -> [ {type, ...} ]  (one-shot queue)
-  frozen: {}      // clientId -> true  (persistent until unfrozen)
+  frozen: {},     // clientId -> until (0 = indefinite)
+  customGames: [] // admin-added games shown to everyone
 };
+// Replicates the frontend's generateGameId so ids stay consistent.
+function makeGameId(label, url) {
+  let u = String(url || '').trim();
+  try { u = decodeURIComponent(u); } catch (e) {}
+  u = u.replace(/\/index\.html(?=([?#]|$))/gi, '').replace(/\/+$/, '');
+  return (String(label || '') + '-' + u).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+}
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
 const geoCache = new Map(); // ip -> location string
 const stats = { peakOnline: 0, peakAt: 0, hourly: new Array(24).fill(0), gamePlays: {}, totalSessions: 0 };
@@ -75,12 +83,13 @@ try {
     if (saved.settings) admin.settings = saved.settings;
     if (saved.bansByIp) admin.bansByIp = saved.bansByIp;
     if (saved.stats) Object.assign(stats, saved.stats);
+    if (Array.isArray(saved.customGames)) admin.customGames = saved.customGames;
   }
 } catch {}
 async function saveState() {
   try {
     const fs = await import('node:fs');
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats }));
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames }));
   } catch {}
 }
 setInterval(saveState, 60000);
@@ -209,6 +218,7 @@ async function handleAdmin(req, res) {
       settings: admin.settings, players: list, bans, count: list.length,
       stats: { peakOnline: stats.peakOnline, peakAt: stats.peakAt, hourly: stats.hourly, topGames, totalSessions: stats.totalSessions },
       events: events.slice(-60).reverse(),
+      customGames: admin.customGames,
     });
   }
   if (action === 'settings') {
@@ -269,6 +279,24 @@ async function handleAdmin(req, res) {
     if (!admin.commands[id]) admin.commands[id] = [];
     admin.commands[id].push(clean);
     if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'addgame') {
+    const label = String(body.label || '').slice(0, 80).trim();
+    const url = String(body.url || '').slice(0, 500).trim();
+    if (!label || !url) return sendJson(res, 400, { error: 'Label and URL are required' });
+    const imageUrl = String(body.imageUrl || '').slice(0, 500).trim() || '/storage/images/main/googleforms.jpg';
+    const cats = String(body.category || '').slice(0, 40).trim();
+    const g = { id: makeGameId(label, url), label, url, imageUrl, categories: cats ? [cats] : [], isGlobal: true };
+    admin.customGames = admin.customGames.filter((x) => x.id !== g.id);
+    admin.customGames.unshift(g);
+    await saveState();
+    return sendJson(res, 200, { ok: true, game: g });
+  }
+  if (action === 'delgame') {
+    const id = String(body.id || '');
+    admin.customGames = admin.customGames.filter((x) => x.id !== id);
+    await saveState();
     return sendJson(res, 200, { ok: true });
   }
   return sendJson(res, 400, { error: 'unknown action' });
@@ -405,6 +433,10 @@ const httpServer = createServer((req, res) => {
 
   // AI (Groq).
   if (url === '/api/generate' && req.method === 'POST') return handleGenerate(req, res);
+
+  // Game catalog extras — admin-added games are served as "globals" so the
+  // games page shows them to everyone.
+  if (url === '/api/games/catalog') return sendJson(res, 200, { globals: admin.customGames, exclusions: [], overrides: [] });
 
   // AI conversation history — stubbed so the UI works with local-only history.
   if (url === '/api/ai/conversations' && req.method === 'GET') return sendJson(res, 200, { conversations: [] });

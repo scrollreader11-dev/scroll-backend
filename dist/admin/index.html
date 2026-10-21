@@ -159,6 +159,7 @@
     <button class="tab active" data-view="players">👥 Players</button>
     <button class="tab" data-view="analytics">📈 Analytics</button>
     <button class="tab" data-view="feed">📜 Feed</button>
+    <button class="tab" data-view="games">🕹️ Add games</button>
     <button class="tab" data-view="controls">⚙️ Controls</button>
     <button class="tab" data-view="bans">⛔ Bans</button>
   </nav>
@@ -192,6 +193,21 @@
     <div class="card">
       <h2>📜 Activity feed</h2>
       <div id="feed" style="max-height:420px;overflow:auto">Loading…</div>
+    </div>
+  </section>
+
+  <section class="view hide" data-panel="games">
+    <div class="card">
+      <h2>🕹️ Add your own games</h2>
+      <div class="field"><div class="label">Game name</div><input id="gName" type="text" placeholder="e.g. Cool Math Blaster" /></div>
+      <div class="field"><div class="label">Game URL (page the game loads from)</div><input id="gUrl" type="text" placeholder="https://example.com/game/  or  /storage/ag/..." /></div>
+      <div class="field"><div class="label">Thumbnail image URL (optional)</div><input id="gImg" type="text" placeholder="https://.../thumbnail.png" /></div>
+      <div class="field"><div class="label">Category (optional)</div><input id="gCat" type="text" placeholder="e.g. Action" /></div>
+      <button id="gAdd">+ Add game</button>
+      <div id="gFlash" class="flash"></div>
+      <div class="note">Added games show up for everyone in the Games section, mixed in with the rest.</div>
+      <div class="label" style="margin-top:18px">Your added games</div>
+      <table><tbody id="gList"><tr><td class="muted">None yet</td></tr></tbody></table>
     </div>
   </section>
 
@@ -382,6 +398,17 @@
 
     if (d.stats) renderStats(d.stats);
     renderEvents(d.events);
+    renderGames(d.customGames);
+  }
+
+  function renderGames(list) {
+    list = list || [];
+    var el = $('gList'); if (!el) return;
+    if (!list.length) { el.innerHTML = '<tr><td class="muted">None yet</td></tr>'; return; }
+    el.innerHTML = list.map(function (g) {
+      return '<tr><td><strong>' + esc(g.label) + '</strong><br><span class="muted" style="font-size:.74rem">' + esc(g.url) + '</span></td>' +
+        '<td style="text-align:right"><button class="ghost sm" data-delgame="' + esc(g.id) + '">Remove</button></td></tr>';
+    }).join('');
   }
 
   function renderEvents(evs) {
@@ -453,6 +480,7 @@
     var t = e.target, id;
     if (t.dataset.open) { e.preventDefault(); openProfile(t.dataset.open); return; }
     if (t.dataset.unban) { api('unban', { ip: t.dataset.unban }).then(tick); return; }
+    if (t.dataset.delgame) { api('delgame', { id: t.dataset.delgame }).then(tick); return; }
     if (t.dataset.dur != null) {
       banMinutes = Number(t.dataset.dur);
       var chips = document.querySelectorAll('#banDur .dur');
@@ -505,6 +533,15 @@
   $('redirBtn').onclick = function () { api('settings', { settings: { redirect: $('redir').value } }).then(function () { flash('Redirect updated.'); }); };
   $('annBtn').onclick = function () { api('settings', { settings: { announcement: $('ann').value } }).then(function () { flash('Announcement updated.'); }); };
   $('bcBtn').onclick = function () { var v = $('bc').value; api('broadcast', { text: v }).then(function () { flash('Broadcast sent.'); $('bc').value = ''; }); };
+  $('gAdd').onclick = function () {
+    var label = $('gName').value.trim(), url = $('gUrl').value.trim();
+    if (!label || !url) { $('gFlash').textContent = 'Name and URL are required.'; return; }
+    api('addgame', { label: label, url: url, imageUrl: $('gImg').value.trim(), category: $('gCat').value.trim() }).then(function (res) {
+      if (res.ok) { $('gFlash').textContent = 'Game added ✓'; $('gName').value = ''; $('gUrl').value = ''; $('gImg').value = ''; $('gCat').value = ''; tick(); }
+      else { $('gFlash').textContent = (res.data && res.data.error) || 'Could not add.'; }
+      setTimeout(function () { $('gFlash').textContent = ''; }, 2500);
+    });
+  };
 
   function tick() {
     if (!PW) return;
