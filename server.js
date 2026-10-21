@@ -443,6 +443,11 @@ const httpServer = createServer((req, res) => {
   // games page shows them to everyone.
   if (url === '/api/games/catalog') return sendJson(res, 200, { globals: admin.customGames, exclusions: [], overrides: [] });
 
+  // No real account system — return a guest so the account/settings page
+  // opens (and the appearance/wallpaper picker is reachable) without a login.
+  if (url === '/api/me') return sendJson(res, 200, { user: { id: 0, username: 'Guest', email: '', is_admin: 0, is_owner: false, guest: true } });
+  if (url === '/api/settings') { if (req.method === 'POST') return sendJson(res, 200, { ok: true }); return sendJson(res, 200, {}); }
+
   // AI conversation history — stubbed so the UI works with local-only history.
   if (url === '/api/ai/conversations' && req.method === 'GET') return sendJson(res, 200, { conversations: [] });
   if (url.startsWith('/api/ai/')) return sendJson(res, 200, { ok: true });
