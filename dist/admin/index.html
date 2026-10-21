@@ -4,112 +4,205 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ScrollHub Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#060c16; --panel:#0c1728; --panel2:#0a1322; --line:#1d3252; --line2:#27406a;
-    --txt:#eaf0fb; --mut:#93a4c0; --blue:#2f68d8; --blue2:#6ea8fe; --red:#e0556a; --green:#39c08a; --amber:#e0a44a; }
+  :root {
+    --bg:#05070f; --panel:rgba(16,22,40,.72); --panel2:#0b1120;
+    --line:rgba(120,160,255,.12); --line2:rgba(120,160,255,.24);
+    --txt:#e8edfb; --mut:#8793ad;
+    --blue:#4f8cff; --blue2:#5bd0ff; --cyan:#39e6ff; --violet:#8b5cf6;
+    --red:#ff5c7a; --green:#3ddc97; --amber:#ffc24b;
+    --accent:linear-gradient(135deg,#4f8cff,#8b5cf6);
+  }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--txt); font-family:"Segoe UI",system-ui,-apple-system,sans-serif; }
+  html,body { margin:0; }
+  body {
+    background:var(--bg); color:var(--txt); min-height:100vh;
+    font-family:"Inter",system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .bg { position:fixed; inset:0; z-index:-2;
+    background:
+      radial-gradient(900px 600px at 12% 8%, rgba(79,140,255,.16), transparent 60%),
+      radial-gradient(820px 620px at 88% 16%, rgba(139,92,246,.14), transparent 60%),
+      radial-gradient(760px 560px at 50% 108%, rgba(57,230,255,.10), transparent 60%),
+      var(--bg);
+  }
+  .bg::after { content:""; position:absolute; inset:0;
+    background-image:linear-gradient(rgba(120,160,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,255,.045) 1px,transparent 1px);
+    background-size:46px 46px;
+    -webkit-mask:radial-gradient(circle at 50% 24%, #000, transparent 78%);
+            mask:radial-gradient(circle at 50% 24%, #000, transparent 78%); }
+
+  h1 { font-family:"Space Grotesk",sans-serif; font-size:1.5rem; margin:0; letter-spacing:-.02em; }
   a { color:var(--blue2); }
-  .wrap { max-width:1040px; margin:0 auto; padding:20px 16px 60px; }
-  h1 { font-size:1.5rem; margin:0; letter-spacing:-.02em; }
-  .sub { color:var(--mut); font-size:.85rem; margin-top:2px; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-top:16px; }
-  .card h2 { font-size:1rem; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
-  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  input[type=text], input[type=password] { flex:1; min-width:160px; padding:11px 13px; border-radius:9px;
-    border:1px solid var(--line2); background:var(--panel2); color:var(--txt); font-size:.95rem; outline:none; }
-  input::placeholder { color:#5f7496; }
-  button { padding:10px 16px; border:none; border-radius:9px; background:var(--blue); color:#fff;
-    font-weight:600; font-size:.9rem; cursor:pointer; transition:filter .12s; }
-  button:hover { filter:brightness(1.1); }
-  button.ghost { background:transparent; border:1px solid var(--line2); color:var(--txt); }
-  button.red { background:var(--red); }
-  button.amber { background:var(--amber); color:#1a1200; }
-  button.sm { padding:6px 12px; font-size:.82rem; }
-  table { width:100%; border-collapse:collapse; }
-  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); font-size:.9rem; vertical-align:middle; }
-  th { color:var(--mut); font-weight:600; font-size:.76rem; text-transform:uppercase; letter-spacing:.05em; }
-  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
-  .on { background:var(--green); } .off { background:#53617a; }
-  .pill { display:inline-block; padding:3px 9px; border-radius:999px; font-size:.78rem; background:#13233c; color:var(--blue2); }
+  .sub { color:var(--mut); font-size:.85rem; margin-top:3px; }
   .muted { color:var(--mut); }
-  .stat { font-size:2rem; font-weight:800; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; }
-  .statbox { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:14px; }
-  .toggle { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
-  .sw { width:44px; height:24px; border-radius:999px; position:relative; background:#30415f; transition:background .15s; }
-  .sw.on2 { background:var(--green); }
-  .sw::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .15s; }
-  .sw.on2::after { left:23px; }
-  #login { max-width:380px; margin:12vh auto 0; }
   .hide { display:none !important; }
-  .label { font-size:.8rem; color:var(--mut); margin-bottom:6px; }
-  .field { margin-bottom:12px; }
-  .note { font-size:.78rem; color:var(--mut); margin-top:8px; }
-  .flash { font-size:.82rem; color:var(--green); min-height:1em; margin-top:6px; }
+
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px;
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); box-shadow:0 14px 50px rgba(0,0,0,.45); }
+  .card + .card { margin-top:18px; }
+  .card h2 { font-family:"Space Grotesk",sans-serif; font-size:1.05rem; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input[type=text], input[type=password] { flex:1; min-width:150px; padding:11px 14px; border-radius:11px;
+    border:1px solid var(--line2); background:rgba(6,10,20,.7); color:var(--txt); font-size:.95rem; outline:none; transition:border-color .15s, box-shadow .15s; font-family:inherit; }
+  input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(79,140,255,.18); }
+  input::placeholder { color:#5f7496; }
+
+  button { padding:10px 16px; border:none; border-radius:11px; background:var(--accent); color:#fff;
+    font-weight:600; font-size:.9rem; cursor:pointer; font-family:inherit; transition:transform .1s, box-shadow .15s, filter .15s; }
+  button:hover { filter:brightness(1.08); box-shadow:0 6px 22px rgba(79,140,255,.35); transform:translateY(-1px); }
+  button:active { transform:translateY(0); }
+  button.ghost { background:rgba(255,255,255,.04); border:1px solid var(--line2); color:var(--txt); box-shadow:none; }
+  button.ghost:hover { background:rgba(255,255,255,.08); box-shadow:none; }
+  button.red { background:linear-gradient(135deg,#ff5c7a,#e03a5f); }
+  button.amber { background:linear-gradient(135deg,#ffc24b,#f59e0b); color:#1a1200; }
+  button.sm { padding:7px 13px; font-size:.82rem; border-radius:9px; }
+
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:11px 10px; border-bottom:1px solid var(--line); font-size:.9rem; vertical-align:middle; }
+  th { color:var(--mut); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; }
+  tbody tr { transition:background .12s; }
+  tbody tr:hover { background:rgba(120,160,255,.04); }
+
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .on { background:var(--green); box-shadow:0 0 8px var(--green); } .off { background:#53617a; }
+  .pill { display:inline-block; padding:3px 9px; border-radius:999px; font-size:.72rem; font-weight:600;
+    background:rgba(91,208,255,.14); color:var(--blue2); border:1px solid rgba(91,208,255,.25); }
+
+  .stat { font-family:"Space Grotesk",sans-serif; font-size:2.1rem; font-weight:700; line-height:1.1;
+    background:linear-gradient(135deg,#fff,#9fc4ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:14px; }
+  .statbox { position:relative; background:rgba(10,15,30,.6); border:1px solid var(--line); border-radius:14px; padding:16px; overflow:hidden; }
+  .statbox::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); }
+
+  .toggle { display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+  .sw { width:46px; height:26px; border-radius:999px; position:relative; background:#30415f; transition:background .18s; flex-shrink:0; }
+  .sw.on2 { background:linear-gradient(135deg,#3ddc97,#19b37a); box-shadow:0 0 14px rgba(61,220,151,.5); }
+  .sw::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .18s; }
+  .sw.on2::after { left:23px; }
+
+  .label { font-size:.8rem; color:var(--mut); margin-bottom:7px; }
+  .field { margin-bottom:14px; }
+  .note { font-size:.78rem; color:var(--mut); margin-top:10px; }
+  .flash { font-size:.82rem; color:var(--green); min-height:1em; margin-top:8px; font-weight:500; }
+
+  /* ---- login ---- */
+  #login { max-width:400px; margin:14vh auto 0; text-align:center; }
+  #login .logo { width:60px; height:60px; margin:0 auto 16px; border-radius:18px; background:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-size:30px; box-shadow:0 10px 36px rgba(79,140,255,.45); }
+  #login input { text-align:center; }
+
+  /* ---- dashboard shell ---- */
+  #dash { display:block; max-width:1120px; margin:0 auto; padding:22px 18px 70px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+  .brand { font-family:"Space Grotesk",sans-serif; font-weight:700; font-size:1.5rem; letter-spacing:-.02em; display:flex; align-items:center; gap:10px; }
+  .brand .mark { width:34px; height:34px; border-radius:10px; background:var(--accent); display:inline-flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 6px 20px rgba(79,140,255,.4); }
+  .brand span { color:var(--mut); font-weight:500; font-size:1rem; }
+  .topbar .right { display:flex; align-items:center; gap:12px; }
+  .livepill { display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px;
+    background:rgba(61,220,151,.1); border:1px solid rgba(61,220,151,.3); font-size:.85rem; font-weight:600; color:#bff3dc; }
+  .livepill b { font-family:"Space Grotesk",sans-serif; color:#fff; }
+  .pulse { width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(61,220,151,.6); animation:pulse 1.8s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(61,220,151,.5)} 70%{box-shadow:0 0 0 9px rgba(61,220,151,0)} 100%{box-shadow:0 0 0 0 rgba(61,220,151,0)} }
+
+  .vitals { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:18px; }
+
+  .tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .tab { background:rgba(255,255,255,.03); border:1px solid var(--line); color:var(--mut); padding:9px 16px; border-radius:12px;
+    font-weight:600; font-size:.88rem; cursor:pointer; box-shadow:none; transition:all .15s; }
+  .tab:hover { color:#fff; background:rgba(255,255,255,.06); transform:none; box-shadow:none; }
+  .tab.active { color:#fff; background:linear-gradient(135deg,rgba(79,140,255,.22),rgba(139,92,246,.16));
+    border-color:var(--line2); box-shadow:inset 0 0 0 1px rgba(120,160,255,.25), 0 6px 20px rgba(79,140,255,.18); }
+
+  .feedrow { display:flex; gap:10px; align-items:baseline; padding:8px 4px; border-bottom:1px solid var(--line); font-size:.88rem; }
+
+  @media (max-width:560px) {
+    .topbar { align-items:flex-start; }
+    .stat { font-size:1.7rem; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <!-- LOGIN -->
-  <div id="login" class="card">
-    <h1>ScrollHub Admin</h1>
-    <div class="sub" style="margin-bottom:14px">Enter the admin password.</div>
-    <div class="field">
-      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" />
-    </div>
-    <button id="loginBtn" style="width:100%">Sign in</button>
-    <div id="loginErr" class="flash" style="color:var(--red)"></div>
-  </div>
+<div class="bg"></div>
 
-  <!-- DASHBOARD -->
-  <div id="dash" class="hide">
-    <div class="row" style="justify-content:space-between">
-      <div><h1>ScrollHub Admin</h1><div class="sub">Live control panel · changes apply to everyone</div></div>
+<!-- LOGIN -->
+<div id="login" class="card">
+  <div class="logo">⬡</div>
+  <h1>ScrollHub Admin</h1>
+  <div class="sub" style="margin-bottom:18px">Enter the admin password to continue.</div>
+  <div class="field"><input id="pw" type="password" placeholder="Password" autocomplete="current-password" /></div>
+  <button id="loginBtn" style="width:100%">Sign in →</button>
+  <div id="loginErr" class="flash" style="color:var(--red)"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dash" class="hide">
+  <div class="topbar">
+    <div class="brand"><span class="mark">⬡</span> ScrollHub <span>Admin</span></div>
+    <div class="right">
+      <span class="livepill"><i class="pulse"></i> <b id="hdrOnline">0</b> online</span>
       <button id="logout" class="ghost sm">Sign out</button>
     </div>
+  </div>
 
-    <div class="card">
-      <div class="grid">
-        <div class="statbox"><div class="muted" style="font-size:.78rem">Online now</div><div class="stat" id="sOnline">0</div></div>
-        <div class="statbox"><div class="muted" style="font-size:.78rem">Banned</div><div class="stat" id="sBanned">0</div></div>
-        <div class="statbox"><div class="muted" style="font-size:.78rem">Maintenance</div><div class="stat" id="sMaint">Off</div></div>
-      </div>
-    </div>
+  <div class="vitals">
+    <div class="statbox"><div class="muted" style="font-size:.78rem">Online now</div><div class="stat" id="sOnline">0</div></div>
+    <div class="statbox"><div class="muted" style="font-size:.78rem">Banned</div><div class="stat" id="sBanned">0</div></div>
+    <div class="statbox"><div class="muted" style="font-size:.78rem">Maintenance</div><div class="stat" id="sMaint">Off</div></div>
+  </div>
 
+  <nav class="tabs">
+    <button class="tab active" data-view="players">👥 Players</button>
+    <button class="tab" data-view="analytics">📈 Analytics</button>
+    <button class="tab" data-view="feed">📜 Feed</button>
+    <button class="tab" data-view="controls">⚙️ Controls</button>
+    <button class="tab" data-view="bans">⛔ Bans</button>
+  </nav>
+
+  <section class="view" data-panel="players">
     <div class="card">
-      <h2>Live players</h2>
+      <h2>👥 Live players</h2>
       <table>
         <thead><tr><th>Nickname</th><th>Playing</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
         <tbody id="players"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
       </table>
-      <div class="note">Updates every few seconds. Players are identified by the nickname they chose.</div>
+      <div class="note">Updates every few seconds. Click a nickname to open their profile.</div>
     </div>
+  </section>
 
+  <section class="view hide" data-panel="analytics">
     <div class="card">
-      <h2>Analytics</h2>
+      <h2>📈 Analytics</h2>
       <div class="grid">
         <div class="statbox"><div class="muted" style="font-size:.78rem">Peak online</div><div class="stat" id="aPeak">0</div><div class="muted" id="aPeakAt" style="font-size:.7rem"></div></div>
         <div class="statbox"><div class="muted" style="font-size:.78rem">Total sessions</div><div class="stat" id="aSessions">0</div></div>
       </div>
-      <div class="label" style="margin-top:16px">Busiest hours (0–23, server time)</div>
-      <div id="aHours" style="display:flex;align-items:flex-end;gap:3px;height:84px;margin-top:6px"></div>
-      <div class="label" style="margin-top:16px">Most-played games</div>
+      <div class="label" style="margin-top:18px">Busiest hours (0–23, server time)</div>
+      <div id="aHours" style="display:flex;align-items:flex-end;gap:3px;height:88px;margin-top:6px"></div>
+      <div class="label" style="margin-top:18px">Most-played games</div>
       <table><tbody id="aGames"><tr><td class="muted">No plays yet</td></tr></tbody></table>
     </div>
+  </section>
 
+  <section class="view hide" data-panel="feed">
     <div class="card">
-      <h2>Activity feed</h2>
-      <div id="feed" style="max-height:340px;overflow:auto">Loading…</div>
+      <h2>📜 Activity feed</h2>
+      <div id="feed" style="max-height:420px;overflow:auto">Loading…</div>
     </div>
+  </section>
 
+  <section class="view hide" data-panel="controls">
     <div class="card">
-      <h2>Site controls</h2>
+      <h2>⚙️ Site controls</h2>
       <div class="field">
-        <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode (closes the site for everyone)</span></label>
+        <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode — closes the site for everyone</span></label>
       </div>
       <div class="field">
-        <div class="label">Global redirect (send everyone to a URL — leave blank for none)</div>
+        <div class="label">Global redirect (send everyone to a URL — blank for none)</div>
         <div class="row"><input id="redir" type="text" placeholder="https://example.com" /><button id="redirBtn">Apply</button></div>
       </div>
       <div class="field">
@@ -122,57 +215,59 @@
       </div>
       <div id="flash" class="flash"></div>
     </div>
+  </section>
 
+  <section class="view hide" data-panel="bans">
     <div class="card">
-      <h2>Banned</h2>
+      <h2>⛔ Banned</h2>
       <table>
         <thead><tr><th>Nickname</th><th>Reason</th><th>Expires</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
         <tbody id="bans"><tr><td colspan="5" class="muted">None</td></tr></tbody>
       </table>
     </div>
-  </div>
+  </section>
 </div>
 
 <!-- PLAYER PROFILE MODAL -->
-<div id="modal" class="hide" style="position:fixed;inset:0;z-index:999;background:rgba(2,6,14,.72);display:flex;align-items:center;justify-content:center;padding:16px">
-  <div style="max-width:520px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:20px">
+<div id="modal" class="hide" style="position:fixed;inset:0;z-index:999;background:rgba(2,6,14,.74);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px">
+  <div style="max-width:540px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:22px;backdrop-filter:blur(20px);box-shadow:0 30px 80px rgba(0,0,0,.6)">
     <div class="row" style="justify-content:space-between;align-items:flex-start">
       <div>
-        <div id="mName" style="font-size:1.3rem;font-weight:800">Player</div>
+        <div id="mName" style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700">Player</div>
         <div id="mMeta" class="muted" style="font-size:.84rem;margin-top:3px"></div>
       </div>
       <button id="mClose" class="ghost sm">✕</button>
     </div>
 
-    <div style="margin-top:16px">
-      <div class="label">Fun</div>
+    <div style="margin-top:18px">
+      <div class="label">✨ Fun</div>
       <div class="row">
         <button class="sm" data-act="freeze">❄ Freeze</button>
         <button class="sm ghost" data-act="unfreeze">Unfreeze</button>
-        <button class="sm" data-act="shake">📳 Shake screen</button>
-        <button class="sm" data-act="flash">⚡ Flash screen</button>
+        <button class="sm" data-act="shake">📳 Shake</button>
+        <button class="sm" data-act="flash">⚡ Flash</button>
         <button class="sm amber" data-act="rickroll">🎵 Rickroll</button>
         <button class="sm red" data-act="jumpscare">😱 Jumpscare</button>
         <button class="sm" data-act="timeout">⏱ Timeout 5m</button>
       </div>
     </div>
 
-    <div style="margin-top:14px">
-      <div class="label">Send a message</div>
+    <div style="margin-top:16px">
+      <div class="label">💬 Send a message</div>
       <div class="row"><input id="mMsg" type="text" placeholder="Type a message…" />
         <button class="sm" data-act="popup">Popup</button>
         <button class="sm ghost" data-act="toast">Toast</button>
       </div>
     </div>
 
-    <div style="margin-top:14px">
-      <div class="label">Rename their browser tab</div>
+    <div style="margin-top:16px">
+      <div class="label">🏷️ Rename their browser tab</div>
       <div class="row"><input id="mTitle" type="text" placeholder="e.g. Google Classroom" />
         <button class="sm" data-act="tabtitle">Set tab</button></div>
     </div>
 
-    <div style="margin-top:14px">
-      <div class="label">Redirect them to a game</div>
+    <div style="margin-top:16px">
+      <div class="label">🎮 Redirect them to a game</div>
       <div class="row"><input id="mGame" type="text" placeholder="Search a game…" list="gameList" />
         <button class="sm" data-act="togame">Send to game</button></div>
       <datalist id="gameList"></datalist>
@@ -180,17 +275,17 @@
         <button class="sm ghost" data-act="tourl">Redirect</button></div>
     </div>
 
-    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
-      <div class="label">Moderation</div>
-      <div class="row"><button class="amber sm" data-act="kickrow">Kick</button></div>
-      <div class="label" style="margin-top:12px">Ban length: <span id="banDurLabel" style="color:var(--blue2)">Permanent</span></div>
+    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px">
+      <div class="label">🛡️ Moderation</div>
+      <div class="row"><button class="amber sm" data-act="kickrow">👢 Kick</button></div>
+      <div class="label" style="margin-top:14px">Ban length: <span id="banDurLabel" style="color:var(--blue2)">Permanent</span></div>
       <div id="banDur" class="row" style="gap:6px">
         <button class="sm dur" data-dur="0">Permanent</button>
         <button class="sm ghost dur" data-dur="5">5 min</button>
         <button class="sm ghost dur" data-dur="60">1 hour</button>
         <button class="sm ghost dur" data-dur="1440">1 day</button>
       </div>
-      <div class="label" style="margin-top:12px">Ban for…</div>
+      <div class="label" style="margin-top:14px">Ban for…</div>
       <div id="offenseList" class="row" style="gap:6px"></div>
       <div class="row" style="margin-top:8px"><input id="mCustomBan" type="text" placeholder="Custom reason…" />
         <button class="red sm" data-act="banrow">Ban</button></div>
@@ -251,7 +346,9 @@
 
   function render(d) {
     var players = d.players || [], bans = d.bans || [], s = d.settings || {};
-    $('sOnline').textContent = players.filter(function (p) { return p.online; }).length;
+    var onlineN = players.filter(function (p) { return p.online; }).length;
+    $('sOnline').textContent = onlineN;
+    var hp = $('hdrOnline'); if (hp) hp.textContent = onlineN;
     $('sBanned').textContent = bans.length;
     $('sMaint').textContent = s.maintenance ? 'On' : 'Off';
     $('maintSw').className = 'sw' + (s.maintenance ? ' on2' : '');
@@ -296,7 +393,7 @@
       var label = e.type === 'join' ? 'joined' : e.type === 'leave' ? 'left' :
         e.type === 'play' ? ('opened ' + esc(e.detail)) : e.type === 'ban' ? ('banned — ' + esc(e.detail)) :
         e.type === 'kick' ? 'kicked' : '';
-      return '<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:.86rem">' +
+      return '<div class="feedrow">' +
         '<span>' + (ICON[e.type] || '•') + '</span>' +
         '<span style="color:' + (COLOR[e.type] || 'var(--txt)') + ';font-weight:600">' + esc(e.nickname) + '</span>' +
         '<span class="muted">' + label + '</span>' +
@@ -311,9 +408,9 @@
     var hrs = s.hourly || [];
     var max = Math.max.apply(null, hrs.concat([1]));
     $('aHours').innerHTML = hrs.map(function (v, h) {
-      var ht = Math.round((v / max) * 78) + 2;
-      return '<div title="' + h + ':00 — ' + v + ' pings" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px">' +
-        '<div style="width:100%;height:' + ht + 'px;background:var(--blue);border-radius:3px 3px 0 0;opacity:' + (v ? 1 : 0.3) + '"></div>' +
+      var ht = Math.round((v / max) * 80) + 2;
+      return '<div title="' + h + ':00 — ' + v + ' pings" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px">' +
+        '<div style="width:100%;height:' + ht + 'px;background:linear-gradient(180deg,#5bd0ff,#4f8cff);border-radius:4px 4px 0 0;opacity:' + (v ? 1 : 0.25) + '"></div>' +
         '<div style="font-size:8px;color:var(--mut)">' + (h % 6 === 0 ? h : '') + '</div></div>';
     }).join('');
     var g = s.topGames || [];
@@ -421,6 +518,19 @@
 
   if (PW) { api('state').then(function (res) { if (res.ok) showDash(); else showLogin(); }).catch(showLogin); }
   else showLogin();
+})();
+
+// ----- tab navigation (independent of the main logic) -----
+(function () {
+  var tabs = document.querySelectorAll('.tab');
+  var views = document.querySelectorAll('.view');
+  function show(v) {
+    for (var i = 0; i < views.length; i++) views[i].classList.toggle('hide', views[i].getAttribute('data-panel') !== v);
+    for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].getAttribute('data-view') === v);
+  }
+  for (var k = 0; k < tabs.length; k++) {
+    tabs[k].addEventListener('click', function () { show(this.getAttribute('data-view')); });
+  }
 })();
 </script>
 </body>
