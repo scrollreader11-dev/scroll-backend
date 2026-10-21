@@ -62,6 +62,11 @@ const admin = {
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
 const geoCache = new Map(); // ip -> location string
 const stats = { peakOnline: 0, peakAt: 0, hourly: new Array(24).fill(0), gamePlays: {}, totalSessions: 0 };
+const events = []; // recent activity: {ts, type, nickname, detail}
+function logEvent(type, nickname, detail) {
+  events.push({ ts: Date.now(), type, nickname: String(nickname || '').slice(0, 40), detail: String(detail || '').slice(0, 80) });
+  if (events.length > 250) events.shift();
+}
 
 try {
   const fs = await import('node:fs');
@@ -96,7 +101,7 @@ async function geoLookup(ip) {
 }
 function prunePlayers() {
   const now = Date.now();
-  for (const [id, p] of players) if (now - p.lastSeen > PLAYER_TTL) players.delete(id);
+  for (const [id, p] of players) if (now - p.lastSeen > PLAYER_TTL) { logEvent('leave', p.nickname); players.delete(id); }
 }
 setInterval(prunePlayers, 15000);
 
@@ -147,10 +152,10 @@ async function handlePresence(req, res) {
   // analytics
   try {
     stats.hourly[new Date().getHours()]++;
-    if (!existing) stats.totalSessions++;
+    if (!existing) { stats.totalSessions++; logEvent('join', nickname); }
     if (activity && activity.indexOf('\u{1F3AE}') === 0 && activity !== (existing && existing.activity)) {
       const gn = activity.replace(/^\u{1F3AE}\s*/u, '').trim();
-      if (gn && gn !== 'In a game') stats.gamePlays[gn] = (stats.gamePlays[gn] || 0) + 1;
+      if (gn && gn !== 'In a game') { stats.gamePlays[gn] = (stats.gamePlays[gn] || 0) + 1; logEvent('play', nickname, gn); }
     }
   } catch (e) {}
   players.set(id, {
@@ -203,6 +208,7 @@ async function handleAdmin(req, res) {
     return sendJson(res, 200, {
       settings: admin.settings, players: list, bans, count: list.length,
       stats: { peakOnline: stats.peakOnline, peakAt: stats.peakAt, hourly: stats.hourly, topGames, totalSessions: stats.totalSessions },
+      events: events.slice(-60).reverse(),
     });
   }
   if (action === 'settings') {
@@ -220,7 +226,11 @@ async function handleAdmin(req, res) {
     const reason = String(body.reason || '').slice(0, 120);
     const mins = Number(body.minutes) || 0; // 0 = permanent
     const until = mins > 0 ? Date.now() + mins * 60000 : 0;
-    if (ip) { admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', reason, ts: Date.now(), until }; players.delete(id); delete admin.frozen[id]; await saveState(); }
+    if (ip) {
+      admin.bansByIp[ip] = { nickname: p?.nickname || 'Unknown', reason, ts: Date.now(), until };
+      logEvent('ban', p?.nickname || 'Unknown', reason + (mins ? ` (${mins}m)` : ' (permanent)'));
+      players.delete(id); delete admin.frozen[id]; await saveState();
+    }
     return sendJson(res, 200, { ok: true });
   }
   if (action === 'unban') {
@@ -231,6 +241,7 @@ async function handleAdmin(req, res) {
   if (action === 'kick') {
     const id = String(body.id || '');
     admin.kicks[id] = { message: String(body.message || 'You have been kicked.').slice(0, 200), ts: Date.now() };
+    logEvent('kick', players.get(id)?.nickname || 'Unknown');
     return sendJson(res, 200, { ok: true });
   }
   if (action === 'broadcast') {

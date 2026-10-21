@@ -99,6 +99,11 @@
     </div>
 
     <div class="card">
+      <h2>Activity feed</h2>
+      <div id="feed" style="max-height:340px;overflow:auto">Loading…</div>
+    </div>
+
+    <div class="card">
       <h2>Site controls</h2>
       <div class="field">
         <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode (closes the site for everyone)</span></label>
@@ -279,6 +284,24 @@
     }).join('');
 
     if (d.stats) renderStats(d.stats);
+    renderEvents(d.events);
+  }
+
+  function renderEvents(evs) {
+    if (!evs || !evs.length) { $('feed').innerHTML = '<div class="muted">No activity yet.</div>'; return; }
+    var ICON = { join: '🟢', leave: '⚪', play: '🎮', ban: '⛔', kick: '👢' };
+    var COLOR = { join: 'var(--green)', leave: 'var(--mut)', play: 'var(--blue2)', ban: 'var(--red)', kick: 'var(--amber)' };
+    $('feed').innerHTML = evs.map(function (e) {
+      var t = new Date(e.ts).toLocaleTimeString();
+      var label = e.type === 'join' ? 'joined' : e.type === 'leave' ? 'left' :
+        e.type === 'play' ? ('opened ' + esc(e.detail)) : e.type === 'ban' ? ('banned — ' + esc(e.detail)) :
+        e.type === 'kick' ? 'kicked' : '';
+      return '<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:.86rem">' +
+        '<span>' + (ICON[e.type] || '•') + '</span>' +
+        '<span style="color:' + (COLOR[e.type] || 'var(--txt)') + ';font-weight:600">' + esc(e.nickname) + '</span>' +
+        '<span class="muted">' + label + '</span>' +
+        '<span class="muted" style="margin-left:auto;font-size:.76rem">' + t + '</span></div>';
+    }).join('');
   }
 
   function renderStats(s) {
