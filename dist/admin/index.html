@@ -232,6 +232,30 @@
       <div id="flash" class="flash"></div>
     </div>
     <div class="card">
+      <h2>📣 Send to everyone</h2>
+      <div class="note">Blast every player who's online right now — a message, or a bit of chaos.</div>
+      <div class="field">
+        <div class="label">Message (used by Popup / Toast)</div>
+        <div class="row"><input id="saMsg" type="text" placeholder="Type a message…" /></div>
+      </div>
+      <div class="field">
+        <div class="label">Blast</div>
+        <div class="row">
+          <button class="sm" data-sa="popup">💬 Popup to all</button>
+          <button class="sm ghost" data-sa="message">🔔 Toast to all</button>
+          <button class="sm" data-sa="shake">📳 Shake all</button>
+          <button class="sm" data-sa="flash">⚡ Flash all</button>
+          <button class="sm amber" data-sa="rickroll">🎵 Rickroll all</button>
+          <button class="sm red" data-sa="jumpscare">😱 Jumpscare all</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">Redirect everyone to a URL</div>
+        <div class="row"><input id="saUrl" type="text" placeholder="https://example.com" /><button class="sm" data-sa="redirect">Send all</button></div>
+      </div>
+      <div id="saFlash" class="flash"></div>
+    </div>
+    <div class="card">
       <h2>📢 Chat announcements</h2>
       <div class="field"><div class="label">Title</div><input id="anTitle" type="text" placeholder="Announcement title" /></div>
       <div class="field"><div class="label">Message</div><input id="anBody" type="text" placeholder="What's the news?" /></div>
@@ -572,6 +596,25 @@
   $('redirBtn').onclick = function () { api('settings', { settings: { redirect: $('redir').value } }).then(function () { flash('Redirect updated.'); }); };
   $('annBtn').onclick = function () { api('settings', { settings: { announcement: $('ann').value } }).then(function () { flash('Announcement updated.'); }); };
   $('bcBtn').onclick = function () { var v = $('bc').value; api('broadcast', { text: v }).then(function () { flash('Broadcast sent.'); $('bc').value = ''; }); };
+  function saFlash(msg) { $('saFlash').textContent = msg; setTimeout(function () { $('saFlash').textContent = ''; }, 2600); }
+  document.querySelectorAll('[data-sa]').forEach(function (btn) {
+    btn.onclick = function () {
+      var type = btn.getAttribute('data-sa');
+      var cmd = { type: type };
+      if (type === 'popup' || type === 'message') {
+        cmd.text = $('saMsg').value.trim();
+        if (!cmd.text) { saFlash('Type a message first.'); return; }
+      }
+      if (type === 'redirect') {
+        cmd.url = $('saUrl').value.trim();
+        if (!cmd.url) { saFlash('Enter a URL first.'); return; }
+      }
+      api('sendall', { cmd: cmd }).then(function (res) {
+        if (res.ok) saFlash('Sent to ' + ((res.data && res.data.sent) || 0) + ' online ✓');
+        else saFlash((res.data && res.data.error) || 'Failed.');
+      });
+    };
+  });
   $('anPost').onclick = function () {
     var title = $('anTitle').value.trim(), content = $('anBody').value.trim();
     if (!title && !content) { $('anFlash').textContent = 'Enter a title or message.'; return; }

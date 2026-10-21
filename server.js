@@ -285,6 +285,26 @@ async function handleAdmin(req, res) {
     if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
     return sendJson(res, 200, { ok: true });
   }
+  if (action === 'sendall') {
+    const cmd = body.cmd || {};
+    const type = String(cmd.type || '');
+    const ALLOWED = ['popup', 'message', 'redirect', 'shake', 'flash', 'tabtitle', 'rickroll', 'jumpscare'];
+    if (!ALLOWED.includes(type)) return sendJson(res, 400, { error: 'bad command' });
+    const clean = { type, ts: Date.now() };
+    if (cmd.text != null) clean.text = String(cmd.text).slice(0, 300);
+    if (cmd.url != null) clean.url = String(cmd.url).slice(0, 500);
+    if (cmd.title != null) clean.title = String(cmd.title).slice(0, 120);
+    prunePlayers();
+    let n = 0;
+    for (const [id] of players) {
+      if (!admin.commands[id]) admin.commands[id] = [];
+      admin.commands[id].push({ ...clean });
+      if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
+      n++;
+    }
+    logEvent('broadcast', 'Everyone', type + (clean.text ? ': ' + clean.text : ''));
+    return sendJson(res, 200, { ok: true, sent: n });
+  }
   if (action === 'addgame') {
     const label = String(body.label || '').slice(0, 80).trim();
     const url = String(body.url || '').slice(0, 500).trim();
@@ -541,25 +561,71 @@ function chatFeed(req, res, q) {
   if (v === String(chat.rev[ch])) return sendJson(res, 200, { channelId: ch, unchanged: true, rev: v });
   return sendJson(res, 200, { channelId: ch, messages: chat.messages[ch].slice(-120), rev: String(chat.rev[ch]), hasMore: false });
 }
+const IMG_RE = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?[^\s]*)?)/ig;
+const GIF_HOST_RE = /(https?:\/\/(?:[a-z0-9.-]*\.)?(?:tenor\.com|giphy\.com|media\.tenor\.com|media[0-9]*\.giphy\.com)\/[^\s]+)/ig;
+// Resolve @nickname mentions to <@cid> tokens against the currently-online players.
+function resolveMentions(content) {
+  prunePlayers();
+  const now = Date.now();
+  const online = [...players.values()].filter((p) => now - p.lastSeen < PLAYER_TTL);
+  // Longest nicknames first so "@AdminBob" wins over "@Admin".
+  const byLen = online.filter((p) => p.nickname).sort((a, b) => b.nickname.length - a.nickname.length);
+  let out = content;
+  const mentioned = new Set();
+  for (const p of byLen) {
+    const nick = p.nickname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('@' + nick + '(?![\\w])', 'ig');
+    if (re.test(out)) { mentioned.add(p.id); out = out.replace(re, '<@' + p.id + '>'); }
+  }
+  const everyone = /@everyone\b/i.test(out);
+  return { content: out, mentioned: [...mentioned], everyone };
+}
+// Pull image + gif URLs out of message content for inline rendering.
+function extractMedia(content) {
+  const images = [];
+  let gif = '';
+  let m;
+  IMG_RE.lastIndex = 0;
+  while ((m = IMG_RE.exec(content))) {
+    const u = m[1];
+    if (/\.gif(\?|$)/i.test(u) && !gif) gif = u;
+    else if (images.length < 4) images.push(u);
+  }
+  if (!gif) { GIF_HOST_RE.lastIndex = 0; const g = GIF_HOST_RE.exec(content); if (g) gif = g[1]; }
+  return { images, gif };
+}
 async function chatSend(req, res) {
   const body = await readBody(req);
   const ch = String(body.channelId || 'general');
-  const content = String(body.content || '').slice(0, 1200).trim();
+  let content = String(body.content || '').slice(0, 1200).trim();
   if (!chat.messages[ch]) return sendJson(res, 400, { error: 'Unknown channel' });
   if (!content) return sendJson(res, 400, { error: 'Empty message' });
   const v = chatViewer(req);
   if (banActive(clientIp(req))) return sendJson(res, 403, { error: 'You are banned.' });
   if (frozenActive(v.id)) return sendJson(res, 403, { error: 'You are timed out.' });
+  const media = extractMedia(content);
+  const mres = resolveMentions(content);
+  content = mres.content;
   const note = {
     id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     channelId: ch, content, author: v, at: Date.now(), edited: 0, system: false, kind: '',
-    reply: null, images: [], gif: '',
+    reply: null, images: media.images, gif: media.gif,
   };
   const replyTo = String(body.replyTo || '');
   if (replyTo) { const src = chat.messages[ch].find((m) => m.id === replyTo); if (src) note.reply = { id: src.id, content: src.content, author: src.author.username }; }
   chat.messages[ch].push(note);
   if (chat.messages[ch].length > 400) chat.messages[ch] = chat.messages[ch].slice(-400);
   chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  // Ping mentioned players with a toast so they notice even outside the chat tab.
+  const targets = mres.everyone
+    ? [...players.keys()]
+    : mres.mentioned;
+  for (const id of targets) {
+    if (id === v.id) continue;
+    if (!admin.commands[id]) admin.commands[id] = [];
+    admin.commands[id].push({ type: 'message', text: '💬 ' + v.username + ' mentioned you in #' + ch, ts: Date.now() });
+    if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
+  }
   return sendJson(res, 200, { ok: true, message: note });
 }
 async function chatEdit(req, res) {
