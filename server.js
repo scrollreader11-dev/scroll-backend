@@ -51,6 +51,48 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'multicraft1122';
 const STATE_FILE = '/tmp/scrollhub-admin-state.json';
 const PLAYER_TTL = 35000; // ms since last heartbeat before "offline"
 
+// ------------------------------------------------------------
+// Durable cloud storage (Upstash Redis REST).
+// /tmp is wiped on every Render redeploy / sleep, so chat + admin
+// state are mirrored to Upstash when its env vars are present.
+// Falls back to /tmp-only behavior when they are not.
+// ------------------------------------------------------------
+const KV_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
+const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const kvEnabled = !!(KV_URL && KV_TOKEN);
+async function kvGet(key) {
+  if (!kvEnabled) return null;
+  const r = await fetch(KV_URL, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(['GET', key]),
+  });
+  if (!r.ok) throw new Error('kv get ' + r.status);
+  const j = await r.json();
+  return j && typeof j.result === 'string' ? j.result : null;
+}
+async function kvSet(key, value) {
+  if (!kvEnabled) return;
+  const r = await fetch(KV_URL, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(['SET', key, value]),
+  });
+  if (!r.ok) throw new Error('kv set ' + r.status);
+}
+// Debounced KV writers so a busy chat can't blow the free command budget.
+let _stateDirty = false, _chatDirty = false;
+async function kvFlush() {
+  if (!kvEnabled) return;
+  try {
+    if (_stateDirty) { _stateDirty = false; await kvSet('sh:state', JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners })); }
+  } catch (e) { _stateDirty = true; }
+  try {
+    if (_chatDirty) { _chatDirty = false; const trimmed = {}; for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-800); await kvSet('sh:chat', JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev, announcements: chat.announcements })); }
+  } catch (e) { _chatDirty = true; }
+}
+setInterval(kvFlush, 12000);
+
 const admin = {
   settings: { maintenance: false, redirect: '', announcement: '' },
   bansByIp: {},   // ip -> {nickname, reason, ts}
@@ -77,18 +119,22 @@ function logEvent(type, nickname, detail) {
   if (events.length > 250) events.shift();
 }
 
+function applyState(saved) {
+  if (!saved) return;
+  if (saved.settings) admin.settings = saved.settings;
+  if (saved.bansByIp) admin.bansByIp = saved.bansByIp;
+  if (saved.stats) Object.assign(stats, saved.stats);
+  if (Array.isArray(saved.customGames)) admin.customGames = saved.customGames;
+  if (saved.chatOwners) admin.chatOwners = saved.chatOwners;
+}
 try {
   const fs = await import('node:fs');
-  if (fs.existsSync(STATE_FILE)) {
-    const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    if (saved.settings) admin.settings = saved.settings;
-    if (saved.bansByIp) admin.bansByIp = saved.bansByIp;
-    if (saved.stats) Object.assign(stats, saved.stats);
-    if (Array.isArray(saved.customGames)) admin.customGames = saved.customGames;
-    if (saved.chatOwners) admin.chatOwners = saved.chatOwners;
-  }
+  if (fs.existsSync(STATE_FILE)) applyState(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')));
 } catch {}
+// Durable copy wins over the ephemeral /tmp copy.
+try { const s = await kvGet('sh:state'); if (s) applyState(JSON.parse(s)); } catch (e) { console.log('kv state load failed:', e.message); }
 async function saveState() {
+  _stateDirty = true;
   try {
     const fs = await import('node:fs');
     fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners }));
@@ -485,22 +531,26 @@ const chat = {
   rev: { general: 1, games: 1 },
   announcements: [],
 };
+function applyChat(s) {
+  if (!s) return;
+  if (Array.isArray(s.channels) && s.channels.length) chat.channels = s.channels;
+  if (s.messages) chat.messages = s.messages;
+  if (s.rev) chat.rev = s.rev;
+  if (Array.isArray(s.announcements)) chat.announcements = s.announcements;
+}
 try {
   const fs = await import('node:fs');
-  if (fs.existsSync(CHAT_FILE)) {
-    const s = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8'));
-    if (Array.isArray(s.channels) && s.channels.length) chat.channels = s.channels;
-    if (s.messages) chat.messages = s.messages;
-    if (s.rev) chat.rev = s.rev;
-    if (Array.isArray(s.announcements)) chat.announcements = s.announcements;
-  }
+  if (fs.existsSync(CHAT_FILE)) applyChat(JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')));
 } catch (e) {}
+// Durable copy wins over the ephemeral /tmp copy — this is what makes
+// history survive a redeploy or the free instance sleeping.
+try { const s = await kvGet('sh:chat'); if (s) applyChat(JSON.parse(s)); } catch (e) { console.log('kv chat load failed:', e.message); }
 async function saveChat() {
+  _chatDirty = true;
   try {
     const fs = await import('node:fs');
-    // cap stored messages per channel
     const trimmed = {};
-    for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-150);
+    for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-800);
     fs.writeFileSync(CHAT_FILE, JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev, announcements: chat.announcements }));
   } catch (e) {}
 }
@@ -540,7 +590,7 @@ function chatBootPayload(req) {
     guild: { name: 'ScrollHub', tag: 'SH' },
     channels: chat.channels,
     channelId: ch,
-    messages: (chat.messages[ch] || []).slice(-120),
+    messages: (chat.messages[ch] || []).slice(-300),
     hasMore: false,
     rev: String(chat.rev[ch] || 1),
     emotes: {},
@@ -614,8 +664,9 @@ async function chatSend(req, res) {
   const replyTo = String(body.replyTo || '');
   if (replyTo) { const src = chat.messages[ch].find((m) => m.id === replyTo); if (src) note.reply = { id: src.id, content: src.content, author: src.author.username }; }
   chat.messages[ch].push(note);
-  if (chat.messages[ch].length > 400) chat.messages[ch] = chat.messages[ch].slice(-400);
+  if (chat.messages[ch].length > 800) chat.messages[ch] = chat.messages[ch].slice(-800);
   chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  saveChat();
   // Ping mentioned players with a toast so they notice even outside the chat tab.
   const targets = mres.everyone
     ? [...players.keys()]
@@ -636,6 +687,7 @@ async function chatEdit(req, res) {
   if (m.author.id !== v.id) return sendJson(res, 403, { error: 'Not your message' });
   m.content = String(body.content || '').slice(0, 1200); m.edited = Date.now();
   chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  saveChat();
   return sendJson(res, 200, { ok: true });
 }
 async function chatDelete(req, res) {
@@ -646,6 +698,7 @@ async function chatDelete(req, res) {
   if (i < 0) return sendJson(res, 404, { error: 'Not found' });
   if (arr[i].author.id !== v.id && !isChatOwner(req)) return sendJson(res, 403, { error: 'Not your message' });
   arr.splice(i, 1); chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  saveChat();
   return sendJson(res, 200, { ok: true });
 }
 function chatPresence(req, res) {
@@ -785,4 +838,9 @@ httpServer.on('upgrade', (req, socket, head) => {
 const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Scroll Unblocker running on port ${PORT}`);
+  console.log(kvEnabled ? 'Durable storage: Upstash Redis (ON)' : 'Durable storage: OFF (set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)');
 });
+// Best-effort final flush so the last messages aren't lost on shutdown.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, async () => { try { await kvFlush(); } catch {} process.exit(0); });
+}
