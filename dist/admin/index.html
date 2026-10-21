@@ -305,7 +305,12 @@
     </div>
 
     <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px">
-      <div class="label">🛡️ Moderation</div>
+      <div class="label">👑 Chat role</div>
+      <div class="row">
+        <button class="sm" data-act="setowner">👑 Make chat owner</button>
+        <button class="sm ghost" data-act="unsetowner">Remove owner</button>
+      </div>
+      <div class="label" style="margin-top:14px">🛡️ Moderation</div>
       <div class="row"><button class="amber sm" data-act="kickrow">👢 Kick</button></div>
       <div class="label" style="margin-top:14px">Ban length: <span id="banDurLabel" style="color:var(--blue2)">Permanent</span></div>
       <div id="banDur" class="row" style="gap:6px">
@@ -396,7 +401,7 @@
     else pb.innerHTML = players.map(function (p) {
       playerMap[p.id] = p;
       return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--blue2);text-decoration:none;font-weight:700">' +
-        esc(p.nickname) + '</a>' + (p.frozen ? ' <span class="pill">frozen</span>' : '') + '</td>' +
+        esc(p.nickname) + '</a>' + (p.chatOwner ? ' <span class="pill">👑</span>' : '') + (p.frozen ? ' <span class="pill">frozen</span>' : '') + '</td>' +
         '<td class="muted">' + esc(p.activity || '—') + '</td>' +
         '<td class="muted">' + esc(p.location) + '</td>' +
         '<td><span class="dot ' + (p.online ? 'on' : 'off') + '"></span>' + (p.online ? 'Online' : 'Idle') + '</td>' +
@@ -481,7 +486,7 @@
   // ----- player profile modal -----
   function mflash(msg) { $('mFlash').textContent = msg; setTimeout(function () { $('mFlash').textContent = ''; }, 2000); }
   function refreshModalMeta(p) {
-    $('mName').innerHTML = esc(p.nickname) + (p.frozen ? ' <span class="pill">frozen</span>' : '');
+    $('mName').innerHTML = esc(p.nickname) + (p.chatOwner ? ' <span class="pill">👑 owner</span>' : '') + (p.frozen ? ' <span class="pill">frozen</span>' : '');
     $('mMeta').textContent = p.location + ' · ' + (p.online ? 'online' : 'idle') + ' · ' + (p.ip || '');
   }
   function openProfile(id) {
@@ -533,6 +538,8 @@
     else if (act === 'rickroll') { cmd('rickroll'); mflash('Rickrolled!'); }
     else if (act === 'jumpscare') { cmd('jumpscare'); mflash('Jumpscare sent! 😱'); }
     else if (act === 'timeout') { api('freeze', { id: currentId, on: true, minutes: 5 }).then(function () { mflash('Timed out for 5 min.'); tick(); }); }
+    else if (act === 'setowner') { api('setowner', { id: currentId, on: true }).then(function () { mflash('Made chat owner 👑'); tick(); }); }
+    else if (act === 'unsetowner') { api('setowner', { id: currentId, on: false }).then(function () { mflash('Removed chat owner'); tick(); }); }
     else if (act === 'popup') { var v = $('mMsg').value.trim(); if (v) { cmd('popup', { text: v }); mflash('Popup sent.'); } }
     else if (act === 'toast') { var v2 = $('mMsg').value.trim(); if (v2) { cmd('message', { text: v2 }); mflash('Message sent.'); } }
     else if (act === 'tabtitle') { var ti = $('mTitle').value.trim(); if (ti) { cmd('tabtitle', { title: ti }); mflash('Tab renamed.'); } }

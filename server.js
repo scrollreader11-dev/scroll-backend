@@ -58,7 +58,8 @@ const admin = {
   broadcast: null,// {text, ts}  shown to everyone once
   commands: {},   // clientId -> [ {type, ...} ]  (one-shot queue)
   frozen: {},     // clientId -> until (0 = indefinite)
-  customGames: [] // admin-added games shown to everyone
+  customGames: [],// admin-added games shown to everyone
+  chatOwners: {}  // clientId -> true  (designated chat owners)
 };
 // Replicates the frontend's generateGameId so ids stay consistent.
 function makeGameId(label, url) {
@@ -84,12 +85,13 @@ try {
     if (saved.bansByIp) admin.bansByIp = saved.bansByIp;
     if (saved.stats) Object.assign(stats, saved.stats);
     if (Array.isArray(saved.customGames)) admin.customGames = saved.customGames;
+    if (saved.chatOwners) admin.chatOwners = saved.chatOwners;
   }
 } catch {}
 async function saveState() {
   try {
     const fs = await import('node:fs');
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames }));
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners }));
   } catch {}
 }
 setInterval(saveState, 60000);
@@ -209,6 +211,7 @@ async function handleAdmin(req, res) {
       since: p.firstSeen,
       frozen: frozenActive(p.id),
       frozenUntil: admin.frozen[p.id] || 0,
+      chatOwner: !!admin.chatOwners[p.id],
     }));
     const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, reason: b.reason || '', ts: b.ts, until: b.until || 0 }));
     const online = list.filter((p) => p.online).length;
@@ -314,6 +317,13 @@ async function handleAdmin(req, res) {
     const id = String(body.id || '');
     chat.announcements = chat.announcements.filter((x) => x.id !== id);
     await saveChat();
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'setowner') {
+    const id = String(body.id || '');
+    if (!id) return sendJson(res, 400, { error: 'no id' });
+    if (body.on) admin.chatOwners[id] = true; else delete admin.chatOwners[id];
+    await saveState();
     return sendJson(res, 200, { ok: true });
   }
   return sendJson(res, 400, { error: 'unknown action' });
@@ -486,7 +496,9 @@ function colorFor(seed) {
   return 'hsl(' + (h % 360) + ' 70% 66%)';
 }
 function isChatOwner(req) {
-  return parseCookies(req).sh_owner === ADMIN_PASSWORD;
+  const c = parseCookies(req);
+  if (c.sh_owner === ADMIN_PASSWORD) return true;         // the admin
+  return !!admin.chatOwners[c.sh_cid];                     // a designated owner
 }
 function chatViewer(req) {
   const c = parseCookies(req);
