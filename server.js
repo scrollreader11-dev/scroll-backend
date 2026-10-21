@@ -399,19 +399,24 @@ async function proxyUpstream(req, res) {
       'cache-control': 'public, max-age=86400',
       'access-control-allow-origin': '*',
     };
+    // Advertise byte-range support so big games can stream/seek instead of
+    // downloading in one blocking shot.
+    const ar = up.headers.get('accept-ranges'); if (ar) outHeaders['accept-ranges'] = ar;
     if (up.status === 206) {
-      for (const h of ['content-range', 'accept-ranges']) {
-        const v = up.headers.get(h);
-        if (v) outHeaders[h] = v;
-      }
+      const cr = up.headers.get('content-range'); if (cr) outHeaders['content-range'] = cr;
     }
-    if (req.method === 'HEAD') { res.writeHead(up.status, outHeaders); res.end(); return; }
-    const buf = Buffer.from(await up.arrayBuffer());
+    // fetch() decompresses gzip/br, so only forward content-length when the
+    // body is NOT re-encoded (true for binary game assets) — gives real
+    // progress bars without truncating.
+    const enc = up.headers.get('content-encoding');
+    const len = up.headers.get('content-length');
+    if (!enc && len) outHeaders['content-length'] = len;
     res.writeHead(up.status, outHeaders);
-    res.end(buf);
+    if (req.method === 'HEAD' || !up.body) { res.end(); return; }
+    // Stream straight through — no full buffering in memory.
+    Readable.fromWeb(up.body).pipe(res).on('error', function () { try { res.destroy(); } catch (e) {} });
   } catch (e) {
-    res.writeHead(502, { 'Content-Type': 'text/plain' });
-    res.end('Upstream fetch failed');
+    try { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end('Upstream fetch failed'); } catch (e2) {}
   }
 }
 
