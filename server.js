@@ -219,6 +219,7 @@ async function handleAdmin(req, res) {
       stats: { peakOnline: stats.peakOnline, peakAt: stats.peakAt, hourly: stats.hourly, topGames, totalSessions: stats.totalSessions },
       events: events.slice(-60).reverse(),
       customGames: admin.customGames,
+      announcements: chat.announcements.slice(-20),
     });
   }
   if (action === 'settings') {
@@ -297,6 +298,22 @@ async function handleAdmin(req, res) {
     const id = String(body.id || '');
     admin.customGames = admin.customGames.filter((x) => x.id !== id);
     await saveState();
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'announce') {
+    const title = String(body.title || '').slice(0, 100).trim();
+    const content = String(body.content || '').slice(0, 1000).trim();
+    if (!title && !content) return sendJson(res, 400, { error: 'Title or message required' });
+    const a = { id: 'a' + Date.now().toString(36), title: title || 'Announcement', content, important: body.important ? 1 : 0, at: Date.now() };
+    chat.announcements.push(a);
+    if (chat.announcements.length > 30) chat.announcements = chat.announcements.slice(-30);
+    await saveChat();
+    return sendJson(res, 200, { ok: true, announcement: a });
+  }
+  if (action === 'delannounce') {
+    const id = String(body.id || '');
+    chat.announcements = chat.announcements.filter((x) => x.id !== id);
+    await saveChat();
     return sendJson(res, 200, { ok: true });
   }
   return sendJson(res, 400, { error: 'unknown action' });
@@ -436,6 +453,7 @@ const chat = {
   ],
   messages: { general: [], games: [] },
   rev: { general: 1, games: 1 },
+  announcements: [],
 };
 try {
   const fs = await import('node:fs');
@@ -444,6 +462,7 @@ try {
     if (Array.isArray(s.channels) && s.channels.length) chat.channels = s.channels;
     if (s.messages) chat.messages = s.messages;
     if (s.rev) chat.rev = s.rev;
+    if (Array.isArray(s.announcements)) chat.announcements = s.announcements;
   }
 } catch (e) {}
 async function saveChat() {
@@ -452,7 +471,7 @@ async function saveChat() {
     // cap stored messages per channel
     const trimmed = {};
     for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-150);
-    fs.writeFileSync(CHAT_FILE, JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev }));
+    fs.writeFileSync(CHAT_FILE, JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev, announcements: chat.announcements }));
   } catch (e) {}
 }
 setInterval(saveChat, 60000);
@@ -495,12 +514,12 @@ function chatBootPayload(req) {
     emotes: {},
     viewer: v,
     powers: v.owner
-      ? { messages: true, timeout: false, ban: false, roles: false, channels: true }
+      ? { messages: true, timeout: true, ban: true, roles: false, channels: true }
       : { messages: true, timeout: false, ban: false, roles: false, channels: false },
     roles: [],
     standing: chatStanding(req, v),
     rules: { accepted: true, items: [] },
-    announcements: [],
+    announcements: chat.announcements.slice(-20),
   };
 }
 function chatFeed(req, res, q) {
@@ -551,6 +570,36 @@ async function chatDelete(req, res) {
   arr.splice(i, 1); chat.rev[ch] = (chat.rev[ch] || 1) + 1;
   return sendJson(res, 200, { ok: true });
 }
+function chatPresence(req, res) {
+  prunePlayers();
+  const now = Date.now();
+  const online = [...players.values()].filter((p) => now - p.lastSeen < PLAYER_TTL);
+  const members = online.map((p) => ({ id: p.id, username: p.nickname, avatar: '', color: colorFor(p.id), status: 'online' }));
+  return sendJson(res, 200, { groups: [{ role: null, members }], count: members.length, typing: [] });
+}
+async function chatMod(req, res, kind) {
+  if (!isChatOwner(req)) return sendJson(res, 403, { error: 'Only the owner can moderate.' });
+  const body = await readBody(req);
+  const userId = String(body.userId || '');
+  const minutes = Number(body.minutes) || 0;
+  const reason = String(body.reason || 'Moderated in chat').slice(0, 120);
+  const clear = !!body.clear;
+  const p = players.get(userId);
+  if (kind === 'timeout') {
+    if (clear) delete admin.frozen[userId];
+    else admin.frozen[userId] = minutes > 0 ? Date.now() + minutes * 60000 : 0;
+  } else {
+    const ip = p && p.ip;
+    if (clear) { if (ip) delete admin.bansByIp[ip]; }
+    else if (ip) {
+      admin.bansByIp[ip] = { nickname: (p && p.nickname) || 'Unknown', reason, ts: Date.now(), until: minutes > 0 ? Date.now() + minutes * 60000 : 0 };
+      players.delete(userId); logEvent('ban', (p && p.nickname) || 'Unknown', reason);
+    }
+    await saveState();
+  }
+  return sendJson(res, 200, { ok: true });
+}
+
 async function chatChannel(req, res) {
   if (!isChatOwner(req)) return sendJson(res, 403, { error: 'Only the owner can manage channels.' });
   const body = await readBody(req);
@@ -621,10 +670,13 @@ const httpServer = createServer((req, res) => {
   if (url === '/api/chat/edit' && req.method === 'POST') return chatEdit(req, res);
   if (url === '/api/chat/delete' && req.method === 'POST') return chatDelete(req, res);
   if (url === '/api/chat/channel' && req.method === 'POST') return chatChannel(req, res);
+  if (url === '/api/chat/presence') return chatPresence(req, res);
+  if (url === '/api/chat/ban' && req.method === 'POST') return chatMod(req, res, 'ban');
+  if (url === '/api/chat/timeout' && req.method === 'POST') return chatMod(req, res, 'timeout');
   if (url === '/api/chat/face') { if (req.method === 'POST') return sendJson(res, 200, { ok: true }); return sendJson(res, 200, { signedIn: true, emotes: {} }); }
   if (url === '/api/chat/commands') return sendJson(res, 200, { commands: [] });
   if (url === '/api/chat/pass') return sendJson(res, 200, {});
-  if (url === '/api/announcements/active') return sendJson(res, 200, { announcements: [] });
+  if (url === '/api/announcements/active') return sendJson(res, 200, { announcements: chat.announcements.slice(-20) });
   if (url.startsWith('/api/chat/')) return sendJson(res, 200, { ok: true }); // typing/rules/logout/report/etc.
 
   // Live presence (visitor heartbeat) + admin control.

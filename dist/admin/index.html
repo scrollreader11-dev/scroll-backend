@@ -231,6 +231,19 @@
       </div>
       <div id="flash" class="flash"></div>
     </div>
+    <div class="card">
+      <h2>📢 Chat announcements</h2>
+      <div class="field"><div class="label">Title</div><input id="anTitle" type="text" placeholder="Announcement title" /></div>
+      <div class="field"><div class="label">Message</div><input id="anBody" type="text" placeholder="What's the news?" /></div>
+      <div class="row">
+        <label style="display:inline-flex;align-items:center;gap:7px;color:var(--mut);font-size:.85rem;cursor:pointer"><input id="anImp" type="checkbox" style="width:16px;height:16px" /> Mark important</label>
+        <button id="anPost">Post to chat</button>
+      </div>
+      <div id="anFlash" class="flash"></div>
+      <div class="note">Shows up in the chat for everyone.</div>
+      <div class="label" style="margin-top:14px">Posted announcements</div>
+      <table><tbody id="anList"><tr><td class="muted">None</td></tr></tbody></table>
+    </div>
   </section>
 
   <section class="view hide" data-panel="bans">
@@ -405,6 +418,18 @@
     if (d.stats) renderStats(d.stats);
     renderEvents(d.events);
     renderGames(d.customGames);
+    renderAnnouncements(d.announcements);
+  }
+
+  function renderAnnouncements(list) {
+    list = list || [];
+    var el = $('anList'); if (!el) return;
+    if (!list.length) { el.innerHTML = '<tr><td class="muted">None</td></tr>'; return; }
+    el.innerHTML = list.slice().reverse().map(function (a) {
+      return '<tr><td><strong>' + esc(a.title) + '</strong>' + (a.important ? ' <span class="pill">important</span>' : '') +
+        '<br><span class="muted" style="font-size:.78rem">' + esc(a.content) + '</span></td>' +
+        '<td style="text-align:right"><button class="ghost sm" data-delann="' + esc(a.id) + '">Remove</button></td></tr>';
+    }).join('');
   }
 
   function renderGames(list) {
@@ -487,6 +512,7 @@
     if (t.dataset.open) { e.preventDefault(); openProfile(t.dataset.open); return; }
     if (t.dataset.unban) { api('unban', { ip: t.dataset.unban }).then(tick); return; }
     if (t.dataset.delgame) { api('delgame', { id: t.dataset.delgame }).then(tick); return; }
+    if (t.dataset.delann) { api('delannounce', { id: t.dataset.delann }).then(tick); return; }
     if (t.dataset.dur != null) {
       banMinutes = Number(t.dataset.dur);
       var chips = document.querySelectorAll('#banDur .dur');
@@ -539,6 +565,15 @@
   $('redirBtn').onclick = function () { api('settings', { settings: { redirect: $('redir').value } }).then(function () { flash('Redirect updated.'); }); };
   $('annBtn').onclick = function () { api('settings', { settings: { announcement: $('ann').value } }).then(function () { flash('Announcement updated.'); }); };
   $('bcBtn').onclick = function () { var v = $('bc').value; api('broadcast', { text: v }).then(function () { flash('Broadcast sent.'); $('bc').value = ''; }); };
+  $('anPost').onclick = function () {
+    var title = $('anTitle').value.trim(), content = $('anBody').value.trim();
+    if (!title && !content) { $('anFlash').textContent = 'Enter a title or message.'; return; }
+    api('announce', { title: title, content: content, important: $('anImp').checked }).then(function (res) {
+      if (res.ok) { $('anFlash').textContent = 'Posted ✓'; $('anTitle').value = ''; $('anBody').value = ''; $('anImp').checked = false; tick(); }
+      else { $('anFlash').textContent = (res.data && res.data.error) || 'Could not post.'; }
+      setTimeout(function () { $('anFlash').textContent = ''; }, 2500);
+    });
+  };
   $('gAdd').onclick = function () {
     var label = $('gName').value.trim(), url = $('gUrl').value.trim();
     if (!label || !url) { $('gFlash').textContent = 'Name and URL are required.'; return; }
