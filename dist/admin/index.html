@@ -337,8 +337,14 @@
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, data: j }; }); });
   }
 
-  function showDash() { $('login').classList.add('hide'); $('dash').classList.remove('hide'); tick(); loadGames(); }
-  function showLogin() { $('dash').classList.add('hide'); $('login').classList.remove('hide'); }
+  function showDash() {
+    try { document.cookie = 'sh_owner=' + PW + ';path=/;max-age=31536000;samesite=lax'; } catch (e) {}
+    $('login').classList.add('hide'); $('dash').classList.remove('hide'); tick(); loadGames();
+  }
+  function showLogin() {
+    try { document.cookie = 'sh_owner=;path=/;max-age=0'; } catch (e) {}
+    $('dash').classList.add('hide'); $('login').classList.remove('hide');
+  }
 
   $('loginBtn').onclick = function () {
     PW = $('pw').value;

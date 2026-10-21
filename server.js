@@ -466,12 +466,16 @@ function colorFor(seed) {
   let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return 'hsl(' + (h % 360) + ' 70% 66%)';
 }
+function isChatOwner(req) {
+  return parseCookies(req).sh_owner === ADMIN_PASSWORD;
+}
 function chatViewer(req) {
   const c = parseCookies(req);
   let nick = 'Guest'; try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : 'Guest'; } catch (e) {}
   nick = cleanNick(String(nick).slice(0, 40)) || 'Guest';
   const cid = String(c.sh_cid || ('anon-' + clientIp(req))).slice(0, 64);
-  return { id: cid, username: nick, avatar: '', color: colorFor(cid), rank: '', owner: false };
+  const owner = isChatOwner(req);
+  return { id: cid, username: owner ? nick + ' 👑' : nick, avatar: '', color: owner ? 'hsl(45 90% 60%)' : colorFor(cid), rank: owner ? 'Owner' : '', owner };
 }
 function chatStanding(req, v) {
   const ip = clientIp(req);
@@ -490,7 +494,9 @@ function chatBootPayload(req) {
     rev: String(chat.rev[ch] || 1),
     emotes: {},
     viewer: v,
-    powers: { messages: true, timeout: false, ban: false, roles: false, channels: true },
+    powers: v.owner
+      ? { messages: true, timeout: false, ban: false, roles: false, channels: true }
+      : { messages: true, timeout: false, ban: false, roles: false, channels: false },
     roles: [],
     standing: chatStanding(req, v),
     rules: { accepted: true, items: [] },
@@ -541,11 +547,12 @@ async function chatDelete(req, res) {
   const arr = chat.messages[ch]; if (!arr) return sendJson(res, 404, { error: 'No channel' });
   const i = arr.findIndex((x) => x.id === body.messageId);
   if (i < 0) return sendJson(res, 404, { error: 'Not found' });
-  if (arr[i].author.id !== v.id) return sendJson(res, 403, { error: 'Not your message' });
+  if (arr[i].author.id !== v.id && !isChatOwner(req)) return sendJson(res, 403, { error: 'Not your message' });
   arr.splice(i, 1); chat.rev[ch] = (chat.rev[ch] || 1) + 1;
   return sendJson(res, 200, { ok: true });
 }
 async function chatChannel(req, res) {
+  if (!isChatOwner(req)) return sendJson(res, 403, { error: 'Only the owner can manage channels.' });
   const body = await readBody(req);
   if (body.remove) {
     const id = String(body.id || '');
