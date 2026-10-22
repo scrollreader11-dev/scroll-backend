@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
+import { handleSkribblUpgrade } from './skribbl.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = join(__dirname, 'dist');
@@ -780,6 +781,10 @@ const httpServer = createServer((req, res) => {
     req.url = '/admin/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if (url === '/skribbl' || url === '/skribbl/' || url === '/draw' || url === '/draw/') {
+    req.url = '/skribbl/index.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
 
   // Legal gate — always accepted.
   if (url === '/api/legal/status') return sendJson(res, 200, { accepted: true, needsCaptcha: false, gate: false, version: '1' });
@@ -793,7 +798,16 @@ const httpServer = createServer((req, res) => {
 
   // Game catalog extras — admin-added games are served as "globals" so the
   // games page shows them to everyone.
-  if (url === '/api/games/catalog') return sendJson(res, 200, { globals: admin.customGames, exclusions: [], overrides: [] });
+  if (url === '/api/games/catalog') {
+    // Built-in, always-present ScrollHub original.
+    const builtins = [{
+      id: 'scrollhub-draw-guess', label: 'Draw & Guess (Multiplayer)', url: '/skribbl',
+      imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Multiplayer', 'ScrollHub Originals'], isGlobal: true,
+    }];
+    const customIds = new Set(admin.customGames.map((g) => g.id));
+    const globals = [...builtins.filter((b) => !customIds.has(b.id)), ...admin.customGames];
+    return sendJson(res, 200, { globals, exclusions: [], overrides: [] });
+  }
 
   // No real account system — return a guest so the account/settings page
   // opens (and the appearance/wallpaper picker is reachable) without a login.
@@ -842,6 +856,8 @@ httpServer.on('upgrade', (req, socket, head) => {
   // Banned IPs can't use the proxy tunnel (respects timed-ban expiry).
   const ip = clientIp(req);
   if (banActive(ip)) { try { socket.destroy(); } catch {} return; }
+  // Skribbl draw & guess has its own WebSocket channel.
+  if ((req.url || '').split('?')[0] === '/skribbl-ws') return handleSkribblUpgrade(req, socket, head);
   wisp.routeRequest(req, socket, head);
 });
 
