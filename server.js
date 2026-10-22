@@ -146,9 +146,13 @@ setInterval(saveState, 60000);
 async function geoLookup(ip) {
   if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.')) return 'Local';
   if (geoCache.has(ip)) return geoCache.get(ip);
+  // ip-api free tier is ~45 req/min; back off globally if it ever 429s so we
+  // never get the whole server IP temporarily banned.
+  if (Date.now() < geoCooldownUntil) return 'Unknown';
   geoCache.set(ip, 'Locating…');
   try {
     const r = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,city,regionName,country`);
+    if (r.status === 429) { geoCooldownUntil = Date.now() + 120000; geoCache.delete(ip); return 'Unknown'; }
     const d = await r.json();
     const loc = d.status === 'success'
       ? [d.city, d.regionName, d.country].filter(Boolean).join(', ')
@@ -157,6 +161,7 @@ async function geoLookup(ip) {
     return loc;
   } catch { geoCache.set(ip, 'Unknown'); return 'Unknown'; }
 }
+let geoCooldownUntil = 0;
 function prunePlayers() {
   const now = Date.now();
   for (const [id, p] of players) if (now - p.lastSeen > PLAYER_TTL) { logEvent('leave', p.nickname); players.delete(id); }
@@ -496,21 +501,55 @@ const CACHE_TTL = 6 * 3600 * 1000;          // 6h freshness
 const assetCache = new Map();               // url -> {status, ctype, body, ts}
 let cacheBytes = 0;
 const inflight = new Map();                  // url -> Promise (dedupes concurrent first-loads)
+// Fresh hit only (within TTL) — drives the fast path.
 function cacheGet(url) {
   const e = assetCache.get(url);
   if (!e) return null;
-  if (Date.now() - e.ts > CACHE_TTL) { assetCache.delete(url); cacheBytes -= e.body.length; return null; }
+  if (Date.now() - e.ts > CACHE_TTL) return null; // stale: keep it for fallback, just don't count as fresh
   assetCache.delete(url); assetCache.set(url, e); // LRU: move to newest
   return e;
 }
+// Any copy we still hold, fresh or stale — used to keep the site working when
+// upstream rate-limits us or errors.
+function cachePeek(url) { return assetCache.get(url) || null; }
 function cachePut(url, status, ctype, body) {
   if (!body || body.length > CACHE_MAX_ITEM) return;
   while (cacheBytes + body.length > CACHE_MAX_TOTAL && assetCache.size) {
     const k = assetCache.keys().next().value; const old = assetCache.get(k);
     assetCache.delete(k); cacheBytes -= old.body.length;
   }
+  if (assetCache.has(url)) cacheBytes -= assetCache.get(url).body.length;
   assetCache.set(url, { status, ctype, body, ts: Date.now() });
   cacheBytes += body.length;
+}
+
+// ---- outbound concurrency limiter -------------------------
+// All players share one server IP, so bursts of upstream fetches trip the
+// source site's rate limiter (the "Too Many Requests" error). Cap how many
+// requests we make at once and queue the rest — smooth instead of spiky.
+const MAX_UPSTREAM = 6;
+let activeUpstream = 0;
+const upQueue = [];
+function acquireUpstream() {
+  if (activeUpstream < MAX_UPSTREAM) { activeUpstream++; return Promise.resolve(); }
+  return new Promise((res) => upQueue.push(res));
+}
+function releaseUpstream() {
+  const next = upQueue.shift();
+  if (next) next(); else activeUpstream--;
+}
+// A 1x1 transparent PNG — shown instead of a broken/missing image so the page
+// never surfaces an error; cached only briefly so it refills once upstream is ok.
+const BLANK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
+function looksImage(url) { return /\.(png|jpe?g|gif|webp|bmp|svg|ico)(\?|$)/i.test(url); }
+function gentleFallback(req, res, url) {
+  if (looksImage(url) || /image\//.test(req.headers['accept'] || '')) {
+    res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'public, max-age=15', 'content-length': BLANK_PNG.length });
+    res.end(req.method === 'HEAD' ? undefined : BLANK_PNG);
+  } else {
+    res.writeHead(503, { 'content-type': 'text/plain', 'retry-after': '3', 'cache-control': 'no-store' });
+    res.end('Busy, retry');
+  }
 }
 // Game assets are content-stable, so let browsers cache images/fonts/media
 // hard (a week, no revalidation) — scrolling back or refreshing becomes
@@ -565,14 +604,45 @@ async function proxyUpstream(req, res) {
   }
   const finishInflight = (val) => { if (resolveInflight) { resolveInflight(val); resolveInflight = null; } inflight.delete(key); };
 
+  // One upstream fetch with a timeout, honoring the global concurrency limit and
+  // retrying once on a 429 (after a short wait) before giving up.
+  async function fetchUpstream() {
+    await acquireUpstream();
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const ac = new AbortController();
+        const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 25000);
+        let up;
+        try { up = await fetch(target, { headers, redirect: 'follow', signal: ac.signal }); }
+        finally { clearTimeout(to); }
+        if (up.status === 429 && attempt === 0) {
+          const ra = Number(up.headers.get('retry-after')) || 0;
+          await new Promise((r) => setTimeout(r, Math.min(1500, ra ? ra * 1000 : 600)));
+          continue;
+        }
+        return up;
+      }
+    } finally { releaseUpstream(); }
+    return null;
+  }
+
   try {
-    // Don't let a hung upstream request pin a connection forever — release it
-    // after 25s so the instance stays responsive under load.
-    const ac = new AbortController();
-    const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 25000);
-    let up;
-    try { up = await fetch(target, { headers, redirect: 'follow', signal: ac.signal }); }
-    finally { clearTimeout(to); }
+    const up = await fetchUpstream();
+    // Rate-limited / errored upstream: serve a stale copy if we have one, else a
+    // gentle fallback — never a raw "Too Many Requests" to the player.
+    if (!up || up.status === 429 || up.status >= 500) {
+      const stale = cachePeek(key);
+      if (stale) {
+        finishInflight(null);
+        if (req.method === 'HEAD') { res.writeHead(stale.status, { 'content-type': stale.ctype, 'content-length': stale.body.length }); res.end(); }
+        else { res.writeHead(stale.status, { 'content-type': stale.ctype, 'cache-control': cacheControlFor(stale.ctype), 'access-control-allow-origin': '*', 'content-length': stale.body.length, 'x-sh-cache': 'stale' }); res.end(stale.body); }
+        return;
+      }
+      finishInflight(null);
+      gentleFallback(req, res, key);
+      return;
+    }
+    // Upstream gate answers protected assets with 403 — just a missing asset.
     if (up.status === 403) { finishInflight(null); res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
     const ctype = up.headers.get('content-type') || 'application/octet-stream';
     const outHeaders = {
@@ -611,7 +681,9 @@ async function proxyUpstream(req, res) {
     src.pipe(res);
   } catch (e) {
     finishInflight(null);
-    try { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end('Upstream fetch failed'); } catch (e2) {}
+    const stale = cachePeek(key);
+    if (stale) { try { res.writeHead(stale.status, { 'content-type': stale.ctype, 'access-control-allow-origin': '*', 'content-length': stale.body.length, 'x-sh-cache': 'stale' }); res.end(req.method === 'HEAD' ? undefined : stale.body); } catch (e2) {} return; }
+    try { gentleFallback(req, res, key); } catch (e2) {}
   }
 }
 
