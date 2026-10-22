@@ -15,6 +15,8 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
+import { handleCasino, initCasino, getCosmetics } from './casino.js';
+await initCasino();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = join(__dirname, 'dist');
@@ -746,7 +748,12 @@ function chatViewer(req) {
   nick = cleanNick(String(nick).slice(0, 40)) || 'Guest';
   const cid = String(c.sh_cid || ('anon-' + clientIp(req))).slice(0, 64);
   const owner = isChatOwner(req);
-  return { id: cid, username: owner ? nick + ' 👑' : nick, avatar: '', color: owner ? 'hsl(45 90% 60%)' : colorFor(cid), rank: owner ? 'Owner' : '', owner };
+  // Casino cosmetics the player bought/equipped show up in chat.
+  let cos = { tag: '', color: '' };
+  try { cos = getCosmetics(cid); } catch (e) {}
+  const displayName = nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : '');
+  const color = owner ? 'hsl(45 90% 60%)' : (cos.color || colorFor(cid));
+  return { id: cid, username: displayName, avatar: '', color, rank: owner ? 'Owner' : '', owner };
 }
 function chatStanding(req, v) {
   const ip = clientIp(req);
@@ -958,7 +965,7 @@ async function chatChannel(req, res) {
   return sendJson(res, 200, { ok: true, id });
 }
 
-const httpServer = createServer((req, res) => {
+const httpServer = createServer(async (req, res) => {
   const parsed = new URL(req.url || '/', 'http://localhost');
   const url = parsed.pathname;
 
@@ -970,6 +977,11 @@ const httpServer = createServer((req, res) => {
     req.url = '/skribbl/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if (url === '/casino' || url === '/casino/') {
+    req.url = '/casino/index.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
+  if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
 
   // Legal gate — always accepted.
   if (url === '/api/legal/status') return sendJson(res, 200, { accepted: true, needsCaptcha: false, gate: false, version: '1' });
@@ -988,6 +1000,9 @@ const httpServer = createServer((req, res) => {
     const builtins = [{
       id: 'scrollhub-draw-guess', label: 'Draw & Guess (Multiplayer)', url: '/skribbl',
       imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Multiplayer', 'ScrollHub Originals'], isGlobal: true,
+    }, {
+      id: 'scrollhub-casino', label: 'ScrollHub Casino', url: '/casino',
+      imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Casino', 'ScrollHub Originals'], isGlobal: true,
     }];
     const customIds = new Set(admin.customGames.map((g) => g.id));
     const globals = [...builtins.filter((b) => !customIds.has(b.id)), ...admin.customGames];
