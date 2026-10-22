@@ -512,10 +512,19 @@ function cachePut(url, status, ctype, body) {
   assetCache.set(url, { status, ctype, body, ts: Date.now() });
   cacheBytes += body.length;
 }
+// Game assets are content-stable, so let browsers cache images/fonts/media
+// hard (a week, no revalidation) — scrolling back or refreshing becomes
+// instant instead of re-requesting every thumbnail. Code/markup stays short.
+function cacheControlFor(ctype) {
+  ctype = String(ctype || '');
+  if (/^(image|font|audio|video)\//.test(ctype) || /application\/font|wasm/.test(ctype)) return 'public, max-age=604800, immutable';
+  if (/text\/html/.test(ctype)) return 'public, max-age=300';
+  return 'public, max-age=86400';
+}
 function serveCached(res, e) {
   res.writeHead(e.status, {
     'content-type': e.ctype,
-    'cache-control': 'public, max-age=86400',
+    'cache-control': cacheControlFor(e.ctype),
     'access-control-allow-origin': '*',
     'content-length': e.body.length,
     'x-sh-cache': 'hit',
@@ -568,7 +577,7 @@ async function proxyUpstream(req, res) {
     const ctype = up.headers.get('content-type') || 'application/octet-stream';
     const outHeaders = {
       'content-type': ctype,
-      'cache-control': 'public, max-age=86400',
+      'cache-control': cacheControlFor(ctype),
       'access-control-allow-origin': '*',
     };
     const ar = up.headers.get('accept-ranges'); if (ar) outHeaders['accept-ranges'] = ar;
