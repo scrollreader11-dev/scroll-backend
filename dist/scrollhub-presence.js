@@ -255,6 +255,96 @@
       }
     }
     if (Array.isArray(state.commands)) state.commands.forEach(runCommand);
+    applyTakeover(state.takeover);
+  }
+
+  // ---- site-wide takeover effects ----
+  var takeoverMode = '', takeoverEl = null, takeoverRaf = 0, takeoverStyle = null;
+  function stopTakeover() {
+    takeoverMode = '';
+    if (takeoverRaf) { cancelAnimationFrame(takeoverRaf); takeoverRaf = 0; }
+    if (takeoverEl) { takeoverEl.remove(); takeoverEl = null; }
+    if (takeoverStyle) { takeoverStyle.remove(); takeoverStyle = null; }
+    try { document.documentElement.style.filter = ''; document.body.style.transition = ''; document.body.style.transform = ''; } catch (e) {}
+  }
+  function takeoverLayer(z) {
+    var d = document.createElement('div');
+    d.setAttribute('data-sh-takeover', '1');
+    d.style.cssText = 'position:fixed;inset:0;z-index:' + (z || 2147483000) + ';pointer-events:none';
+    document.body.appendChild(d);
+    return d;
+  }
+  function applyTakeover(t) {
+    var mode = t && t.mode ? String(t.mode) : '';
+    if (mode === takeoverMode) return;
+    stopTakeover();
+    if (!mode) return;
+    takeoverMode = mode;
+    try {
+      if (mode === 'invert') {
+        document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';
+      } else if (mode === 'disco' || mode === 'strobe') {
+        takeoverEl = takeoverLayer();
+        takeoverEl.style.mixBlendMode = 'screen';
+        var hue = 0, last = 0, on = true;
+        var loop = function (ts) {
+          if (!document.hidden) {
+            if (mode === 'disco') { hue = (hue + 6) % 360; takeoverEl.style.background = 'hsla(' + hue + ',100%,50%,.35)'; }
+            else { if (ts - last > 90) { on = !on; takeoverEl.style.background = on ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.25)'; last = ts; } }
+          }
+          takeoverRaf = requestAnimationFrame(loop);
+        };
+        takeoverRaf = requestAnimationFrame(loop);
+      } else if (mode === 'spin') {
+        takeoverStyle = document.createElement('style');
+        takeoverStyle.textContent = '@keyframes shSpin{to{transform:rotate(360deg)}}';
+        document.head.appendChild(takeoverStyle);
+        document.body.style.transition = 'transform .6s';
+        document.body.style.animation = 'shSpin 3s linear infinite';
+      } else if (mode === 'bounce') {
+        takeoverStyle = document.createElement('style');
+        takeoverStyle.textContent = '@keyframes shBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-22px)}}';
+        document.head.appendChild(takeoverStyle);
+        document.body.style.animation = 'shBounce 1.1s ease-in-out infinite';
+      } else if (mode === 'snow' || mode === 'matrix' || mode === 'confetti') {
+        canvasTakeover(mode);
+      }
+    } catch (e) {}
+  }
+  function canvasTakeover(mode) {
+    takeoverEl = takeoverLayer();
+    var cv = document.createElement('canvas');
+    cv.style.cssText = 'width:100%;height:100%;display:block';
+    takeoverEl.appendChild(cv);
+    var ctx = cv.getContext('2d'), W = 0, H = 0;
+    function size() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
+    size();
+    window.addEventListener('resize', size);
+    var parts = [];
+    var cols = ['#ff4d6d', '#ffd166', '#06d6a0', '#4cc9f0', '#b185ff', '#ffffff'];
+    var n = mode === 'confetti' ? 140 : mode === 'matrix' ? Math.floor(W / 14) : 110;
+    for (var i = 0; i < n; i++) {
+      if (mode === 'matrix') parts.push({ x: i * 14, y: Math.random() * H, s: 4 + Math.random() * 8 });
+      else parts.push({ x: Math.random() * W, y: Math.random() * H, s: 1 + Math.random() * 3, r: Math.random() * 6 + 2, c: cols[i % cols.length], vx: (Math.random() - .5) * 2, a: Math.random() * 6.28 });
+    }
+    var draw = function () {
+      if (!document.hidden) {
+        if (mode === 'matrix') {
+          ctx.fillStyle = 'rgba(0,0,0,.08)'; ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = '#17f72b'; ctx.font = '14px monospace';
+          for (var j = 0; j < parts.length; j++) { var p = parts[j]; ctx.fillText(String.fromCharCode(0x30A0 + Math.random() * 96), p.x, p.y); p.y += p.s; if (p.y > H) p.y = 0; }
+        } else {
+          ctx.clearRect(0, 0, W, H);
+          for (var k = 0; k < parts.length; k++) {
+            var q = parts[k];
+            if (mode === 'confetti') { q.y += q.s * 1.4; q.x += Math.sin(q.a += .05) * 1.5; ctx.fillStyle = q.c; ctx.fillRect(q.x, q.y, q.r, q.r * .6); if (q.y > H) { q.y = -10; q.x = Math.random() * W; } }
+            else { q.y += q.s; q.x += q.vx * .3; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * .5, 0, 6.28); ctx.fill(); if (q.y > H) { q.y = -10; q.x = Math.random() * W; } }
+          }
+        }
+      }
+      takeoverRaf = requestAnimationFrame(draw);
+    };
+    takeoverRaf = requestAnimationFrame(draw);
   }
 
   // ---- detect what the player is currently doing ----

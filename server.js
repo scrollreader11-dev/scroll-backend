@@ -238,6 +238,7 @@ async function handlePresence(req, res) {
     kick: kick || null,
     broadcast: admin.broadcast || null,
     frozen: frozenActive(id),
+    takeover: admin.settings.takeover || null,
     commands,
   });
 }
@@ -308,6 +309,15 @@ async function handleAdmin(req, res) {
     const text = String(body.text || '').slice(0, 300);
     admin.broadcast = text ? { text, ts: Date.now() } : null;
     return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'takeover') {
+    // Persistent site-wide visual effect applied to everyone online (and
+    // anyone who joins) until turned off.
+    const MODES = ['disco', 'matrix', 'snow', 'confetti', 'strobe', 'invert', 'spin', 'bounce'];
+    const mode = String(body.mode || '');
+    admin.settings.takeover = MODES.includes(mode) ? { mode, ts: Date.now() } : null;
+    await saveState();
+    return sendJson(res, 200, { ok: true, takeover: admin.settings.takeover });
   }
   if (action === 'freeze') {
     const id = String(body.id || '');

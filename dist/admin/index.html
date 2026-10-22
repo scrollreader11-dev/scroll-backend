@@ -256,6 +256,26 @@
       <div id="saFlash" class="flash"></div>
     </div>
     <div class="card">
+      <h2>🌈 Site-wide takeover</h2>
+      <div class="note">Flip a switch and <b>everyone's</b> screen gets the effect instantly — and anyone who joins while it's on gets it too. Stays on until you hit Off.</div>
+      <div class="field">
+        <div class="label">Pick a mode</div>
+        <div class="row">
+          <button class="sm" data-to="disco">🪩 Disco</button>
+          <button class="sm" data-to="matrix">🟩 Matrix</button>
+          <button class="sm" data-to="snow">❄️ Snow</button>
+          <button class="sm" data-to="confetti">🎉 Confetti</button>
+          <button class="sm" data-to="strobe">⚡ Strobe</button>
+          <button class="sm" data-to="invert">🔀 Invert</button>
+          <button class="sm" data-to="spin">🌀 Spin</button>
+          <button class="sm" data-to="bounce">🟡 Bounce</button>
+        </div>
+      </div>
+      <div class="row"><button class="sm red" data-to="">⏹ Turn off</button></div>
+      <div id="toFlash" class="flash"></div>
+      <div class="note" style="margin-top:6px">Now active: <b id="toActive">Off</b></div>
+    </div>
+    <div class="card">
       <h2>📢 Chat announcements</h2>
       <div class="field"><div class="label">Title</div><input id="anTitle" type="text" placeholder="Announcement title" /></div>
       <div class="field"><div class="label">Message</div><input id="anBody" type="text" placeholder="What's the news?" /></div>
@@ -418,6 +438,7 @@
     $('maintSw').className = 'sw' + (s.maintenance ? ' on2' : '');
     if (!redirFocused) $('redir').value = s.redirect || '';
     if (!annFocused) $('ann').value = s.announcement || '';
+    try { var toEl = $('toActive'); if (toEl) toEl.textContent = (s.takeover && s.takeover.mode) ? (TO_NAMES[s.takeover.mode] || s.takeover.mode) : 'Off'; } catch (e) {}
 
     playerMap = {};
     var pb = $('players');
@@ -612,6 +633,17 @@
       api('sendall', { cmd: cmd }).then(function (res) {
         if (res.ok) saFlash('Sent to ' + ((res.data && res.data.sent) || 0) + ' online ✓');
         else saFlash((res.data && res.data.error) || 'Failed.');
+      });
+    };
+  });
+  var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
+  function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }
+  document.querySelectorAll('[data-to]').forEach(function (btn) {
+    btn.onclick = function () {
+      var mode = btn.getAttribute('data-to');
+      api('takeover', { mode: mode }).then(function (res) {
+        if (res.ok) { $('toActive').textContent = TO_NAMES[mode] || 'Off'; toFlashMsg(mode ? 'Takeover live ✓' : 'Turned off ✓'); }
+        else toFlashMsg((res.data && res.data.error) || 'Failed.');
       });
     };
   });
