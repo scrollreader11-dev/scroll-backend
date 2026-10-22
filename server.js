@@ -18,7 +18,7 @@ import { handleSkribblUpgrade } from './skribbl.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = join(__dirname, 'dist');
-const UPSTREAM = 'https://petezahgames.com';
+const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 const serve = sirv(distDir, { dev: false, etag: true });
@@ -486,44 +486,122 @@ async function handleGenerate(req, res) {
 }
 
 // ---------- missing-asset upstream proxy (games/app icons/iframe) ----------
+// ---- upstream asset cache ----------------------------------
+// One small/medium asset is fetched from upstream ONCE, then served from RAM to
+// every other player. This is the big lever for concurrent users on a tiny
+// instance: shared game assets stop re-hitting petezahgames.com per person.
+const CACHE_MAX_ITEM = 2 * 1024 * 1024;     // only cache responses <= 2MB
+const CACHE_MAX_TOTAL = 96 * 1024 * 1024;   // total RAM budget for the cache (safe on 512MB)
+const CACHE_TTL = 6 * 3600 * 1000;          // 6h freshness
+const assetCache = new Map();               // url -> {status, ctype, body, ts}
+let cacheBytes = 0;
+const inflight = new Map();                  // url -> Promise (dedupes concurrent first-loads)
+function cacheGet(url) {
+  const e = assetCache.get(url);
+  if (!e) return null;
+  if (Date.now() - e.ts > CACHE_TTL) { assetCache.delete(url); cacheBytes -= e.body.length; return null; }
+  assetCache.delete(url); assetCache.set(url, e); // LRU: move to newest
+  return e;
+}
+function cachePut(url, status, ctype, body) {
+  if (!body || body.length > CACHE_MAX_ITEM) return;
+  while (cacheBytes + body.length > CACHE_MAX_TOTAL && assetCache.size) {
+    const k = assetCache.keys().next().value; const old = assetCache.get(k);
+    assetCache.delete(k); cacheBytes -= old.body.length;
+  }
+  assetCache.set(url, { status, ctype, body, ts: Date.now() });
+  cacheBytes += body.length;
+}
+function serveCached(res, e) {
+  res.writeHead(e.status, {
+    'content-type': e.ctype,
+    'cache-control': 'public, max-age=86400',
+    'access-control-allow-origin': '*',
+    'content-length': e.body.length,
+    'x-sh-cache': 'hit',
+  });
+  res.end(e.body);
+}
+
 async function proxyUpstream(req, res) {
+  const key = req.url;
+  const isCacheable = (req.method === 'GET' || req.method === 'HEAD') && !req.headers['range'];
+
+  // Fast path: already in RAM.
+  if (isCacheable) {
+    const hit = cacheGet(key);
+    if (hit) { if (req.method === 'HEAD') { res.writeHead(hit.status, { 'content-type': hit.ctype, 'content-length': hit.body.length }); res.end(); } else serveCached(res, hit); return; }
+    // Collapse concurrent first-loads of the same asset into one upstream fetch.
+    if (inflight.has(key)) {
+      try {
+        const e = await inflight.get(key);
+        if (e) { if (req.method === 'HEAD') { res.writeHead(e.status, { 'content-type': e.ctype, 'content-length': e.body.length }); res.end(); } else serveCached(res, e); return; }
+      } catch (err) {}
+      // fell through: the shared fetch was non-cacheable (too big / streamed) — fetch our own below
+    }
+  }
+
   const target = UPSTREAM + req.url;
+  const headers = {
+    'user-agent': req.headers['user-agent'] || 'Mozilla/5.0',
+    'accept': req.headers['accept'] || '*/*',
+  };
+  if (req.headers['range']) headers['range'] = req.headers['range'];
+
+  // For cacheable requests, run the fetch under an in-flight promise so parallel
+  // callers share it and the result lands in cache.
+  let resolveInflight = null;
+  if (isCacheable && !inflight.has(key)) {
+    inflight.set(key, new Promise((r) => { resolveInflight = r; }));
+  }
+  const finishInflight = (val) => { if (resolveInflight) { resolveInflight(val); resolveInflight = null; } inflight.delete(key); };
+
   try {
-    const headers = {
-      'user-agent': req.headers['user-agent'] || 'Mozilla/5.0',
-      'accept': req.headers['accept'] || '*/*',
-    };
-    if (req.headers['range']) headers['range'] = req.headers['range'];
-    const up = await fetch(target, { headers, redirect: 'follow' });
-    // Upstream's gate answers protected assets with 403 "CAPTCHA_REQUIRED".
-    // Never forward that — it's just a missing asset to us. Return 404.
-    if (up.status === 403) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
+    // Don't let a hung upstream request pin a connection forever — release it
+    // after 25s so the instance stays responsive under load.
+    const ac = new AbortController();
+    const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 25000);
+    let up;
+    try { up = await fetch(target, { headers, redirect: 'follow', signal: ac.signal }); }
+    finally { clearTimeout(to); }
+    if (up.status === 403) { finishInflight(null); res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
+    const ctype = up.headers.get('content-type') || 'application/octet-stream';
     const outHeaders = {
-      'content-type': up.headers.get('content-type') || 'application/octet-stream',
+      'content-type': ctype,
       'cache-control': 'public, max-age=86400',
       'access-control-allow-origin': '*',
     };
-    // Advertise byte-range support so big games can stream/seek instead of
-    // downloading in one blocking shot.
     const ar = up.headers.get('accept-ranges'); if (ar) outHeaders['accept-ranges'] = ar;
-    if (up.status === 206) {
-      const cr = up.headers.get('content-range'); if (cr) outHeaders['content-range'] = cr;
-    }
-    // fetch() decompresses gzip/br, so only forward content-length when the
-    // body is NOT re-encoded (true for binary game assets) — gives real
-    // progress bars without truncating.
+    if (up.status === 206) { const cr = up.headers.get('content-range'); if (cr) outHeaders['content-range'] = cr; }
     const enc = up.headers.get('content-encoding');
     const len = up.headers.get('content-length');
     if (!enc && len) outHeaders['content-length'] = len;
+
+    // Decide whether to buffer+cache: 200, cacheable request, and known size <= limit.
+    const sizeOk = !len || Number(len) <= CACHE_MAX_ITEM;
+    if (isCacheable && up.status === 200 && sizeOk && up.body) {
+      const ab = await up.arrayBuffer();
+      const body = Buffer.from(ab);
+      if (body.length <= CACHE_MAX_ITEM) cachePut(key, 200, ctype, body);
+      finishInflight(body.length <= CACHE_MAX_ITEM ? { status: 200, ctype, body } : null);
+      outHeaders['content-length'] = body.length;
+      outHeaders['x-sh-cache'] = 'miss';
+      res.writeHead(200, outHeaders);
+      if (req.method === 'HEAD') { res.end(); return; }
+      res.end(body);
+      return;
+    }
+
+    // Big or non-cacheable: stream straight through, guard both ends.
+    finishInflight(null);
     res.writeHead(up.status, outHeaders);
     if (req.method === 'HEAD' || !up.body) { res.end(); return; }
-    // Stream straight through — no full buffering in memory. Guard both ends so
-    // an interrupted game download can never crash the whole server.
     const src = Readable.fromWeb(up.body);
     src.on('error', function () { try { res.destroy(); } catch (e) {} });
     res.on('close', function () { try { src.destroy(); } catch (e) {} });
     src.pipe(res);
   } catch (e) {
+    finishInflight(null);
     try { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end('Upstream fetch failed'); } catch (e2) {}
   }
 }
