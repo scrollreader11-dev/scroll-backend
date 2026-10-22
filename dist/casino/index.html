@@ -110,6 +110,7 @@
     <button data-v="slots">🎰 Slots</button>
     <button data-v="coinflip">🪙 Coinflip</button>
     <button data-v="cases">📦 Cases</button>
+    <button data-v="battles">⚔️ Case Battles</button>
     <button data-v="store">🛍️ Store</button>
     <button data-v="leaderboard">🏆 Leaders</button>
   </nav>
@@ -184,6 +185,32 @@
     </div>
   </section>
 
+  <!-- CASE BATTLES -->
+  <section class="view" data-panel="battles">
+    <div class="card" id="battleLobby">
+      <h2>Case Battles ⚔️</h2>
+      <div class="hint">Open cases head-to-head. Everyone opens the same case each round — highest total value wins the whole pot. Empty seats fill with bots so you never wait.</div>
+      <div class="betrow">
+        <label>Case</label><select id="bCase"></select>
+        <label>Players</label><select id="bPlayers"><option>2</option><option>3</option><option>4</option></select>
+        <label>Rounds</label><select id="bRounds"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+        <button class="btn gold" id="bCreate">Create battle</button>
+      </div>
+      <div class="hint" id="bCost"></div>
+      <h3 style="margin-top:16px;font-size:.95rem">Open battles</h3>
+      <div id="bList"></div>
+    </div>
+    <div class="card" id="battleRoom" style="display:none">
+      <div class="betrow" style="justify-content:space-between">
+        <h2 id="brTitle">Battle</h2>
+        <div><button class="chip" id="brStart" style="display:none">Start vs bots</button> <button class="chip" id="brLeave">Leave</button></div>
+      </div>
+      <div class="hint" id="brStatus"></div>
+      <div id="brPlayers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px"></div>
+      <div class="msg" id="brResult" style="text-align:center;font-size:1.1rem"></div>
+    </div>
+  </section>
+
   <!-- STORE -->
   <section class="view" data-panel="store">
     <div class="card">
@@ -221,6 +248,7 @@
     var v=b.dataset.v;
     document.querySelectorAll('.view').forEach(function(s){s.classList.toggle('on',s.dataset.panel===v);});
     if(v==='leaderboard')loadLb();
+    if(v==='battles'){connectBattles();fillCaseSelect();}
   };});
 
   // daily
@@ -362,6 +390,91 @@
   function loadLb(){api('leaderboard').then(function(d){var tb=$('lb');tb.innerHTML='';(d.top||[]).forEach(function(u,i){var tr=document.createElement('tr');tr.innerHTML='<td>'+(i+1)+'</td><td>'+(i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'')+'Player</td><td>🪙 '+fmt(u.coins)+'</td><td>'+fmt(u.biggest)+'</td>';tb.appendChild(tr);});});}
 
   function errMsg(e){return {broke:'Not enough coins',"bad-bet":'Enter a valid bet',owned:'You already own that',"not-owned":'You don\'t own that','no-id':'Pick a nickname on ScrollHub first'}[e]||'Something went wrong';}
+
+  // ---- case battles (WebSocket) ----
+  var bws=null, myCid='', curBattle=null;
+  function bwsSend(o){try{if(bws&&bws.readyState===1)bws.send(JSON.stringify(o));}catch(e){}}
+  function connectBattles(){
+    if(bws&&(bws.readyState===0||bws.readyState===1))return;
+    var proto=location.protocol==='https:'?'wss':'ws';
+    bws=new WebSocket(proto+'://'+location.host+'/battle-ws');
+    bws.onmessage=function(ev){var m;try{m=JSON.parse(ev.data);}catch(e){return;}onBattle(m);};
+    bws.onclose=function(){setTimeout(function(){if(document.querySelector('[data-panel="battles"]').classList.contains('on'))connectBattles();},2000);};
+  }
+  function fillCaseSelect(){
+    var s=$('bCase');if(s.options.length)return;
+    Object.keys(state.cases).forEach(function(id){var o=document.createElement('option');o.value=id;o.textContent=state.cases[id].name+' ('+fmt(state.cases[id].price)+')';s.appendChild(o);});
+    updateCost();
+  }
+  function updateCost(){var c=state.cases[$('bCase').value];if(!c)return;$('bCost').textContent='Cost to join: 🪙 '+fmt(c.price*(+$('bRounds').value))+' ('+$('bRounds').value+' cases)';}
+  ['bCase','bRounds'].forEach(function(id){document.addEventListener('change',function(e){if(e.target.id===id)updateCost();});});
+  $('bCreate').onclick=function(){bwsSend({t:'create',caseId:$('bCase').value,players:+$('bPlayers').value,rounds:+$('bRounds').value});};
+  $('brLeave').onclick=function(){bwsSend({t:'leave'});showLobby();};
+  $('brStart').onclick=function(){bwsSend({t:'start'});};
+
+  function onBattle(m){
+    if(m.t==='hello'){myCid=m.cid;return;}
+    if(m.t==='coins'){if(state.profile){state.profile.coins=m.coins;$('coins').textContent=fmt(m.coins);}return;}
+    if(m.t==='error'){toast(m.msg||'Error');return;}
+    if(m.t==='lobby'){renderLobby(m.battles);return;}
+    if(m.t==='state'){curBattle=m.battle;showRoom();renderRoom();return;}
+    if(m.t==='roll'){applyRoll(m);return;}
+    if(m.t==='done'){curBattle=m.battle;renderRoom();showWinner(m.winner,m.pot);return;}
+  }
+  function showLobby(){$('battleLobby').style.display='block';$('battleRoom').style.display='none';}
+  function showRoom(){$('battleLobby').style.display='none';$('battleRoom').style.display='block';}
+  function renderLobby(list){
+    var el=$('bList');el.innerHTML='';
+    if(!list||!list.length){el.innerHTML='<div class="hint">No open battles — create one above!</div>';return;}
+    list.forEach(function(b){
+      var d=document.createElement('div');d.className='betrow';d.style.justifyContent='space-between';
+      d.innerHTML='<span><b>'+b.caseName+'</b> · '+b.players+'/'+b.maxPlayers+' players · '+b.rounds+' rounds · 🪙 '+fmt(b.cost)+'</span>';
+      var j=document.createElement('button');j.className='btn';j.textContent='Join';j.onclick=function(){bwsSend({t:'join',id:b.id});};
+      d.appendChild(j);el.appendChild(d);
+    });
+  }
+  function renderRoom(){
+    if(!curBattle)return;
+    var b=curBattle;
+    $('brTitle').textContent=b.caseName+' — '+b.rounds+' rounds';
+    $('brStart').style.display=(b.state==='waiting'&&b.players[0]&&b.players[0].cid===myCid)?'inline-block':'none';
+    $('brStatus').textContent=b.state==='waiting'?('Waiting for players ('+b.players.length+'/'+b.maxPlayers+')… empty seats fill with bots when you start.'):(b.state==='rolling'?('Round '+b.round+' / '+b.rounds+' — pot 🪙 '+fmt(b.pot)):'');
+    var g=$('brPlayers');g.innerHTML='';
+    for(var i=0;i<b.maxPlayers;i++){
+      var p=b.players[i];
+      var d=document.createElement('div');d.style.cssText='background:#0b1020;border:1px solid var(--line2);border-radius:14px;padding:12px;text-align:center';
+      d.setAttribute('data-seat',i);
+      if(p){d.innerHTML='<div style="font-weight:700">'+(p.bot?'🤖 ':'')+esc(p.nick)+(p.cid===myCid?' (you)':'')+'</div><div class="val" style="font-size:1.3rem" data-total>🪙 '+fmt(p.total)+'</div><div data-pulls style="margin-top:8px;font-size:.8rem;min-height:20px">'+(p.pulls||[]).map(pullChip).join('')+'</div>';}
+      else{d.innerHTML='<div style="color:var(--mut)">Empty seat</div>';}
+      g.appendChild(d);
+    }
+    $('brResult').textContent='';
+  }
+  function esc(s){return String(s).replace(/[&<>]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;'})[c];});}
+  function pullChip(v){return '<span style="display:inline-block;margin:1px;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.07)">'+fmt(v)+'</span>';}
+  function applyRoll(m){
+    if(!curBattle)return;curBattle.round=m.round;curBattle.pot=m.pot;
+    $('brStatus').textContent='Round '+m.round+' / '+m.rounds+' — pot 🪙 '+fmt(m.pot);
+    var RAR={common:'var(--common)',uncommon:'var(--uncommon)',rare:'var(--rare)',epic:'var(--epic)',legendary:'var(--legendary)',mythic:'var(--mythic)'};
+    m.results.forEach(function(r,i){
+      // match seat by cid
+      var seat=curBattle.players.findIndex(function(p){return p.cid===r.cid;});
+      if(seat<0)seat=i;
+      var card=document.querySelector('[data-seat="'+seat+'"]');if(!card)return;
+      var tot=card.querySelector('[data-total]');var pulls=card.querySelector('[data-pulls]');
+      if(tot)tot.textContent='🪙 '+fmt(r.total);
+      if(pulls){var sp=document.createElement('span');sp.style.cssText='display:inline-block;margin:1px;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.07);color:'+(RAR[r.r]||'#fff')+';animation:fade .4s';sp.textContent=fmt(r.v);pulls.appendChild(sp);}
+      // sync model
+      var pm=curBattle.players[seat];if(pm){pm.total=r.total;(pm.pulls=pm.pulls||[]).push(r.v);}
+    });
+  }
+  function showWinner(w,pot){
+    if(!w)return;
+    var me=w.cids.indexOf(myCid)>=0;
+    var el=$('brResult');el.className='msg '+(me?'win':'lose');
+    el.textContent=(me?'🎉 You won ':'🏆 '+w.nicks.join(' & ')+' won ')+'🪙 '+fmt(w.share)+(w.cids.length>1?' each!':'!');
+    toast(me?('You won 🪙 '+fmt(w.share)+'!'):'Battle over');
+  }
 
   // boot
   api('me').then(function(d){

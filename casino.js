@@ -5,6 +5,7 @@
 // Identity = sh_cid / sh_nick cookies (same as chat).
 // ============================================================
 import fs from 'node:fs';
+import { WebSocketServer } from 'ws';
 
 const CASINO_FILE = '/tmp/scrollhub-casino.json';
 const START_COINS = 1000;
@@ -273,4 +274,150 @@ function settleBj(cid) {
   else { result = 'lose'; payout = 0; }
   g.done = true; g.result = result;
   p.coins += payout; recordPlay(p, g.bet, payout); save();
+}
+
+// ============================================================
+// CS2-style CASE BATTLES — real-time multiplayer over WebSocket.
+// Everyone opens the same case each round; highest total value wins the
+// whole pot. Empty seats can be filled by bots so nobody waits forever.
+// ============================================================
+const battleWss = new WebSocketServer({ noServer: true });
+const battles = new Map(); // id -> battle
+const lobbyClients = new Set(); // ws of players not in a battle (see the lobby)
+
+function bid() { return 'b' + Math.random().toString(36).slice(2, 8); }
+function bSend(ws, o) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); } catch (e) {} }
+function battlePublic(b) {
+  return {
+    id: b.id, caseId: b.caseId, caseName: CASES[b.caseId].name, price: CASES[b.caseId].price,
+    rounds: b.rounds, maxPlayers: b.maxPlayers, cost: CASES[b.caseId].price * b.rounds,
+    state: b.state, round: b.round,
+    players: b.players.map((p) => ({ cid: p.cid, nick: p.nick, bot: !!p.bot, total: p.total, pulls: p.pulls })),
+    winner: b.winner || null, pot: b.pot,
+  };
+}
+function lobbyList() {
+  return [...battles.values()].filter((b) => b.state === 'waiting')
+    .map((b) => ({ id: b.id, caseName: CASES[b.caseId].name, players: b.players.length, maxPlayers: b.maxPlayers, rounds: b.rounds, cost: CASES[b.caseId].price * b.rounds }));
+}
+function broadcastLobby() { const msg = { t: 'lobby', battles: lobbyList() }; for (const ws of lobbyClients) bSend(ws, msg); }
+function broadcastBattle(b, msg) { for (const p of b.players) if (p.ws) bSend(p.ws, msg); }
+
+function leaveBattle(ws) {
+  const b = ws._battle; if (!b) return;
+  ws._battle = null;
+  const idx = b.players.findIndex((p) => p.ws === ws);
+  if (idx < 0) return;
+  const pl = b.players[idx];
+  if (b.state === 'waiting') {
+    // refund and remove
+    const prof = profileOf(pl.cid); if (prof) { prof.coins += CASES[b.caseId].price * b.rounds; save(); bSend(ws, { t: 'coins', coins: prof.coins }); }
+    b.players.splice(idx, 1);
+    if (b.players.length === 0) battles.delete(b.id);
+    else broadcastBattle(b, { t: 'state', battle: battlePublic(b) });
+    broadcastLobby();
+  } else {
+    pl.ws = null; // keep seat; they already paid and rolls continue
+  }
+  lobbyClients.add(ws);
+  bSend(ws, { t: 'lobby', battles: lobbyList() });
+}
+
+function startBattle(b) {
+  if (b.state !== 'waiting') return;
+  // fill empty seats with bots
+  while (b.players.length < b.maxPlayers) b.players.push({ cid: 'bot-' + Math.random().toString(36).slice(2, 6), nick: 'Bot', bot: true, total: 0, pulls: [], ws: null });
+  b.state = 'rolling'; b.round = 0; b.pot = 0;
+  broadcastLobby();
+  broadcastBattle(b, { t: 'state', battle: battlePublic(b) });
+  const def = CASES[b.caseId];
+  const doRound = () => {
+    if (b.round >= b.rounds) return finishBattle(b);
+    b.round++;
+    const results = b.players.map((p) => {
+      const item = openCase(def);
+      p.pulls.push(item.v); p.total += item.v; b.pot += item.v;
+      return { cid: p.cid, nick: p.nick, bot: !!p.bot, v: item.v, r: item.r, total: p.total };
+    });
+    broadcastBattle(b, { t: 'roll', round: b.round, rounds: b.rounds, results, pot: b.pot });
+    setTimeout(doRound, 4800);
+  };
+  setTimeout(doRound, 1200);
+}
+function finishBattle(b) {
+  b.state = 'done';
+  const max = Math.max(...b.players.map((p) => p.total));
+  const winners = b.players.filter((p) => p.total === max);
+  const share = Math.floor(b.pot / winners.length);
+  for (const w of winners) {
+    if (!w.bot) { const prof = profileOf(w.cid); if (prof) { prof.coins += share; prof.stats.biggest = Math.max(prof.stats.biggest, share); save(); if (w.ws) bSend(w.ws, { t: 'coins', coins: prof.coins }); } }
+  }
+  b.winner = { cids: winners.map((w) => w.cid), nicks: winners.map((w) => w.nick), share };
+  broadcastBattle(b, { t: 'done', battle: battlePublic(b), winner: b.winner, pot: b.pot });
+  // free clients back to lobby after a bit
+  setTimeout(() => {
+    for (const p of b.players) if (p.ws) { p.ws._battle = null; lobbyClients.add(p.ws); bSend(p.ws, { t: 'lobby', battles: lobbyList() }); }
+    battles.delete(b.id); broadcastLobby();
+  }, 9000);
+}
+
+export function handleBattleUpgrade(req, socket, head) {
+  battleWss.handleUpgrade(req, socket, head, (ws) => {
+    const { cid, nick } = who(req);
+    ws._cid = cid; ws._nick = nick || 'Guest'; ws._battle = null;
+    lobbyClients.add(ws);
+    bSend(ws, { t: 'hello', cid, nick: ws._nick });
+    bSend(ws, { t: 'lobby', battles: lobbyList() });
+
+    ws.on('message', (buf) => {
+      let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; }
+      if (!m || !m.t) return;
+      if (!ws._cid) { bSend(ws, { t: 'error', msg: 'Set a nickname on ScrollHub first.' }); return; }
+
+      if (m.t === 'create') {
+        if (ws._battle) return;
+        const caseId = String(m.caseId || '');
+        if (!CASES[caseId]) return bSend(ws, { t: 'error', msg: 'Unknown case' });
+        const maxPlayers = Math.max(2, Math.min(4, Number(m.players) || 2));
+        const rounds = Math.max(1, Math.min(6, Number(m.rounds) || 3));
+        const cost = CASES[caseId].price * rounds;
+        const prof = profileOf(ws._cid);
+        if (prof.coins < cost) return bSend(ws, { t: 'error', msg: 'Not enough coins (need ' + cost + ')' });
+        prof.coins -= cost; save(); bSend(ws, { t: 'coins', coins: prof.coins });
+        const b = { id: bid(), caseId, maxPlayers, rounds, state: 'waiting', round: 0, pot: 0, players: [], winner: null };
+        b.players.push({ cid: ws._cid, nick: ws._nick, total: 0, pulls: [], ws });
+        battles.set(b.id, b);
+        ws._battle = b; lobbyClients.delete(ws);
+        bSend(ws, { t: 'state', battle: battlePublic(b) });
+        broadcastLobby();
+        return;
+      }
+      if (m.t === 'join') {
+        if (ws._battle) return;
+        const b = battles.get(String(m.id || ''));
+        if (!b || b.state !== 'waiting') return bSend(ws, { t: 'error', msg: 'Battle not available' });
+        if (b.players.length >= b.maxPlayers) return bSend(ws, { t: 'error', msg: 'Battle full' });
+        const cost = CASES[b.caseId].price * b.rounds;
+        const prof = profileOf(ws._cid);
+        if (prof.coins < cost) return bSend(ws, { t: 'error', msg: 'Not enough coins (need ' + cost + ')' });
+        prof.coins -= cost; save(); bSend(ws, { t: 'coins', coins: prof.coins });
+        b.players.push({ cid: ws._cid, nick: ws._nick, total: 0, pulls: [], ws });
+        ws._battle = b; lobbyClients.delete(ws);
+        broadcastBattle(b, { t: 'state', battle: battlePublic(b) });
+        broadcastLobby();
+        if (b.players.length >= b.maxPlayers) startBattle(b);
+        return;
+      }
+      if (m.t === 'start') { // creator starts early, bots fill the rest
+        const b = ws._battle;
+        if (b && b.state === 'waiting' && b.players[0] && b.players[0].ws === ws) startBattle(b);
+        return;
+      }
+      if (m.t === 'leave') { leaveBattle(ws); return; }
+      if (m.t === 'lobby') { lobbyClients.add(ws); bSend(ws, { t: 'lobby', battles: lobbyList() }); return; }
+    });
+
+    ws.on('close', () => { lobbyClients.delete(ws); leaveBattle(ws); });
+    ws.on('error', () => {});
+  });
 }

@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics } from './casino.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade } from './casino.js';
 await initCasino();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1059,6 +1059,8 @@ httpServer.on('upgrade', (req, socket, head) => {
   if (banActive(ip)) { try { socket.destroy(); } catch {} return; }
   // Skribbl draw & guess has its own WebSocket channel.
   if ((req.url || '').split('?')[0] === '/skribbl-ws') return handleSkribblUpgrade(req, socket, head);
+  // Casino case battles have theirs.
+  if ((req.url || '').split('?')[0] === '/battle-ws') return handleBattleUpgrade(req, socket, head);
   wisp.routeRequest(req, socket, head);
 });
 
