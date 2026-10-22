@@ -48,7 +48,7 @@ function clientIp(req) {
 // persisted to /tmp so it survives a warm restart; a full redeploy
 // resets it, which is fine for an MVP.
 // ============================================================
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'multicraft1122';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'scrollreader1122';
 const STATE_FILE = '/tmp/scrollhub-admin-state.json';
 const PLAYER_TTL = 35000; // ms since last heartbeat before "offline"
 
