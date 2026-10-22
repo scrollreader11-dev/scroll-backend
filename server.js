@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade } from './casino.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins } from './casino.js';
 await initCasino();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -317,6 +317,22 @@ async function handleAdmin(req, res) {
     const text = String(body.text || '').slice(0, 300);
     admin.broadcast = text ? { text, ts: Date.now() } : null;
     return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'givecoins') {
+    const id = String(body.id || '');
+    const amount = Math.max(-10000000, Math.min(10000000, Math.floor(Number(body.amount) || 0)));
+    const bal = grantCoins(id, amount);
+    if (bal === null) return sendJson(res, 400, { error: 'bad id' });
+    logEvent('coins', players.get(id)?.nickname || 'Player', (amount >= 0 ? '+' : '') + amount + ' Scrolls');
+    return sendJson(res, 200, { ok: true, balance: bal });
+  }
+  if (action === 'giveall') {
+    const amount = Math.max(0, Math.min(1000000, Math.floor(Number(body.amount) || 0)));
+    prunePlayers();
+    let n = 0;
+    for (const [id] of players) { grantCoins(id, amount); n++; }
+    logEvent('coins', 'Everyone', '+' + amount + ' Scrolls to ' + n);
+    return sendJson(res, 200, { ok: true, count: n });
   }
   if (action === 'takeover') {
     // Persistent site-wide visual effect applied to everyone online (and

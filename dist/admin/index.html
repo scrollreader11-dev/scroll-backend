@@ -253,6 +253,10 @@
         <div class="label">Redirect everyone to a URL</div>
         <div class="row"><input id="saUrl" type="text" placeholder="https://example.com" /><button class="sm" data-sa="redirect">Send all</button></div>
       </div>
+      <div class="field">
+        <div class="label">📜 Give everyone online some Scrolls (casino currency)</div>
+        <div class="row"><input id="gaAmt" type="number" placeholder="e.g. 5000" /><button class="sm gold" id="gaBtn">Give to all</button></div>
+      </div>
       <div id="saFlash" class="flash"></div>
     </div>
     <div class="card">
@@ -323,6 +327,16 @@
         <button class="sm red" data-act="jumpscare">😱 Jumpscare</button>
         <button class="sm" data-act="timeout">⏱ Timeout 5m</button>
       </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="label">📜 Give / take Scrolls (casino currency)</div>
+      <div class="row"><input id="mCoins" type="number" placeholder="e.g. 5000 (negative to take)" />
+        <button class="sm" data-coins="give">Give</button>
+        <button class="sm ghost" data-coins="1000">+1k</button>
+        <button class="sm ghost" data-coins="10000">+10k</button>
+      </div>
+      <div id="mCoinsFlash" class="flash"></div>
     </div>
 
     <div style="margin-top:16px">
@@ -575,6 +589,16 @@
       api('ban', { id: currentId, reason: t.dataset.offense, minutes: banMinutes }).then(function () { mflash('Banned: ' + t.dataset.offense); closeModal(); tick(); });
       return;
     }
+    if (t.dataset.coins != null) {
+      if (!currentId) return;
+      var amt = t.dataset.coins === 'give' ? (Number($('mCoins').value) || 0) : Number(t.dataset.coins);
+      if (!amt) { mflash('Enter an amount.'); return; }
+      api('givecoins', { id: currentId, amount: amt }).then(function (res) {
+        if (res.ok) { mflash((amt >= 0 ? 'Gave ' : 'Took ') + Math.abs(amt) + ' Scrolls — balance ' + res.data.balance); $('mCoins').value = ''; }
+        else mflash((res.data && res.data.error) || 'Failed.');
+      });
+      return;
+    }
     var act = t.dataset.act; if (!act) return;
     if (act === 'freeze') { api('freeze', { id: currentId, on: true }).then(function () { mflash('Frozen.'); tick(); }); }
     else if (act === 'unfreeze') { api('freeze', { id: currentId, on: false }).then(function () { mflash('Unfrozen.'); tick(); }); }
@@ -636,6 +660,14 @@
       });
     };
   });
+  $('gaBtn').onclick = function () {
+    var amt = Number($('gaAmt').value) || 0;
+    if (amt <= 0) { saFlash('Enter an amount.'); return; }
+    api('giveall', { amount: amt }).then(function (res) {
+      if (res.ok) { saFlash('Gave ' + amt + ' Scrolls to ' + ((res.data && res.data.count) || 0) + ' online ✓'); $('gaAmt').value = ''; }
+      else saFlash((res.data && res.data.error) || 'Failed.');
+    });
+  };
   var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
   function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }
   document.querySelectorAll('[data-to]').forEach(function (btn) {

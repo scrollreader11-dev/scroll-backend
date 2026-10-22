@@ -66,6 +66,14 @@ export function getCosmetics(cid) {
   if (!p) return { tag: '', color: '' };
   return { tag: p.tag || '', color: p.color || '' };
 }
+// Admin: add (or remove, if negative) Scrolls for a player by client id.
+export function grantCoins(cid, amount) {
+  if (!cid) return null;
+  const p = profileOf(cid);
+  p.coins = Math.max(0, Math.floor(p.coins + (Number(amount) || 0)));
+  save();
+  return p.coins;
+}
 
 // ---- store catalog ----
 export const STORE = [
@@ -74,16 +82,30 @@ export const STORE = [
   { id: 'tag_gamer', type: 'tag', label: '🎮 Gamer', price: 3500, rarity: 'uncommon' },
   { id: 'tag_star', type: 'tag', label: '⭐ Star', price: 3500, rarity: 'uncommon' },
   { id: 'tag_rocket', type: 'tag', label: '🚀 Rocket', price: 6000, rarity: 'rare' },
+  { id: 'tag_ninja', type: 'tag', label: '🥷 Ninja', price: 6000, rarity: 'rare' },
+  { id: 'tag_dj', type: 'tag', label: '🎧 DJ', price: 6000, rarity: 'rare' },
+  { id: 'tag_ghost', type: 'tag', label: '👻 Ghost', price: 4500, rarity: 'uncommon' },
+  { id: 'tag_shark', type: 'tag', label: '🦈 Shark', price: 7500, rarity: 'rare' },
   { id: 'tag_crown', type: 'tag', label: '👑 Royalty', price: 12000, rarity: 'epic' },
+  { id: 'tag_alien', type: 'tag', label: '👽 Alien', price: 12000, rarity: 'epic' },
+  { id: 'tag_dragon', type: 'tag', label: '🐉 Dragon', price: 18000, rarity: 'epic' },
+  { id: 'tag_skull', type: 'tag', label: '☠️ Menace', price: 18000, rarity: 'epic' },
   { id: 'tag_diamond', type: 'tag', label: '💎 Diamond', price: 25000, rarity: 'legendary' },
+  { id: 'tag_mystic', type: 'tag', label: '🔮 Mystic', price: 32000, rarity: 'legendary' },
   { id: 'tag_goat', type: 'tag', label: '🐐 GOAT', price: 50000, rarity: 'mythic' },
+  { id: 'tag_king', type: 'tag', label: '♛ Overlord', price: 100000, rarity: 'mythic' },
   { id: 'col_red', type: 'color', label: 'Red name', value: '#ff5252', price: 2500, rarity: 'common' },
   { id: 'col_green', type: 'color', label: 'Green name', value: '#2bd576', price: 2500, rarity: 'common' },
   { id: 'col_blue', type: 'color', label: 'Blue name', value: '#4cc9f0', price: 2500, rarity: 'common' },
+  { id: 'col_orange', type: 'color', label: 'Orange name', value: '#ff922b', price: 2500, rarity: 'common' },
   { id: 'col_purple', type: 'color', label: 'Purple name', value: '#b185ff', price: 4000, rarity: 'uncommon' },
   { id: 'col_pink', type: 'color', label: 'Pink name', value: '#ff6ec7', price: 4000, rarity: 'uncommon' },
+  { id: 'col_lime', type: 'color', label: 'Lime name', value: '#c0ff33', price: 4000, rarity: 'uncommon' },
+  { id: 'col_cyan', type: 'color', label: 'Cyan name', value: '#22e0d6', price: 5500, rarity: 'rare' },
+  { id: 'col_crimson', type: 'color', label: 'Crimson name', value: '#dc143c', price: 5500, rarity: 'rare' },
   { id: 'col_gold', type: 'color', label: 'Gold name', value: '#ffd166', price: 15000, rarity: 'epic' },
-  { id: 'col_rainbow', type: 'color', label: 'Aqua glow', value: '#00e5ff', price: 30000, rarity: 'legendary' },
+  { id: 'col_aqua', type: 'color', label: 'Aqua glow', value: '#00e5ff', price: 30000, rarity: 'legendary' },
+  { id: 'col_hot', type: 'color', label: 'Hot magenta', value: '#ff2d95', price: 45000, rarity: 'legendary' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 

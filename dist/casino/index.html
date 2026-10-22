@@ -99,7 +99,7 @@
       <div><h1>ScrollHub Casino</h1><div class="sub" id="who">loading…</div></div>
     </div>
     <div class="bal">
-      <div class="coins">🪙 <b id="coins">—</b></div>
+      <div class="coins">📜 <b id="coins">—</b> <span style="color:var(--mut);font-size:.8rem;font-weight:500">Scrolls</span></div>
       <button class="daily" id="daily">Daily</button>
       <a class="leave" href="/">✕ Exit</a>
     </div>
@@ -108,7 +108,7 @@
   <nav>
     <button data-v="blackjack" class="on">🃏 Blackjack</button>
     <button data-v="slots">🎰 Slots</button>
-    <button data-v="coinflip">🪙 Coinflip</button>
+    <button data-v="coinflip">📜 Coinflip</button>
     <button data-v="cases">📦 Cases</button>
     <button data-v="battles">⚔️ Case Battles</button>
     <button data-v="store">🛍️ Store</button>
@@ -162,7 +162,7 @@
     <div class="card" style="text-align:center">
       <h2>Coinflip</h2>
       <div class="hint">Pick a side, double your bet if you call it.</div>
-      <div style="font-size:72px;margin:10px 0" id="coin">🪙</div>
+      <div style="font-size:72px;margin:10px 0" id="coin">📜</div>
       <div class="betrow" style="justify-content:center">
         <label>Bet</label><input type="number" id="cfBet" value="100" min="1" />
       </div>
@@ -215,7 +215,7 @@
   <section class="view" data-panel="store">
     <div class="card">
       <h2>Store</h2>
-      <div class="hint">Spend coins on chat tags and name colors — they show up next to your name in chat. Equip one tag + one color.</div>
+      <div class="hint">Spend Scrolls on chat tags and name colors — they show up next to your name in chat. Equip one tag + one color.</div>
       <div class="betrow"><button class="chip" id="unTag">Remove tag</button><button class="chip" id="unColor">Remove color</button></div>
       <div class="grid" id="store"></div>
     </div>
@@ -225,7 +225,7 @@
   <section class="view" data-panel="leaderboard">
     <div class="card">
       <h2>Richest Players</h2>
-      <div class="hint">Top coin balances across ScrollHub.</div>
+      <div class="hint">Top Scroll balances across ScrollHub.</div>
       <table class="lbtable"><thead><tr><th>#</th><th>Player</th><th>Coins</th><th>Biggest win</th></tr></thead><tbody id="lb"></tbody></table>
     </div>
   </section>
@@ -258,7 +258,7 @@
     if(left<=0){$('daily').disabled=false;$('daily').textContent='Claim +'+state.dailyCoins;}
     else{$('daily').disabled=true;var h=Math.floor(left/3600000),m=Math.floor(left%3600000/60000);$('daily').textContent='Daily in '+h+'h '+m+'m';}
   }
-  $('daily').onclick=function(){api('daily',{}).then(function(d){if(d.gained){toast('+'+fmt(d.gained)+' daily coins!');}setProfile(d.profile);updateDaily();});};
+  $('daily').onclick=function(){api('daily',{}).then(function(d){if(d.gained){toast('+'+fmt(d.gained)+' daily Scrolls!');}setProfile(d.profile);updateDaily();});};
 
   // ---- blackjack ----
   function pcard(c){
@@ -307,10 +307,10 @@
   // ---- coinflip ----
   function flip(side){
     var bet=+$('cfBet').value;
-    var c=$('coin');var spins=0;var iv=setInterval(function(){c.textContent=spins++%2?'🪙':'⚪';},90);
+    var c=$('coin');var spins=0;var iv=setInterval(function(){c.textContent=spins++%2?'📜':'⚪';},90);
     api('coinflip',{bet:bet,side:side}).then(function(d){
       setTimeout(function(){clearInterval(iv);
-        if(d.error){c.textContent='🪙';toast(errMsg(d.error));return;}
+        if(d.error){c.textContent='📜';toast(errMsg(d.error));return;}
         c.textContent=d.landed==='heads'?'🙂':'🦅';setProfile(d.profile);
         var m=$('cfMsg');m.className='msg';
         if(d.won){m.textContent='Landed '+d.landed+' — you win +'+fmt(d.payout-bet)+'! 🎉';m.classList.add('win');}
@@ -329,8 +329,8 @@
       var best=Math.max.apply(null,c.pool.map(function(i){return i.v;}));
       var d=document.createElement('div');d.className='casebox';
       d.innerHTML='<div class="ic">'+(id==='highroller'?'💰':'📦')+'</div><h3>'+c.name+'</h3>'+
-        '<div class="hint" style="margin:4px 0">Top prize 🪙 '+fmt(best)+'</div>'+
-        '<button class="btn gold" data-case="'+id+'">Open — 🪙 '+fmt(c.price)+'</button>';
+        '<div class="hint" style="margin:4px 0">Top prize 📜 '+fmt(best)+'</div>'+
+        '<button class="btn gold" data-case="'+id+'">Open — 📜 '+fmt(c.price)+'</button>';
       row.appendChild(d);
     });
     row.querySelectorAll('[data-case]').forEach(function(b){b.onclick=function(){openCase(b.dataset.case);};});
@@ -339,7 +339,7 @@
   function rarColor(r){return RAR[r]||'var(--common)';}
   function openCase(id){
     if(opening)return;var c=state.cases[id];if(!c)return;
-    if(state.profile.coins<c.price){toast('Not enough coins');return;}
+    if(state.profile.coins<c.price){toast('Not enough Scrolls');return;}
     opening=true;$('caseMsg').textContent='';
     api('case',{caseId:id}).then(function(d){
       if(d.error){opening=false;toast(errMsg(d.error));return;}
@@ -348,7 +348,7 @@
       var items=[];for(var i=0;i<40;i++){var p=c.pool[(Math.random()*c.pool.length)|0];items.push(p);}
       items[36]={v:d.item.v,r:d.item.r};
       strip.style.transition='none';strip.style.transform='translateX(0)';
-      strip.innerHTML=items.map(function(it){return '<div class="slot" style="color:'+rarColor(it.r)+'">🪙 '+fmt(it.v)+'</div>';}).join('');
+      strip.innerHTML=items.map(function(it){return '<div class="slot" style="color:'+rarColor(it.r)+'">📜 '+fmt(it.v)+'</div>';}).join('');
       var slotW=88;var target=36*slotW-(reveal.clientWidth/2)+slotW/2;
       requestAnimationFrame(function(){requestAnimationFrame(function(){
         strip.style.transition='transform 4s cubic-bezier(.12,.8,.2,1)';strip.style.transform='translateX('+(-target)+'px)';
@@ -357,8 +357,8 @@
         setProfile(d.profile);opening=false;
         var m=$('caseMsg');m.className='msg';
         if(d.item.v===0){m.textContent='Ouch — nothing. 💀';m.classList.add('lose');}
-        else if(d.net>0){m.innerHTML='<span style="color:'+rarColor(d.item.r)+'">'+d.item.r.toUpperCase()+'</span> — won 🪙 '+fmt(d.item.v)+' (net +'+fmt(d.net)+')';m.classList.add('win');}
-        else{m.innerHTML='<span style="color:'+rarColor(d.item.r)+'">'+d.item.r.toUpperCase()+'</span> — 🪙 '+fmt(d.item.v)+' (net '+fmt(d.net)+')';m.classList.add('lose');}
+        else if(d.net>0){m.innerHTML='<span style="color:'+rarColor(d.item.r)+'">'+d.item.r.toUpperCase()+'</span> — won 📜 '+fmt(d.item.v)+' (net +'+fmt(d.net)+')';m.classList.add('win');}
+        else{m.innerHTML='<span style="color:'+rarColor(d.item.r)+'">'+d.item.r.toUpperCase()+'</span> — 📜 '+fmt(d.item.v)+' (net '+fmt(d.net)+')';m.classList.add('lose');}
       },4200);
     });
   }
@@ -377,7 +377,7 @@
       else if(owned)btn='<button data-equip="'+it.id+'">Equip</button>';
       else btn='<button data-buy="'+it.id+'"'+(state.profile.coins<it.price?' disabled':'')+'>Buy</button>';
       d.innerHTML='<div class="top"><span class="nm">'+swatch+it.label+'</span><span class="rar" style="color:'+rarColor(it.rarity)+'">'+it.rarity+'</span></div>'+
-        '<div class="price">🪙 '+fmt(it.price)+'</div>'+btn;
+        '<div class="price">📜 '+fmt(it.price)+'</div>'+btn;
       g.appendChild(d);
     });
     g.querySelectorAll('[data-buy]').forEach(function(b){b.onclick=function(){api('buy',{itemId:b.dataset.buy}).then(function(d){if(d.error){toast(errMsg(d.error));return;}toast('Purchased!');setProfile(d.profile);});};});
@@ -387,9 +387,9 @@
   $('unColor').onclick=function(){api('equip',{itemId:'none-color'}).then(function(d){setProfile(d.profile);toast('Color removed');});};
 
   // ---- leaderboard ----
-  function loadLb(){api('leaderboard').then(function(d){var tb=$('lb');tb.innerHTML='';(d.top||[]).forEach(function(u,i){var tr=document.createElement('tr');tr.innerHTML='<td>'+(i+1)+'</td><td>'+(i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'')+'Player</td><td>🪙 '+fmt(u.coins)+'</td><td>'+fmt(u.biggest)+'</td>';tb.appendChild(tr);});});}
+  function loadLb(){api('leaderboard').then(function(d){var tb=$('lb');tb.innerHTML='';(d.top||[]).forEach(function(u,i){var tr=document.createElement('tr');tr.innerHTML='<td>'+(i+1)+'</td><td>'+(i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'')+'Player</td><td>📜 '+fmt(u.coins)+'</td><td>'+fmt(u.biggest)+'</td>';tb.appendChild(tr);});});}
 
-  function errMsg(e){return {broke:'Not enough coins',"bad-bet":'Enter a valid bet',owned:'You already own that',"not-owned":'You don\'t own that','no-id':'Pick a nickname on ScrollHub first'}[e]||'Something went wrong';}
+  function errMsg(e){return {broke:'Not enough Scrolls',"bad-bet":'Enter a valid bet',owned:'You already own that',"not-owned":'You don\'t own that','no-id':'Pick a nickname on ScrollHub first'}[e]||'Something went wrong';}
 
   // ---- case battles (WebSocket) ----
   var bws=null, myCid='', curBattle=null;
@@ -406,7 +406,7 @@
     Object.keys(state.cases).forEach(function(id){var o=document.createElement('option');o.value=id;o.textContent=state.cases[id].name+' ('+fmt(state.cases[id].price)+')';s.appendChild(o);});
     updateCost();
   }
-  function updateCost(){var c=state.cases[$('bCase').value];if(!c)return;$('bCost').textContent='Cost to join: 🪙 '+fmt(c.price*(+$('bRounds').value))+' ('+$('bRounds').value+' cases)';}
+  function updateCost(){var c=state.cases[$('bCase').value];if(!c)return;$('bCost').textContent='Cost to join: 📜 '+fmt(c.price*(+$('bRounds').value))+' ('+$('bRounds').value+' cases)';}
   ['bCase','bRounds'].forEach(function(id){document.addEventListener('change',function(e){if(e.target.id===id)updateCost();});});
   $('bCreate').onclick=function(){bwsSend({t:'create',caseId:$('bCase').value,players:+$('bPlayers').value,rounds:+$('bRounds').value});};
   $('brLeave').onclick=function(){bwsSend({t:'leave'});showLobby();};
@@ -428,7 +428,7 @@
     if(!list||!list.length){el.innerHTML='<div class="hint">No open battles — create one above!</div>';return;}
     list.forEach(function(b){
       var d=document.createElement('div');d.className='betrow';d.style.justifyContent='space-between';
-      d.innerHTML='<span><b>'+b.caseName+'</b> · '+b.players+'/'+b.maxPlayers+' players · '+b.rounds+' rounds · 🪙 '+fmt(b.cost)+'</span>';
+      d.innerHTML='<span><b>'+b.caseName+'</b> · '+b.players+'/'+b.maxPlayers+' players · '+b.rounds+' rounds · 📜 '+fmt(b.cost)+'</span>';
       var j=document.createElement('button');j.className='btn';j.textContent='Join';j.onclick=function(){bwsSend({t:'join',id:b.id});};
       d.appendChild(j);el.appendChild(d);
     });
@@ -438,13 +438,13 @@
     var b=curBattle;
     $('brTitle').textContent=b.caseName+' — '+b.rounds+' rounds';
     $('brStart').style.display=(b.state==='waiting'&&b.players[0]&&b.players[0].cid===myCid)?'inline-block':'none';
-    $('brStatus').textContent=b.state==='waiting'?('Waiting for players ('+b.players.length+'/'+b.maxPlayers+')… empty seats fill with bots when you start.'):(b.state==='rolling'?('Round '+b.round+' / '+b.rounds+' — pot 🪙 '+fmt(b.pot)):'');
+    $('brStatus').textContent=b.state==='waiting'?('Waiting for players ('+b.players.length+'/'+b.maxPlayers+')… empty seats fill with bots when you start.'):(b.state==='rolling'?('Round '+b.round+' / '+b.rounds+' — pot 📜 '+fmt(b.pot)):'');
     var g=$('brPlayers');g.innerHTML='';
     for(var i=0;i<b.maxPlayers;i++){
       var p=b.players[i];
       var d=document.createElement('div');d.style.cssText='background:#0b1020;border:1px solid var(--line2);border-radius:14px;padding:12px;text-align:center';
       d.setAttribute('data-seat',i);
-      if(p){d.innerHTML='<div style="font-weight:700">'+(p.bot?'🤖 ':'')+esc(p.nick)+(p.cid===myCid?' (you)':'')+'</div><div class="val" style="font-size:1.3rem" data-total>🪙 '+fmt(p.total)+'</div><div data-pulls style="margin-top:8px;font-size:.8rem;min-height:20px">'+(p.pulls||[]).map(pullChip).join('')+'</div>';}
+      if(p){d.innerHTML='<div style="font-weight:700">'+(p.bot?'🤖 ':'')+esc(p.nick)+(p.cid===myCid?' (you)':'')+'</div><div class="val" style="font-size:1.3rem" data-total>📜 '+fmt(p.total)+'</div><div data-pulls style="margin-top:8px;font-size:.8rem;min-height:20px">'+(p.pulls||[]).map(pullChip).join('')+'</div>';}
       else{d.innerHTML='<div style="color:var(--mut)">Empty seat</div>';}
       g.appendChild(d);
     }
@@ -454,7 +454,7 @@
   function pullChip(v){return '<span style="display:inline-block;margin:1px;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.07)">'+fmt(v)+'</span>';}
   function applyRoll(m){
     if(!curBattle)return;curBattle.round=m.round;curBattle.pot=m.pot;
-    $('brStatus').textContent='Round '+m.round+' / '+m.rounds+' — pot 🪙 '+fmt(m.pot);
+    $('brStatus').textContent='Round '+m.round+' / '+m.rounds+' — pot 📜 '+fmt(m.pot);
     var RAR={common:'var(--common)',uncommon:'var(--uncommon)',rare:'var(--rare)',epic:'var(--epic)',legendary:'var(--legendary)',mythic:'var(--mythic)'};
     m.results.forEach(function(r,i){
       // match seat by cid
@@ -462,7 +462,7 @@
       if(seat<0)seat=i;
       var card=document.querySelector('[data-seat="'+seat+'"]');if(!card)return;
       var tot=card.querySelector('[data-total]');var pulls=card.querySelector('[data-pulls]');
-      if(tot)tot.textContent='🪙 '+fmt(r.total);
+      if(tot)tot.textContent='📜 '+fmt(r.total);
       if(pulls){var sp=document.createElement('span');sp.style.cssText='display:inline-block;margin:1px;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.07);color:'+(RAR[r.r]||'#fff')+';animation:fade .4s';sp.textContent=fmt(r.v);pulls.appendChild(sp);}
       // sync model
       var pm=curBattle.players[seat];if(pm){pm.total=r.total;(pm.pulls=pm.pulls||[]).push(r.v);}
@@ -472,8 +472,8 @@
     if(!w)return;
     var me=w.cids.indexOf(myCid)>=0;
     var el=$('brResult');el.className='msg '+(me?'win':'lose');
-    el.textContent=(me?'🎉 You won ':'🏆 '+w.nicks.join(' & ')+' won ')+'🪙 '+fmt(w.share)+(w.cids.length>1?' each!':'!');
-    toast(me?('You won 🪙 '+fmt(w.share)+'!'):'Battle over');
+    el.textContent=(me?'🎉 You won ':'🏆 '+w.nicks.join(' & ')+' won ')+'📜 '+fmt(w.share)+(w.cids.length>1?' each!':'!');
+    toast(me?('You won 📜 '+fmt(w.share)+'!'):'Battle over');
   }
 
   // boot
