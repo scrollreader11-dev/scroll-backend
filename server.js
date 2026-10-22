@@ -716,6 +716,9 @@ function resolveMentions(content) {
     const re = new RegExp('@' + nick + '(?![\\w])', 'ig');
     if (re.test(out)) { mentioned.add(p.id); out = out.replace(re, '<@' + p.id + '>'); }
   }
+  // Also honor pre-formed <@cid> tokens inserted by the @-autocomplete.
+  let tok; const tokRe = /<@([a-zA-Z0-9_-]{1,64})>/g;
+  while ((tok = tokRe.exec(out))) { if ([...players.keys()].includes(tok[1])) mentioned.add(tok[1]); }
   const everyone = /@everyone\b/i.test(out);
   return { content: out, mentioned: [...mentioned], everyone };
 }
@@ -756,15 +759,19 @@ async function chatSend(req, res) {
   if (chat.messages[ch].length > 800) chat.messages[ch] = chat.messages[ch].slice(-800);
   chat.rev[ch] = (chat.rev[ch] || 1) + 1;
   saveChat();
-  // Ping mentioned players with a toast so they notice even outside the chat tab.
-  const targets = mres.everyone
-    ? [...players.keys()]
-    : mres.mentioned;
-  for (const id of targets) {
-    if (id === v.id) continue;
-    if (!admin.commands[id]) admin.commands[id] = [];
-    admin.commands[id].push({ type: 'message', text: '💬 ' + v.username + ' mentioned you in #' + ch, ts: Date.now() });
-    if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
+  // Ping mentioned players so they notice even outside the chat tab. Include a
+  // readable snippet (mention tokens → @names) so they see what was said.
+  const targets = mres.everyone ? [...players.keys()] : mres.mentioned;
+  if (targets.length) {
+    let snippet = content.replace(/<@([a-zA-Z0-9_-]{1,64})>/g, (m, id) => '@' + ((players.get(id) || {}).nickname || 'you'));
+    snippet = snippet.replace(/\s+/g, ' ').trim().slice(0, 120);
+    const text = '💬 ' + v.username + (mres.everyone ? ' pinged everyone' : ' mentioned you') + ' in #' + ch + (snippet ? ': ' + snippet : '');
+    for (const id of targets) {
+      if (id === v.id) continue;
+      if (!admin.commands[id]) admin.commands[id] = [];
+      admin.commands[id].push({ type: 'message', text, ts: Date.now() });
+      if (admin.commands[id].length > 10) admin.commands[id] = admin.commands[id].slice(-10);
+    }
   }
   return sendJson(res, 200, { ok: true, message: note });
 }
@@ -796,6 +803,25 @@ function chatPresence(req, res) {
   const online = [...players.values()].filter((p) => now - p.lastSeen < PLAYER_TTL);
   const members = online.map((p) => ({ id: p.id, username: p.nickname, avatar: '', color: colorFor(p.id), status: 'online' }));
   return sendJson(res, 200, { groups: [{ role: null, members }], count: members.length, typing: [] });
+}
+// @-autocomplete: online players whose name matches, newest-active first.
+function chatMentions(req, res, q) {
+  prunePlayers();
+  const now = Date.now();
+  const me = chatViewer(req).id;
+  const query = String((q && q.get('q')) || '').toLowerCase();
+  const online = [...players.values()]
+    .filter((p) => now - p.lastSeen < PLAYER_TTL && p.id !== me && p.nickname)
+    .filter((p) => !query || p.nickname.toLowerCase().includes(query))
+    .sort((a, b) => {
+      // Prefix matches rank above substring matches, then by most recent.
+      const ap = a.nickname.toLowerCase().startsWith(query) ? 0 : 1;
+      const bp = b.nickname.toLowerCase().startsWith(query) ? 0 : 1;
+      return ap - bp || b.lastSeen - a.lastSeen;
+    })
+    .slice(0, 8)
+    .map((p) => ({ id: p.id, username: p.nickname, avatar: '', color: colorFor(p.id) }));
+  return sendJson(res, 200, { users: online });
 }
 async function chatMod(req, res, kind) {
   if (!isChatOwner(req)) return sendJson(res, 403, { error: 'Only the owner can moderate.' });
@@ -903,6 +929,7 @@ const httpServer = createServer((req, res) => {
   if (url === '/api/chat/edit' && req.method === 'POST') return chatEdit(req, res);
   if (url === '/api/chat/delete' && req.method === 'POST') return chatDelete(req, res);
   if (url === '/api/chat/channel' && req.method === 'POST') return chatChannel(req, res);
+  if (url.split('?')[0] === '/api/chat/mentions') return chatMentions(req, res, parsed.searchParams);
   if (url === '/api/chat/presence') return chatPresence(req, res);
   if (url === '/api/chat/ban' && req.method === 'POST') return chatMod(req, res, 'ban');
   if (url === '/api/chat/timeout' && req.method === 'POST') return chatMod(req, res, 'timeout');
