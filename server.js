@@ -648,9 +648,7 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // other copy in the catalog (deduped by name) and sit near the top so they're
 // easy to find and test. Add more here as needed.
 const CATALOG_OVERRIDES = [
-  { label: 'Snow Rider 3D', url: '/iframe.html?url=https://ubgwtf.gitlab.io/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
-  { label: 'BitLife', url: '/iframe.html?url=https://ubgwtf.gitlab.io/bitlife/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/bitlife.webp', categories: ['Simulation', '🆕 New Games'] },
-  { label: 'Space Wars Battlegrounds', url: '/iframe.html?url=https://www.crazygames.com/embed/space-wars-battleground', imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Shooting', '🆕 New Games'] },
+  { label: 'Snow Rider 3D', url: '/ubg/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
 ];
 async function fetchUbgGames() {
   const now = Date.now();
@@ -665,7 +663,7 @@ async function fetchUbgGames() {
       let m; while ((m = re.exec(html))) { const s = m[1].toLowerCase(); if (s !== 'index') slugs.add(s); }
       const games = [...slugs].map((s) => ({
         label: titleCase(s),
-        url: '/iframe.html?url=https://ubgwtf.gitlab.io/' + s + '/',
+        url: '/ubg/' + s + '/', // same-origin passthrough → loads directly, no Wisp proxy
         imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/' + s + '.webp',
         categories: ['🆕 New Games'],
       }));
@@ -752,7 +750,8 @@ async function proxyUpstream(req, res) {
     }
   }
 
-  const target = UPSTREAM + req.url;
+  // /ubg/* is a same-origin passthrough to the ubgwtf.gitlab.io game pack.
+  const target = req.url.startsWith('/ubg/') ? ('https://ubgwtf.gitlab.io' + req.url.slice(4)) : (UPSTREAM + req.url);
   const headers = {
     'user-agent': req.headers['user-agent'] || 'Mozilla/5.0',
     'accept': req.headers['accept'] || '*/*',
@@ -1166,6 +1165,7 @@ const httpServer = createServer(async (req, res) => {
   }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
   if (url === '/storage/data/collection.json') return serveCollection(req, res, parsed.searchParams.get('debug') === '1');
+  if (url.startsWith('/ubg/')) return proxyUpstream(req, res);
   if (url === '/newgames' || url === '/newgames/') {
     req.url = '/newgames/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
