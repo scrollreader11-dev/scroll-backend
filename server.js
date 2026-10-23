@@ -649,6 +649,7 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // easy to find and test. Add more here as needed.
 const CATALOG_OVERRIDES = [
   { label: 'Snow Rider 3D', url: '/ubg/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
+  { label: 'Space Wars Battlegrounds', url: '/gf/embed/space-wars-battleground/', imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Shooting', '🆕 New Games'] },
 ];
 async function fetchUbgGames() {
   const now = Date.now();
@@ -750,8 +751,12 @@ async function proxyUpstream(req, res) {
     }
   }
 
-  // /ubg/* is a same-origin passthrough to the ubgwtf.gitlab.io game pack.
-  const target = req.url.startsWith('/ubg/') ? ('https://ubgwtf.gitlab.io' + req.url.slice(4)) : (UPSTREAM + req.url);
+  // Same-origin passthroughs to external game hosts (so games load directly,
+  // not through the Wisp proxy): /ubg/* -> ubgwtf, /gf/* -> gameflare.
+  let target;
+  if (req.url.startsWith('/ubg/')) target = 'https://ubgwtf.gitlab.io' + req.url.slice(4);
+  else if (req.url.startsWith('/gf/')) target = 'https://www.gameflare.com' + req.url.slice(3);
+  else target = UPSTREAM + req.url;
   const headers = {
     'user-agent': req.headers['user-agent'] || 'Mozilla/5.0',
     'accept': req.headers['accept'] || '*/*',
@@ -1165,7 +1170,7 @@ const httpServer = createServer(async (req, res) => {
   }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
   if (url === '/storage/data/collection.json') return serveCollection(req, res, parsed.searchParams.get('debug') === '1');
-  if (url.startsWith('/ubg/')) return proxyUpstream(req, res);
+  if (url.startsWith('/ubg/') || url.startsWith('/gf/')) return proxyUpstream(req, res);
   if (url === '/newgames' || url === '/newgames/') {
     req.url = '/newgames/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
