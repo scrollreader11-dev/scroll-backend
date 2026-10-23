@@ -730,12 +730,14 @@ async function buildCatalog(now) {
   const IMG_CDN = process.env.IMG_CDN_BASE !== undefined
     ? process.env.IMG_CDN_BASE
     : 'https://cdn.jsdelivr.net/gh/scrollreader11-dev/scroll-backend@main/dist';
-  if (IMG_CDN) {
-    for (const g of obj.games) {
-      if (g && typeof g.imageUrl === 'string' && g.imageUrl.startsWith('/storage/images/')) {
-        g.imageUrl = IMG_CDN + g.imageUrl;
-      }
-    }
+  for (const g of obj.games) {
+    if (!g || typeof g.imageUrl !== 'string') continue;
+    // Local images -> jsDelivr CDN (fast global edge, off the origin).
+    if (IMG_CDN && g.imageUrl.startsWith('/storage/images/')) g.imageUrl = IMG_CDN + g.imageUrl;
+    // Externally-hosted thumbnails -> our cached image proxy (/imgx/) instead of
+    // the heavy client-side Wisp tunnel. First load fills the cache; after that
+    // it's served from RAM and the browser/CDN cache it hard.
+    else if (g.imageUrl.startsWith('/!!/')) g.imageUrl = '/imgx/' + g.imageUrl.slice(4);
   }
   return { text: JSON.stringify(obj), source, ubg: bottomGames.length };
 }
@@ -783,7 +785,20 @@ async function proxyUpstream(req, res) {
   // Same-origin passthroughs to external game hosts (so games load directly,
   // not through the Wisp proxy): /ubg/* -> ubgwtf, /gf/* -> gameflare.
   let target;
-  if (req.url.startsWith('/ubg/')) target = 'https://ubgwtf.gitlab.io' + req.url.slice(4);
+  if (req.url.startsWith('/imgx/')) {
+    // Cached proxy for an arbitrary external thumbnail. Validate the URL and
+    // block internal/private hosts so this can't be abused as an open relay.
+    const raw = req.url.slice(6);
+    let host = '';
+    try { host = new URL(raw).hostname; } catch (e) {}
+    if (!/^https?:\/\//i.test(raw) || !host || host === '::1' ||
+        /^(localhost|127\.|10\.|0\.|169\.254\.|192\.168\.)/i.test(host) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
+      return gentleFallback(req, res, raw);
+    }
+    target = raw;
+  }
+  else if (req.url.startsWith('/ubg/')) target = 'https://ubgwtf.gitlab.io' + req.url.slice(4);
   else if (req.url.startsWith('/gf/')) target = 'https://www.gameflare.com' + req.url.slice(3);
   else target = UPSTREAM + req.url;
   const headers = {
@@ -1199,7 +1214,7 @@ const httpServer = createServer(async (req, res) => {
   }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
   if (url === '/storage/data/collection.json') return serveCollection(req, res, parsed.searchParams.get('debug') === '1');
-  if (url.startsWith('/ubg/') || url.startsWith('/gf/')) return proxyUpstream(req, res);
+  if (url.startsWith('/ubg/') || url.startsWith('/gf/') || url.startsWith('/imgx/')) return proxyUpstream(req, res);
   if (url === '/newgames' || url === '/newgames/') {
     req.url = '/newgames/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
