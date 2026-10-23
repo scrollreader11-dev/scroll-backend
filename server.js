@@ -688,8 +688,9 @@ async function buildCatalog(now) {
   } catch (e) {}
   if (!baseTxt) { try { const fs = await import('node:fs'); baseTxt = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8'); source = 'bundled'; } catch (e) {} }
   let obj = { games: [] };
-  try { const d = JSON.parse(baseTxt); obj = Array.isArray(d) ? { games: d } : d; } catch (e) {}
-  const base = Array.isArray(obj.games) ? obj.games : [];
+  if (baseTxt) { try { const d = JSON.parse(baseTxt); if (Array.isArray(d)) obj = { games: d }; else if (d && typeof d === 'object' && Array.isArray(d.games)) obj = d; } catch (e) {} }
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.games)) obj = { games: [] };
+  const base = obj.games;
   const ubg = await fetchUbgGames();
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const isNew = (g) => (g.categories || []).some((c) => String(c).indexOf('New Games') >= 0);
@@ -731,9 +732,17 @@ async function serveCollection(req, res, debug) {
   if (!debug && collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data, 'cache', collectionCache.ubg);
   try {
     const built = await buildCatalog(now);
-    if (built.text) { collectionCache = { data: built.text, ts: now, source: built.source, ubg: built.ubg }; return sendData(built.text, built.source, built.ubg); }
+    // Only accept/cache a real catalog. A build with just the few pinned games
+    // (base failed to load) is treated as a failure so we fall back to bundled.
+    if (built.text && countGames(built.text) > 5) { collectionCache = { data: built.text, ts: now, source: built.source, ubg: built.ubg }; return sendData(built.text, built.source, built.ubg); }
   } catch (e) {}
   if (collectionCache.data) return sendData(collectionCache.data, 'cache', collectionCache.ubg);
+  // Last resort: serve the bundled catalog file raw so the site is NEVER empty.
+  try {
+    const fs = await import('node:fs');
+    const raw = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8');
+    if (raw && countGames(raw) > 0) return sendData(raw, 'bundled-raw', 0);
+  } catch (e) {}
   res.writeHead(502, { 'content-type': 'text/plain' }); res.end('no catalog');
 }
 async function proxyUpstream(req, res) {
