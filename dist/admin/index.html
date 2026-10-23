@@ -257,6 +257,10 @@
         <div class="label">📜 Give everyone online some Scrolls (casino currency)</div>
         <div class="row"><input id="gaAmt" type="number" placeholder="e.g. 5000" /><button class="sm gold" id="gaBtn">Give to all</button></div>
       </div>
+      <div class="field">
+        <div class="label">🧹 Reset all nicknames (everyone re-enters their name on next load)</div>
+        <div class="row"><button class="sm red" id="resetNicksBtn">Reset all nicknames</button></div>
+      </div>
       <div id="saFlash" class="flash"></div>
     </div>
     <div class="card">
@@ -667,6 +671,10 @@
       if (res.ok) { saFlash('Gave ' + amt + ' Scrolls to ' + ((res.data && res.data.count) || 0) + ' online ✓'); $('gaAmt').value = ''; }
       else saFlash((res.data && res.data.error) || 'Failed.');
     });
+  };
+  $('resetNicksBtn').onclick = function () {
+    if (!confirm('Reset ALL nicknames? Everyone will have to re-enter their name next time they load the site.')) return;
+    api('resetnicks', {}).then(function (res) { saFlash(res.ok ? 'All nicknames reset ✓' : 'Failed.'); });
   };
   var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
   function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }

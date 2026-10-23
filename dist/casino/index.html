@@ -346,6 +346,8 @@
     opening=true;$('caseMsg').textContent='';
     api('case',{caseId:id}).then(function(d){
       if(d.error){opening=false;toast(errMsg(d.error));return;}
+      // Deduct the price immediately so it's clear the case cost Scrolls.
+      if(state.profile){state.profile.coins=Math.max(0,state.profile.coins-c.price);$('coins').textContent=fmt(state.profile.coins);}
       // build a scrolling strip ending on the won value
       var strip=$('strip');var reveal=$('reveal');reveal.style.display='block';
       var items=[];for(var i=0;i<40;i++){var p=c.pool[(Math.random()*c.pool.length)|0];items.push(p);}
@@ -357,7 +359,10 @@
         strip.style.transition='transform 4s cubic-bezier(.12,.8,.2,1)';strip.style.transform='translateX('+(-target)+'px)';
       });});
       setTimeout(function(){
-        setProfile(d.profile);opening=false;
+        opening=false;
+        // Re-fetch the authoritative balance so a delayed snapshot can never
+        // clobber a win from another game opened during the reveal.
+        api('me').then(function(mm){if(mm&&mm.profile)setProfile(mm.profile);});
         var m=$('caseMsg');m.className='msg';
         if(d.item.v===0){m.textContent='Ouch — nothing. 💀';m.classList.add('lose');}
         else if(d.net>0){m.innerHTML='<span style="color:'+rarColor(d.item.r)+'">'+d.item.r.toUpperCase()+'</span> — won 📜 '+fmt(d.item.v)+' (net +'+fmt(d.net)+')';m.classList.add('win');}

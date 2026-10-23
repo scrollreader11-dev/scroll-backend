@@ -2,7 +2,7 @@
 (function () {
   if (location.pathname.indexOf('/admin') === 0) return; // admin page is exempt
 
-  var CID_KEY = 'scrollhub_cid', NICK_KEY = 'scrollhub_nick', BC_KEY = 'scrollhub_bc_seen';
+  var CID_KEY = 'scrollhub_cid', NICK_KEY = 'scrollhub_nick', BC_KEY = 'scrollhub_bc_seen', NEPOCH_KEY = 'scrollhub_nick_epoch';
   var cid = '';
   try { cid = localStorage.getItem(CID_KEY) || ''; } catch (e) {}
   if (!cid) {
@@ -12,6 +12,8 @@
   }
   var nickname = '';
   try { nickname = localStorage.getItem(NICK_KEY) || ''; } catch (e) {}
+  var hadStoredNick = !!nickname; // did this page load start with a saved name?
+  var nickEpochSeen = ''; try { nickEpochSeen = localStorage.getItem(NEPOCH_KEY) || ''; } catch (e) {}
 
   function el(tag, css, html) {
     var e = document.createElement(tag);
@@ -391,6 +393,23 @@
       body: JSON.stringify({ id: cid, nickname: nickname || 'Guest', activity: currentActivity() }),
       keepalive: true,
     }).then(function (r) { return r.json(); }).then(function (state) {
+      // Nickname reset: if the server's epoch changed since this page last saw
+      // it AND we loaded with a saved name, forget it and re-prompt once.
+      if (state && state.nickEpoch) {
+        var se = String(state.nickEpoch);
+        if (nickEpochSeen !== se) {
+          try { localStorage.setItem(NEPOCH_KEY, se); } catch (e) {}
+          nickEpochSeen = se;
+          if (hadStoredNick) {
+            hadStoredNick = false;
+            try { localStorage.removeItem(NICK_KEY); } catch (e) {}
+            try { document.cookie = 'sh_nick=;path=/;max-age=0'; } catch (e) {}
+            nickname = '';
+            askNickname(function () { syncCookies(); });
+            return;
+          }
+        }
+      }
       if (state && state.nickname && state.nickname !== nickname) {
         nickname = state.nickname;
         try { localStorage.setItem(NICK_KEY, nickname); } catch (e) {}

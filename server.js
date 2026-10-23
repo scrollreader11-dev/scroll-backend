@@ -116,6 +116,9 @@ function makeGameId(label, url) {
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
 const chatMsgCount = new Map(); // cid -> number of chat messages sent (for achievements)
 const nameOwners = new Map(); // lowercased nickname -> cid currently holding it
+// Changes on every restart (and when an admin resets): clients whose stored
+// nickname predates this value are forced to re-enter their name on next load.
+let nickEpoch = Date.now();
 const geoCache = new Map(); // ip -> location string
 const stats = { peakOnline: 0, peakAt: 0, hourly: new Array(24).fill(0), gamePlays: {}, totalSessions: 0 };
 const events = []; // recent activity: {ts, type, nickname, detail}
@@ -265,6 +268,7 @@ async function handlePresence(req, res) {
     broadcast: admin.broadcast || null,
     frozen: frozenActive(id),
     takeover: admin.settings.takeover || null,
+    nickEpoch,
     commands,
   });
 }
@@ -351,6 +355,12 @@ async function handleAdmin(req, res) {
     for (const [id] of players) { grantCoins(id, amount); n++; }
     logEvent('coins', 'Everyone', '+' + amount + ' Scrolls to ' + n);
     return sendJson(res, 200, { ok: true, count: n });
+  }
+  if (action === 'resetnicks') {
+    nickEpoch = Date.now();
+    nameOwners.clear();
+    logEvent('reset', 'Nicknames', 'everyone re-enters on next load');
+    return sendJson(res, 200, { ok: true });
   }
   if (action === 'takeover') {
     // Persistent site-wide visual effect applied to everyone online (and
