@@ -1042,7 +1042,9 @@ const httpServer = createServer(async (req, res) => {
     }];
     const customIds = new Set(admin.customGames.map((g) => g.id));
     const globals = [...builtins.filter((b) => !customIds.has(b.id)), ...admin.customGames];
-    return sendJson(res, 200, { globals, exclusions: [], overrides: [] });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify({ globals, exclusions: [], overrides: [] }));
+    return;
   }
 
   // No real account system — return a guest so the account/settings page
