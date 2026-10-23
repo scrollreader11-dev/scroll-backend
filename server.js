@@ -730,14 +730,25 @@ async function buildCatalog(now) {
   const IMG_CDN = process.env.IMG_CDN_BASE !== undefined
     ? process.env.IMG_CDN_BASE
     : 'https://cdn.jsdelivr.net/gh/scrollreader11-dev/scroll-backend@main/dist';
+  // Externally-hosted thumbnails (~760) are the slow part. Routing them through
+  // this small free server (Wisp tunnel OR our own proxy) both crawls and
+  // starves game loading. Instead, serve them through a free image CDN (wsrv.nl)
+  // that fetches, globally caches, AND shrinks each one to a small webp — so the
+  // browser downloads tiny images in parallel and this server does ZERO image
+  // work (freeing it to load games). Set IMG_PROXY_BASE="" to fall back to /imgx/.
+  const IMG_PROXY = process.env.IMG_PROXY_BASE !== undefined ? process.env.IMG_PROXY_BASE : 'https://wsrv.nl/';
+  const thumb = (srcUrl) => IMG_PROXY
+    ? IMG_PROXY + '?url=' + encodeURIComponent(srcUrl) + '&w=360&output=webp&q=72&maxage=30d'
+    : null;
   for (const g of obj.games) {
     if (!g || typeof g.imageUrl !== 'string') continue;
+    const img = g.imageUrl;
+    // External thumbnails -> image CDN (or /imgx/ cache if the CDN is disabled).
+    if (img.startsWith('/!!/')) g.imageUrl = thumb(img.slice(4)) || ('/imgx/' + img.slice(4));
+    // PeteZah-proxied thumbnails -> image CDN pointed at the upstream source.
+    else if (img.startsWith('/storage/ag/')) { const t = thumb(UPSTREAM + img); if (t) g.imageUrl = t; }
     // Local images -> jsDelivr CDN (fast global edge, off the origin).
-    if (IMG_CDN && g.imageUrl.startsWith('/storage/images/')) g.imageUrl = IMG_CDN + g.imageUrl;
-    // Externally-hosted thumbnails -> our cached image proxy (/imgx/) instead of
-    // the heavy client-side Wisp tunnel. First load fills the cache; after that
-    // it's served from RAM and the browser/CDN cache it hard.
-    else if (g.imageUrl.startsWith('/!!/')) g.imageUrl = '/imgx/' + g.imageUrl.slice(4);
+    else if (IMG_CDN && img.startsWith('/storage/images/')) g.imageUrl = IMG_CDN + img;
   }
   return { text: JSON.stringify(obj), source, ubg: bottomGames.length };
 }
