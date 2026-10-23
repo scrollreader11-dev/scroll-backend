@@ -629,27 +629,30 @@ function serveCached(res, e) {
 // The games list: pull it LIVE from PeteZah so new games show up
 // automatically, with the bundled snapshot as a safe fallback. Cached
 // briefly so we don't refetch on every page load.
-let collectionCache = { data: null, ts: 0 };
-async function serveCollection(req, res) {
+let collectionCache = { data: null, ts: 0, source: '' };
+function countGames(txt) { try { const d = JSON.parse(txt); const g = Array.isArray(d) ? d : (d.games || []); return g.length; } catch (e) { return -1; } }
+async function serveCollection(req, res, debug) {
   const now = Date.now();
-  const sendData = (txt) => { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*' }); res.end(req.method === 'HEAD' ? undefined : txt); };
-  if (collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data);
+  const sendData = (txt, source) => {
+    if (debug) { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ source, games: countGames(txt), cachedAgeSec: Math.round((now - collectionCache.ts) / 1000) })); return; }
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*', 'x-sh-catalog': source }); res.end(req.method === 'HEAD' ? undefined : txt);
+  };
+  if (!debug && collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data, 'cache');
   try {
     const ac = new AbortController(); const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 15000);
     let up; try { up = await fetch(UPSTREAM + '/storage/data/collection.json', { headers: { 'user-agent': 'Mozilla/5.0', accept: 'application/json' }, signal: ac.signal }); } finally { clearTimeout(to); }
     if (up && up.ok) {
       const txt = await up.text();
       JSON.parse(txt); // validate before trusting it
-      collectionCache = { data: txt, ts: now };
-      return sendData(txt);
+      collectionCache = { data: txt, ts: now, source: 'live' };
+      return sendData(txt, 'live');
     }
   } catch (e) {}
-  // Fallback: the bundled snapshot (keeps the games page working no matter what).
   try {
     const fs = await import('node:fs');
     const txt = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8');
-    if (collectionCache.data) return sendData(collectionCache.data); // prefer a prior live copy
-    return sendData(txt);
+    if (collectionCache.data) return sendData(collectionCache.data, 'cache');
+    return sendData(txt, 'bundled');
   } catch (e) { res.writeHead(502, { 'content-type': 'text/plain' }); res.end('no catalog'); }
 }
 async function proxyUpstream(req, res) {
@@ -1082,7 +1085,7 @@ const httpServer = createServer(async (req, res) => {
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
-  if (url === '/storage/data/collection.json') return serveCollection(req, res);
+  if (url === '/storage/data/collection.json') return serveCollection(req, res, parsed.searchParams.get('debug') === '1');
 
   // Legal gate — always accepted.
   if (url === '/api/legal/status') return sendJson(res, 200, { accepted: true, needsCaptcha: false, gate: false, version: '1' });
