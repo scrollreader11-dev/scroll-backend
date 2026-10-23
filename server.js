@@ -18,6 +18,12 @@ import { handleSkribblUpgrade } from './skribbl.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements } from './casino.js';
 await initCasino();
 
+// Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
+// unhandled error in any request/handler must NOT take the whole process down,
+// because a crash drops every in-flight proxy connection (Wisp MuxTaskEnded).
+process.on('unhandledRejection', (err) => { try { console.error('unhandledRejection:', err && err.message ? err.message : err); } catch (e) {} });
+process.on('uncaughtException', (err) => { try { console.error('uncaughtException:', err && err.message ? err.message : err); } catch (e) {} });
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = join(__dirname, 'dist');
 const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
@@ -551,7 +557,7 @@ async function handleGenerate(req, res) {
 // every other player. This is the big lever for concurrent users on a tiny
 // instance: shared game assets stop re-hitting petezahgames.com per person.
 const CACHE_MAX_ITEM = 2 * 1024 * 1024;     // only cache responses <= 2MB
-const CACHE_MAX_TOTAL = 96 * 1024 * 1024;   // total RAM budget for the cache (safe on 512MB)
+const CACHE_MAX_TOTAL = 56 * 1024 * 1024;   // total RAM budget for the cache (leave headroom on 512MB so we never OOM-kill Wisp)
 const CACHE_TTL = 6 * 3600 * 1000;          // 6h freshness
 const assetCache = new Map();               // url -> {status, ctype, body, ts}
 let cacheBytes = 0;
@@ -1119,6 +1125,7 @@ async function chatChannel(req, res) {
 }
 
 const httpServer = createServer(async (req, res) => {
+ try {
   const parsed = new URL(req.url || '/', 'http://localhost');
   const url = parsed.pathname;
 
@@ -1231,9 +1238,13 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/index.html';
     serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   });
+ } catch (err) {
+  try { console.error('request handler error:', err && err.message); if (!res.headersSent) { res.writeHead(500, { 'Content-Type': 'text/plain' }); res.end('Server error'); } else res.end(); } catch (e) {}
+ }
 });
 
 httpServer.on('upgrade', (req, socket, head) => {
+ try {
   // Banned IPs can't use the proxy tunnel (respects timed-ban expiry).
   const ip = clientIp(req);
   if (banActive(ip)) { try { socket.destroy(); } catch {} return; }
@@ -1242,7 +1253,9 @@ httpServer.on('upgrade', (req, socket, head) => {
   // Casino case battles have theirs.
   if ((req.url || '').split('?')[0] === '/battle-ws') return handleBattleUpgrade(req, socket, head);
   wisp.routeRequest(req, socket, head);
+ } catch (err) { try { console.error('upgrade error:', err && err.message); socket.destroy(); } catch (e) {} }
 });
+httpServer.on('clientError', (err, socket) => { try { socket.destroy(); } catch (e) {} });
 
 const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, '0.0.0.0', () => {
