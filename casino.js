@@ -41,7 +41,12 @@ export async function initCasino() {
 let dirty = false;
 function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, JSON.stringify({ users: casino.users })); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', JSON.stringify({ users: casino.users })); } catch (e) { dirty = true; } }
-setInterval(flush, 12000);
+setInterval(flush, 8000);
+export { flush as flushCasino };
+// Flush on shutdown so a redeploy doesn't drop the last few seconds.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  try { process.on(sig, async () => { try { await flush(); } catch (e) {} }); } catch (e) {}
+}
 
 // ---- identity ----
 function parseCookies(req) {
@@ -71,7 +76,7 @@ export function grantCoins(cid, amount) {
   if (!cid) return null;
   const p = profileOf(cid);
   p.coins = Math.max(0, Math.floor(p.coins + (Number(amount) || 0)));
-  save();
+  save(); flush();
   return p.coins;
 }
 
@@ -187,7 +192,7 @@ export async function handleCasino(url, req, res) {
   if (path === '/api/casino/daily' && req.method === 'POST') {
     const now = Date.now();
     if (now - p.lastDaily < DAILY_MS) { sendJson(res, 200, { error: 'cooldown', nextIn: DAILY_MS - (now - p.lastDaily), profile: publicProfile(cid) }); return true; }
-    p.lastDaily = now; p.coins += DAILY_COINS; save();
+    p.lastDaily = now; p.coins += DAILY_COINS; save(); flush();
     sendJson(res, 200, { ok: true, gained: DAILY_COINS, profile: publicProfile(cid) }); return true;
   }
 
@@ -260,7 +265,7 @@ export async function handleCasino(url, req, res) {
     if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
     if (p.inventory.includes(it.id)) return (sendJson(res, 200, { error: 'owned', profile: publicProfile(cid) }), true);
     if (it.price > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
-    p.coins -= it.price; p.inventory.push(it.id); save();
+    p.coins -= it.price; p.inventory.push(it.id); save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
   }
   if (path === '/api/casino/equip' && req.method === 'POST') {
@@ -270,7 +275,7 @@ export async function handleCasino(url, req, res) {
     const it = storeItem(id);
     if (!it || !p.inventory.includes(it.id)) return (sendJson(res, 200, { error: 'not-owned' }), true);
     if (it.type === 'tag') p.tag = it.label; else p.color = it.value;
-    save();
+    save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
   }
 
