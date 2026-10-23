@@ -112,12 +112,14 @@ function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 // ---- cases (CS2-style loot, coin values with rarity) ----
 export const CASES = {
   starter: { name: 'Starter Case', price: 1000, pool: [
-    { v: 0, w: 32, r: 'common' }, { v: 500, w: 30, r: 'common' }, { v: 900, w: 20, r: 'uncommon' },
-    { v: 1500, w: 11, r: 'rare' }, { v: 3000, w: 5, r: 'epic' }, { v: 8000, w: 1.6, r: 'legendary' }, { v: 25000, w: 0.4, r: 'mythic' },
+    { v: 0, w: 6, r: 'common' }, { v: 300, w: 40, r: 'common' }, { v: 600, w: 26, r: 'common' },
+    { v: 900, w: 15, r: 'uncommon' }, { v: 1700, w: 7, r: 'rare' }, { v: 3500, w: 4, r: 'epic' },
+    { v: 9000, w: 1.6, r: 'legendary' }, { v: 28000, w: 0.4, r: 'mythic' },
   ] },
   highroller: { name: 'High Roller', price: 5000, pool: [
-    { v: 0, w: 30, r: 'common' }, { v: 2500, w: 32, r: 'common' }, { v: 4500, w: 20, r: 'uncommon' },
-    { v: 8000, w: 11, r: 'rare' }, { v: 16000, w: 5, r: 'epic' }, { v: 40000, w: 1.6, r: 'legendary' }, { v: 120000, w: 0.4, r: 'mythic' },
+    { v: 0, w: 6, r: 'common' }, { v: 1500, w: 40, r: 'common' }, { v: 3000, w: 26, r: 'common' },
+    { v: 4500, w: 15, r: 'uncommon' }, { v: 8500, w: 7, r: 'rare' }, { v: 18000, w: 4, r: 'epic' },
+    { v: 45000, w: 1.6, r: 'legendary' }, { v: 140000, w: 0.4, r: 'mythic' },
   ] },
 };
 function openCase(def) {
@@ -284,8 +286,8 @@ export async function handleCasino(url, req, res) {
 function settleBj(cid) {
   const g = bj[cid]; if (!g) return;
   const p = profileOf(cid);
-  // dealer draws to 17
-  while (handValue(g.dealer) < 17) g.dealer.push(g.deck.pop());
+  // dealer plays it safe — stands on 16 (weaker than a real-casino dealer)
+  while (handValue(g.dealer) < 16) g.dealer.push(g.deck.pop());
   const pv = handValue(g.player), dv = handValue(g.dealer);
   let payout = 0, result;
   const natural = g.player.length === 2 && pv === 21;

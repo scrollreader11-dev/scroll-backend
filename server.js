@@ -908,6 +908,26 @@ function chatPresence(req, res) {
   const members = online.map((p) => ({ id: p.id, username: p.nickname, avatar: '', color: colorFor(p.id), status: 'online' }));
   return sendJson(res, 200, { groups: [{ role: null, members }], count: members.length, typing: [] });
 }
+// Profile card shown when you click a player's name in chat.
+function chatMember(req, res, q) {
+  const id = String(q.get('id') || '');
+  if (!id) return sendJson(res, 200, { id: '', username: 'Member' });
+  const p = players.get(id);
+  const cos = getCosmetics(id);
+  const owner = !!admin.chatOwners[id];
+  const nick = p ? p.nickname : 'Member';
+  return sendJson(res, 200, {
+    id,
+    username: nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : ''),
+    avatar: '', color: owner ? 'hsl(45 90% 60%)' : (cos.color || colorFor(id)),
+    rank: owner ? 'Owner' : 'Member', owner,
+    roles: [], staff: false,
+    joinedAt: p ? p.firstSeen : 0,
+    banned: p ? !!banActive(p.ip) : false,
+    timeoutUntil: frozenActive(id) ? Date.now() + 60000 : 0,
+    site: null,
+  });
+}
 // @-autocomplete: online players whose name matches, newest-active first.
 function chatMentions(req, res, q) {
   prunePlayers();
@@ -1017,8 +1037,8 @@ const httpServer = createServer(async (req, res) => {
       id: 'scrollhub-draw-guess', label: 'Draw & Guess (Multiplayer)', url: '/skribbl',
       imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Multiplayer', 'ScrollHub Originals'], isGlobal: true,
     }, {
-      id: 'scrollhub-casino', label: 'ScrollHub Casino', url: '/casino',
-      imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Casino', 'ScrollHub Originals'], isGlobal: true,
+      id: 'scrollhub-casino', label: 'Scrolls Casino', url: '/casino',
+      imageUrl: '/casino/cover.png', categories: ['Casino', 'ScrollHub Originals'], isGlobal: true,
     }];
     const customIds = new Set(admin.customGames.map((g) => g.id));
     const globals = [...builtins.filter((b) => !customIds.has(b.id)), ...admin.customGames];
@@ -1042,6 +1062,7 @@ const httpServer = createServer(async (req, res) => {
   if (url === '/api/chat/delete' && req.method === 'POST') return chatDelete(req, res);
   if (url === '/api/chat/channel' && req.method === 'POST') return chatChannel(req, res);
   if (url.split('?')[0] === '/api/chat/mentions') return chatMentions(req, res, parsed.searchParams);
+  if (url.split('?')[0] === '/api/chat/member') return chatMember(req, res, parsed.searchParams);
   if (url === '/api/chat/presence') return chatPresence(req, res);
   if (url === '/api/chat/ban' && req.method === 'POST') return chatMod(req, res, 'ban');
   if (url === '/api/chat/timeout' && req.method === 'POST') return chatMod(req, res, 'timeout');
