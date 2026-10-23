@@ -626,6 +626,32 @@ function serveCached(res, e) {
   res.end(e.body);
 }
 
+// The games list: pull it LIVE from PeteZah so new games show up
+// automatically, with the bundled snapshot as a safe fallback. Cached
+// briefly so we don't refetch on every page load.
+let collectionCache = { data: null, ts: 0 };
+async function serveCollection(req, res) {
+  const now = Date.now();
+  const sendData = (txt) => { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*' }); res.end(req.method === 'HEAD' ? undefined : txt); };
+  if (collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data);
+  try {
+    const ac = new AbortController(); const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 15000);
+    let up; try { up = await fetch(UPSTREAM + '/storage/data/collection.json', { headers: { 'user-agent': 'Mozilla/5.0', accept: 'application/json' }, signal: ac.signal }); } finally { clearTimeout(to); }
+    if (up && up.ok) {
+      const txt = await up.text();
+      JSON.parse(txt); // validate before trusting it
+      collectionCache = { data: txt, ts: now };
+      return sendData(txt);
+    }
+  } catch (e) {}
+  // Fallback: the bundled snapshot (keeps the games page working no matter what).
+  try {
+    const fs = await import('node:fs');
+    const txt = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8');
+    if (collectionCache.data) return sendData(collectionCache.data); // prefer a prior live copy
+    return sendData(txt);
+  } catch (e) { res.writeHead(502, { 'content-type': 'text/plain' }); res.end('no catalog'); }
+}
 async function proxyUpstream(req, res) {
   const key = req.url;
   const isCacheable = (req.method === 'GET' || req.method === 'HEAD') && !req.headers['range'];
@@ -1056,6 +1082,7 @@ const httpServer = createServer(async (req, res) => {
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
+  if (url === '/storage/data/collection.json') return serveCollection(req, res);
 
   // Legal gate — always accepted.
   if (url === '/api/legal/status') return sendJson(res, 200, { accepted: true, needsCaptcha: false, gate: false, version: '1' });
