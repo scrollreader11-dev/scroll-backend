@@ -644,6 +644,14 @@ function countGames(txt) { try { const d = JSON.parse(txt); const g = Array.isAr
 // thumbnails come from GitLab too. Cached 6h; failures are harmless.
 let ubgCache = { games: [], ts: 0 };
 function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+// Hand-pinned, known-good versions of specific games. These REPLACE every
+// other copy in the catalog (deduped by name) and sit near the top so they're
+// easy to find and test. Add more here as needed.
+const CATALOG_OVERRIDES = [
+  { label: 'Snow Rider 3D', url: '/iframe.html?url=https://ubgwtf.gitlab.io/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
+  { label: 'BitLife', url: '/iframe.html?url=https://ubgwtf.gitlab.io/bitlife/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/bitlife.webp', categories: ['Simulation', '🆕 New Games'] },
+  { label: 'Space Wars Battlegrounds', url: '/iframe.html?url=https://www.crazygames.com/embed/space-wars-battleground', imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Shooting', '🆕 New Games'] },
+];
 async function fetchUbgGames() {
   const now = Date.now();
   if (ubgCache.games.length && now - ubgCache.ts < 6 * 3600 * 1000) return ubgCache.games;
@@ -681,20 +689,35 @@ async function buildCatalog(now) {
   let obj = { games: [] };
   try { const d = JSON.parse(baseTxt); obj = Array.isArray(d) ? { games: d } : d; } catch (e) {}
   const base = Array.isArray(obj.games) ? obj.games : [];
-  // Merge the ubgwtf pack, skipping titles we already have.
   const ubg = await fetchUbgGames();
-  const have = new Set(base.map((g) => String(g.label || '').toLowerCase().trim()));
-  const fresh = [];
-  for (const u of ubg) { const k = u.label.toLowerCase().trim(); if (!have.has(k)) { fresh.push(u); have.add(k); } }
-  // A "see all" tile, then the new games, then the existing catalog —
-  // so new games (Stickman first) sit right up front.
-  const seeAll = fresh.length ? [{
-    label: '🆕 See All ' + fresh.length + '+ New Games', url: '/newgames',
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const isNew = (g) => (g.categories || []).some((c) => String(c).indexOf('New Games') >= 0);
+
+  // Pinned, known-good versions of specific games (replace any other copies).
+  const overrideKeys = new Set(CATALOG_OVERRIDES.map((o) => norm(o.label)));
+
+  // Combine ubg-first (so a ubg copy wins over a broken PeteZah dupe), drop
+  // anything an override replaces, then dedupe clones by normalized name.
+  const combined = [...ubg, ...base].filter((g) => !overrideKeys.has(norm(g.label)));
+  const seen = new Set(); const uniq = [];
+  for (const g of combined) { const k = norm(g.label); if (!k || seen.has(k)) continue; seen.add(k); uniq.push(g); }
+
+  // Interleave new + old (≈1 new : 2 old) so the top is a MIX, not just new.
+  const newG = uniq.filter(isNew);
+  const oldG = uniq.filter((g) => !isNew(g));
+  const mixed = []; let ni = 0, oi = 0;
+  while (ni < newG.length || oi < oldG.length) {
+    if (ni < newG.length) mixed.push(newG[ni++]);
+    if (oi < oldG.length) mixed.push(oldG[oi++]);
+    if (oi < oldG.length) mixed.push(oldG[oi++]);
+  }
+  const seeAll = newG.length ? [{
+    label: '🆕 See All ' + newG.length + '+ New Games', url: '/newgames',
     imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp',
     categories: ['🆕 New Games'],
   }] : [];
-  obj.games = [...seeAll, ...fresh, ...base];
-  return { text: JSON.stringify(obj), source, ubg: fresh.length };
+  obj.games = [...seeAll, ...CATALOG_OVERRIDES, ...mixed];
+  return { text: JSON.stringify(obj), source, ubg: newG.length };
 }
 
 async function serveCollection(req, res, debug) {
