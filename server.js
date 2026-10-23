@@ -703,21 +703,22 @@ async function buildCatalog(now) {
   const seen = new Set(); const uniq = [];
   for (const g of combined) { const k = norm(g.label); if (!k || seen.has(k)) continue; seen.add(k); uniq.push(g); }
 
-  // Interleave new + old (≈1 new : 2 old) so the top is a MIX, not just new.
-  const newG = uniq.filter(isNew);
-  const oldG = uniq.filter((g) => !isNew(g));
-  const mixed = []; let ni = 0, oi = 0;
-  while (ni < newG.length || oi < oldG.length) {
-    if (ni < newG.length) mixed.push(newG[ni++]);
-    if (oi < oldG.length) mixed.push(oldG[oi++]);
-    if (oi < oldG.length) mixed.push(oldG[oi++]);
-  }
-  const seeAll = newG.length ? [{
-    label: '🆕 See All ' + newG.length + '+ New Games', url: '/newgames',
-    imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp',
+  // All GitLab-sourced games go to the BOTTOM of the site. The original games
+  // keep the top (in their normal order) with their own reliable images, so the
+  // top tiles never depend on the external GitLab image host (which fails to
+  // load on some devices, e.g. iPad).
+  const isGitlab = (g) => /gitlab\.io/i.test(String(g.url || '') + ' ' + String(g.imageUrl || ''));
+  const topGames = uniq.filter((g) => !isGitlab(g));
+  const bottomGames = uniq.filter((g) => isGitlab(g));
+  // Keep non-GitLab overrides pinned on top; send GitLab overrides to the bottom.
+  const topOverrides = CATALOG_OVERRIDES.filter((g) => !isGitlab(g));
+  const bottomOverrides = CATALOG_OVERRIDES.filter((g) => isGitlab(g));
+  const seeAll = bottomGames.length ? [{
+    label: 'See All ' + bottomGames.length + '+ New Games', url: '/newgames',
+    imageUrl: '/storage/images/main/arcade.jpg',
     categories: ['🆕 New Games'],
   }] : [];
-  obj.games = [...seeAll, ...CATALOG_OVERRIDES, ...mixed];
+  obj.games = [...topOverrides, ...topGames, ...seeAll, ...bottomOverrides, ...bottomGames];
   return { text: JSON.stringify(obj), source, ubg: newG.length };
 }
 

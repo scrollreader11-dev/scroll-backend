@@ -172,3 +172,4 @@ For higher traffic, place a free CDN such as Cloudflare in front of the origin t
 Copyright &copy; 2026 ScrollHub. All rights reserved.
 
 This software and its source code are proprietary. No part of this project may be copied, redistributed, resold, or used to create derivative works without the express written permission of the copyright holder. Third-party components retain their respective licenses.
+
