@@ -37,6 +37,9 @@ const serve = sirv(distDir, {
   // (Non-hashed files like presence.js keep revalidating so updates propagate.)
   setHeaders(res, pathname) {
     if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+    // Game thumbnails rarely change: cache hard so the grid loads instantly on
+    // repeat visits and navigation instead of re-requesting ~1,200 images.
+    else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
   },
 });
 
@@ -720,7 +723,21 @@ async function buildCatalog(now) {
     categories: ['🆕 New Games'],
   }] : [];
   obj.games = [...topOverrides, ...topGames, ...seeAll, ...bottomOverrides, ...bottomGames];
-  return { text: JSON.stringify(obj), source, ubg: newG.length };
+  // Serve game thumbnails from the jsDelivr CDN (the repo's images are public),
+  // so ~1,200 images load from a fast global edge in parallel instead of from
+  // the single Render server. This makes the grid snappy and takes the image
+  // bandwidth off the origin. Set IMG_CDN_BASE="" to serve from Render instead.
+  const IMG_CDN = process.env.IMG_CDN_BASE !== undefined
+    ? process.env.IMG_CDN_BASE
+    : 'https://cdn.jsdelivr.net/gh/scrollreader11-dev/scroll-backend@main/dist';
+  if (IMG_CDN) {
+    for (const g of obj.games) {
+      if (g && typeof g.imageUrl === 'string' && g.imageUrl.startsWith('/storage/images/')) {
+        g.imageUrl = IMG_CDN + g.imageUrl;
+      }
+    }
+  }
+  return { text: JSON.stringify(obj), source, ubg: bottomGames.length };
 }
 
 async function serveCollection(req, res, debug) {
