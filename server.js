@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins } from './casino.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements } from './casino.js';
 await initCasino();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -114,6 +114,8 @@ function makeGameId(label, url) {
   return (String(label || '') + '-' + u).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
 }
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
+const chatMsgCount = new Map(); // cid -> number of chat messages sent (for achievements)
+const nameOwners = new Map(); // lowercased nickname -> cid currently holding it
 const geoCache = new Map(); // ip -> location string
 const stats = { peakOnline: 0, peakAt: 0, hourly: new Array(24).fill(0), gamePlays: {}, totalSessions: 0 };
 const events = []; // recent activity: {ts, type, nickname, detail}
@@ -164,9 +166,25 @@ async function geoLookup(ip) {
   } catch { geoCache.set(ip, 'Unknown'); return 'Unknown'; }
 }
 let geoCooldownUntil = 0;
+// Reserve a nickname to one person at a time. If it's taken by someone else
+// who's online, append a number so each active player has a unique name.
+function uniqueNick(name, cid) {
+  const base = String(name || 'Guest');
+  if (!cid || base.toLowerCase() === 'guest') return base; // guests may share "Guest"
+  for (const [k, v] of nameOwners) if (v === cid) nameOwners.delete(k); // release this cid's old claims
+  let candidate = base, n = 1;
+  while (n <= 999) {
+    const key = candidate.toLowerCase();
+    const owner = nameOwners.get(key);
+    if (!owner || owner === cid) { nameOwners.set(key, cid); return candidate; }
+    n++; candidate = base + n;
+  }
+  const fallback = base + Math.floor(1000 + Math.random() * 9000);
+  nameOwners.set(fallback.toLowerCase(), cid); return fallback;
+}
 function prunePlayers() {
   const now = Date.now();
-  for (const [id, p] of players) if (now - p.lastSeen > PLAYER_TTL) { logEvent('leave', p.nickname); players.delete(id); }
+  for (const [id, p] of players) if (now - p.lastSeen > PLAYER_TTL) { logEvent('leave', p.nickname); players.delete(id); for (const [k, v] of nameOwners) if (v === id) nameOwners.delete(k); }
 }
 setInterval(prunePlayers, 15000);
 
@@ -202,10 +220,10 @@ function frozenActive(id) {
 async function handlePresence(req, res) {
   const body = await readBody(req);
   const id = String(body.id || '').slice(0, 64);
-  const nickname = cleanNick(String(body.nickname || 'Guest').slice(0, 40));
   const activity = String(body.activity || '').slice(0, 80);
   const ip = clientIp(req);
   if (!id) return sendJson(res, 400, { error: 'no id' });
+  const nickname = uniqueNick(cleanNick(String(body.nickname || 'Guest').slice(0, 40)), id);
 
   const ban = banActive(ip);
   if (ban) {
@@ -862,6 +880,7 @@ async function chatSend(req, res) {
   chat.messages[ch].push(note);
   if (chat.messages[ch].length > 800) chat.messages[ch] = chat.messages[ch].slice(-800);
   chat.rev[ch] = (chat.rev[ch] || 1) + 1;
+  chatMsgCount.set(v.id, (chatMsgCount.get(v.id) || 0) + 1);
   saveChat();
   // Ping mentioned players so they notice even outside the chat tab. Include a
   // readable snippet (mention tokens → @names) so they see what was said.
@@ -1049,7 +1068,18 @@ const httpServer = createServer(async (req, res) => {
 
   // No real account system — return a guest so the account/settings page
   // opens (and the appearance/wallpaper picker is reachable) without a login.
-  if (url === '/api/me') return sendJson(res, 200, { user: { id: 0, username: 'Guest', email: '', is_admin: 0, is_owner: false, guest: true } });
+  if (url === '/api/me') {
+    const c = parseCookies(req);
+    const cid = String(c.sh_cid || '').slice(0, 64);
+    let nick = ''; try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : ''; } catch (e) {}
+    nick = cleanNick(String(nick).slice(0, 40));
+    return sendJson(res, 200, { user: { id: cid || 0, username: nick || 'Guest', email: '', is_admin: 0, is_owner: false, guest: !nick } });
+  }
+  if (url.split('?')[0] === '/api/achievements') {
+    const c = parseCookies(req);
+    const cid = String(c.sh_cid || '').slice(0, 64);
+    return sendJson(res, 200, buildAchievements(cid, { chatMsgs: chatMsgCount.get(cid) || 0 }));
+  }
   if (url === '/api/settings') { if (req.method === 'POST') return sendJson(res, 200, { ok: true }); return sendJson(res, 200, {}); }
 
   // AI conversation history — stubbed so the UI works with local-only history.

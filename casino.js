@@ -31,7 +31,7 @@ async function kvSet(key, value) {
 
 const casino = { users: {} }; // cid -> profile
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, inventory: [], tag: '', color: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0 } };
+  return { coins: START_COINS, lastDaily: 0, inventory: [], tag: '', color: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS } };
 }
 function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; } catch (e) {} }
 export async function initCasino() {
@@ -76,6 +76,7 @@ export function grantCoins(cid, amount) {
   if (!cid) return null;
   const p = profileOf(cid);
   p.coins = Math.max(0, Math.floor(p.coins + (Number(amount) || 0)));
+  if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
   save(); flush();
   return p.coins;
 }
@@ -150,6 +151,8 @@ function recordPlay(p, bet, payout) {
   const net = payout - bet;
   if (net > 0) p.stats.won += net;
   if (payout > p.stats.biggest) p.stats.biggest = payout;
+  if (p.stats.casesOpened == null) p.stats.casesOpened = 0;
+  if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
 }
 
 // ---- blackjack (transient per-user hands) ----
@@ -192,7 +195,7 @@ export async function handleCasino(url, req, res) {
   if (path === '/api/casino/daily' && req.method === 'POST') {
     const now = Date.now();
     if (now - p.lastDaily < DAILY_MS) { sendJson(res, 200, { error: 'cooldown', nextIn: DAILY_MS - (now - p.lastDaily), profile: publicProfile(cid) }); return true; }
-    p.lastDaily = now; p.coins += DAILY_COINS; save(); flush();
+    p.lastDaily = now; p.coins += DAILY_COINS; if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins; save(); flush();
     sendJson(res, 200, { ok: true, gained: DAILY_COINS, profile: publicProfile(cid) }); return true;
   }
 
@@ -256,7 +259,7 @@ export async function handleCasino(url, req, res) {
     if (def.price > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
     p.coins -= def.price;
     const item = openCase(def);
-    p.coins += item.v; recordPlay(p, def.price, item.v); save();
+    p.coins += item.v; p.stats.casesOpened = (p.stats.casesOpened || 0) + 1; recordPlay(p, def.price, item.v); save();
     sendJson(res, 200, { item, caseName: def.name, net: item.v - def.price, profile: publicProfile(cid) }); return true;
   }
 
@@ -286,6 +289,49 @@ export async function handleCasino(url, req, res) {
   }
 
   sendJson(res, 404, { error: 'unknown' }); return true;
+}
+
+// ============================================================
+// ACHIEVEMENTS — computed from persisted casino stats + chat activity.
+// Feeds the Achievements tab (/api/achievements).
+// ============================================================
+const ACH = [
+  { id: 'first_bet', name: 'First Bet', desc: 'Play your first casino game', rarity: 'common', icon: 'Dice5', color: '#9aa7bd', target: 1, unit: 'games', stat: (p) => p.stats.plays },
+  { id: 'warmup', name: 'Warming Up', desc: 'Play 25 casino games', rarity: 'common', icon: 'Gamepad2', color: '#9aa7bd', target: 25, unit: 'games', stat: (p) => p.stats.plays },
+  { id: 'grinder', name: 'Grinder', desc: 'Play 200 casino games', rarity: 'uncommon', icon: 'Flame', color: '#4cc9f0', target: 200, unit: 'games', stat: (p) => p.stats.plays },
+  { id: 'daily', name: 'Daily Ritual', desc: 'Claim your daily Scrolls', rarity: 'common', icon: 'Timer', color: '#9aa7bd', target: 1, unit: '', stat: (p) => (p.lastDaily > 0 ? 1 : 0) },
+  { id: 'tenk', name: 'Ten-K Club', desc: 'Reach 10,000 Scrolls', rarity: 'uncommon', icon: 'Star', color: '#4cc9f0', target: 10000, unit: 'Scrolls', stat: (p) => p.stats.peak },
+  { id: 'fiftyk', name: 'High Roller', desc: 'Reach 50,000 Scrolls', rarity: 'rare', icon: 'Medal', color: '#5c7cfa', target: 50000, unit: 'Scrolls', stat: (p) => p.stats.peak },
+  { id: 'hundredk', name: 'Scroll Baron', desc: 'Reach 100,000 Scrolls', rarity: 'epic', icon: 'Crown', color: '#b185ff', target: 100000, unit: 'Scrolls', stat: (p) => p.stats.peak },
+  { id: 'jackpot', name: 'Jackpot!', desc: 'Win 5,000+ in a single game', rarity: 'rare', icon: 'Sparkles', color: '#5c7cfa', target: 5000, unit: 'Scrolls', stat: (p) => p.stats.biggest },
+  { id: 'legendluck', name: 'Legendary Luck', desc: 'Win 25,000+ in a single game', rarity: 'legendary', icon: 'Trophy', color: '#ffb14e', target: 25000, unit: 'Scrolls', stat: (p) => p.stats.biggest },
+  { id: 'caseopener', name: 'Case Opener', desc: 'Open 10 cases', rarity: 'uncommon', icon: 'Rocket', color: '#4cc9f0', target: 10, unit: 'cases', stat: (p) => p.stats.casesOpened || 0 },
+  { id: 'casehardened', name: 'Case Hardened', desc: 'Open 100 cases', rarity: 'epic', icon: 'FlaskConical', color: '#b185ff', target: 100, unit: 'cases', stat: (p) => p.stats.casesOpened || 0 },
+  { id: 'collector', name: 'Fashionista', desc: 'Own 3 items from the store', rarity: 'uncommon', icon: 'Palette', color: '#4cc9f0', target: 3, unit: 'items', stat: (p) => p.inventory.length },
+  { id: 'whale', name: 'Whale', desc: 'Wager 100,000 Scrolls total', rarity: 'epic', icon: 'Globe', color: '#b185ff', target: 100000, unit: 'Scrolls', stat: (p) => p.stats.wagered },
+  { id: 'sayhi', name: 'Say Hi', desc: 'Send your first chat message', rarity: 'common', icon: 'MessageCircle', color: '#9aa7bd', target: 1, unit: '', stat: (p, x) => x.chatMsgs },
+  { id: 'chatterbox', name: 'Chatterbox', desc: 'Send 100 chat messages', rarity: 'uncommon', icon: 'Bot', color: '#4cc9f0', target: 100, unit: 'messages', stat: (p, x) => x.chatMsgs },
+];
+export function buildAchievements(cid, extra) {
+  const p = (cid && casino.users[cid]) ? casino.users[cid] : blankProfile();
+  if (!p.stats.casesOpened) p.stats.casesOpened = 0;
+  if (!p.stats.peak) p.stats.peak = p.coins;
+  const x = extra || { chatMsgs: 0 };
+  const achievements = ACH.map((a) => {
+    const cur = Math.max(0, Math.floor(a.stat(p, x) || 0));
+    const unlocked = cur >= a.target;
+    return {
+      id: a.id, name: a.name, desc: a.desc, rarity: a.rarity, icon: a.icon, color: a.color,
+      unlocked, unlockedAt: null,
+      progress: unlocked ? null : { current: Math.min(cur, a.target), target: a.target, unit: a.unit },
+    };
+  });
+  return {
+    achievements,
+    unlockedCount: achievements.filter((a) => a.unlocked).length,
+    total: ACH.length,
+    stats: { timeMs: 0, gamesPlayed: p.stats.plays, uniqueGames: 0, vmSessions: 0 },
+  };
 }
 
 function settleBj(cid) {
