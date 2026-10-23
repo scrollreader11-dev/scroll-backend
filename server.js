@@ -23,7 +23,16 @@ const distDir = join(__dirname, 'dist');
 const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
-const serve = sirv(distDir, { dev: false, etag: true });
+const serve = sirv(distDir, {
+  dev: false, etag: true,
+  // Vite's /assets/* files are content-hashed, so they can be cached forever.
+  // A returning visitor's browser then never re-requests the whole JS/CSS
+  // bundle — zero load on the server for repeat visits and navigation.
+  // (Non-hashed files like presence.js keep revalidating so updates propagate.)
+  setHeaders(res, pathname) {
+    if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+  },
+});
 
 function sendJson(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
