@@ -629,31 +629,71 @@ function serveCached(res, e) {
 // The games list: pull it LIVE from PeteZah so new games show up
 // automatically, with the bundled snapshot as a safe fallback. Cached
 // briefly so we don't refetch on every page load.
-let collectionCache = { data: null, ts: 0, source: '' };
+let collectionCache = { data: null, ts: 0, source: '', ubg: 0 };
 function countGames(txt) { try { const d = JSON.parse(txt); const g = Array.isArray(d) ? d : (d.games || []); return g.length; } catch (e) { return -1; } }
-async function serveCollection(req, res, debug) {
+
+// ---- ubgwtf.gitlab.io game pack ----
+// Scrape ubgwtf's "all games" index for every game slug and build catalog
+// entries. Games load straight from GitLab (zero load on this server) and
+// thumbnails come from GitLab too. Cached 6h; failures are harmless.
+let ubgCache = { games: [], ts: 0 };
+function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+async function fetchUbgGames() {
   const now = Date.now();
-  const sendData = (txt, source) => {
-    if (debug) { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ source, games: countGames(txt), cachedAgeSec: Math.round((now - collectionCache.ts) / 1000) })); return; }
-    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*', 'x-sh-catalog': source }); res.end(req.method === 'HEAD' ? undefined : txt);
-  };
-  if (!debug && collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data, 'cache');
+  if (ubgCache.games.length && now - ubgCache.ts < 6 * 3600 * 1000) return ubgCache.games;
+  try {
+    const ac = new AbortController(); const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 20000);
+    let up; try { up = await fetch('https://ubgwtf.gitlab.io/game/', { headers: { 'user-agent': 'Mozilla/5.0' }, signal: ac.signal }); } finally { clearTimeout(to); }
+    if (up && up.ok) {
+      const html = await up.text();
+      const slugs = new Set();
+      const re = /\/game\/([a-z0-9][a-z0-9-]*)\.html/gi;
+      let m; while ((m = re.exec(html))) { const s = m[1].toLowerCase(); if (s !== 'index') slugs.add(s); }
+      const games = [...slugs].map((s) => ({
+        label: titleCase(s),
+        url: '/iframe.html?url=https://ubgwtf.gitlab.io/' + s + '/',
+        imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/' + s + '.webp',
+        categories: ['UBG'],
+      }));
+      if (games.length) ubgCache = { games, ts: now };
+    }
+  } catch (e) {}
+  return ubgCache.games;
+}
+
+async function buildCatalog(now) {
+  let baseTxt = null, source = '';
   try {
     const ac = new AbortController(); const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 15000);
     let up; try { up = await fetch(UPSTREAM + '/storage/data/collection.json', { headers: { 'user-agent': 'Mozilla/5.0', accept: 'application/json' }, signal: ac.signal }); } finally { clearTimeout(to); }
-    if (up && up.ok) {
-      const txt = await up.text();
-      JSON.parse(txt); // validate before trusting it
-      collectionCache = { data: txt, ts: now, source: 'live' };
-      return sendData(txt, 'live');
-    }
+    if (up && up.ok) { const txt = await up.text(); JSON.parse(txt); baseTxt = txt; source = 'live'; }
   } catch (e) {}
+  if (!baseTxt) { try { const fs = await import('node:fs'); baseTxt = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8'); source = 'bundled'; } catch (e) {} }
+  let obj = { games: [] };
+  try { const d = JSON.parse(baseTxt); obj = Array.isArray(d) ? { games: d } : d; } catch (e) {}
+  const games = Array.isArray(obj.games) ? obj.games : [];
+  // Merge the ubgwtf pack, skipping titles we already have.
+  const ubg = await fetchUbgGames();
+  const have = new Set(games.map((g) => String(g.label || '').toLowerCase().trim()));
+  let added = 0;
+  for (const u of ubg) { const k = u.label.toLowerCase().trim(); if (!have.has(k)) { games.push(u); have.add(k); added++; } }
+  obj.games = games;
+  return { text: JSON.stringify(obj), source, ubg: added };
+}
+
+async function serveCollection(req, res, debug) {
+  const now = Date.now();
+  const sendData = (txt, source, ubg) => {
+    if (debug) { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ source, games: countGames(txt), ubgAdded: ubg, cachedAgeSec: Math.round((now - collectionCache.ts) / 1000) })); return; }
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*', 'x-sh-catalog': source }); res.end(req.method === 'HEAD' ? undefined : txt);
+  };
+  if (!debug && collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data, 'cache', collectionCache.ubg);
   try {
-    const fs = await import('node:fs');
-    const txt = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8');
-    if (collectionCache.data) return sendData(collectionCache.data, 'cache');
-    return sendData(txt, 'bundled');
-  } catch (e) { res.writeHead(502, { 'content-type': 'text/plain' }); res.end('no catalog'); }
+    const built = await buildCatalog(now);
+    if (built.text) { collectionCache = { data: built.text, ts: now, source: built.source, ubg: built.ubg }; return sendData(built.text, built.source, built.ubg); }
+  } catch (e) {}
+  if (collectionCache.data) return sendData(collectionCache.data, 'cache', collectionCache.ubg);
+  res.writeHead(502, { 'content-type': 'text/plain' }); res.end('no catalog');
 }
 async function proxyUpstream(req, res) {
   const key = req.url;
