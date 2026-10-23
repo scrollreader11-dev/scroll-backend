@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>New Games · ScrollHub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0e1a;--panel:rgba(22,28,44,.8);--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.18);--txt:#eef2ff;--mut:#93a0c4;--acc:#7c8cff;--acc2:#4cc9f0}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--txt);background:radial-gradient(1000px 600px at 12% -10%,rgba(124,140,255,.2),transparent 60%),radial-gradient(900px 600px at 110% 0,rgba(76,201,240,.15),transparent 55%),var(--bg)}
+  h1{font-family:'Space Grotesk',sans-serif;margin:0;font-size:1.5rem}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .sub{color:var(--mut);font-size:.9rem;margin-bottom:14px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  input{flex:1;min-width:180px;height:44px;border-radius:12px;border:1px solid var(--line2);background:rgba(0,0,0,.3);color:var(--txt);padding:0 14px;font-size:1rem;outline:none}
+  input:focus{border-color:var(--acc)}
+  .leave{color:var(--mut);font-size:.8rem;text-decoration:none;border:1px solid var(--line);padding:11px 13px;border-radius:10px;white-space:nowrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  a.tile{display:block;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .12s,border-color .12s}
+  a.tile:hover{transform:translateY(-3px);border-color:var(--acc)}
+  .thumb{width:100%;aspect-ratio:1/1;object-fit:cover;background:#0b1020;display:block}
+  .name{padding:8px 10px;font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .count{color:var(--acc2);font-weight:700}
+  .empty{color:var(--mut);padding:40px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🆕 New Games</h1>
+    <a class="leave" href="/">← Back to ScrollHub</a>
+  </header>
+  <div class="sub"><span class="count" id="count">…</span> fresh games, synced from the latest packs. Click any to play.</div>
+  <div class="bar"><input id="search" type="text" placeholder="Search new games…" autocomplete="off" /></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">No games match your search.</div>
+</div>
+<script>
+(function(){
+  var grid=document.getElementById('grid'), search=document.getElementById('search'), countEl=document.getElementById('count'), empty=document.getElementById('empty');
+  var all=[];
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});}
+  function render(list){
+    grid.innerHTML='';
+    empty.style.display=list.length?'none':'block';
+    var frag=document.createDocumentFragment();
+    list.slice(0,1500).forEach(function(g){
+      var a=document.createElement('a');a.className='tile';a.href=g.url;
+      a.innerHTML='<img class="thumb" loading="lazy" src="'+esc(g.imageUrl||'')+'" alt="" onerror="this.style.visibility=\'hidden\'"/><div class="name">'+esc(g.label||'Game')+'</div>';
+      frag.appendChild(a);
+    });
+    grid.appendChild(frag);
+  }
+  fetch('/storage/data/collection.json').then(function(r){return r.json();}).then(function(d){
+    var games=(d&&d.games)||[];
+    all=games.filter(function(g){
+      var cats=(g.categories||[]).join(' ');
+      return cats.indexOf('New Games')>=0 && g.url!=='/newgames';
+    });
+    countEl.textContent=all.length.toLocaleString();
+    render(all);
+  }).catch(function(){countEl.textContent='0';empty.style.display='block';});
+  search.addEventListener('input',function(){
+    var q=search.value.trim().toLowerCase();
+    render(q?all.filter(function(g){return (g.label||'').toLowerCase().indexOf(q)>=0;}):all);
+  });
+})();
+</script>
+</body>
+</html>

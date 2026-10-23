@@ -653,8 +653,11 @@ async function fetchUbgGames() {
         label: titleCase(s),
         url: '/iframe.html?url=https://ubgwtf.gitlab.io/' + s + '/',
         imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/' + s + '.webp',
-        categories: ['UBG'],
+        categories: ['🆕 New Games'],
       }));
+      // Feature Stickman Dragon Fight first among the new games.
+      const si = games.findIndex((g) => /stickman-dragon-fight/.test(g.url));
+      if (si > 0) { const [sg] = games.splice(si, 1); games.unshift(sg); }
       if (games.length) ubgCache = { games, ts: now };
     }
   } catch (e) {}
@@ -671,14 +674,21 @@ async function buildCatalog(now) {
   if (!baseTxt) { try { const fs = await import('node:fs'); baseTxt = fs.readFileSync(join(distDir, 'storage/data/collection.json'), 'utf8'); source = 'bundled'; } catch (e) {} }
   let obj = { games: [] };
   try { const d = JSON.parse(baseTxt); obj = Array.isArray(d) ? { games: d } : d; } catch (e) {}
-  const games = Array.isArray(obj.games) ? obj.games : [];
+  const base = Array.isArray(obj.games) ? obj.games : [];
   // Merge the ubgwtf pack, skipping titles we already have.
   const ubg = await fetchUbgGames();
-  const have = new Set(games.map((g) => String(g.label || '').toLowerCase().trim()));
-  let added = 0;
-  for (const u of ubg) { const k = u.label.toLowerCase().trim(); if (!have.has(k)) { games.push(u); have.add(k); added++; } }
-  obj.games = games;
-  return { text: JSON.stringify(obj), source, ubg: added };
+  const have = new Set(base.map((g) => String(g.label || '').toLowerCase().trim()));
+  const fresh = [];
+  for (const u of ubg) { const k = u.label.toLowerCase().trim(); if (!have.has(k)) { fresh.push(u); have.add(k); } }
+  // A "see all" tile, then the new games, then the existing catalog —
+  // so new games (Stickman first) sit right up front.
+  const seeAll = fresh.length ? [{
+    label: '🆕 See All ' + fresh.length + '+ New Games', url: '/newgames',
+    imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp',
+    categories: ['🆕 New Games'],
+  }] : [];
+  obj.games = [...seeAll, ...fresh, ...base];
+  return { text: JSON.stringify(obj), source, ubg: fresh.length };
 }
 
 async function serveCollection(req, res, debug) {
@@ -1126,6 +1136,19 @@ const httpServer = createServer(async (req, res) => {
   }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
   if (url === '/storage/data/collection.json') return serveCollection(req, res, parsed.searchParams.get('debug') === '1');
+  if (url === '/newgames' || url === '/newgames/') {
+    req.url = '/newgames/index.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
+  if (url.split('?')[0] === '/api/changelog') {
+    const count = collectionCache.ubg || 1000;
+    return sendJson(res, 200, { entries: [{
+      id: 'ubg-newgames', title: '🎮 ' + count + '+ new games added!',
+      content: 'We just added over ' + count + ' brand-new games — Stickman Dragon Fight, Retro Bowl, Geometry Dash, 1v1.LOL and tons more. Open the Games page and look for the 🆕 New Games category, or click "See All New Games" at the top of the list. New games sync automatically from now on. Have fun! 🚀',
+      username: 'ScrollHub', created_at: Date.now(), likes: 0,
+    }] });
+  }
+  if (url.split('?')[0] === '/api/likes') return sendJson(res, 200, { count: 0, userLiked: false });
 
   // Legal gate — always accepted.
   if (url === '/api/legal/status') return sendJson(res, 200, { accepted: true, needsCaptcha: false, gate: false, version: '1' });
