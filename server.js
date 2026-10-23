@@ -648,8 +648,8 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // other copy in the catalog (deduped by name) and sit near the top so they're
 // easy to find and test. Add more here as needed.
 const CATALOG_OVERRIDES = [
-  { label: 'Snow Rider 3D', url: '/ubg/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
-  { label: 'Space Wars Battlegrounds', url: '/gf/embed/space-wars-battleground/', imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Shooting', '🆕 New Games'] },
+  { label: 'Snow Rider 3D', url: '/extframe.html?url=https://ubgwtf.gitlab.io/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
+  { label: 'Space Wars Battlegrounds', url: '/extframe.html?url=https://www.gameflare.com/embed/space-wars-battleground/', imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Shooting', '🆕 New Games'] },
 ];
 async function fetchUbgGames() {
   const now = Date.now();
@@ -664,7 +664,9 @@ async function fetchUbgGames() {
       let m; while ((m = re.exec(html))) { const s = m[1].toLowerCase(); if (s !== 'index') slugs.add(s); }
       const games = [...slugs].map((s) => ({
         label: titleCase(s),
-        url: '/ubg/' + s + '/', // same-origin passthrough → loads directly, no Wisp proxy
+        // Load the game directly from GitLab (cross-origin) via a same-origin
+        // wrapper, so its assets load correctly and the main page doesn't proxy it.
+        url: '/extframe.html?url=https://ubgwtf.gitlab.io/' + s + '/',
         imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/' + s + '.webp',
         categories: ['🆕 New Games'],
       }));
