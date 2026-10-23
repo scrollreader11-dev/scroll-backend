@@ -1141,10 +1141,9 @@ const httpServer = createServer(async (req, res) => {
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
   if (url.split('?')[0] === '/api/changelog') {
-    const count = collectionCache.ubg || 1000;
     return sendJson(res, 200, { entries: [{
-      id: 'ubg-newgames', title: '🎮 ' + count + '+ new games added!',
-      content: 'We just added over ' + count + ' brand-new games — Stickman Dragon Fight, Retro Bowl, Geometry Dash, 1v1.LOL and tons more. Open the Games page and look for the 🆕 New Games category, or click "See All New Games" at the top of the list. New games sync automatically from now on. Have fun! 🚀',
+      id: 'ubg-newgames', title: '🎮 1,000+ new games added!',
+      content: 'We just dropped a massive pack of brand-new games — Stickman Dragon Fight, Retro Bowl, Geometry Dash, 1v1.LOL and tons more. Open the Games page and look for the 🆕 New Games category at the top, or tap the "See All New Games" tile to browse them all. New games sync in automatically from now on. Have fun! 🚀',
       username: 'ScrollHub', created_at: Date.now(), likes: 0,
     }] });
   }
