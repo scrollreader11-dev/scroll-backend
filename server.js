@@ -650,11 +650,16 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // Hand-pinned, known-good versions of specific games. These REPLACE every
 // other copy in the catalog (deduped by name) and sit near the top so they're
 // easy to find and test. Add more here as needed.
-const CATALOG_OVERRIDES = [
-  { label: 'Snow Rider 3D', url: '/extframe.html?url=https://ubgwtf.gitlab.io/snow-rider-3d/', imageUrl: 'https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/snow-rider-3d.webp', categories: ['Racing', '🆕 New Games'] },
-  { label: 'Space Wars Battlegrounds', url: '/extframe.html?url=https://www.gameflare.com/embed/space-wars-battleground/', imageUrl: '/storage/images/main/googleforms.jpg', categories: ['Shooting', '🆕 New Games'] },
-];
+// These pinned games load from GitLab / GameFlare, which are blocked on school
+// networks (they black-screen there). Empty by default. Only add games that
+// come through this site's own domain.
+const CATALOG_OVERRIDES = [];
 async function fetchUbgGames() {
+  // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
+  // gitlab.io, which school filters block -> black-screen games + blank images.
+  // Excluded by default so only domain-proxied games (which actually work at
+  // school) are shown. Set INCLUDE_UBG=1 to re-enable (e.g. for home use).
+  if (process.env.INCLUDE_UBG !== '1') return [];
   const now = Date.now();
   if (ubgCache.games.length && now - ubgCache.ts < 6 * 3600 * 1000) return ubgCache.games;
   try {
