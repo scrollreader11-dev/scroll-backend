@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Play Any Game · ScrollHub</title>
+<style>
+  :root{--bg:#0a0e1a;--panel:rgba(22,28,44,.85);--line:rgba(255,255,255,.14);--txt:#eef2ff;--mut:#9fb0d8;--acc:#7c8cff;--acc2:#4cc9f0}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{font-family:Inter,system-ui,"Segoe UI",sans-serif;color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:radial-gradient(900px 500px at 15% -10%,rgba(124,140,255,.22),transparent 60%),radial-gradient(800px 500px at 110% 10%,rgba(76,201,240,.16),transparent 55%),var(--bg)}
+  .card{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+  h1{margin:0 0 6px;font-size:1.6rem;font-weight:800}
+  .sub{color:var(--mut);font-size:.95rem;line-height:1.5;margin:0 0 20px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input{flex:1;min-width:0;height:50px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.35);color:var(--txt);padding:0 14px;font-size:1rem;outline:none}
+  input:focus{border-color:var(--acc)}
+  button{height:50px;padding:0 22px;border:0;border-radius:12px;cursor:pointer;font-weight:700;font-size:1rem;color:#0a0e1a;
+    background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  button:active{transform:translateY(1px)}
+  .note{margin-top:16px;color:var(--mut);font-size:.82rem;line-height:1.5}
+  .err{color:#ff8a8a;font-size:.85rem;margin-top:10px;min-height:1em}
+  a.back{color:var(--mut);font-size:.82rem;text-decoration:none;display:inline-block;margin-top:18px;border:1px solid var(--line);padding:8px 12px;border-radius:9px}
+  code{background:rgba(255,255,255,.08);padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Play Any Game</h1>
+  <p class="sub">Paste a game's link from any other site. It loads through ScrollHub's proxy, so it opens here even if that site is blocked. It may be slow — that's the proxy doing the work.</p>
+  <div class="row">
+    <input id="u" type="text" placeholder="paste a game link, e.g. example.com/games/slope/" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    <button id="go">Play</button>
+  </div>
+  <div class="err" id="err"></div>
+  <p class="note">Tip: grab the link straight to a game (for example <code>somesite.com/game/</code>). Whole homepages work too, but a direct game link loads fastest.</p>
+  <a class="back" href="/">&larr; Back to ScrollHub</a>
+</div>
+<script>
+(function(){
+  var input=document.getElementById('u'), btn=document.getElementById('go'), err=document.getElementById('err');
+  function go(){
+    var u=(input.value||'').trim();
+    err.textContent='';
+    if(!u){ err.textContent='Paste a game link first.'; return; }
+    if(!/^https?:\/\//i.test(u)) u='https://'+u;
+    try { new URL(u); } catch(e){ err.textContent='That doesn’t look like a valid link.'; return; }
+    // Route through ScrollHub's proxy (same mechanism the catalog games use).
+    location.href='/iframe.html?url=/!!/'+u;
+  }
+  btn.addEventListener('click',go);
+  input.addEventListener('keydown',function(e){ if(e.key==='Enter') go(); });
+  input.focus();
+})();
+</script>
+</body>
+</html>
