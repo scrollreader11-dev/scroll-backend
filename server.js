@@ -68,7 +68,10 @@ function clientIp(req) {
 // persisted to /tmp so it survives a warm restart; a full redeploy
 // resets it, which is fine for an MVP.
 // ============================================================
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'scrollreader1122';
+// No hardcoded default: set ADMIN_PASSWORD in your environment. If it is unset,
+// the admin panel is disabled entirely (never a known/guessable password in a
+// public repo).
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const STATE_FILE = '/tmp/scrollhub-admin-state.json';
 const PLAYER_TTL = 35000; // ms since last heartbeat before "offline"
 
@@ -294,7 +297,7 @@ async function handlePresence(req, res) {
 // Password-guarded admin control endpoint.
 async function handleAdmin(req, res) {
   const body = await readBody(req);
-  if (body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
+  if (!ADMIN_PASSWORD || body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
   const action = body.action;
 
   if (action === 'state') {
@@ -964,7 +967,7 @@ function colorFor(seed) {
 }
 function isChatOwner(req) {
   const c = parseCookies(req);
-  if (c.sh_owner === ADMIN_PASSWORD) return true;         // the admin
+  if (ADMIN_PASSWORD && c.sh_owner === ADMIN_PASSWORD) return true;         // the admin
   return !!admin.chatOwners[c.sh_cid];                     // a designated owner
 }
 function chatViewer(req) {

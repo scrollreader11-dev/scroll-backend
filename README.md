@@ -7,7 +7,7 @@
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Open-success?style=for-the-badge&logo=rocket&logoColor=white)](https://scroll-hub.onrender.com)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Deploy on Render](https://img.shields.io/badge/Deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com)
-[![License](https://img.shields.io/badge/License-Proprietary-blue?style=for-the-badge)](#copyright)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
 [![Stars](https://img.shields.io/github/stars/scrollreader11-dev/scroll-backend?style=flat-square&color=7c8cff)](https://github.com/scrollreader11-dev/scroll-backend/stargazers)
 [![Forks](https://img.shields.io/github/forks/scrollreader11-dev/scroll-backend?style=flat-square&color=4cc9f0)](https://github.com/scrollreader11-dev/scroll-backend/network/members)
@@ -166,9 +166,9 @@ Tuned to survive on free hosting:
 
 ---
 
-## Copyright
+## License
 
-Copyright &copy; 2026 ScrollHub. All rights reserved.
+Released under the [MIT License](LICENSE) — free to use, modify, and share. If you build on it, a star or a credit back is appreciated.
 
-This software and its source code are proprietary. No part of this project may be copied, redistributed, resold, or used to create derivative works without the express written permission of the copyright holder. Third-party components retain their respective licenses, and game content belongs to its respective owners.
+**Note:** the MIT license covers ScrollHub's own source code only. Games, game assets, thumbnails, logos, and any third-party content bundled with, linked to, or proxied by this project remain the property of their respective owners and are **not** covered by this license. Third-party libraries keep their own licenses.
 
