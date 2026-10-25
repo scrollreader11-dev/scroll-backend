@@ -672,6 +672,8 @@ const CATALOG_OVERRIDES = [
   { label: '2048', url: '/iframe.html?url=/storage/games/2048/index.html', imageUrl: localThumb('2048', '#edc22e', '#8f7a66'), categories: ['Puzzle', 'ScrollHub Originals'] },
   { label: 'Hextris', url: '/iframe.html?url=/storage/games/hextris/index.html', imageUrl: localThumb('HEXTRIS', '#e74c3c', '#f39c12'), categories: ['Arcade', 'ScrollHub Originals'] },
   { label: 'Clumsy Bird', url: '/iframe.html?url=/storage/games/clumsy-bird/index.html', imageUrl: localThumb('Clumsy Bird', '#4ec0ca', '#5ab552'), categories: ['Arcade', 'ScrollHub Originals'] },
+  { label: 'Astray', url: '/iframe.html?url=/storage/games/astray/index.html', imageUrl: localThumb('ASTRAY', '#6a11cb', '#2575fc'), categories: ['Adventure', 'ScrollHub Originals'] },
+  { label: 'Pac-Man', url: '/iframe.html?url=/storage/games/pacman/index.html', imageUrl: localThumb('PAC-MAN', '#141430', '#ffcc00'), categories: ['Arcade', 'ScrollHub Originals'] },
 ];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from

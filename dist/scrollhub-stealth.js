@@ -59,23 +59,6 @@
     }
   });
 
-  // --- about:blank launcher (best on desktop; iOS Safari may block pop-ups) ---
-  function aboutBlank() {
-    var w;
-    try { w = window.open('about:blank', '_blank'); } catch (e) {}
-    if (!w) { alert('Allow pop-ups for stealth mode (your browser blocked it).'); return; }
-    var c = CLOAKS[get(LS.cloak, 'none')] || CLOAKS.none;
-    var href = location.href;
-    try {
-      w.document.write('<!doctype html><html><head><title>' + (c.title || 'Home') + '</title>' +
-        (c.icon ? '<link rel="icon" href="' + c.icon + '">' : '') +
-        '</head><body style="margin:0;background:#000"><iframe src="' + href +
-        '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe></body></html>');
-      w.document.close();
-      location.replace(get(LS.panicUrl, 'https://classroom.google.com'));
-    } catch (e) {}
-  }
-
   // --- Floating panic button (optional, for touch devices with no keyboard) ---
   var panicBtnEl = null;
   function renderPanicBtn() {
@@ -114,7 +97,6 @@
       '<label style="display:block;font-size:12px;color:#9fb0d8;margin:0 0 4px">Panic key (press, or type one)</label>' +
       '<input id="sh-pkey" maxlength="12" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:8px;border-radius:8px;background:#0b1020;color:#eef2ff;border:1px solid rgba(255,255,255,.18)" />' +
       '<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="sh-pbtn" /> Show Exit button (for touch)</label>' +
-      '<button id="sh-ab" style="width:100%;margin-bottom:8px;padding:9px;border:0;border-radius:8px;background:#2a3356;color:#eef2ff;font-weight:600;cursor:pointer">Open in about:blank</button>' +
       '<button id="sh-close" style="width:100%;padding:9px;border:0;border-radius:8px;background:transparent;color:#9fb0d8;cursor:pointer">Close</button>';
     document.body.appendChild(panel);
 
@@ -128,7 +110,6 @@
     purl.onchange = function () { set(LS.panicUrl, purl.value.trim()); };
     pkey.onkeydown = function (e) { e.preventDefault(); if (e.key.length === 1 || e.key === 'Escape') { pkey.value = e.key; set(LS.panicKey, e.key); } };
     pbtn.onchange = function () { set(LS.panicBtn, pbtn.checked ? '1' : '0'); renderPanicBtn(); };
-    panel.querySelector('#sh-ab').onclick = aboutBlank;
     panel.querySelector('#sh-close').onclick = function () { panel.style.display = 'none'; };
   }
 
