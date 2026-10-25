@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="ScrollHub">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0e1a"/>
+      <stop offset="0.55" stop-color="#121833"/>
+      <stop offset="1" stop-color="#1b1033"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c8cff"/>
+      <stop offset="0.5" stop-color="#4cc9f0"/>
+      <stop offset="1" stop-color="#b388ff"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.18" cy="0.1" r="0.6">
+      <stop offset="0" stop-color="#7c8cff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#7c8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.92" cy="0.95" r="0.6">
+      <stop offset="0" stop-color="#4cc9f0" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#4cc9f0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="340" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="340" rx="24" fill="url(#glow1)"/>
+  <rect width="1200" height="340" rx="24" fill="url(#glow2)"/>
+
+  <!-- dotted grid accent -->
+  <g fill="#ffffff" opacity="0.05">
+    <circle cx="90"  cy="60"  r="2.5"/><circle cx="150" cy="60" r="2.5"/><circle cx="210" cy="60" r="2.5"/>
+    <circle cx="90"  cy="120" r="2.5"/><circle cx="150" cy="120" r="2.5"/><circle cx="210" cy="120" r="2.5"/>
+    <circle cx="1110" cy="280" r="2.5"/><circle cx="1050" cy="280" r="2.5"/><circle cx="990" cy="280" r="2.5"/>
+    <circle cx="1110" cy="220" r="2.5"/><circle cx="1050" cy="220" r="2.5"/><circle cx="990" cy="220" r="2.5"/>
+  </g>
+
+  <text x="600" y="150" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="92" font-weight="800" fill="url(#title)" letter-spacing="1">ScrollHub</text>
+  <text x="600" y="200" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="25" font-weight="500" fill="#aab4d8">An all-in-one unblocked games platform</text>
+
+  <!-- feature pills -->
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="middle">
+    <g transform="translate(600,255)">
+      <rect x="-355" y="0" width="150" height="44" rx="22" fill="#ffffff" opacity="0.06"/>
+      <text x="-280" y="29" fill="#cdd6f4">1,000+ Games</text>
+      <rect x="-190" y="0" width="120" height="44" rx="22" fill="#ffffff" opacity="0.06"/>
+      <text x="-130" y="29" fill="#cdd6f4">Live Chat</text>
+      <rect x="-55" y="0" width="170" height="44" rx="22" fill="#ffffff" opacity="0.06"/>
+      <text x="30" y="29" fill="#cdd6f4">Scrolls Casino</text>
+      <rect x="130" y="0" width="225" height="44" rx="22" fill="#ffffff" opacity="0.06"/>
+      <text x="242" y="29" fill="#cdd6f4">Real-time Multiplayer</text>
+    </g>
+  </g>
+</svg>
