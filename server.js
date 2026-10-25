@@ -653,30 +653,9 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // Hand-pinned, known-good versions of specific games. These REPLACE every
 // other copy in the catalog (deduped by name) and sit near the top so they're
 // easy to find and test. Add more here as needed.
-// Inline SVG thumbnail (data URI) so self-hosted games get an instant, always-
-// available image with no external request and no CDN dependency.
-function localThumb(label, c1, c2) {
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-    '<stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/>' +
-    '</linearGradient></defs><rect width="400" height="400" fill="url(#g)"/>' +
-    '<text x="200" y="218" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" ' +
-    'font-size="44" font-weight="800" fill="#ffffff">' + label + '</text></svg>';
-  return 'data:image/svg+xml,' + encodeURIComponent(svg);
-}
-
-// Self-hosted games: served as static files from THIS domain, so they load
-// instantly, work on locked-down school networks, and scale to many players.
-// Pinned at the top of the catalog. Each game keeps its own LICENSE file.
-const CATALOG_OVERRIDES = [
-  { label: '2048', url: '/iframe.html?url=/storage/games/2048/index.html', imageUrl: localThumb('2048', '#edc22e', '#8f7a66'), categories: ['Puzzle', 'ScrollHub Originals'] },
-  { label: 'Hextris', url: '/iframe.html?url=/storage/games/hextris/index.html', imageUrl: localThumb('HEXTRIS', '#e74c3c', '#f39c12'), categories: ['Arcade', 'ScrollHub Originals'] },
-  { label: 'Clumsy Bird', url: '/iframe.html?url=/storage/games/clumsy-bird/index.html', imageUrl: localThumb('Clumsy Bird', '#4ec0ca', '#5ab552'), categories: ['Arcade', 'ScrollHub Originals'] },
-  { label: 'Astray', url: '/iframe.html?url=/storage/games/astray/index.html', imageUrl: localThumb('ASTRAY', '#6a11cb', '#2575fc'), categories: ['Adventure', 'ScrollHub Originals'] },
-  { label: 'Pac-Man', url: '/iframe.html?url=/storage/games/pacman/index.html', imageUrl: localThumb('PAC-MAN', '#141430', '#ffcc00'), categories: ['Arcade', 'ScrollHub Originals'] },
-  { label: 'Tetris', url: '/iframe.html?url=/storage/games/tetris/index.html', imageUrl: localThumb('TETRIS', '#0f2027', '#2c5364'), categories: ['Puzzle', 'ScrollHub Originals'] },
-  { label: 'Pong', url: '/iframe.html?url=/storage/games/pong/index.html', imageUrl: localThumb('PONG', '#1a1a1a', '#666666'), categories: ['Arcade', 'ScrollHub Originals'] },
-];
+// Pinned catalog overrides (games served through this site's own domain).
+// Empty for now.
+const CATALOG_OVERRIDES = [];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
   // gitlab.io, which school filters block -> black-screen games + blank images.
