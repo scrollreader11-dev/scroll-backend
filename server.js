@@ -1267,6 +1267,23 @@ const httpServer = createServer(async (req, res) => {
 
   // Game catalog extras — admin-added games are served as "globals" so the
   // games page shows them to everyone.
+  if (url === '/api/kvtest') {
+    // Self-test: confirms durable storage (Upstash) is connected by doing a
+    // live write + read round-trip.
+    const out = { configured: kvEnabled };
+    if (kvEnabled) {
+      try {
+        const v = 'ok-' + Date.now();
+        await kvSet('sh:selftest', v);
+        const back = await kvGet('sh:selftest');
+        out.roundtrip = back === v;
+        out.durable = out.roundtrip;
+      } catch (e) { out.error = String((e && e.message) || e).slice(0, 200); out.durable = false; }
+    } else { out.durable = false; }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(out));
+    return;
+  }
   if (url === '/api/games/catalog') {
     // Built-in, always-present ScrollHub original.
     const builtins = [{
