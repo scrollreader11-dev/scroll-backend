@@ -112,6 +112,9 @@
     <button data-v="blackjack" class="on">🃏 Blackjack</button>
     <button data-v="slots">🎰 Slots</button>
     <button data-v="coinflip">📜 Coinflip</button>
+    <button data-v="dice">🎲 Dice</button>
+    <button data-v="roulette">🔴 Roulette</button>
+    <button data-v="mines">💣 Mines</button>
     <button data-v="cases">📦 Cases</button>
     <button data-v="battles">⚔️ Case Battles</button>
     <button data-v="store">🛍️ Store</button>
@@ -174,6 +177,64 @@
         <button class="btn" id="cfTails">Tails</button>
       </div>
       <div class="msg" id="cfMsg"></div>
+    </div>
+  </section>
+
+  <!-- DICE -->
+  <section class="view" data-panel="dice">
+    <div class="card" style="text-align:center">
+      <h2>Dice</h2>
+      <div class="hint">Bet it rolls over (or under) your target. Lower chance = bigger payout.</div>
+      <div style="font-size:56px;margin:8px 0;font-weight:800" id="diceRoll">—</div>
+      <div class="betrow" style="justify-content:center"><label>Bet</label><input type="number" id="dcBet" value="100" min="1" /></div>
+      <div class="betrow" style="justify-content:center">
+        <label>Target</label><input type="number" id="dcTarget" value="50" min="2" max="98" style="width:80px" />
+        <button class="chip" id="dcDir">Roll OVER</button>
+      </div>
+      <div class="hint" id="dcInfo"></div>
+      <div class="betrow" style="justify-content:center"><button class="btn gold" id="dcRoll">Roll</button></div>
+      <div class="msg" id="dcMsg"></div>
+    </div>
+  </section>
+
+  <!-- ROULETTE -->
+  <section class="view" data-panel="roulette">
+    <div class="card" style="text-align:center">
+      <h2>Roulette</h2>
+      <div class="hint">Red/black pay 2×, green pays 14×, even/odd 2×, an exact number pays 36×.</div>
+      <div style="font-size:52px;margin:8px 0;font-weight:800" id="rlNum">—</div>
+      <div class="betrow" style="justify-content:center"><label>Bet</label><input type="number" id="rlBet" value="100" min="1" /></div>
+      <div class="betrow" style="justify-content:center;flex-wrap:wrap">
+        <button class="btn red" data-rl="red">Red 2×</button>
+        <button class="btn" data-rl="black" style="background:#20242e">Black 2×</button>
+        <button class="btn green" data-rl="green">Green 14×</button>
+        <button class="btn" data-rl="even">Even 2×</button>
+        <button class="btn" data-rl="odd">Odd 2×</button>
+      </div>
+      <div class="betrow" style="justify-content:center">
+        <label>Number</label><input type="number" id="rlNumIn" value="7" min="0" max="36" style="width:70px" />
+        <button class="btn gold" data-rl="num">Bet number 36×</button>
+      </div>
+      <div class="msg" id="rlMsg"></div>
+    </div>
+  </section>
+
+  <!-- MINES -->
+  <section class="view" data-panel="mines">
+    <div class="card" style="text-align:center">
+      <h2>Mines</h2>
+      <div class="hint">Reveal safe tiles to grow your multiplier. Hit a bomb and lose the bet. Cash out anytime.</div>
+      <div class="betrow" style="justify-content:center" id="mnSetup">
+        <label>Bet</label><input type="number" id="mnBet" value="100" min="1" />
+        <label>Bombs</label><input type="number" id="mnMines" value="3" min="1" max="24" style="width:70px" />
+        <button class="btn gold" id="mnStart">Start</button>
+      </div>
+      <div class="betrow" style="justify-content:center;display:none" id="mnPlay">
+        <span class="hint" id="mnMult">1.00× · 0 safe</span>
+        <button class="btn green" id="mnCash">Cash out</button>
+      </div>
+      <div id="mnGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;max-width:320px;margin:14px auto"></div>
+      <div class="msg" id="mnMsg"></div>
     </div>
   </section>
 
@@ -483,6 +544,72 @@
     el.textContent=(me?'🎉 You won ':'🏆 '+w.nicks.join(' & ')+' won ')+'📜 '+fmt(w.share)+(w.cids.length>1?' each!':'!');
     toast(me?('You won 📜 '+fmt(w.share)+'!'):'Battle over');
   }
+
+  // ---- dice ----
+  var dcOver=true;
+  function updDcInfo(){var t=Math.max(2,Math.min(98,+$('dcTarget').value||50));var ch=dcOver?100-t:t;var mu=ch>0?(99/ch):0;$('dcInfo').textContent='Win chance '+ch+'% · pays '+mu.toFixed(2)+'×';}
+  $('dcDir').onclick=function(){dcOver=!dcOver;$('dcDir').textContent=dcOver?'Roll OVER':'Roll UNDER';updDcInfo();};
+  $('dcTarget').oninput=updDcInfo; updDcInfo();
+  $('dcRoll').onclick=function(){
+    var bet=+$('dcBet').value,t=+$('dcTarget').value;
+    api('dice',{bet:bet,target:t,dir:dcOver?'over':'under'}).then(function(d){
+      if(d.error){toast(errMsg(d.error));return;}
+      $('diceRoll').textContent=d.roll.toFixed(2);setProfile(d.profile);
+      var m=$('dcMsg');m.className='msg';
+      if(d.won){m.textContent='Rolled '+d.roll.toFixed(2)+' — win +'+fmt(d.win)+'! ('+d.mult.toFixed(2)+'×)';m.classList.add('win');}
+      else{m.textContent='Rolled '+d.roll.toFixed(2)+' — you lose.';m.classList.add('lose');}
+    });
+  };
+
+  // ---- roulette ----
+  document.querySelectorAll('[data-rl]').forEach(function(b){b.onclick=function(){
+    var choice=b.dataset.rl; if(choice==='num'){choice=String(+$('rlNumIn').value||0);}
+    var bet=+$('rlBet').value;
+    api('roulette',{bet:bet,choice:choice}).then(function(d){
+      if(d.error){toast(errMsg(d.error));return;}
+      var col=d.color==='red'?'#ff5252':d.color==='green'?'#2bd576':'#cbd5e1';
+      $('rlNum').innerHTML='<span style="color:'+col+'">'+d.number+'</span>';
+      setProfile(d.profile);var m=$('rlMsg');m.className='msg';
+      if(d.win>0){m.textContent=d.number+' '+d.color+' — win +'+fmt(d.win)+'! 🎉';m.classList.add('win');}
+      else{m.textContent=d.number+' '+d.color+' — you lose.';m.classList.add('lose');}
+    });
+  };});
+
+  // ---- mines ----
+  function mnReset(){var g=$('mnGrid');g.innerHTML='';for(var i=0;i<25;i++){(function(i){var t=document.createElement('button');t.className='chip';t.style.cssText='aspect-ratio:1;font-size:20px;padding:0';t.onclick=function(){mnPick(i,t);};g.appendChild(t);})(i);}}
+  function mnLock(lock){document.querySelectorAll('#mnGrid button').forEach(function(b){b.disabled=lock;});}
+  $('mnStart').onclick=function(){
+    var bet=+$('mnBet').value,m=+$('mnMines').value;
+    api('mines/start',{bet:bet,mines:m}).then(function(d){
+      if(d.error){toast(errMsg(d.error));return;}
+      setProfile(d.profile);mnReset();mnLock(false);
+      $('mnSetup').style.display='none';$('mnPlay').style.display='flex';
+      $('mnMult').textContent='1.00× · 0 safe';$('mnMsg').textContent='';$('mnMsg').className='msg';
+    });
+  };
+  function mnPick(i,btn){
+    api('mines/pick',{tile:i}).then(function(d){
+      if(d.error){return;}setProfile(d.profile);
+      if(d.hit){
+        mnLock(true);btn.textContent='💣';btn.style.background='#5a1a1a';
+        (d.mineField||[]).forEach(function(pos){var b=$('mnGrid').children[pos];if(b){b.textContent='💣';b.style.opacity='.6';}});
+        var m=$('mnMsg');m.className='msg lose';m.textContent='Boom! 💥 Lost the bet.';
+        $('mnSetup').style.display='flex';$('mnPlay').style.display='none';
+      } else {
+        btn.textContent='💎';btn.style.background='#143a2a';btn.disabled=true;
+        $('mnMult').textContent=d.mult.toFixed(2)+'× · '+d.picks+' safe ('+fmt(d.cashout)+')';
+      }
+    });
+  }
+  $('mnCash').onclick=function(){
+    api('mines/cashout',{}).then(function(d){
+      if(d.error){return;}setProfile(d.profile);mnLock(true);
+      (d.mineField||[]).forEach(function(pos){var b=$('mnGrid').children[pos];if(b&&b.textContent!=='💎'){b.textContent='💣';b.style.opacity='.5';}});
+      var m=$('mnMsg');m.className='msg win';m.textContent='Cashed out +'+fmt(d.win)+'! ('+d.mult.toFixed(2)+'×)';
+      $('mnSetup').style.display='flex';$('mnPlay').style.display='none';
+    });
+  };
+  mnReset();
 
   // boot
   api('me').then(function(d){

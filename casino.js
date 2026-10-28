@@ -112,6 +112,29 @@ export const STORE = [
   { id: 'col_gold', type: 'color', label: 'Gold name', value: '#ffd166', price: 15000, rarity: 'epic' },
   { id: 'col_aqua', type: 'color', label: 'Aqua glow', value: '#00e5ff', price: 30000, rarity: 'legendary' },
   { id: 'col_hot', type: 'color', label: 'Hot magenta', value: '#ff2d95', price: 45000, rarity: 'legendary' },
+  { id: 'col_white', type: 'color', label: 'Clean white', value: '#f5f7ff', price: 3000, rarity: 'common' },
+  { id: 'col_teal', type: 'color', label: 'Teal name', value: '#14b8a6', price: 4000, rarity: 'uncommon' },
+  { id: 'col_violet', type: 'color', label: 'Violet name', value: '#8b5cf6', price: 5500, rarity: 'rare' },
+  { id: 'col_sun', type: 'color', label: 'Sunset', value: '#ff7849', price: 5500, rarity: 'rare' },
+  { id: 'col_mint', type: 'color', label: 'Mint', value: '#5eead4', price: 6500, rarity: 'rare' },
+  { id: 'col_rose', type: 'color', label: 'Rose gold', value: '#e8a0a0', price: 15000, rarity: 'epic' },
+  { id: 'col_emer', type: 'color', label: 'Emerald', value: '#10d070', price: 18000, rarity: 'epic' },
+  { id: 'col_ice', type: 'color', label: 'Ice', value: '#a5f3fc', price: 30000, rarity: 'legendary' },
+  { id: 'col_blood', type: 'color', label: 'Blood', value: '#b00020', price: 40000, rarity: 'legendary' },
+  { id: 'col_void', type: 'color', label: 'Void black', value: '#0b0b12', price: 60000, rarity: 'mythic' },
+  { id: 'tag_heart', type: 'tag', label: '❤️ Loved', price: 2000, rarity: 'common' },
+  { id: 'tag_lightning', type: 'tag', label: '⚡ Flash', price: 3500, rarity: 'uncommon' },
+  { id: 'tag_wizard', type: 'tag', label: '🧙 Wizard', price: 6000, rarity: 'rare' },
+  { id: 'tag_robot', type: 'tag', label: '🤖 Bot', price: 6000, rarity: 'rare' },
+  { id: 'tag_money', type: 'tag', label: '💰 Rich', price: 9000, rarity: 'rare' },
+  { id: 'tag_trophy', type: 'tag', label: '🏆 Champion', price: 15000, rarity: 'epic' },
+  { id: 'tag_fox', type: 'tag', label: '🦊 Sly', price: 7500, rarity: 'rare' },
+  { id: 'tag_wolf', type: 'tag', label: '🐺 Wolf', price: 12000, rarity: 'epic' },
+  { id: 'tag_phoenix', type: 'tag', label: '🔥 Phoenix', price: 22000, rarity: 'epic' },
+  { id: 'tag_devil', type: 'tag', label: '😈 Devil', price: 20000, rarity: 'epic' },
+  { id: 'tag_angel', type: 'tag', label: '😇 Angel', price: 20000, rarity: 'epic' },
+  { id: 'tag_galaxy', type: 'tag', label: '🌌 Cosmic', price: 35000, rarity: 'legendary' },
+  { id: 'tag_infinity', type: 'tag', label: '♾️ Infinite', price: 75000, rarity: 'mythic' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 
@@ -178,6 +201,15 @@ function bjState(cid, reveal) {
     playerValue: handValue(g.player), dealerValue: reveal ? handValue(g.dealer) : handValue([g.dealer[0]]),
     bet: g.bet, done: g.done, result: g.result || '',
   };
+}
+
+// ---- mines (reveal safe tiles, avoid bombs, cash out) ----
+const mines = {}; // cid -> {mines, bet, positions:Set, picks:[], done}
+function minesMult(m, picks) {
+  // Fair multiplier: product of remaining/safe-remaining, minus ~3% house edge.
+  let mult = 1; const total = 25;
+  for (let i = 0; i < picks; i++) mult *= (total - i) / (total - m - i);
+  return mult * 0.97;
 }
 
 // ============================================================
@@ -280,6 +312,80 @@ export async function handleCasino(url, req, res) {
     if (it.type === 'tag') p.tag = it.label; else p.color = it.value;
     save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
+  }
+
+  // ---- dice (roll over/under a target) ----
+  if (path === '/api/casino/dice' && req.method === 'POST') {
+    const body = await readBody(req); const bet = clampBet(body.bet, p.coins);
+    const over = body.dir !== 'under';
+    let target = Math.floor(Number(body.target)); if (!Number.isFinite(target)) target = 50;
+    target = Math.max(2, Math.min(98, target));
+    if (bet < 1) return (sendJson(res, 200, { error: 'bad-bet' }), true);
+    if (bet > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= bet;
+    const roll = Math.floor(Math.random() * 10001) / 100; // 0.00–100.00
+    const winChance = over ? (100 - target) : target; // percent
+    const won = over ? (roll > target) : (roll < target);
+    const mult = won && winChance > 0 ? (99 / winChance) : 0; // ~1% house edge
+    const payout = Math.floor(bet * mult);
+    p.coins += payout; recordPlay(p, bet, payout); save();
+    sendJson(res, 200, { roll, target, over, won, mult: +mult.toFixed(4), payout, win: payout - bet, profile: publicProfile(cid) }); return true;
+  }
+
+  // ---- roulette (red/black/green, even/odd, or an exact number 0-36) ----
+  if (path === '/api/casino/roulette' && req.method === 'POST') {
+    const body = await readBody(req); const bet = clampBet(body.bet, p.coins);
+    const choice = String(body.choice || 'red');
+    if (bet < 1) return (sendJson(res, 200, { error: 'bad-bet' }), true);
+    if (bet > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= bet;
+    const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    const n = Math.floor(Math.random() * 37);
+    const color = n === 0 ? 'green' : (REDS.has(n) ? 'red' : 'black');
+    const numChoice = /^\d{1,2}$/.test(choice) ? parseInt(choice, 10) : null;
+    let payout = 0;
+    if (numChoice !== null && numChoice >= 0 && numChoice <= 36) { if (n === numChoice) payout = bet * 36; }
+    else if (choice === 'red' && color === 'red') payout = bet * 2;
+    else if (choice === 'black' && color === 'black') payout = bet * 2;
+    else if (choice === 'green' && color === 'green') payout = bet * 14;
+    else if (choice === 'even' && n !== 0 && n % 2 === 0) payout = bet * 2;
+    else if (choice === 'odd' && n % 2 === 1) payout = bet * 2;
+    p.coins += payout; recordPlay(p, bet, payout); save();
+    sendJson(res, 200, { number: n, color, choice, payout, win: payout - bet, profile: publicProfile(cid) }); return true;
+  }
+
+  // ---- mines ----
+  if (path === '/api/casino/mines/start' && req.method === 'POST') {
+    const body = await readBody(req); const bet = clampBet(body.bet, p.coins);
+    let m = Math.floor(Number(body.mines) || 3); m = Math.max(1, Math.min(24, m));
+    if (bet < 1) return (sendJson(res, 200, { error: 'bad-bet' }), true);
+    if (bet > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= bet; save();
+    const positions = new Set();
+    while (positions.size < m) positions.add(Math.floor(Math.random() * 25));
+    mines[cid] = { mines: m, bet, positions, picks: [], done: false };
+    sendJson(res, 200, { ok: true, mines: m, picks: 0, mult: 1, profile: publicProfile(cid) }); return true;
+  }
+  if (path === '/api/casino/mines/pick' && req.method === 'POST') {
+    const body = await readBody(req); const g = mines[cid];
+    if (!g || g.done) return (sendJson(res, 200, { error: 'no-game' }), true);
+    const tile = Math.floor(Number(body.tile));
+    if (!(tile >= 0 && tile < 25) || g.picks.includes(tile)) return (sendJson(res, 200, { error: 'bad-tile' }), true);
+    if (g.positions.has(tile)) {
+      g.done = true; recordPlay(p, g.bet, 0); save();
+      return (sendJson(res, 200, { hit: true, tile, done: true, mineField: [...g.positions], profile: publicProfile(cid) }), true);
+    }
+    g.picks.push(tile);
+    const mult = minesMult(g.mines, g.picks.length);
+    sendJson(res, 200, { hit: false, tile, picks: g.picks.length, mult: +mult.toFixed(4), cashout: Math.floor(g.bet * mult), profile: publicProfile(cid) }); return true;
+  }
+  if (path === '/api/casino/mines/cashout' && req.method === 'POST') {
+    const g = mines[cid];
+    if (!g || g.done || g.picks.length === 0) return (sendJson(res, 200, { error: 'no-game' }), true);
+    const mult = minesMult(g.mines, g.picks.length);
+    const payout = Math.floor(g.bet * mult);
+    g.done = true; p.coins += payout; recordPlay(p, g.bet, payout); save();
+    sendJson(res, 200, { ok: true, payout, mult: +mult.toFixed(4), win: payout - g.bet, mineField: [...g.positions], profile: publicProfile(cid) }); return true;
   }
 
   if (path === '/api/casino/leaderboard') {
