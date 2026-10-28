@@ -388,6 +388,36 @@ export async function handleCasino(url, req, res) {
     sendJson(res, 200, { ok: true, payout, mult: +mult.toFixed(4), win: payout - g.bet, mineField: [...g.positions], profile: publicProfile(cid) }); return true;
   }
 
+  // ---- plinko (drop a ball through pegs into a multiplier slot) ----
+  if (path === '/api/casino/plinko' && req.method === 'POST') {
+    const body = await readBody(req); const bet = clampBet(body.bet, p.coins);
+    if (bet < 1) return (sendJson(res, 200, { error: 'bad-bet' }), true);
+    if (bet > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= bet;
+    const ROWS = 16;
+    const MULT = [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110]; // 17 slots
+    const pathArr = []; let slot = 0;
+    for (let i = 0; i < ROWS; i++) { const right = Math.random() < 0.5 ? 1 : 0; pathArr.push(right); slot += right; }
+    const mult = MULT[slot];
+    const payout = Math.floor(bet * mult);
+    p.coins += payout; recordPlay(p, bet, payout); save();
+    sendJson(res, 200, { path: pathArr, slot, mult, mults: MULT, payout, win: payout - bet, profile: publicProfile(cid) }); return true;
+  }
+
+  // ---- wheel (spin for a multiplier) ----
+  if (path === '/api/casino/wheel' && req.method === 'POST') {
+    const body = await readBody(req); const bet = clampBet(body.bet, p.coins);
+    if (bet < 1) return (sendJson(res, 200, { error: 'bad-bet' }), true);
+    if (bet > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= bet;
+    const SEG = [0, 1.5, 0, 2, 0, 1.2, 0, 1.5, 0, 3, 0, 1.2, 0, 1.5, 0, 2, 0, 1.2, 0, 4]; // ~4.5% edge
+    const idx = Math.floor(Math.random() * SEG.length);
+    const mult = SEG[idx];
+    const payout = Math.floor(bet * mult);
+    p.coins += payout; recordPlay(p, bet, payout); save();
+    sendJson(res, 200, { idx, segments: SEG, mult, payout, win: payout - bet, profile: publicProfile(cid) }); return true;
+  }
+
   if (path === '/api/casino/leaderboard') {
     const top = Object.entries(casino.users).map(([id, u]) => ({ id, coins: u.coins, biggest: u.stats.biggest }))
       .sort((a, b) => b.coins - a.coins).slice(0, 15);

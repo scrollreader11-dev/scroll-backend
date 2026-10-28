@@ -115,6 +115,8 @@
     <button data-v="dice">🎲 Dice</button>
     <button data-v="roulette">🔴 Roulette</button>
     <button data-v="mines">💣 Mines</button>
+    <button data-v="plinko">🔵 Plinko</button>
+    <button data-v="wheel">🎡 Wheel</button>
     <button data-v="cases">📦 Cases</button>
     <button data-v="battles">⚔️ Case Battles</button>
     <button data-v="store">🛍️ Store</button>
@@ -235,6 +237,32 @@
       </div>
       <div id="mnGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;max-width:320px;margin:14px auto"></div>
       <div class="msg" id="mnMsg"></div>
+    </div>
+  </section>
+
+  <!-- PLINKO -->
+  <section class="view" data-panel="plinko">
+    <div class="card" style="text-align:center">
+      <h2>Plinko</h2>
+      <div class="hint">Drop a ball through the pegs. Outer slots pay up to 110×; the center pays least.</div>
+      <canvas id="pkCanvas" width="340" height="300" style="max-width:100%;background:rgba(0,0,0,.25);border-radius:14px;margin:8px auto;display:block"></canvas>
+      <div id="pkSlots" style="display:flex;gap:2px;max-width:340px;margin:0 auto 10px"></div>
+      <div class="betrow" style="justify-content:center"><label>Bet</label><input type="number" id="pkBet" value="100" min="1" /><button class="btn gold" id="pkDrop">Drop</button></div>
+      <div class="msg" id="pkMsg"></div>
+    </div>
+  </section>
+
+  <!-- WHEEL -->
+  <section class="view" data-panel="wheel">
+    <div class="card" style="text-align:center">
+      <h2>Wheel</h2>
+      <div class="hint">Spin the wheel for a multiplier — land on a payout or bust.</div>
+      <div style="overflow:hidden;max-width:360px;margin:14px auto;position:relative;border-radius:12px;border:1px solid rgba(255,255,255,.12)">
+        <div style="position:absolute;left:50%;top:0;width:3px;height:100%;background:#ffd166;transform:translateX(-50%);z-index:2;box-shadow:0 0 8px #ffd166"></div>
+        <div id="whStrip" style="display:flex"></div>
+      </div>
+      <div class="betrow" style="justify-content:center"><label>Bet</label><input type="number" id="whBet" value="100" min="1" /><button class="btn gold" id="whSpin">Spin</button></div>
+      <div class="msg" id="whMsg"></div>
     </div>
   </section>
 
@@ -552,12 +580,15 @@
   $('dcTarget').oninput=updDcInfo; updDcInfo();
   $('dcRoll').onclick=function(){
     var bet=+$('dcBet').value,t=+$('dcTarget').value;
+    var el=$('diceRoll');el.style.color='';var iv=setInterval(function(){el.textContent=(Math.random()*100).toFixed(2);},55);
     api('dice',{bet:bet,target:t,dir:dcOver?'over':'under'}).then(function(d){
-      if(d.error){toast(errMsg(d.error));return;}
-      $('diceRoll').textContent=d.roll.toFixed(2);setProfile(d.profile);
-      var m=$('dcMsg');m.className='msg';
-      if(d.won){m.textContent='Rolled '+d.roll.toFixed(2)+' — win +'+fmt(d.win)+'! ('+d.mult.toFixed(2)+'×)';m.classList.add('win');}
-      else{m.textContent='Rolled '+d.roll.toFixed(2)+' — you lose.';m.classList.add('lose');}
+      setTimeout(function(){clearInterval(iv);
+        if(d.error){el.textContent='—';toast(errMsg(d.error));return;}
+        el.textContent=d.roll.toFixed(2);el.style.color=d.won?'#2bd576':'#ff5252';setProfile(d.profile);
+        var m=$('dcMsg');m.className='msg';
+        if(d.won){m.textContent='Rolled '+d.roll.toFixed(2)+' — win +'+fmt(d.win)+'! ('+d.mult.toFixed(2)+'×)';m.classList.add('win');}
+        else{m.textContent='Rolled '+d.roll.toFixed(2)+' — you lose.';m.classList.add('lose');}
+      },700);
     });
   };
 
@@ -565,13 +596,16 @@
   document.querySelectorAll('[data-rl]').forEach(function(b){b.onclick=function(){
     var choice=b.dataset.rl; if(choice==='num'){choice=String(+$('rlNumIn').value||0);}
     var bet=+$('rlBet').value;
+    var el=$('rlNum');var iv=setInterval(function(){el.textContent=Math.floor(Math.random()*37);},65);
     api('roulette',{bet:bet,choice:choice}).then(function(d){
-      if(d.error){toast(errMsg(d.error));return;}
-      var col=d.color==='red'?'#ff5252':d.color==='green'?'#2bd576':'#cbd5e1';
-      $('rlNum').innerHTML='<span style="color:'+col+'">'+d.number+'</span>';
-      setProfile(d.profile);var m=$('rlMsg');m.className='msg';
-      if(d.win>0){m.textContent=d.number+' '+d.color+' — win +'+fmt(d.win)+'! 🎉';m.classList.add('win');}
-      else{m.textContent=d.number+' '+d.color+' — you lose.';m.classList.add('lose');}
+      setTimeout(function(){clearInterval(iv);
+        if(d.error){el.textContent='—';toast(errMsg(d.error));return;}
+        var col=d.color==='red'?'#ff5252':d.color==='green'?'#2bd576':'#cbd5e1';
+        el.innerHTML='<span style="color:'+col+'">'+d.number+'</span>';
+        setProfile(d.profile);var m=$('rlMsg');m.className='msg';
+        if(d.win>0){m.textContent=d.number+' '+d.color+' — win +'+fmt(d.win)+'! 🎉';m.classList.add('win');}
+        else{m.textContent=d.number+' '+d.color+' — you lose.';m.classList.add('lose');}
+      },1500);
     });
   };});
 
@@ -610,6 +644,59 @@
     });
   };
   mnReset();
+
+  // ---- plinko ----
+  var PKMULT=[110,41,10,5,3,1.5,1,0.5,0.3,0.5,1,1.5,3,5,10,41,110];
+  function buildPkSlots(hi){$('pkSlots').innerHTML=PKMULT.map(function(m,i){var big=m>=5;return '<div style="flex:1;min-width:0;font-size:9px;font-weight:700;padding:3px 0;border-radius:4px;background:'+(i===hi?'#ffd166':big?'#1a5e3a':'#1a2a4a')+';color:'+(i===hi?'#111':'#cdd6f4')+'">'+m+'×</div>';}).join('');}
+  function plinkoAnim(path,cb){
+    var cv=$('pkCanvas');if(!cv||!cv.getContext){cb&&cb();return;}
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height,rows=path.length;
+    var rowH=(H-34)/(rows+1),slotW=(W-20)/(rows+2);
+    var xs=[0],x=0;for(var i=0;i<rows;i++){x+=path[i]?0.5:-0.5;xs.push(x);}
+    var start=null,total=rows*85;
+    function frame(ts){
+      if(!start)start=ts;var p=Math.min((ts-start)/total,1);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle='rgba(255,255,255,.22)';
+      for(var r=0;r<rows;r++){for(var c=0;c<=r+1;c++){var pxp=W/2+(c-(r+1)/2)*slotW;ctx.beginPath();ctx.arc(pxp,20+r*rowH,2,0,7);ctx.fill();}}
+      var fr=p*rows,ri=Math.floor(fr),frac=fr-ri;
+      var xu=ri<rows?(xs[ri]+(xs[ri+1]-xs[ri])*frac):xs[rows];
+      var by=Math.min(20+fr*rowH,H-12);
+      ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(W/2+xu*slotW,by,6,0,7);ctx.fill();
+      if(p<1)requestAnimationFrame(frame);else cb&&cb();
+    }
+    requestAnimationFrame(frame);
+  }
+  $('pkDrop').onclick=function(){
+    var bet=+$('pkBet').value;
+    api('plinko',{bet:bet}).then(function(d){
+      if(d.error){toast(errMsg(d.error));return;}
+      buildPkSlots(-1);
+      plinkoAnim(d.path,function(){buildPkSlots(d.slot);setProfile(d.profile);var m=$('pkMsg');m.className='msg';
+        if(d.win>0){m.textContent=d.mult+'× — win +'+fmt(d.win)+'! 🎉';m.classList.add('win');}
+        else{m.textContent=d.mult+'× — you lose.';m.classList.add('lose');}});
+    });
+  };
+  buildPkSlots(-1);
+
+  // ---- wheel ----
+  var WSEG=[0,1.5,0,2,0,1.2,0,1.5,0,3,0,1.2,0,1.5,0,2,0,1.2,0,4];
+  function wheelCells(){return WSEG.map(function(m){var col=m===0?'#3a1020':m>=3?'#1a5e3a':'#1a2a4a';return '<div style="flex:0 0 60px;height:70px;display:flex;align-items:center;justify-content:center;font-weight:800;margin:0 1px;border-radius:8px;background:'+col+';color:'+(m===0?'#ff6b6b':'#eef2ff')+'">'+(m===0?'✖':(m+'×'))+'</div>';}).join('');}
+  function buildWheelStrip(){var s=$('whStrip');var html='';for(var rep=0;rep<10;rep++){html+=wheelCells();}s.innerHTML=html;s.style.transition='none';s.style.transform='translateX(0)';}
+  $('whSpin').onclick=function(){
+    var bet=+$('whBet').value;
+    api('wheel',{bet:bet}).then(function(d){
+      if(d.error){toast(errMsg(d.error));return;}
+      buildWheelStrip();var s=$('whStrip');var cellW=62;var rep=8;
+      var cellIndex=rep*WSEG.length+d.idx;
+      var container=s.parentElement.clientWidth;
+      var offset=cellIndex*cellW+31-container/2;
+      requestAnimationFrame(function(){s.style.transition='transform 4s cubic-bezier(.16,.84,.3,1)';s.style.transform='translateX(-'+offset+'px)';});
+      setTimeout(function(){setProfile(d.profile);var m=$('whMsg');m.className='msg';
+        if(d.win>0){m.textContent='Landed '+d.mult+'× — win +'+fmt(d.win)+'! 🎉';m.classList.add('win');}
+        else{m.textContent='Landed '+(d.mult===0?'bust':d.mult+'×')+' — you lose.';m.classList.add('lose');}},4150);
+    });
+  };
+  buildWheelStrip();
 
   // boot
   api('me').then(function(d){
