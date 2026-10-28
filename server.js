@@ -988,7 +988,9 @@ function chatViewer(req) {
   let cos = { tag: '', color: '' };
   try { cos = getCosmetics(cid); } catch (e) {}
   const displayName = nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : '');
-  const color = owner ? 'hsl(45 90% 60%)' : (cos.color || colorFor(cid));
+  // An equipped name color always wins; owners only default to gold if they
+  // haven't picked one (so the owner glow no longer hides a chosen color).
+  const color = cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(cid));
   return { id: cid, username: displayName, avatar: '', color, rank: owner ? 'Owner' : '', owner };
 }
 function chatStanding(req, v) {
@@ -1140,7 +1142,7 @@ function chatMember(req, res, q) {
   return sendJson(res, 200, {
     id,
     username: nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : ''),
-    avatar: '', color: owner ? 'hsl(45 90% 60%)' : (cos.color || colorFor(id)),
+    avatar: '', color: cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(id)),
     rank: owner ? 'Owner' : 'Member', owner,
     roles: [], staff: false,
     joinedAt: p ? p.firstSeen : 0,
