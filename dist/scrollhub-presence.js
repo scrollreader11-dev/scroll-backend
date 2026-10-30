@@ -398,27 +398,8 @@
       body: JSON.stringify({ id: cid, nickname: nickname || 'Guest', activity: currentActivity() }),
       keepalive: true,
     }).then(function (r) { return r.json(); }).then(function (state) {
-      // Nickname reset: if the server's epoch changed since this page last saw
-      // it AND we loaded with a saved name, forget it and re-prompt once.
-      if (state && state.nickEpoch) {
-        var se = String(state.nickEpoch);
-        if (nickEpochSeen !== se) {
-          try { localStorage.setItem(NEPOCH_KEY, se); } catch (e) {}
-          nickEpochSeen = se;
-          if (hadStoredNick) {
-            hadStoredNick = false;
-            try { localStorage.removeItem(NICK_KEY); } catch (e) {}
-            try { document.cookie = 'sh_nick=;path=/;max-age=0'; } catch (e) {}
-            nickname = '';
-            askNickname(function () { syncCookies(); });
-            return;
-          }
-        }
-      }
-      if (state && state.nickname && state.nickname !== nickname) {
-        nickname = state.nickname;
-        try { localStorage.setItem(NICK_KEY, nickname); } catch (e) {}
-      }
+      // Your username (from login) is your name now — adopt it if the server echoes it.
+      if (state && state.nickname && state.nickname !== nickname) { nickname = state.nickname; }
       apply(state);
     }).catch(function () {});
   }

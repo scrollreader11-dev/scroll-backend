@@ -517,7 +517,7 @@
   };});
   });}
 
-  function errMsg(e){return {broke:'Not enough Scrolls',"bad-bet":'Enter a valid bet',"bad-amount":'Enter a valid amount',owned:'You already own that',"not-owned":'You don\'t own that','no-recipient':'Could not find that player','already-owns':'They already own that','self':"You can't tip yourself",'no-id':'Pick a nickname on ScrollHub first'}[e]||'Something went wrong';}
+  function errMsg(e){return {broke:'Not enough Scrolls',"bad-bet":'Enter a valid bet',"bad-amount":'Enter a valid amount',owned:'You already own that',"not-owned":'You don\'t own that','no-recipient':'Could not find that player','already-owns':'They already own that','self':"You can't tip yourself",'no-id':'Log in to ScrollHub first'}[e]||'Something went wrong';}
 
   // ---- case battles (WebSocket) ----
   var bws=null, myCid='', curBattle=null;
@@ -785,7 +785,7 @@
 
   // boot
   api('me').then(function(d){
-    if(d.error==='no-id'){$('who').textContent='Open ScrollHub & set a nickname first';toast('Set a nickname on ScrollHub first');return;}
+    if(d.error==='no-id'){$('who').textContent='Log in to ScrollHub first';toast('Log in to ScrollHub first');return;}
     state.store=d.store;state.cases=d.cases;state.dailyMs=d.dailyMs;state.dailyCoins=d.dailyCoins;
     $('who').textContent='Playing as '+(d.nick||'Guest');
     setProfile(d.profile);renderCases();updateDaily();setInterval(updateDaily,30000);

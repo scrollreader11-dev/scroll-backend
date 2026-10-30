@@ -262,7 +262,7 @@ export async function handleCasino(url, req, res) {
   const path = url.split('?')[0];
   if (!path.startsWith('/api/casino/')) return false;
   const { cid, nick } = who(req);
-  if (!cid) { sendJson(res, 200, { error: 'no-id', message: 'Pick a nickname on the site first.' }); return true; }
+  if (!cid) { sendJson(res, 200, { error: 'no-id', message: 'Log in to ScrollHub first.' }); return true; }
   const p = profileOf(cid);
   if (nick && nick !== 'Guest' && p.nick !== nick) { p.nick = nick; save(); } // keep a name for the leaderboard/tips
 
@@ -736,7 +736,7 @@ export function handleBattleUpgrade(req, socket, head) {
     ws.on('message', (buf) => {
       let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; }
       if (!m || !m.t) return;
-      if (!ws._cid) { bSend(ws, { t: 'error', msg: 'Set a nickname on ScrollHub first.' }); return; }
+      if (!ws._cid) { bSend(ws, { t: 'error', msg: 'Log in to ScrollHub first.' }); return; }
 
       if (m.t === 'create') {
         if (ws._battle) return;
