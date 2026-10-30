@@ -653,8 +653,12 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // Hand-pinned, known-good versions of specific games. These REPLACE every
 // other copy in the catalog (deduped by name) and sit near the top so they're
 // easy to find and test. Add more here as needed.
-// Pinned catalog overrides (games served through this site's own domain).
-const CATALOG_OVERRIDES = [];
+// Pinned catalog overrides. Stickman loads cross-origin from GitLab (works on
+// open networks; may be blocked where gitlab.io is filtered). Thumbnail is
+// routed through /imgx/ so it loads on our own domain.
+const CATALOG_OVERRIDES = [
+  { label: 'Stickman Dragon Fight', url: '/extframe.html?url=https://ubgwtf.gitlab.io/stickman-dragon-fight/', imageUrl: '/imgx/https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp', categories: ['Fighting'] },
+];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
   // gitlab.io, which school filters block -> black-screen games + blank images.
