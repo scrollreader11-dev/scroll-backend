@@ -135,6 +135,10 @@ export const STORE = [
   { id: 'tag_angel', type: 'tag', label: '😇 Angel', price: 20000, rarity: 'epic' },
   { id: 'tag_galaxy', type: 'tag', label: '🌌 Cosmic', price: 35000, rarity: 'legendary' },
   { id: 'tag_infinity', type: 'tag', label: '♾️ Infinite', price: 75000, rarity: 'mythic' },
+  // Animated name effects (equip in the color slot; rendered by the chat).
+  { id: 'fx_pulse', type: 'color', label: '💫 Pulse Glow (animated)', value: 'fx:pulse', price: 40000, rarity: 'legendary' },
+  { id: 'fx_shimmer', type: 'color', label: '✨ Gold Shimmer (animated)', value: 'fx:shimmer', price: 55000, rarity: 'legendary' },
+  { id: 'fx_rainbow', type: 'color', label: '🌈 Rainbow (animated)', value: 'fx:rainbow', price: 90000, rarity: 'mythic' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 
