@@ -31,7 +31,7 @@ async function kvSet(key, value) {
 
 const casino = { users: {} }; // cid -> profile
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, inventory: [], tag: '', color: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS } };
+  return { coins: START_COINS, lastDaily: 0, streak: 0, nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
 function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; } catch (e) {} }
 export async function initCasino() {
@@ -68,8 +68,8 @@ function profileOf(cid) {
 // Cosmetics the chat system reads to decorate a player's name.
 export function getCosmetics(cid) {
   const p = casino.users[cid];
-  if (!p) return { tag: '', color: '' };
-  return { tag: p.tag || '', color: p.color || '' };
+  if (!p) return { tag: '', color: '', banner: '', avatarFx: '' };
+  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '' };
 }
 // Admin: add (or remove, if negative) Scrolls for a player by client id.
 export function grantCoins(cid, amount) {
@@ -139,6 +139,20 @@ export const STORE = [
   { id: 'fx_pulse', type: 'color', label: '💫 Pulse Glow (animated)', value: 'fx:pulse', price: 40000, rarity: 'legendary' },
   { id: 'fx_shimmer', type: 'color', label: '✨ Gold Shimmer (animated)', value: 'fx:shimmer', price: 55000, rarity: 'legendary' },
   { id: 'fx_rainbow', type: 'color', label: '🌈 Rainbow (animated)', value: 'fx:rainbow', price: 90000, rarity: 'mythic' },
+  // Profile banners (shown behind your name on your profile card).
+  { id: 'ban_sunset', type: 'banner', label: '🌅 Sunset Banner', value: 'linear-gradient(135deg,#ff6ec7,#ffa94d)', price: 8000, rarity: 'uncommon' },
+  { id: 'ban_ocean', type: 'banner', label: '🌊 Ocean Banner', value: 'linear-gradient(135deg,#4cc9f0,#4361ee)', price: 8000, rarity: 'uncommon' },
+  { id: 'ban_forest', type: 'banner', label: '🌲 Forest Banner', value: 'linear-gradient(135deg,#2bd576,#0b7a4b)', price: 8000, rarity: 'uncommon' },
+  { id: 'ban_night', type: 'banner', label: '🌌 Midnight Banner', value: 'linear-gradient(135deg,#1a1a2e,#4a00e0)', price: 10000, rarity: 'rare' },
+  { id: 'ban_lava', type: 'banner', label: '🌋 Lava Banner', value: 'linear-gradient(135deg,#f12711,#f5af19)', price: 12000, rarity: 'rare' },
+  { id: 'ban_aurora', type: 'banner', label: '✦ Aurora Banner (animated)', value: 'anim:aurora', price: 40000, rarity: 'legendary' },
+  { id: 'ban_rainbow', type: 'banner', label: '🌈 Rainbow Banner (animated)', value: 'anim:rainbow', price: 60000, rarity: 'legendary' },
+  { id: 'ban_galaxy', type: 'banner', label: '🪐 Galaxy Banner (animated)', value: 'anim:galaxy', price: 85000, rarity: 'mythic' },
+  // Animated avatar rings (glow around your profile picture).
+  { id: 'av_pulse', type: 'avatar', label: '💠 Pulse Ring (animated)', value: 'ring:pulse', price: 15000, rarity: 'rare' },
+  { id: 'av_gold', type: 'avatar', label: '🥇 Gold Ring (animated)', value: 'ring:gold', price: 25000, rarity: 'epic' },
+  { id: 'av_fire', type: 'avatar', label: '🔥 Fire Ring (animated)', value: 'ring:fire', price: 35000, rarity: 'epic' },
+  { id: 'av_rainbow', type: 'avatar', label: '🌈 Rainbow Ring (animated)', value: 'ring:rainbow', price: 70000, rarity: 'mythic' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 
@@ -171,7 +185,7 @@ function readBody(req) {
 function clampBet(bet, coins) { bet = Math.floor(Number(bet) || 0); return bet; }
 function publicProfile(cid) {
   const p = profileOf(cid);
-  return { coins: p.coins, lastDaily: p.lastDaily, inventory: p.inventory, tag: p.tag, color: p.color, stats: p.stats };
+  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', stats: p.stats };
 }
 function recordPlay(p, bet, payout) {
   p.stats.plays++; p.stats.wagered += bet;
@@ -207,6 +221,17 @@ function bjState(cid, reveal) {
   };
 }
 
+// ---- crash (multiplier rises until it busts; cash out in time) ----
+const crash = {}; // cid -> {bet, crashPoint, startTime, done}
+const CRASH_K = 0.00014; // multiplier = e^(k * elapsedMs); ~2x at 5s, ~10x at ~16s
+function crashMultAt(ms) { return Math.max(1, Math.floor(Math.exp(CRASH_K * Math.max(0, ms)) * 100) / 100); }
+function rollCrashPoint() {
+  const r = Math.random();
+  if (r < 0.03) return 1.00; // instant bust ~3% (the house edge)
+  const pt = 0.99 / (1 - r); // heavy-tailed; most rounds 1.1x–5x, rare big ones
+  return Math.min(1000, Math.max(1.01, Math.floor(pt * 100) / 100));
+}
+
 // ---- mines (reveal safe tiles, avoid bombs, cash out) ----
 const mines = {}; // cid -> {mines, bet, positions:Set, picks:[], done}
 function minesMult(m, picks) {
@@ -225,14 +250,26 @@ export async function handleCasino(url, req, res) {
   const { cid, nick } = who(req);
   if (!cid) { sendJson(res, 200, { error: 'no-id', message: 'Pick a nickname on the site first.' }); return true; }
   const p = profileOf(cid);
+  if (nick && nick !== 'Guest' && p.nick !== nick) { p.nick = nick; save(); } // keep a name for the leaderboard/tips
 
   if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: STORE, cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
 
   if (path === '/api/casino/daily' && req.method === 'POST') {
     const now = Date.now();
-    if (now - p.lastDaily < DAILY_MS) { sendJson(res, 200, { error: 'cooldown', nextIn: DAILY_MS - (now - p.lastDaily), profile: publicProfile(cid) }); return true; }
-    p.lastDaily = now; p.coins += DAILY_COINS; if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins; save(); flush();
-    sendJson(res, 200, { ok: true, gained: DAILY_COINS, profile: publicProfile(cid) }); return true;
+    const gap = now - p.lastDaily;
+    if (p.lastDaily && gap < DAILY_MS) { sendJson(res, 200, { error: 'cooldown', nextIn: DAILY_MS - gap, streak: p.streak || 0, profile: publicProfile(cid) }); return true; }
+    // Streak continues if the last claim was within ~44h; otherwise it resets.
+    const STREAK_GRACE = 44 * 3600 * 1000;
+    const cont = p.lastDaily && gap <= STREAK_GRACE;
+    p.streak = (cont ? (p.streak || 0) : 0) + 1;
+    // Base reward grows with streak (capped), plus a milestone bonus every 7 days.
+    const base = DAILY_COINS + Math.min(p.streak, 14) * 120;
+    const milestone = p.streak % 7 === 0 ? 3000 : 0;
+    const gained = base + milestone;
+    p.lastDaily = now; p.coins += gained;
+    if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+    save(); flush();
+    sendJson(res, 200, { ok: true, gained, streak: p.streak, milestone: milestone > 0, profile: publicProfile(cid) }); return true;
   }
 
   if (path === '/api/casino/slots' && req.method === 'POST') {
@@ -311,9 +348,14 @@ export async function handleCasino(url, req, res) {
     const body = await readBody(req); const id = String(body.itemId || '');
     if (id === 'none-tag') { p.tag = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     if (id === 'none-color') { p.color = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
+    if (id === 'none-banner') { p.banner = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
+    if (id === 'none-avatarFx') { p.avatarFx = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     const it = storeItem(id);
     if (!it || !p.inventory.includes(it.id)) return (sendJson(res, 200, { error: 'not-owned' }), true);
-    if (it.type === 'tag') p.tag = it.label; else p.color = it.value;
+    if (it.type === 'tag') p.tag = it.label;
+    else if (it.type === 'banner') p.banner = it.value;
+    else if (it.type === 'avatar') p.avatarFx = it.value;
+    else p.color = it.value;
     save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
   }
@@ -422,10 +464,88 @@ export async function handleCasino(url, req, res) {
     sendJson(res, 200, { idx, segments: SEG, mult, payout, win: payout - bet, profile: publicProfile(cid) }); return true;
   }
 
+  // ---- crash ----
+  if (path === '/api/casino/crash/start' && req.method === 'POST') {
+    const body = await readBody(req); const bet = clampBet(body.bet, p.coins);
+    if (bet < 1) return (sendJson(res, 200, { error: 'bad-bet' }), true);
+    if (bet > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= bet; save();
+    crash[cid] = { bet, crashPoint: rollCrashPoint(), startTime: Date.now(), done: false };
+    // Client animates the rocket to crashPoint; the server still validates every
+    // cashout against its own clock (min of claimed and server multiplier).
+    sendJson(res, 200, { ok: true, startTime: crash[cid].startTime, k: CRASH_K, crashPoint: crash[cid].crashPoint, profile: publicProfile(cid) }); return true;
+  }
+  if (path === '/api/casino/crash/cashout' && req.method === 'POST') {
+    const g = crash[cid];
+    if (!g || g.done) return (sendJson(res, 200, { error: 'no-game' }), true);
+    g.done = true;
+    const serverMult = crashMultAt(Date.now() - g.startTime);
+    // Honor what the player saw, but never beyond the server clock.
+    let claimed = Number((await readBody(req)).mult) || serverMult;
+    const effective = Math.min(claimed, serverMult);
+    if (effective >= g.crashPoint) { // busted before cashing out
+      recordPlay(p, g.bet, 0); save();
+      return (sendJson(res, 200, { busted: true, crashPoint: g.crashPoint, profile: publicProfile(cid) }), true);
+    }
+    const payout = Math.floor(g.bet * effective);
+    p.coins += payout;
+    if (effective > (p.stats.crashBest || 0)) p.stats.crashBest = effective;
+    recordPlay(p, g.bet, payout); save();
+    sendJson(res, 200, { busted: false, mult: effective, crashPoint: g.crashPoint, payout, win: payout - g.bet, profile: publicProfile(cid) }); return true;
+  }
+  // Reveal the bust point so the client can stop the rocket when a player sits idle.
+  if (path === '/api/casino/crash/bust' && req.method === 'POST') {
+    const g = crash[cid];
+    if (!g) return (sendJson(res, 200, { error: 'no-game' }), true);
+    if (!g.done) { g.done = true; recordPlay(p, g.bet, 0); save(); }
+    sendJson(res, 200, { busted: true, crashPoint: g.crashPoint, profile: publicProfile(cid) }); return true;
+  }
+
+  // ---- tip / gift coins to another player ----
+  if (path === '/api/casino/tip' && req.method === 'POST') {
+    const body = await readBody(req);
+    let amount = Math.floor(Number(body.amount) || 0);
+    const toCid = String(body.toCid || '').slice(0, 64);
+    const toNick = String(body.to || '').trim().toLowerCase();
+    if (amount < 1) return (sendJson(res, 200, { error: 'bad-amount' }), true);
+    if (amount > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    // Resolve recipient: prefer exact cid, else first matching nick.
+    let rid = toCid && casino.users[toCid] ? toCid : null;
+    if (!rid && toNick) rid = Object.keys(casino.users).find((id) => (casino.users[id].nick || '').toLowerCase() === toNick) || null;
+    if (!rid) return (sendJson(res, 200, { error: 'no-recipient' }), true);
+    if (rid === cid) return (sendJson(res, 200, { error: 'self' }), true);
+    p.coins -= amount; casino.users[rid].coins += amount;
+    p.stats.tipped = (p.stats.tipped || 0) + amount;
+    save(); flush();
+    sendJson(res, 200, { ok: true, amount, toNick: casino.users[rid].nick || 'player', profile: publicProfile(cid) }); return true;
+  }
+  // ---- gift a cosmetic you own to another player (transfers ownership) ----
+  if (path === '/api/casino/gift' && req.method === 'POST') {
+    const body = await readBody(req);
+    const itemId = String(body.itemId || '');
+    const toCid = String(body.toCid || '').slice(0, 64);
+    const it = storeItem(itemId);
+    if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
+    if (!p.inventory.includes(itemId)) return (sendJson(res, 200, { error: 'not-owned' }), true);
+    const rid = toCid && casino.users[toCid] ? toCid : null;
+    if (!rid) return (sendJson(res, 200, { error: 'no-recipient' }), true);
+    if (rid === cid) return (sendJson(res, 200, { error: 'self' }), true);
+    const rp = casino.users[rid];
+    if (rp.inventory.includes(itemId)) return (sendJson(res, 200, { error: 'already-owns' }), true);
+    p.inventory = p.inventory.filter((x) => x !== itemId);
+    if (p.tag === it.label) p.tag = '';
+    if (p.color === it.value) p.color = '';
+    if (p.banner === it.value) p.banner = '';
+    if (p.avatarFx === it.value) p.avatarFx = '';
+    rp.inventory.push(itemId);
+    save(); flush();
+    sendJson(res, 200, { ok: true, itemId, toNick: rp.nick || 'player', profile: publicProfile(cid) }); return true;
+  }
+
   if (path === '/api/casino/leaderboard') {
-    const top = Object.entries(casino.users).map(([id, u]) => ({ id, coins: u.coins, biggest: u.stats.biggest }))
-      .sort((a, b) => b.coins - a.coins).slice(0, 15);
-    sendJson(res, 200, { top }); return true;
+    const top = Object.entries(casino.users).map(([id, u]) => ({ id, nick: u.nick || '', coins: u.coins, biggest: u.stats.biggest, mine: id === cid }))
+      .sort((a, b) => b.coins - a.coins).slice(0, 20);
+    sendJson(res, 200, { top, you: { nick: p.nick || nick, coins: p.coins } }); return true;
   }
 
   sendJson(res, 404, { error: 'unknown' }); return true;
@@ -449,6 +569,8 @@ const ACH = [
   { id: 'casehardened', name: 'Case Hardened', desc: 'Open 100 cases', rarity: 'epic', icon: 'FlaskConical', color: '#b185ff', target: 100, unit: 'cases', stat: (p) => p.stats.casesOpened || 0 },
   { id: 'collector', name: 'Fashionista', desc: 'Own 3 items from the store', rarity: 'uncommon', icon: 'Palette', color: '#4cc9f0', target: 3, unit: 'items', stat: (p) => p.inventory.length },
   { id: 'whale', name: 'Whale', desc: 'Wager 100,000 Scrolls total', rarity: 'epic', icon: 'Globe', color: '#b185ff', target: 100000, unit: 'Scrolls', stat: (p) => p.stats.wagered },
+  { id: 'tothemoon', name: 'To The Moon', desc: 'Cash out a 10x on Crash', rarity: 'epic', icon: 'Rocket', color: '#b185ff', target: 10, unit: 'x', stat: (p) => Math.floor(p.stats.crashBest || 0) },
+  { id: 'generous', name: 'Generous', desc: 'Tip 10,000 Scrolls to others', rarity: 'rare', icon: 'Gift', color: '#5c7cfa', target: 10000, unit: 'Scrolls', stat: (p) => p.stats.tipped || 0 },
   { id: 'sayhi', name: 'Say Hi', desc: 'Send your first chat message', rarity: 'common', icon: 'MessageCircle', color: '#9aa7bd', target: 1, unit: '', stat: (p, x) => x.chatMsgs },
   { id: 'chatterbox', name: 'Chatterbox', desc: 'Send 100 chat messages', rarity: 'uncommon', icon: 'Bot', color: '#4cc9f0', target: 100, unit: 'messages', stat: (p, x) => x.chatMsgs },
 ];
