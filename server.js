@@ -16,7 +16,6 @@ import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements } from './casino.js';
-import { GAMES_3KH0 } from './games-3kh0.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -654,17 +653,8 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // Hand-pinned, known-good versions of specific games. These REPLACE every
 // other copy in the catalog (deduped by name) and sit near the top so they're
 // easy to find and test. Add more here as needed.
-// Games pulled from 3kh0's public index, routed through this site's proxy so
-// they load through our own domain and work on blocked networks (slow, but they
-// open). The game goes through the /!!/ Wisp proxy; the thumbnail goes through
-// the /imgx/ image proxy so it also loads on-origin. Pinned near the top.
-const K3 = 'https://3kh0.github.io';
-const CATALOG_OVERRIDES = GAMES_3KH0.map((g) => ({
-  label: g.n,
-  url: '/iframe.html?url=/!!/' + K3 + '/projects/' + g.s + '/',
-  imageUrl: '/imgx/' + K3 + '/' + g.i,
-  categories: ['Popular'],
-}));
+// Pinned catalog overrides (games served through this site's own domain).
+const CATALOG_OVERRIDES = [];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
   // gitlab.io, which school filters block -> black-screen games + blank images.

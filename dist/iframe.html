@@ -8,21 +8,53 @@
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   iframe { border: 0; width: 100%; height: 100%; display: block; }
   .msg { color: #fff; font-family: system-ui, sans-serif; padding: 24px; }
+  #sh-load { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; transition: opacity .5s ease;
+    background: radial-gradient(900px 520px at 50% 32%, #141a33, #070a14 70%);
+    font-family: 'Segoe UI', system-ui, sans-serif; }
+  #sh-load.hide { opacity: 0; pointer-events: none; }
+  .sh-logo { font-size: 2rem; font-weight: 800; letter-spacing: 1px; margin-bottom: 22px;
+    background: linear-gradient(90deg, #7c8cff, #4cc9f0, #b388ff); background-size: 200% 100%;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    color: transparent; animation: sh-shine 3s linear infinite; }
+  @keyframes sh-shine { to { background-position: 200% 0; } }
+  .sh-ring { width: 54px; height: 54px; border-radius: 50%; border: 4px solid rgba(255,255,255,.12);
+    border-top-color: #7c8cff; animation: sh-spin .8s linear infinite; }
+  @keyframes sh-spin { to { transform: rotate(360deg); } }
+  .sh-bar { margin-top: 18px; width: 190px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .sh-bar > i { display: block; height: 100%; width: 40%; border-radius: 4px;
+    background: linear-gradient(90deg, #7c8cff, #4cc9f0); animation: sh-bar 1.1s ease-in-out infinite; }
+  @keyframes sh-bar { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+  .sh-txt { margin-top: 16px; color: #9fb0d8; font-size: .95rem; letter-spacing: .3px; }
 </style>
 </head>
 <body>
+<div id="sh-load">
+  <div class="sh-logo">ScrollHub</div>
+  <div class="sh-ring"></div>
+  <div class="sh-bar"><i></i></div>
+  <div class="sh-txt">Loading game…</div>
+</div>
 <script>
 (function () {
   var p = new URLSearchParams(location.search);
   var url = p.get('url') || '';
-  // Allow same-origin game paths ("/storage/...") or absolute http(s) URLs only.
+  var loader = document.getElementById('sh-load');
+  function hide() {
+    if (!loader) return;
+    loader.classList.add('hide');
+    setTimeout(function () { if (loader && loader.parentNode) loader.parentNode.removeChild(loader); }, 600);
+  }
   if (url && (url.charAt(0) === '/' || /^https?:\/\//i.test(url))) {
     var f = document.createElement('iframe');
     f.src = url;
     f.allow = 'autoplay; fullscreen; gamepad; microphone; camera; clipboard-write';
     f.setAttribute('allowfullscreen', '');
+    f.addEventListener('load', function () { setTimeout(hide, 500); });
     document.body.appendChild(f);
+    setTimeout(hide, 15000); // fallback so the loader never traps the player
   } else {
+    if (loader) loader.style.display = 'none';
     document.body.innerHTML = '<p class="msg">No game specified.</p>';
   }
 })();
