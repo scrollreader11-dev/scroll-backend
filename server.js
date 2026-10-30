@@ -291,7 +291,7 @@ async function handlePresence(req, res) {
     broadcast: admin.broadcast || null,
     frozen: frozenActive(id),
     takeover: admin.settings.takeover || null,
-    nickEpoch,
+    nickEpoch: 0, // disabled: login owns identity, so never re-trigger the old nickname prompt (even for cached presence scripts)
     commands,
   });
 }
