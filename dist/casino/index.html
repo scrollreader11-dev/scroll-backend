@@ -340,6 +340,16 @@
   </section>
 </div>
 <div class="toast" id="toast"></div>
+<div id="imodal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div style="background:#141a2e;border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:20px;width:290px;max-width:90vw">
+    <div id="imTitle" style="font-weight:700;margin-bottom:12px"></div>
+    <input id="imInput" style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:#eaf0ff;font-size:15px;outline:none" />
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" id="imCancel" style="flex:1">Cancel</button>
+      <button class="btn gold" id="imOk" style="flex:1">OK</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -369,7 +379,14 @@
     else{$('daily').disabled=true;var h=Math.floor(left/3600000),m=Math.floor(left%3600000/60000);$('daily').textContent='Daily in '+h+'h '+m+'m'+sk;}
   }
   $('daily').onclick=function(){api('daily',{}).then(function(d){if(d.gained){toast('+'+fmt(d.gained)+' Scrolls! 🔥 '+(d.streak||1)+'-day streak'+(d.milestone?' — milestone bonus!':''));}setProfile(d.profile);updateDaily();});};
-  $('redeem').onclick=function(){var code=prompt('Enter your event code:');if(!code)return;api('redeem',{code:code}).then(function(d){if(d.error){toast(errMsg(d.error));return;}toast('🎁 Redeemed +'+fmt(d.gained)+' Scrolls!');setProfile(d.profile);});};
+  // Inline input modal — prompt() is blocked inside the app's sandboxed iframe.
+  var imCb=null;
+  function askInput(title,placeholder,cb){imCb=cb;$('imTitle').textContent=title;var inp=$('imInput');inp.value='';inp.placeholder=placeholder||'';$('imodal').style.display='flex';setTimeout(function(){inp.focus();},50);}
+  function imClose(){$('imodal').style.display='none';imCb=null;}
+  $('imCancel').onclick=imClose;
+  $('imOk').onclick=function(){var v=$('imInput').value.trim();var cb=imCb;imClose();if(cb)cb(v);};
+  $('imInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();$('imOk').click();}else if(e.key==='Escape'){imClose();}});
+  $('redeem').onclick=function(){askInput('Redeem event code','CODE',function(code){if(!code)return;api('redeem',{code:code}).then(function(d){if(d.error){toast(errMsg(d.error));return;}toast('🎁 Redeemed +'+fmt(d.gained)+' Scrolls!');setProfile(d.profile);});});};
 
   // ---- blackjack ----
   function pcard(c){
@@ -513,9 +530,10 @@
     tb.appendChild(tr);
   });
   $('lb').querySelectorAll('[data-tip]').forEach(function(b){b.onclick=function(){
-    var amt=parseInt(prompt('Tip how many Scrolls to '+b.dataset.tipn+'?','100'),10);
-    if(!amt||amt<1)return;
-    api('tip',{toCid:b.dataset.tip,amount:amt}).then(function(r){if(r.error){toast(errMsg(r.error));return;}toast('Sent '+fmt(r.amount)+' to '+r.toNick+'! 🎁');setProfile(r.profile);loadLb();});
+    askInput('Tip Scrolls to '+b.dataset.tipn,'amount',function(v){
+      var amt=parseInt(v,10); if(!amt||amt<1)return;
+      api('tip',{toCid:b.dataset.tip,amount:amt}).then(function(r){if(r.error){toast(errMsg(r.error));return;}toast('Sent '+fmt(r.amount)+' to '+r.toNick+'! 🎁');setProfile(r.profile);loadLb();});
+    });
   };});
   });}
 
