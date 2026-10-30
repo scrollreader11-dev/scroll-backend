@@ -502,7 +502,7 @@
     var g=$('store');g.innerHTML='';
     state.store.forEach(function(it){
       var owned=state.profile.inventory.indexOf(it.id)>=0;
-      var equipped=(it.type==='tag'&&state.profile.tag===it.label)||(it.type==='color'&&state.profile.color===it.value)||(it.type==='banner'&&state.profile.banner===it.value)||(it.type==='avatar'&&state.profile.avatarFx===it.value);
+      var equipped=(it.type==='tag'&&state.profile.tag===it.label)||(it.type==='color'&&state.profile.color===it.value)||(it.type==='banner'&&state.profile.banner===it.value)||(it.type==='avatar'&&state.profile.avatarFx===it.value)||(it.type==='titlefx'&&state.profile.titleFx===it.value);
       var sw=(it.type==='color'&&it.value.indexOf('fx:')!==0)?it.value:(it.type==='banner'&&it.value.indexOf('anim:')!==0?it.value:'');
       var swatch=sw?'<span style="display:inline-block;width:16px;height:14px;border-radius:4px;background:'+sw+';vertical-align:middle;margin-right:5px"></span>':'';
       var d=document.createElement('div');d.className='item';

@@ -1035,11 +1035,12 @@ function chatViewer(req) {
   // Casino cosmetics the player bought/equipped show up in chat.
   let cos = { tag: '', color: '' };
   try { cos = getCosmetics(cid); } catch (e) {}
-  const displayName = nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : '');
+  // The title/tag is a separate styled badge now (so it can animate on its own).
+  const username = nick + (owner ? ' 👑' : '');
   // An equipped name color always wins; owners only default to gold if they
   // haven't picked one (so the owner glow no longer hides a chosen color).
   const color = cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(cid));
-  return { id: cid, username: displayName, avatar: '', color, rank: owner ? 'Owner' : '', owner };
+  return { id: cid, username, avatar: '', color, title: cos.tag || '', titleFx: cos.titleFx || '', rank: owner ? 'Owner' : '', owner };
 }
 function chatStanding(req, v) {
   const ip = clientIp(req);
@@ -1176,7 +1177,11 @@ function chatPresence(req, res) {
   prunePlayers();
   const now = Date.now();
   const online = [...players.values()].filter((p) => now - p.lastSeen < PLAYER_TTL);
-  const members = online.map((p) => ({ id: p.id, username: p.nickname, avatar: '', color: colorFor(p.id), status: 'online' }));
+  const members = online.map((p) => {
+    let cos = { tag: '', color: '', titleFx: '' }; try { cos = getCosmetics(p.id); } catch (e) {}
+    const owner = !!admin.chatOwners[p.id];
+    return { id: p.id, username: p.nickname + (owner ? ' 👑' : ''), avatar: '', color: cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(p.id)), title: cos.tag || '', titleFx: cos.titleFx || '', status: 'online' };
+  });
   return sendJson(res, 200, { groups: [{ role: null, members }], count: members.length, typing: [] });
 }
 // Profile card shown when you click a player's name in chat.
@@ -1195,7 +1200,8 @@ function chatMember(req, res, q) {
   } catch (e) {}
   return sendJson(res, 200, {
     id,
-    username: nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : ''),
+    username: nick + (owner ? ' 👑' : ''),
+    title: cos.tag || '', titleFx: cos.titleFx || '',
     avatar: '', color: cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(id)),
     banner: cos.banner || '', avatarFx: cos.avatarFx || '',
     badges, achCount: badges.length,
@@ -1223,7 +1229,7 @@ function chatMentions(req, res, q) {
       return ap - bp || b.lastSeen - a.lastSeen;
     })
     .slice(0, 8)
-    .map((p) => ({ id: p.id, username: p.nickname, avatar: '', color: colorFor(p.id) }));
+    .map((p) => { let cos = { color: '' }; try { cos = getCosmetics(p.id); } catch (e) {} return { id: p.id, username: p.nickname, avatar: '', color: cos.color || colorFor(p.id) }; });
   return sendJson(res, 200, { users: online });
 }
 async function chatMod(req, res, kind) {

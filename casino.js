@@ -32,7 +32,7 @@ async function kvSet(key, value) {
 
 const casino = { users: {}, gotd: null, codes: {} }; // cid -> profile; gotd override; event codes
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
+  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
 function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; } catch (e) {} }
 export async function initCasino() {
@@ -83,8 +83,8 @@ function profileOf(cid) {
 // Cosmetics the chat system reads to decorate a player's name.
 export function getCosmetics(cid) {
   const p = casino.users[cid];
-  if (!p) return { tag: '', color: '', banner: '', avatarFx: '' };
-  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '' };
+  if (!p) return { tag: '', color: '', banner: '', avatarFx: '', titleFx: '' };
+  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '' };
 }
 // Admin: add (or remove, if negative) Scrolls for a player by client id.
 export function grantCoins(cid, amount) {
@@ -213,6 +213,11 @@ export const STORE = [
   { id: 'av_gold', type: 'avatar', label: '🥇 Gold Ring (animated)', value: 'ring:gold', price: 25000, rarity: 'epic' },
   { id: 'av_fire', type: 'avatar', label: '🔥 Fire Ring (animated)', value: 'ring:fire', price: 35000, rarity: 'epic' },
   { id: 'av_rainbow', type: 'avatar', label: '🌈 Rainbow Ring (animated)', value: 'ring:rainbow', price: 70000, rarity: 'mythic' },
+  // Animated title effects — animate your equipped title/tag badge.
+  { id: 'tfx_pulse', type: 'titlefx', label: '💠 Pulse Title (animated)', value: 'pulse', price: 20000, rarity: 'rare' },
+  { id: 'tfx_gold', type: 'titlefx', label: '🥇 Gold Title (animated)', value: 'gold', price: 30000, rarity: 'epic' },
+  { id: 'tfx_shimmer', type: 'titlefx', label: '✨ Shimmer Title (animated)', value: 'shimmer', price: 45000, rarity: 'legendary' },
+  { id: 'tfx_rainbow', type: 'titlefx', label: '🌈 Rainbow Title (animated)', value: 'rainbow', price: 80000, rarity: 'mythic' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 
@@ -245,7 +250,7 @@ function readBody(req) {
 function clampBet(bet, coins) { bet = Math.floor(Number(bet) || 0); return bet; }
 function publicProfile(cid) {
   const p = profileOf(cid);
-  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', stats: p.stats };
+  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', stats: p.stats };
 }
 function recordPlay(p, bet, payout) {
   p.stats.plays++; p.stats.wagered += bet;
@@ -437,11 +442,13 @@ export async function handleCasino(url, req, res) {
     if (id === 'none-color') { p.color = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     if (id === 'none-banner') { p.banner = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     if (id === 'none-avatarFx') { p.avatarFx = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
+    if (id === 'none-titlefx') { p.titleFx = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     const it = storeItem(id);
     if (!it || !p.inventory.includes(it.id)) return (sendJson(res, 200, { error: 'not-owned' }), true);
     if (it.type === 'tag') p.tag = it.label;
     else if (it.type === 'banner') p.banner = it.value;
     else if (it.type === 'avatar') p.avatarFx = it.value;
+    else if (it.type === 'titlefx') p.titleFx = it.value;
     else p.color = it.value;
     save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
