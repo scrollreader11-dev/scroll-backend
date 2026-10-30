@@ -1139,10 +1139,18 @@ function chatMember(req, res, q) {
   const cos = getCosmetics(id);
   const owner = !!admin.chatOwners[id];
   const nick = p ? p.nickname : 'Member';
+  // Unlocked achievements become badges on the profile card.
+  let badges = [];
+  try {
+    const ach = buildAchievements(id, { chatMsgs: chatMsgCount.get(id) || 0 });
+    badges = ach.achievements.filter((a) => a.unlocked).map((a) => ({ name: a.name, icon: a.icon, color: a.color, rarity: a.rarity }));
+  } catch (e) {}
   return sendJson(res, 200, {
     id,
     username: nick + (cos.tag ? ' ' + cos.tag : '') + (owner ? ' 👑' : ''),
     avatar: '', color: cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(id)),
+    banner: cos.banner || '', avatarFx: cos.avatarFx || '',
+    badges, achCount: badges.length,
     rank: owner ? 'Owner' : 'Member', owner,
     roles: [], staff: false,
     joinedAt: p ? p.firstSeen : 0,
