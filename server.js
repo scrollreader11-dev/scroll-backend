@@ -657,6 +657,12 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // open networks; may be blocked where gitlab.io is filtered). Thumbnail is
 // routed through /imgx/ so it loads on our own domain.
 const CATALOG_OVERRIDES = [
+  { label: 'Tomb of the Mask', url: '/iframe.html?url=/storage/ag/arsenic/tomb-of-the-mask/index.html', imageUrl: '/storage/images/main3/tombofthemask.png', categories: ['Arcade'] },
+  { label: 'Paper.io 2', url: '/iframe.html?url=/storage/ag/originals/paperio2/index.html', imageUrl: '/storage/images/main/paper2.jpg', categories: ['.io'] },
+  { label: 'Tactical Assassin 2', url: '/iframe.html?url=/storage/ag/echo/tacticalassasin2/index.html', imageUrl: '/storage/ag/echo/tacticalassasin2/tacticalassassin2.png', categories: ['Shooting'] },
+  { label: 'Crazy Bikes', url: '/iframe.html?url=/storage/ag/arsenic/crazy-bikes/index.html', imageUrl: '/storage/images/main3/crazybikes.png', categories: ['Racing'] },
+  { label: 'CrazyGames', url: '/iframe.html?url=/storage/ag/originals/crazygames/index.html', imageUrl: '/storage/ag/originals/crazygames/logo.png', categories: ['Arcade'] },
+  { label: 'Melon Playground', url: '/iframe.html?url=/storage/ag/originals/melonplayground/index.html', imageUrl: '/storage/ag/originals/melonplayground/IMG_5304.jpeg', categories: ['Simulation'] },
   { label: 'Stickman Dragon Fight', url: '/extframe.html?url=https://ubgwtf.gitlab.io/stickman-dragon-fight/', imageUrl: '/imgx/https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp', categories: ['Fighting'] },
 ];
 async function fetchUbgGames() {
