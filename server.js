@@ -1051,7 +1051,7 @@ async function handleSocial(url, req, res) {
   const path = url.split('?')[0];
   if (!a) { sendJson(res, 200, { error: 'login' }); return true; }
   const me = a.id, myName = a.username;
-  const q = new URL(url, 'http://x').searchParams;
+  const q = new URL(req.url || url, 'http://x').searchParams; // req.url carries the ?query
 
   if (path === '/api/friends' && req.method === 'GET') {
     const f = fentry(me);
