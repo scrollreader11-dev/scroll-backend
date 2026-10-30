@@ -155,6 +155,29 @@ export function tournamentState(cid) {
     lastWinners: t.lastWinners || [],
   };
 }
+// Public profile card data for /api/user/:username.
+export function publicUserCard(cid) {
+  const p = casino.users[cid];
+  if (!p) return null;
+  const cur = currentWeekKey();
+  return {
+    coins: p.coins,
+    stats: {
+      plays: p.stats.plays || 0, won: p.stats.won || 0, biggest: p.stats.biggest || 0,
+      wagered: p.stats.wagered || 0, peak: p.stats.peak || p.coins,
+      crashBest: p.stats.crashBest || 0, casesOpened: p.stats.casesOpened || 0, tipped: p.stats.tipped || 0,
+    },
+    cosmetics: { color: p.color || '', title: p.tag || '', titleFx: p.titleFx || '', banner: p.banner || '', avatarFx: p.avatarFx || '' },
+    weekNet: p.weekKey === cur ? (p.weekNet || 0) : 0,
+  };
+}
+// Rank (1-based) of a player on the richest-players board, or null.
+export function coinRank(cid) {
+  const u = casino.users[cid]; if (!u) return null;
+  let rank = 1; for (const id in casino.users) { if (casino.users[id].coins > u.coins) rank++; }
+  return rank;
+}
+
 export function setTourPrizes(p1, p2, p3) {
   const t = ensureTour();
   t.prizes = [Math.max(0, Math.floor(Number(p1) || 0)), Math.max(0, Math.floor(Number(p2) || 0)), Math.max(0, Math.floor(Number(p3) || 0))];

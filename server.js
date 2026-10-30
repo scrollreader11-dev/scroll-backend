@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState } from './casino.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
 await initCasino();
 
@@ -1388,6 +1388,27 @@ const httpServer = createServer(async (req, res) => {
 
   // No real account system — return a guest so the account/settings page
   // opens (and the appearance/wallpaper picker is reachable) without a login.
+  // Public profile card for a username (shareable /user/:username page).
+  if (url.startsWith('/api/user/')) {
+    const uname = decodeURIComponent(url.slice(10).split('/')[0].split('?')[0]);
+    const acct = await accountByName(uname);
+    if (!acct) return sendJson(res, 404, { error: 'not-found' });
+    const card = publicUserCard(acct.id);
+    const owner = !!admin.chatOwners[acct.id];
+    const ach = buildAchievements(acct.id, { chatMsgs: chatMsgCount.get(acct.id) || 0 });
+    const badges = ach.achievements.filter((a) => a.unlocked).map((a) => ({ name: a.name, icon: a.icon, color: a.color, rarity: a.rarity }));
+    const p = players.get(acct.id);
+    const online = !!(p && (Date.now() - p.lastSeen < PLAYER_TTL));
+    return sendJson(res, 200, {
+      username: acct.username, id: acct.id, owner, createdAt: acct.createdAt || 0,
+      online, activity: online ? (p.activity || '') : '',
+      rank: coinRank(acct.id),
+      coins: card ? card.coins : 0, weekNet: card ? card.weekNet : 0,
+      stats: card ? card.stats : {}, cosmetics: card ? card.cosmetics : {},
+      badges, achCount: badges.length, achTotal: ach.total,
+    });
+  }
+
   if (url === '/api/me') {
     const a = await resolveSession(req);
     const c = parseCookies(req);
