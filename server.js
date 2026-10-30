@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone } from './casino.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
 await initCasino();
 
@@ -419,6 +419,20 @@ async function handleAdmin(req, res) {
   }
   if (action === 'listcodes') {
     return sendJson(res, 200, { ok: true, codes: listEventCodes(), gotd: getGotdOverride() });
+  }
+  // Weekly tournament controls.
+  if (action === 'tourprizes') {
+    const prizes = setTourPrizes(body.p1, body.p2, body.p3);
+    logEvent('tournament', 'Prizes', prizes.join(' / '));
+    return sendJson(res, 200, { ok: true, prizes });
+  }
+  if (action === 'endweek') {
+    const winners = endTournamentNow();
+    logEvent('tournament', 'Week ended', winners.map((w) => w.nick + ' +' + w.prize).join(', ') || 'no winners');
+    return sendJson(res, 200, { ok: true, winners });
+  }
+  if (action === 'tourstate') {
+    return sendJson(res, 200, { ok: true, tour: tournamentState('') });
   }
   if (action === 'resetnicks') {
     nickEpoch = Date.now();

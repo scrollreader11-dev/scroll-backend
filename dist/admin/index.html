@@ -295,6 +295,17 @@
         </div>
         <div id="gdNow" class="note" style="margin-top:6px"></div>
       </div>
+      <div class="field">
+        <div class="label">🥇 Weekly tournament prizes (1st / 2nd / 3rd)</div>
+        <div class="row">
+          <input id="tp1" type="number" placeholder="1st" style="max-width:90px" />
+          <input id="tp2" type="number" placeholder="2nd" style="max-width:90px" />
+          <input id="tp3" type="number" placeholder="3rd" style="max-width:90px" />
+          <button class="sm gold" id="tpSet">Save prizes</button>
+          <button class="sm red" id="tpEnd">End week now</button>
+        </div>
+        <div id="tpNow" class="note" style="margin-top:6px"></div>
+      </div>
       <div id="seFlash" class="flash"></div>
     </div>
     <div class="card">
@@ -744,6 +755,15 @@
   };
   $('gdClear').onclick = function () { api('cleargotd', {}).then(function (res) { if (res.ok) { seFlash('Back to the daily auto-pick ✓'); showGotd(null); $('gdLabel').value = ''; } }); };
   api('listcodes', {}).then(function (res) { if (res.ok) { renderCodes(res.data.codes); showGotd(res.data.gotd); } });
+  function showTour(t) { if (!t) return; $('tpNow').textContent = 'Prizes: ' + (t.prizes || []).map(function (p) { return p.toLocaleString(); }).join(' / ') + ' · ' + ((t.top && t.top.length) || 0) + ' players in this week'; }
+  $('tpSet').onclick = function () {
+    api('tourprizes', { p1: Number($('tp1').value) || 0, p2: Number($('tp2').value) || 0, p3: Number($('tp3').value) || 0 }).then(function (res) { if (res.ok) { seFlash('Prizes saved: ' + res.data.prizes.join(' / ') + ' ✓'); api('tourstate', {}).then(function (r) { if (r.ok) showTour(r.data.tour); }); } });
+  };
+  $('tpEnd').onclick = function () {
+    if (!confirm('End this week NOW and pay out the top 3?')) return;
+    api('endweek', {}).then(function (res) { if (res.ok) { var w = res.data.winners || []; seFlash(w.length ? ('Paid: ' + w.map(function (x) { return x.nick + ' +' + x.prize; }).join(', ') + ' ✓') : 'Week ended — no winners.'); } });
+  };
+  api('tourstate', {}).then(function (res) { if (res.ok && res.data.tour) { showTour(res.data.tour); var pz = res.data.tour.prizes || []; if (pz[0]) $('tp1').value = pz[0]; if (pz[1]) $('tp2').value = pz[1]; if (pz[2]) $('tp3').value = pz[2]; } });
   var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
   function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }
   document.querySelectorAll('[data-to]').forEach(function (btn) {

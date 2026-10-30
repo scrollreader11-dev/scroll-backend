@@ -30,11 +30,11 @@ async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {} }; // cid -> profile; gotd override; event codes
+const casino = { users: {}, gotd: null, codes: {}, tour: null }; // cid -> profile; gotd override; event codes; weekly tournament
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
+  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
-function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; } catch (e) {} }
+function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -52,7 +52,7 @@ export async function initCasino() {
   } catch (e) { console.log('reset check failed:', e.message); }
 }
 let dirty = false;
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour }); }
 function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -108,6 +108,74 @@ export function grantEveryone(amount) {
   save(); flush();
   return n;
 }
+
+// ---- weekly tournament (ranked by net Scrolls won this week) ----
+function currentWeekKey() {
+  const d = new Date();
+  const day = (d.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  d.setUTCDate(d.getUTCDate() - day);
+  return d.toISOString().slice(0, 10); // the week's Monday (UTC)
+}
+function weekEndsAt(weekKey) { return Date.parse(weekKey + 'T00:00:00Z') + 7 * 86400000; }
+function ensureTour() { if (!casino.tour) casino.tour = { weekKey: currentWeekKey(), prizes: [50000, 25000, 10000], lastWinners: [] }; return casino.tour; }
+function ensureWeek(p) { const cur = currentWeekKey(); if (p.weekKey !== cur) { p.weekKey = cur; p.weekNet = 0; } }
+// At week rollover, pay the top 3 of the week that just ended.
+function checkTournamentRollover() {
+  const t = ensureTour();
+  const cur = currentWeekKey();
+  if (t.weekKey === cur) return;
+  const ending = t.weekKey;
+  const ranked = Object.values(casino.users)
+    .filter((u) => u.weekKey === ending && (u.weekNet || 0) > 0)
+    .sort((a, b) => (b.weekNet || 0) - (a.weekNet || 0))
+    .slice(0, 3);
+  const winners = [];
+  ranked.forEach((u, i) => {
+    const prize = t.prizes[i] || 0;
+    if (prize > 0) { u.coins += prize; if (u.coins > (u.stats.peak || 0)) u.stats.peak = u.coins; }
+    winners.push({ nick: u.nick || 'player', net: u.weekNet || 0, prize });
+  });
+  t.lastWinners = winners;
+  t.weekKey = cur;
+  save(); flush();
+}
+export function tournamentState(cid) {
+  const t = ensureTour();
+  const cur = currentWeekKey();
+  const rows = Object.entries(casino.users)
+    .filter(([id, u]) => u.weekKey === cur && (u.weekNet || 0) > 0)
+    .map(([id, u]) => ({ id, nick: u.nick || 'player', net: u.weekNet || 0, mine: id === cid }))
+    .sort((a, b) => b.net - a.net);
+  const youIdx = rows.findIndex((r) => r.mine);
+  const me = cid && casino.users[cid] && casino.users[cid].weekKey === cur ? (casino.users[cid].weekNet || 0) : 0;
+  return {
+    prizes: t.prizes, endsAt: weekEndsAt(cur), weekKey: cur,
+    top: rows.slice(0, 15),
+    you: { rank: youIdx >= 0 ? youIdx + 1 : null, net: me },
+    lastWinners: t.lastWinners || [],
+  };
+}
+export function setTourPrizes(p1, p2, p3) {
+  const t = ensureTour();
+  t.prizes = [Math.max(0, Math.floor(Number(p1) || 0)), Math.max(0, Math.floor(Number(p2) || 0)), Math.max(0, Math.floor(Number(p3) || 0))];
+  save(); flush();
+  return t.prizes;
+}
+// Admin: end the current week now (pay out and start a fresh week).
+export function endTournamentNow() {
+  const t = ensureTour();
+  const ending = t.weekKey;
+  const ranked = Object.values(casino.users).filter((u) => u.weekKey === ending && (u.weekNet || 0) > 0).sort((a, b) => (b.weekNet || 0) - (a.weekNet || 0)).slice(0, 3);
+  const winners = [];
+  ranked.forEach((u, i) => { const prize = t.prizes[i] || 0; if (prize > 0) { u.coins += prize; if (u.coins > (u.stats.peak || 0)) u.stats.peak = u.coins; } winners.push({ nick: u.nick || 'player', net: u.weekNet || 0, prize }); });
+  t.lastWinners = winners;
+  // Force a fresh week by clearing everyone's accumulator for the current key.
+  for (const id in casino.users) { casino.users[id].weekNet = 0; casino.users[id].weekKey = currentWeekKey(); }
+  t.weekKey = currentWeekKey();
+  save(); flush();
+  return winners;
+}
+setInterval(() => { try { checkTournamentRollover(); } catch (e) {} }, 60000);
 
 // ---- admin: Game of the Day override ----
 export function setGotdOverride(game) {
@@ -259,6 +327,8 @@ function recordPlay(p, bet, payout) {
   if (payout > p.stats.biggest) p.stats.biggest = payout;
   if (p.stats.casesOpened == null) p.stats.casesOpened = 0;
   if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+  // Weekly tournament: accumulate this week's net result.
+  ensureWeek(p); p.weekNet = (p.weekNet || 0) + net;
 }
 
 // ---- blackjack (transient per-user hands) ----
@@ -316,6 +386,8 @@ export async function handleCasino(url, req, res) {
   if (!cid) { sendJson(res, 200, { error: 'no-id', message: 'Log in to ScrollHub first.' }); return true; }
   const p = profileOf(cid);
   if (nick && nick !== 'Guest' && p.nick !== nick) { p.nick = nick; save(); } // keep a name for the leaderboard/tips
+  try { checkTournamentRollover(); } catch (e) {} // pay out last week if the week just rolled over
+  ensureWeek(p);
 
   if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: STORE, cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
 
@@ -634,6 +706,10 @@ export async function handleCasino(url, req, res) {
     rp.inventory.push(itemId);
     save(); flush();
     sendJson(res, 200, { ok: true, itemId, toNick: rp.nick || 'player', profile: publicProfile(cid) }); return true;
+  }
+
+  if (path === '/api/casino/tournament') {
+    sendJson(res, 200, tournamentState(cid)); return true;
   }
 
   if (path === '/api/casino/leaderboard') {

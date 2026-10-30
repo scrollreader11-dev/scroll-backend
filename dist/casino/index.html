@@ -123,6 +123,7 @@
     <button data-v="battles">⚔️ Case Battles</button>
     <button data-v="store">🛍️ Store</button>
     <button data-v="leaderboard">🏆 Leaders</button>
+    <button data-v="tournament">🥇 Tournament</button>
   </nav>
 
   <!-- BLACKJACK -->
@@ -338,6 +339,19 @@
       <table class="lbtable"><thead><tr><th>#</th><th>Player</th><th>Coins</th><th></th></tr></thead><tbody id="lb"></tbody></table>
     </div>
   </section>
+
+  <!-- TOURNAMENT -->
+  <section class="view" data-panel="tournament">
+    <div class="card">
+      <h2>🥇 Weekly Tournament</h2>
+      <div class="hint">Win the most Scrolls (net) between Monday and Sunday. Prizes pay out automatically when the week ends.</div>
+      <div id="tourTop" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:12px 0"></div>
+      <div id="tourCountdown" style="text-align:center;color:var(--mut);margin-bottom:6px"></div>
+      <div id="tourYou" style="text-align:center;font-weight:700;margin-bottom:10px"></div>
+      <table class="lbtable"><thead><tr><th>#</th><th>Player</th><th>Net won this week</th></tr></thead><tbody id="tourLb"></tbody></table>
+      <div id="tourLast" style="margin-top:14px"></div>
+    </div>
+  </section>
 </div>
 <div class="toast" id="toast"></div>
 <div id="imodal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
@@ -367,6 +381,7 @@
     var v=b.dataset.v;
     document.querySelectorAll('.view').forEach(function(s){s.classList.toggle('on',s.dataset.panel===v);});
     if(v==='leaderboard')loadLb();
+    if(v==='tournament')loadTour();
     if(v==='battles'){connectBattles();fillCaseSelect();}
   };});
 
@@ -521,6 +536,21 @@
   $('unColor').onclick=function(){api('equip',{itemId:'none-color'}).then(function(d){setProfile(d.profile);toast('Color removed');});};
 
   // ---- leaderboard ----
+  var tourTimer=null;
+  function fmtLeft(ms){if(ms<=0)return 'ended';var s=Math.floor(ms/1000);var d=Math.floor(s/86400);var h=Math.floor(s%86400/3600);var m=Math.floor(s%3600/60);return (d>0?d+'d ':'')+h+'h '+m+'m';}
+  function loadTour(){api('tournament').then(function(d){
+    var medals=['🥇','🥈','🥉'];
+    $('tourTop').innerHTML=(d.prizes||[]).map(function(p,i){return '<div style="background:#0b1020;border:1px solid var(--line2);border-radius:12px;padding:10px 16px;text-align:center"><div style="font-size:1.4rem">'+medals[i]+'</div><div style="font-weight:800;color:#ffd166">📜 '+fmt(p)+'</div></div>';}).join('');
+    if(tourTimer)clearInterval(tourTimer);
+    function tick(){$('tourCountdown').textContent='Resets in '+fmtLeft(d.endsAt-Date.now());}
+    tick();tourTimer=setInterval(tick,30000);
+    $('tourYou').innerHTML = d.you&&d.you.rank ? ('You\'re #'+d.you.rank+' this week — net 📜 '+fmt(d.you.net)) : 'Win a game this week to join the board!';
+    var tb=$('tourLb');tb.innerHTML='';
+    (d.top||[]).forEach(function(u,i){var tr=document.createElement('tr');if(u.mine)tr.style.background='rgba(124,140,255,.12)';tr.innerHTML='<td>'+(i+1)+'</td><td>'+(medals[i]||'')+' '+esc(u.nick||'player')+(u.mine?' (you)':'')+'</td><td>📜 '+fmt(u.net)+'</td>';tb.appendChild(tr);});
+    if(!(d.top||[]).length)tb.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--mut)">No winners yet this week — be the first!</td></tr>';
+    var lw=d.lastWinners||[];
+    $('tourLast').innerHTML = lw.length ? ('<div class="hint" style="margin-bottom:6px">Last week\'s winners</div>'+lw.map(function(w,i){return '<div>'+(medals[i]||'')+' <b>'+esc(w.nick)+'</b> — won 📜 '+fmt(w.prize)+' (net 📜 '+fmt(w.net)+')</div>';}).join('')) : '';
+  });}
   function loadLb(){api('leaderboard').then(function(d){var tb=$('lb');tb.innerHTML='';(d.top||[]).forEach(function(u,i){
     var medal=(i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'');
     var name=esc(u.nick||'Player')+(u.mine?' (you)':'');
