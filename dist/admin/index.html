@@ -257,11 +257,45 @@
         <div class="label">📜 Give everyone online some Scrolls (casino currency)</div>
         <div class="row"><input id="gaAmt" type="number" placeholder="e.g. 5000" /><button class="sm gold" id="gaBtn">Give to all</button></div>
       </div>
-      <div class="field">
-        <div class="label">🧹 Reset all nicknames (everyone re-enters their name on next load)</div>
-        <div class="row"><button class="sm red" id="resetNicksBtn">Reset all nicknames</button></div>
-      </div>
       <div id="saFlash" class="flash"></div>
+    </div>
+
+    <div class="card">
+      <h2>📜 Scrolls &amp; Events</h2>
+      <div class="note">Give or take Scrolls from any account by username, run giveaways, and set the Game of the Day.</div>
+      <div class="field">
+        <div class="label">Give / take Scrolls by username (use a negative amount to take)</div>
+        <div class="row">
+          <input id="scUser" type="text" placeholder="username" />
+          <input id="scAmt" type="number" placeholder="amount" />
+          <button class="sm gold" id="scGive">Give</button>
+          <button class="sm red" id="scTake">Take</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">🎉 Event: give Scrolls to EVERY account (even offline players)</div>
+        <div class="row"><input id="allAmt" type="number" placeholder="e.g. 1000" /><button class="sm gold" id="allBtn">Give to all accounts</button></div>
+      </div>
+      <div class="field">
+        <div class="label">🎁 Event code — players redeem once each in the casino</div>
+        <div class="row">
+          <input id="cdCode" type="text" placeholder="CODE (e.g. HALLOWEEN)" />
+          <input id="cdAmt" type="number" placeholder="Scrolls each" />
+          <input id="cdMax" type="number" placeholder="max claims (0 = ∞)" />
+          <button class="sm gold" id="cdCreate">Create code</button>
+        </div>
+        <div id="cdList" class="note" style="margin-top:8px"></div>
+      </div>
+      <div class="field">
+        <div class="label">⭐ Game of the Day — override the daily auto-pick</div>
+        <div class="row">
+          <input id="gdLabel" type="text" placeholder="exact game name as shown on the site" />
+          <button class="sm gold" id="gdSet">Set</button>
+          <button class="sm" id="gdClear">Clear (auto)</button>
+        </div>
+        <div id="gdNow" class="note" style="margin-top:6px"></div>
+      </div>
+      <div id="seFlash" class="flash"></div>
     </div>
     <div class="card">
       <h2>🌈 Site-wide takeover</h2>
@@ -672,10 +706,44 @@
       else saFlash((res.data && res.data.error) || 'Failed.');
     });
   };
-  $('resetNicksBtn').onclick = function () {
-    if (!confirm('Reset ALL nicknames? Everyone will have to re-enter their name next time they load the site.')) return;
-    api('resetnicks', {}).then(function (res) { saFlash(res.ok ? 'All nicknames reset ✓' : 'Failed.'); });
+  // ---- Scrolls & Events ----
+  function seFlash(msg) { $('seFlash').textContent = msg; setTimeout(function () { $('seFlash').textContent = ''; }, 3200); }
+  function scrolls(sign) {
+    var u = $('scUser').value.trim(), a = Math.abs(Number($('scAmt').value) || 0) * sign;
+    if (!u || !a) { seFlash('Enter a username and amount.'); return; }
+    api('scrolls', { username: u, amount: a }).then(function (res) {
+      if (res.data && res.data.error) { seFlash(res.data.message || 'Error'); return; }
+      if (res.ok) { seFlash((a >= 0 ? 'Gave ' : 'Took ') + Math.abs(a) + ' Scrolls ' + (a >= 0 ? 'to ' : 'from ') + res.data.username + ' — balance ' + res.data.balance + ' ✓'); $('scAmt').value = ''; }
+    });
+  }
+  $('scGive').onclick = function () { scrolls(1); };
+  $('scTake').onclick = function () { scrolls(-1); };
+  $('allBtn').onclick = function () {
+    var a = Number($('allAmt').value) || 0; if (a < 1) { seFlash('Enter an amount.'); return; }
+    if (!confirm('Give ' + a + ' Scrolls to EVERY account?')) return;
+    api('giveallaccounts', { amount: a }).then(function (res) { if (res.ok) { seFlash('Gave ' + a + ' Scrolls to ' + ((res.data && res.data.count) || 0) + ' accounts ✓'); $('allAmt').value = ''; } });
   };
+  function renderCodes(codes) {
+    var el = $('cdList');
+    if (!codes || !codes.length) { el.textContent = 'No active codes.'; return; }
+    el.innerHTML = codes.map(function (c) { return '<div style="margin:3px 0">🎁 <b>' + c.code + '</b> — ' + c.amount + ' Scrolls · ' + c.count + (c.max ? ('/' + c.max) : '') + ' claimed <button class="sm red" data-del="' + c.code + '" style="padding:0 7px;font-size:11px">✕</button></div>'; }).join('');
+    el.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function () { api('deletecode', { code: b.dataset.del }).then(function (res) { renderCodes(res.data && res.data.codes); }); }; });
+  }
+  $('cdCreate').onclick = function () {
+    var c = $('cdCode').value.trim(), a = Number($('cdAmt').value) || 0, m = Number($('cdMax').value) || 0;
+    if (!c || a < 1) { seFlash('Enter a code and amount.'); return; }
+    api('createcode', { code: c, amount: a, max: m }).then(function (res) {
+      if (res.data && res.data.error) { seFlash(res.data.message || 'Error'); return; }
+      if (res.ok) { seFlash('Code ' + res.data.code.code + ' created ✓'); $('cdCode').value = ''; $('cdAmt').value = ''; $('cdMax').value = ''; renderCodes(res.data.codes); }
+    });
+  };
+  function showGotd(g) { $('gdNow').textContent = (g && g.label) ? ('Current override: ' + g.label) : 'No override — using the daily auto-pick.'; }
+  $('gdSet').onclick = function () {
+    var l = $('gdLabel').value.trim(); if (!l) { seFlash('Enter a game name.'); return; }
+    api('setgotd', { label: l }).then(function (res) { if (res.ok) { seFlash('Game of the Day set to ' + l + ' ✓'); showGotd(res.data.gotd); } });
+  };
+  $('gdClear').onclick = function () { api('cleargotd', {}).then(function (res) { if (res.ok) { seFlash('Back to the daily auto-pick ✓'); showGotd(null); $('gdLabel').value = ''; } }); };
+  api('listcodes', {}).then(function (res) { if (res.ok) { renderCodes(res.data.codes); showGotd(res.data.gotd); } });
   var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
   function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }
   document.querySelectorAll('[data-to]').forEach(function (btn) {

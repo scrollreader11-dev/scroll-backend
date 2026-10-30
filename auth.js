@@ -107,6 +107,13 @@ function clearCookies() {
   return ['sh_sid', 'sh_cid', 'sh_nick'].map((n) => n + '=;Path=/;Max-Age=0;SameSite=Lax');
 }
 
+// Look up an account by username (for admin give/take by name). Returns the
+// account object ({ id, username, ... }) or null.
+export async function accountByName(username) {
+  if (!USER_RE.test(normUser(username))) return null;
+  return await getAccount(username);
+}
+
 // Trusted identity for the current request, or null if not logged in.
 export async function resolveSession(req) {
   const c = parseCookies(req);

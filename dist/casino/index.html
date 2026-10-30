@@ -104,6 +104,7 @@
     <div class="bal">
       <div class="coins">📜 <b id="coins">—</b> <span style="color:var(--mut);font-size:.8rem;font-weight:500">Scrolls</span></div>
       <button class="daily" id="daily">Daily</button>
+      <button class="daily" id="redeem" title="Redeem an event code">🎁 Redeem</button>
       <a class="leave" href="/">✕ Exit</a>
     </div>
   </header>
@@ -368,6 +369,7 @@
     else{$('daily').disabled=true;var h=Math.floor(left/3600000),m=Math.floor(left%3600000/60000);$('daily').textContent='Daily in '+h+'h '+m+'m'+sk;}
   }
   $('daily').onclick=function(){api('daily',{}).then(function(d){if(d.gained){toast('+'+fmt(d.gained)+' Scrolls! 🔥 '+(d.streak||1)+'-day streak'+(d.milestone?' — milestone bonus!':''));}setProfile(d.profile);updateDaily();});};
+  $('redeem').onclick=function(){var code=prompt('Enter your event code:');if(!code)return;api('redeem',{code:code}).then(function(d){if(d.error){toast(errMsg(d.error));return;}toast('🎁 Redeemed +'+fmt(d.gained)+' Scrolls!');setProfile(d.profile);});};
 
   // ---- blackjack ----
   function pcard(c){
@@ -517,7 +519,7 @@
   };});
   });}
 
-  function errMsg(e){return {broke:'Not enough Scrolls',"bad-bet":'Enter a valid bet',"bad-amount":'Enter a valid amount',owned:'You already own that',"not-owned":'You don\'t own that','no-recipient':'Could not find that player','already-owns':'They already own that','self':"You can't tip yourself",'no-id':'Log in to ScrollHub first'}[e]||'Something went wrong';}
+  function errMsg(e){return {broke:'Not enough Scrolls',"bad-bet":'Enter a valid bet',"bad-amount":'Enter a valid amount',owned:'You already own that',"not-owned":'You don\'t own that','no-recipient':'Could not find that player','already-owns':'They already own that','self':"You can't tip yourself",'bad-code':'That code is not valid','already-redeemed':'You already redeemed that code','code-exhausted':'That code is all used up','no-id':'Log in to ScrollHub first'}[e]||'Something went wrong';}
 
   // ---- case battles (WebSocket) ----
   var bws=null, myCid='', curBattle=null;

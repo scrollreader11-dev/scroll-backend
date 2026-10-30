@@ -30,11 +30,11 @@ async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {} }; // cid -> profile
+const casino = { users: {}, gotd: null, codes: {} }; // cid -> profile; gotd override; event codes
 function blankProfile() {
   return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
-function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; } catch (e) {} }
+function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -52,8 +52,9 @@ export async function initCasino() {
   } catch (e) { console.log('reset check failed:', e.message); }
 }
 let dirty = false;
-function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, JSON.stringify({ users: casino.users })); } catch (e) {} }
-async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', JSON.stringify({ users: casino.users })); } catch (e) { dirty = true; } }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes }); }
+function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
+async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
 export { flush as flushCasino };
 // Flush on shutdown so a redeploy doesn't drop the last few seconds.
@@ -93,6 +94,51 @@ export function grantCoins(cid, amount) {
   if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
   save(); flush();
   return p.coins;
+}
+
+// Admin event: grant Scrolls to EVERY account (online or not). Returns count.
+export function grantEveryone(amount) {
+  const a = Math.floor(Number(amount) || 0); let n = 0;
+  for (const cid in casino.users) {
+    const p = casino.users[cid];
+    p.coins = Math.max(0, p.coins + a);
+    if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+    n++;
+  }
+  save(); flush();
+  return n;
+}
+
+// ---- admin: Game of the Day override ----
+export function setGotdOverride(game) {
+  casino.gotd = (game && game.label) ? {
+    label: String(game.label).slice(0, 80),
+    url: String(game.url || '').slice(0, 500),
+    imageUrl: String(game.imageUrl || '').slice(0, 500),
+  } : null;
+  save(); flush();
+  return casino.gotd;
+}
+export function getGotdOverride() { return casino.gotd; }
+
+// ---- admin: redeemable event codes (Scroll giveaways) ----
+function normCode(s) { return String(s || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 24); }
+export function createEventCode(opts) {
+  const code = normCode(opts.code);
+  const amount = Math.max(1, Math.min(10000000, Math.floor(Number(opts.amount) || 0)));
+  const max = Math.max(0, Math.min(1000000, Math.floor(Number(opts.max) || 0))); // 0 = unlimited claims
+  if (!code) return null;
+  casino.codes[code] = { amount, max, claimedBy: {}, count: 0, createdAt: Date.now() };
+  save(); flush();
+  return { code, amount, max };
+}
+export function listEventCodes() {
+  return Object.entries(casino.codes).map(([code, c]) => ({ code, amount: c.amount, max: c.max, count: c.count }));
+}
+export function deleteEventCode(code) {
+  const k = normCode(code);
+  if (casino.codes[k]) { delete casino.codes[k]; save(); flush(); return true; }
+  return false;
 }
 
 // ---- store catalog ----
@@ -288,7 +334,21 @@ export async function handleCasino(url, req, res) {
 
   if (path === '/api/casino/gotd' && req.method !== 'POST') {
     const today = new Date().toISOString().slice(0, 10);
-    sendJson(res, 200, { bonus: GOTD_BONUS, claimed: p.gotdClaimed === today, dateKey: today }); return true;
+    sendJson(res, 200, { bonus: GOTD_BONUS, claimed: p.gotdClaimed === today, dateKey: today, override: casino.gotd || null }); return true;
+  }
+
+  // Redeem an event code (Scroll giveaway) — once per account.
+  if (path === '/api/casino/redeem' && req.method === 'POST') {
+    const body = await readBody(req);
+    const code = normCode(body.code);
+    const c = casino.codes[code];
+    if (!c) return (sendJson(res, 200, { error: 'bad-code' }), true);
+    if (c.claimedBy[cid]) return (sendJson(res, 200, { error: 'already-redeemed', profile: publicProfile(cid) }), true);
+    if (c.max > 0 && c.count >= c.max) return (sendJson(res, 200, { error: 'code-exhausted' }), true);
+    c.claimedBy[cid] = Date.now(); c.count++;
+    p.coins += c.amount; if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+    save(); flush();
+    sendJson(res, 200, { ok: true, gained: c.amount, profile: publicProfile(cid) }); return true;
   }
   if (path === '/api/casino/gotd-claim' && req.method === 'POST') {
     const today = new Date().toISOString().slice(0, 10); // UTC day key

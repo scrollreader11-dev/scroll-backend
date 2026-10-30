@@ -15,8 +15,8 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements } from './casino.js';
-import { handleAuth, resolveSession } from './auth.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone } from './casino.js';
+import { handleAuth, resolveSession, accountByName } from './auth.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -378,6 +378,47 @@ async function handleAdmin(req, res) {
     for (const [id] of players) { grantCoins(id, amount); n++; }
     logEvent('coins', 'Everyone', '+' + amount + ' Scrolls to ' + n);
     return sendJson(res, 200, { ok: true, count: n });
+  }
+  // Give / take Scrolls to any account by username (works offline too).
+  if (action === 'scrolls') {
+    const amount = Math.max(-10000000, Math.min(10000000, Math.floor(Number(body.amount) || 0)));
+    const acct = await accountByName(String(body.username || ''));
+    if (!acct) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+    const bal = grantCoins(acct.id, amount);
+    logEvent('coins', acct.username, (amount >= 0 ? '+' : '') + amount + ' Scrolls');
+    return sendJson(res, 200, { ok: true, username: acct.username, balance: bal });
+  }
+  // Event: grant Scrolls to EVERY account (not just those online now).
+  if (action === 'giveallaccounts') {
+    const amount = Math.max(0, Math.min(1000000, Math.floor(Number(body.amount) || 0)));
+    const n = grantEveryone(amount);
+    logEvent('coins', 'All accounts', '+' + amount + ' Scrolls to ' + n);
+    return sendJson(res, 200, { ok: true, count: n });
+  }
+  // Game of the Day override.
+  if (action === 'setgotd') {
+    const g = setGotdOverride({ label: body.label, url: body.url, imageUrl: body.imageUrl });
+    logEvent('gotd', 'Game of the Day', g ? ('set to ' + g.label) : 'cleared');
+    return sendJson(res, 200, { ok: true, gotd: g });
+  }
+  if (action === 'cleargotd') {
+    setGotdOverride(null);
+    logEvent('gotd', 'Game of the Day', 'cleared (back to daily auto-pick)');
+    return sendJson(res, 200, { ok: true, gotd: null });
+  }
+  // Event codes (Scroll giveaways players redeem once each).
+  if (action === 'createcode') {
+    const r = createEventCode({ code: body.code, amount: body.amount, max: body.max });
+    if (!r) return sendJson(res, 200, { error: 'bad-code', message: 'Enter a code and amount.' });
+    logEvent('event', 'Code ' + r.code, '+' + r.amount + ' Scrolls' + (r.max ? (' · ' + r.max + ' claims') : ' · unlimited'));
+    return sendJson(res, 200, { ok: true, code: r, codes: listEventCodes() });
+  }
+  if (action === 'deletecode') {
+    deleteEventCode(String(body.code || ''));
+    return sendJson(res, 200, { ok: true, codes: listEventCodes() });
+  }
+  if (action === 'listcodes') {
+    return sendJson(res, 200, { ok: true, codes: listEventCodes(), gotd: getGotdOverride() });
   }
   if (action === 'resetnicks') {
     nickEpoch = Date.now();
