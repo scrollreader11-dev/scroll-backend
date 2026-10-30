@@ -1021,6 +1021,107 @@ async function saveChat() {
 }
 setInterval(saveChat, 60000);
 
+// ===================== Friends & DMs =====================
+const friendsData = {}; // id -> { friends:[{id,name}], incoming:[{id,name}], outgoing:[{id,name}] }
+const dms = {};         // "idA|idB" (sorted) -> [{ id, from, content, at }]
+let _socialDirty = false;
+function fentry(id) { if (!friendsData[id]) friendsData[id] = { friends: [], incoming: [], outgoing: [] }; return friendsData[id]; }
+function convKey(a, b) { return [a, b].sort().join('|'); }
+function socialSave() { _socialDirty = true; }
+async function socialFlush() {
+  if (!_socialDirty) return; _socialDirty = false;
+  try { await kvSet('sh:friends', JSON.stringify(friendsData)); } catch (e) { _socialDirty = true; }
+  try { await kvSet('sh:dms', JSON.stringify(dms)); } catch (e) { _socialDirty = true; }
+}
+setInterval(socialFlush, 8000);
+try { const s = await kvGet('sh:friends'); if (s) Object.assign(friendsData, JSON.parse(s)); } catch (e) {}
+try { const s = await kvGet('sh:dms'); if (s) Object.assign(dms, JSON.parse(s)); } catch (e) {}
+for (const sig of ['SIGTERM', 'SIGINT']) { try { process.on(sig, () => { socialFlush().catch(() => {}); }); } catch (e) {} }
+
+function isOnline(id) { const p = players.get(id); return !!(p && Date.now() - p.lastSeen < PLAYER_TTL); }
+function friendBrief(x) {
+  let cos = { color: '', tag: '', titleFx: '' }; try { cos = getCosmetics(x.id); } catch (e) {}
+  const p = players.get(x.id);
+  return { id: x.id, username: x.name, online: isOnline(x.id), activity: isOnline(x.id) ? (p.activity || '') : '', color: cos.color || '', title: cos.tag || '', titleFx: cos.titleFx || '' };
+}
+function hasId(list, id) { return list.some((x) => x.id === id); }
+
+async function handleSocial(url, req, res) {
+  const a = req._auth;
+  const path = url.split('?')[0];
+  if (!a) { sendJson(res, 200, { error: 'login' }); return true; }
+  const me = a.id, myName = a.username;
+  const q = new URL(url, 'http://x').searchParams;
+
+  if (path === '/api/friends' && req.method === 'GET') {
+    const f = fentry(me);
+    sendJson(res, 200, {
+      friends: f.friends.map(friendBrief).sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0)),
+      incoming: f.incoming.map((x) => ({ id: x.id, username: x.name })),
+      outgoing: f.outgoing.map((x) => ({ id: x.id, username: x.name })),
+    });
+    return true;
+  }
+  if (path === '/api/friends/add' && req.method === 'POST') {
+    const body = await readBody(req);
+    const acct = await accountByName(String(body.username || ''));
+    if (!acct) return (sendJson(res, 200, { error: 'no-account', message: 'No player with that username.' }), true);
+    if (acct.id === me) return (sendJson(res, 200, { error: 'self', message: "You can't add yourself." }), true);
+    const f = fentry(me), g = fentry(acct.id);
+    if (hasId(f.friends, acct.id)) return (sendJson(res, 200, { error: 'already', message: 'Already friends.' }), true);
+    if (hasId(f.incoming, acct.id)) { // they already asked you → accept
+      f.incoming = f.incoming.filter((x) => x.id !== acct.id);
+      g.outgoing = g.outgoing.filter((x) => x.id !== me);
+      f.friends.push({ id: acct.id, name: acct.username }); g.friends.push({ id: me, name: myName });
+      socialSave(); return (sendJson(res, 200, { ok: true, accepted: true }), true);
+    }
+    if (hasId(f.outgoing, acct.id)) return (sendJson(res, 200, { error: 'pending', message: 'Request already sent.' }), true);
+    f.outgoing.push({ id: acct.id, name: acct.username }); g.incoming.push({ id: me, name: myName });
+    socialSave(); return (sendJson(res, 200, { ok: true, sent: true }), true);
+  }
+  if (path === '/api/friends/accept' && req.method === 'POST') {
+    const body = await readBody(req); const oid = String(body.id || '');
+    const f = fentry(me), g = fentry(oid);
+    if (!hasId(f.incoming, oid)) return (sendJson(res, 200, { error: 'no-request' }), true);
+    const name = (f.incoming.find((x) => x.id === oid) || {}).name || oid;
+    f.incoming = f.incoming.filter((x) => x.id !== oid);
+    g.outgoing = g.outgoing.filter((x) => x.id !== me);
+    if (!hasId(f.friends, oid)) f.friends.push({ id: oid, name });
+    if (!hasId(g.friends, me)) g.friends.push({ id: me, name: myName });
+    socialSave(); return (sendJson(res, 200, { ok: true }), true);
+  }
+  if ((path === '/api/friends/decline' || path === '/api/friends/remove') && req.method === 'POST') {
+    const body = await readBody(req); const oid = String(body.id || '');
+    const f = fentry(me), g = fentry(oid);
+    f.incoming = f.incoming.filter((x) => x.id !== oid);
+    f.outgoing = f.outgoing.filter((x) => x.id !== oid);
+    f.friends = f.friends.filter((x) => x.id !== oid);
+    g.incoming = g.incoming.filter((x) => x.id !== me);
+    g.outgoing = g.outgoing.filter((x) => x.id !== me);
+    g.friends = g.friends.filter((x) => x.id !== me);
+    socialSave(); return (sendJson(res, 200, { ok: true }), true);
+  }
+  if (path === '/api/dm' && req.method === 'GET') {
+    const withId = String(q.get('with') || '');
+    if (!hasId(fentry(me).friends, withId)) return (sendJson(res, 200, { error: 'not-friends' }), true);
+    const msgs = (dms[convKey(me, withId)] || []).slice(-120);
+    return (sendJson(res, 200, { messages: msgs, me }), true);
+  }
+  if (path === '/api/dm/send' && req.method === 'POST') {
+    const body = await readBody(req);
+    const to = String(body.to || ''); const content = String(body.content || '').trim().slice(0, 1000);
+    if (!content) return (sendJson(res, 200, { error: 'empty' }), true);
+    if (!hasId(fentry(me).friends, to)) return (sendJson(res, 200, { error: 'not-friends' }), true);
+    const key = convKey(me, to);
+    if (!dms[key]) dms[key] = [];
+    const msg = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), from: me, content, at: Date.now() };
+    dms[key].push(msg);
+    if (dms[key].length > 500) dms[key] = dms[key].slice(-500);
+    socialSave(); return (sendJson(res, 200, { ok: true, message: msg }), true);
+  }
+  sendJson(res, 404, { error: 'unknown' }); return true;
+}
+
 function parseCookies(req) {
   const out = {}; const h = req.headers.cookie || '';
   h.split(';').forEach(function (p) { const i = p.indexOf('='); if (i > 0) out[p.slice(0, i).trim()] = p.slice(i + 1).trim(); });
@@ -1309,9 +1410,10 @@ const httpServer = createServer(async (req, res) => {
   if (url.startsWith('/api/auth/')) { if (await handleAuth(url, req, res)) return; }
   // Resolve the trusted session once for identity-bearing routes so chat/casino
   // can read it synchronously (and can't be spoofed via client-set cookies).
-  if (url.startsWith('/api/casino/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements') {
+  if (url.startsWith('/api/casino/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm')) {
     try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; }
   }
+  if (url.startsWith('/api/friends') || url.startsWith('/api/dm')) { if (await handleSocial(url, req, res)) return; }
 
   if (url === '/admin' || url === '/admin/') {
     req.url = '/admin/index.html';
