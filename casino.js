@@ -11,6 +11,7 @@ const CASINO_FILE = '/tmp/scrollhub-casino.json';
 const START_COINS = 1000;
 const DAILY_COINS = 750;
 const DAILY_MS = 20 * 3600 * 1000; // claimable every 20h
+const GOTD_BONUS = 1500; // coin bonus for playing the Game of the Day (once/day)
 
 // ---- durable storage (mirrors server.js pattern) ----
 const KV_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
@@ -31,12 +32,24 @@ async function kvSet(key, value) {
 
 const casino = { users: {} }; // cid -> profile
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, streak: 0, nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
+  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
 function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
+  // One-time wipe for the new login system: clears every old anonymous profile
+  // (coins/cosmetics) exactly once across all deploys, then never again.
+  try {
+    const marker = await kvGet('sh:reset_accounts_v1');
+    if (!marker) {
+      casino.users = {};
+      save();
+      try { await kvSet('sh:casino', JSON.stringify({ users: {} })); } catch (e) {}
+      await kvSet('sh:reset_accounts_v1', String(Date.now()));
+      console.log('casino: one-time account/economy reset applied');
+    }
+  } catch (e) { console.log('reset check failed:', e.message); }
 }
 let dirty = false;
 function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, JSON.stringify({ users: casino.users })); } catch (e) {} }
@@ -55,6 +68,7 @@ function parseCookies(req) {
   return out;
 }
 function who(req) {
+  if (req._auth) return { cid: req._auth.id, nick: String(req._auth.username).slice(0, 40) }; // trusted login
   const c = parseCookies(req);
   const cid = String(c.sh_cid || '').slice(0, 64);
   let nick = 'Guest'; try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : 'Guest'; } catch (e) {}
@@ -185,7 +199,7 @@ function readBody(req) {
 function clampBet(bet, coins) { bet = Math.floor(Number(bet) || 0); return bet; }
 function publicProfile(cid) {
   const p = profileOf(cid);
-  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', stats: p.stats };
+  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', stats: p.stats };
 }
 function recordPlay(p, bet, payout) {
   p.stats.plays++; p.stats.wagered += bet;
@@ -270,6 +284,19 @@ export async function handleCasino(url, req, res) {
     if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
     save(); flush();
     sendJson(res, 200, { ok: true, gained, streak: p.streak, milestone: milestone > 0, profile: publicProfile(cid) }); return true;
+  }
+
+  if (path === '/api/casino/gotd' && req.method !== 'POST') {
+    const today = new Date().toISOString().slice(0, 10);
+    sendJson(res, 200, { bonus: GOTD_BONUS, claimed: p.gotdClaimed === today, dateKey: today }); return true;
+  }
+  if (path === '/api/casino/gotd-claim' && req.method === 'POST') {
+    const today = new Date().toISOString().slice(0, 10); // UTC day key
+    if (p.gotdClaimed === today) { sendJson(res, 200, { already: true, profile: publicProfile(cid) }); return true; }
+    p.gotdClaimed = today; p.coins += GOTD_BONUS;
+    if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+    save(); flush();
+    sendJson(res, 200, { ok: true, gained: GOTD_BONUS, profile: publicProfile(cid) }); return true;
   }
 
   if (path === '/api/casino/slots' && req.method === 'POST') {

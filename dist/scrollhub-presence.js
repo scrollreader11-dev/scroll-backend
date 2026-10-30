@@ -15,6 +15,11 @@
   var hadStoredNick = !!nickname; // did this page load start with a saved name?
   var nickEpochSeen = ''; try { nickEpochSeen = localStorage.getItem(NEPOCH_KEY) || ''; } catch (e) {}
 
+  // The server sets sh_cid / sh_nick on login — these are the real identity now.
+  function getCookie(n) { var m = ('; ' + document.cookie).split('; ' + n + '='); return m.length === 2 ? decodeURIComponent(m.pop().split(';').shift()) : ''; }
+  var authCid = getCookie('sh_cid'); if (authCid) cid = authCid;
+  var authNick = getCookie('sh_nick'); if (authNick) { nickname = authNick; hadStoredNick = true; }
+
   function el(tag, css, html) {
     var e = document.createElement(tag);
     if (css) e.style.cssText = css;
@@ -419,7 +424,8 @@
   }
 
   function start() { syncCookies(); loadGameLabels(); beat(); setInterval(beat, 12000); }
-  function boot() { if (nickname) start(); else askNickname(start); }
+  // Login (the React gate) owns identity now, so never pop the old nickname prompt.
+  function boot() { start(); }
   if (document.body) boot();
   else document.addEventListener('DOMContentLoaded', boot);
 })();

@@ -16,6 +16,7 @@ import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements } from './casino.js';
+import { handleAuth, resolveSession } from './auth.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -243,11 +244,12 @@ function frozenActive(id) {
 // Visitor heartbeat. Returns live site state + any command for this client.
 async function handlePresence(req, res) {
   const body = await readBody(req);
-  const id = String(body.id || '').slice(0, 64);
+  const a = req._auth; // trusted login identity, if any
+  const id = a ? a.id : String(body.id || '').slice(0, 64);
   const activity = String(body.activity || '').slice(0, 80);
   const ip = clientIp(req);
   if (!id) return sendJson(res, 400, { error: 'no id' });
-  const nickname = uniqueNick(cleanNick(String(body.nickname || 'Guest').slice(0, 40)), id);
+  const nickname = a ? a.username : uniqueNick(cleanNick(String(body.nickname || 'Guest').slice(0, 40)), id);
 
   const ban = banActive(ip);
   if (ban) {
@@ -976,13 +978,18 @@ function colorFor(seed) {
 function isChatOwner(req) {
   const c = parseCookies(req);
   if (ADMIN_PASSWORD && c.sh_owner === ADMIN_PASSWORD) return true;         // the admin
-  return !!admin.chatOwners[c.sh_cid];                     // a designated owner
+  const cid = req._auth ? req._auth.id : c.sh_cid;
+  return !!admin.chatOwners[cid];                          // a designated owner
 }
 function chatViewer(req) {
   const c = parseCookies(req);
-  let nick = 'Guest'; try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : 'Guest'; } catch (e) {}
+  let nick, cid;
+  if (req._auth) { cid = req._auth.id; nick = req._auth.username; }      // trusted login
+  else {
+    try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : 'Guest'; } catch (e) { nick = 'Guest'; }
+    cid = String(c.sh_cid || ('anon-' + clientIp(req))).slice(0, 64);
+  }
   nick = cleanNick(String(nick).slice(0, 40)) || 'Guest';
-  const cid = String(c.sh_cid || ('anon-' + clientIp(req))).slice(0, 64);
   const owner = isChatOwner(req);
   // Casino cosmetics the player bought/equipped show up in chat.
   let cos = { tag: '', color: '' };
@@ -1237,6 +1244,14 @@ const httpServer = createServer(async (req, res) => {
   const parsed = new URL(req.url || '/', 'http://localhost');
   const url = parsed.pathname;
 
+  // Auth endpoints (signup/login/logout/me).
+  if (url.startsWith('/api/auth/')) { if (await handleAuth(url, req, res)) return; }
+  // Resolve the trusted session once for identity-bearing routes so chat/casino
+  // can read it synchronously (and can't be spoofed via client-set cookies).
+  if (url.startsWith('/api/casino/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements') {
+    try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; }
+  }
+
   if (url === '/admin' || url === '/admin/') {
     req.url = '/admin/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
@@ -1313,15 +1328,16 @@ const httpServer = createServer(async (req, res) => {
   // No real account system — return a guest so the account/settings page
   // opens (and the appearance/wallpaper picker is reachable) without a login.
   if (url === '/api/me') {
+    const a = await resolveSession(req);
     const c = parseCookies(req);
-    const cid = String(c.sh_cid || '').slice(0, 64);
-    let nick = ''; try { nick = c.sh_nick ? decodeURIComponent(c.sh_nick) : ''; } catch (e) {}
-    nick = cleanNick(String(nick).slice(0, 40));
-    return sendJson(res, 200, { user: { id: cid || 0, username: nick || 'Guest', email: '', is_admin: 0, is_owner: false, guest: !nick } });
+    const cid = a ? a.id : String(c.sh_cid || '').slice(0, 64);
+    const nick = a ? a.username : cleanNick(String((() => { try { return c.sh_nick ? decodeURIComponent(c.sh_nick) : ''; } catch (e) { return ''; } })()).slice(0, 40));
+    return sendJson(res, 200, { user: { id: cid || 0, username: nick || 'Guest', email: '', is_admin: 0, is_owner: false, guest: !a } });
   }
   if (url.split('?')[0] === '/api/achievements') {
+    const a = req._auth || await resolveSession(req);
     const c = parseCookies(req);
-    const cid = String(c.sh_cid || '').slice(0, 64);
+    const cid = a ? a.id : String(c.sh_cid || '').slice(0, 64);
     return sendJson(res, 200, buildAchievements(cid, { chatMsgs: chatMsgCount.get(cid) || 0 }));
   }
   if (url === '/api/settings') { if (req.method === 'POST') return sendJson(res, 200, { ok: true }); return sendJson(res, 200, {}); }
