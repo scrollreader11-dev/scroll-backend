@@ -76,7 +76,7 @@ we'll move those games off your servers or remove them.
 ## Contact
 
 - GitHub (open an issue): https://github.com/scrollreader11-dev/scroll-backend
-- Email: _add your contact email here_
+- Email: scrollreader11@gmail.com
 
 Thanks for making something cool enough to build on.
 
