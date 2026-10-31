@@ -296,6 +296,49 @@ async function handlePresence(req, res) {
   });
 }
 
+// ---- Custom game thumbnails (admin uploads) ----
+// Small images uploaded from the add-game tool are stored in KV (base64) and
+// served from /ci/<id>. Keeps thumbnails on our own domain so they always load,
+// and survives redeploys (unlike /tmp).
+const IMG_CT_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+function extForCt(ct) {
+  ct = String(ct || '').toLowerCase();
+  if (ct.includes('png')) return 'png';
+  if (ct.includes('jpeg') || ct.includes('jpg')) return 'jpg';
+  if (ct.includes('webp')) return 'webp';
+  if (ct.includes('gif')) return 'gif';
+  return 'png';
+}
+// Accepts a data URL (data:image/png;base64,....) from the admin tool, stores it
+// in KV, and returns a same-origin /ci/<id>.<ext> URL to use as a game thumbnail.
+async function handleGameImg(req, res) {
+  const body = await readBody(req);
+  if (!ADMIN_PASSWORD || body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
+  const dataUrl = String(body.dataUrl || '');
+  const m = /^data:(image\/[a-z.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(dataUrl);
+  if (!m) return sendJson(res, 400, { error: 'Expected a base64 image data URL' });
+  const ct = m[1].toLowerCase();
+  const b64 = m[2].replace(/\s+/g, '');
+  // Cap at ~600KB decoded so KV stays small.
+  if (Math.floor(b64.length * 0.75) > 600 * 1024) return sendJson(res, 413, { error: 'Image too large (max ~600KB)' });
+  const ext = extForCt(ct);
+  const id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  try { await kvSet('sh:img:' + id, JSON.stringify({ ct, b64 })); }
+  catch (e) { return sendJson(res, 500, { error: 'storage failed' }); }
+  return sendJson(res, 200, { ok: true, url: '/ci/' + id + '.' + ext });
+}
+// Serves a stored custom thumbnail.
+async function serveGameImg(req, res, url) {
+  const id = url.slice(4).split('.')[0].split('?')[0];
+  if (!/^[a-z0-9]+$/i.test(id)) { res.writeHead(404); res.end('no'); return; }
+  let rec = null;
+  try { const s = await kvGet('sh:img:' + id); if (s) rec = JSON.parse(s); } catch (e) {}
+  if (!rec || !rec.b64) { res.writeHead(404); res.end('no'); return; }
+  const buf = Buffer.from(rec.b64, 'base64');
+  res.writeHead(200, { 'content-type': rec.ct || 'image/png', 'cache-control': 'public, max-age=604800, immutable', 'content-length': buf.length });
+  res.end(req.method === 'HEAD' ? undefined : buf);
+}
+
 // Password-guarded admin control endpoint.
 async function handleAdmin(req, res) {
   const body = await readBody(req);
@@ -1629,6 +1672,8 @@ const httpServer = createServer(async (req, res) => {
   // Live presence (visitor heartbeat) + admin control.
   if (url === '/api/presence' && req.method === 'POST') return handlePresence(req, res);
   if (url === '/api/admin' && req.method === 'POST') return handleAdmin(req, res);
+  if (url === '/api/admin/gameimg' && req.method === 'POST') return handleGameImg(req, res);
+  if (url.startsWith('/ci/')) return serveGameImg(req, res, url);
 
   // Other unknown API routes 404.
   if (url.startsWith('/api/')) {
