@@ -434,6 +434,13 @@ async function handleAdmin(req, res) {
   if (action === 'tourstate') {
     return sendJson(res, 200, { ok: true, tour: tournamentState('') });
   }
+  if (action === 'reports') {
+    return sendJson(res, 200, { ok: true, reports: reports.slice(-80).reverse() });
+  }
+  if (action === 'clearreports') {
+    reports.length = 0; socialSave();
+    return sendJson(res, 200, { ok: true });
+  }
   if (action === 'resetnicks') {
     nickEpoch = Date.now();
     nameOwners.clear();
@@ -1025,6 +1032,8 @@ setInterval(saveChat, 60000);
 const friendsData = {}; // id -> { friends:[{id,name}], incoming:[{id,name}], outgoing:[{id,name}] }
 const dms = {};         // "idA|idB" (sorted) -> [{ id, from, content, at }]
 const dmReads = {};     // userId -> { convKey: lastReadAt }  (for unread badges)
+const blockedData = {}; // userId -> [{ id, name }]
+const reports = [];     // [{ id, reporter, reporterName, target, targetName, reason, at, handled }]
 let _socialDirty = false;
 function fentry(id) { if (!friendsData[id]) friendsData[id] = { friends: [], incoming: [], outgoing: [] }; return friendsData[id]; }
 function convKey(a, b) { return [a, b].sort().join('|'); }
@@ -1034,11 +1043,17 @@ async function socialFlush() {
   try { await kvSet('sh:friends', JSON.stringify(friendsData)); } catch (e) { _socialDirty = true; }
   try { await kvSet('sh:dms', JSON.stringify(dms)); } catch (e) { _socialDirty = true; }
   try { await kvSet('sh:dmreads', JSON.stringify(dmReads)); } catch (e) { _socialDirty = true; }
+  try { await kvSet('sh:blocked', JSON.stringify(blockedData)); } catch (e) { _socialDirty = true; }
+  try { await kvSet('sh:reports', JSON.stringify(reports.slice(-200))); } catch (e) { _socialDirty = true; }
 }
 setInterval(socialFlush, 8000);
 try { const s = await kvGet('sh:friends'); if (s) Object.assign(friendsData, JSON.parse(s)); } catch (e) {}
 try { const s = await kvGet('sh:dms'); if (s) Object.assign(dms, JSON.parse(s)); } catch (e) {}
 try { const s = await kvGet('sh:dmreads'); if (s) Object.assign(dmReads, JSON.parse(s)); } catch (e) {}
+try { const s = await kvGet('sh:blocked'); if (s) Object.assign(blockedData, JSON.parse(s)); } catch (e) {}
+try { const s = await kvGet('sh:reports'); if (s) { const a = JSON.parse(s); if (Array.isArray(a)) reports.push(...a); } } catch (e) {}
+function blockList(id) { return blockedData[id] || (blockedData[id] = []); }
+function isBlocked(a, b) { return blockList(a).some((x) => x.id === b) || blockList(b).some((x) => x.id === a); }
 function markRead(uid, key) { if (!dmReads[uid]) dmReads[uid] = {}; dmReads[uid][key] = Date.now(); }
 function unreadCount(uid, friendId) {
   const key = convKey(uid, friendId);
@@ -1078,6 +1093,7 @@ async function handleSocial(url, req, res) {
     const acct = await accountByName(String(body.username || ''));
     if (!acct) return (sendJson(res, 200, { error: 'no-account', message: 'No player with that username.' }), true);
     if (acct.id === me) return (sendJson(res, 200, { error: 'self', message: "You can't add yourself." }), true);
+    if (isBlocked(me, acct.id)) return (sendJson(res, 200, { error: 'blocked', message: 'Unavailable.' }), true);
     const f = fentry(me), g = fentry(acct.id);
     if (hasId(f.friends, acct.id)) return (sendJson(res, 200, { error: 'already', message: 'Already friends.' }), true);
     if (hasId(f.incoming, acct.id)) { // they already asked you → accept
@@ -1112,6 +1128,39 @@ async function handleSocial(url, req, res) {
     g.friends = g.friends.filter((x) => x.id !== me);
     socialSave(); return (sendJson(res, 200, { ok: true }), true);
   }
+  if (path === '/api/social/blocked' && req.method === 'GET') {
+    return (sendJson(res, 200, { blocked: blockList(me).map((x) => ({ id: x.id, username: x.name })) }), true);
+  }
+  if (path === '/api/social/block' && req.method === 'POST') {
+    const body = await readBody(req);
+    let tid = String(body.id || ''), tname = String(body.username || '');
+    if (!tid && tname) { const acct = await accountByName(tname); if (acct) { tid = acct.id; tname = acct.username; } }
+    if (!tid) return (sendJson(res, 200, { error: 'no-account', message: 'Could not find that player.' }), true);
+    if (tid === me) return (sendJson(res, 200, { error: 'self' }), true);
+    const bl = blockList(me);
+    if (!bl.some((x) => x.id === tid)) bl.push({ id: tid, name: tname || tid });
+    // Blocking also ends any friendship / pending requests both ways.
+    const f = fentry(me), g = fentry(tid);
+    f.friends = f.friends.filter((x) => x.id !== tid); f.incoming = f.incoming.filter((x) => x.id !== tid); f.outgoing = f.outgoing.filter((x) => x.id !== tid);
+    g.friends = g.friends.filter((x) => x.id !== me); g.incoming = g.incoming.filter((x) => x.id !== me); g.outgoing = g.outgoing.filter((x) => x.id !== me);
+    socialSave(); return (sendJson(res, 200, { ok: true }), true);
+  }
+  if (path === '/api/social/unblock' && req.method === 'POST') {
+    const body = await readBody(req); const tid = String(body.id || '');
+    blockedData[me] = blockList(me).filter((x) => x.id !== tid);
+    socialSave(); return (sendJson(res, 200, { ok: true }), true);
+  }
+  if (path === '/api/social/report' && req.method === 'POST') {
+    const body = await readBody(req);
+    let tid = String(body.id || ''), tname = String(body.username || '');
+    const reason = String(body.reason || '').slice(0, 500);
+    if (!tid && tname) { const acct = await accountByName(tname); if (acct) { tid = acct.id; tname = acct.username; } }
+    if (!tid) return (sendJson(res, 200, { error: 'no-account' }), true);
+    reports.push({ id: 'r' + Date.now().toString(36), reporter: me, reporterName: myName, target: tid, targetName: tname || tid, reason, at: Date.now(), handled: false });
+    if (reports.length > 300) reports.splice(0, reports.length - 300);
+    socialSave(); return (sendJson(res, 200, { ok: true }), true);
+  }
+
   // Unread-DM summary for the notification badges.
   if (path === '/api/dm/unread' && req.method === 'GET') {
     const f = fentry(me); const items = []; let total = 0;
@@ -1138,6 +1187,7 @@ async function handleSocial(url, req, res) {
     const to = String(body.to || ''); const content = String(body.content || '').trim().slice(0, 1000);
     if (!content) return (sendJson(res, 200, { error: 'empty' }), true);
     if (!hasId(fentry(me).friends, to)) return (sendJson(res, 200, { error: 'not-friends' }), true);
+    if (isBlocked(me, to)) return (sendJson(res, 200, { error: 'blocked', message: 'You can\'t message this person.' }), true);
     const key = convKey(me, to);
     if (!dms[key]) dms[key] = [];
     const msg = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), from: me, content, at: Date.now() };
@@ -1438,10 +1488,10 @@ const httpServer = createServer(async (req, res) => {
   if (url.startsWith('/api/auth/')) { if (await handleAuth(url, req, res)) return; }
   // Resolve the trusted session once for identity-bearing routes so chat/casino
   // can read it synchronously (and can't be spoofed via client-set cookies).
-  if (url.startsWith('/api/casino/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm')) {
+  if (url.startsWith('/api/casino/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) {
     try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; }
   }
-  if (url.startsWith('/api/friends') || url.startsWith('/api/dm')) { if (await handleSocial(url, req, res)) return; }
+  if (url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) { if (await handleSocial(url, req, res)) return; }
 
   if (url === '/admin' || url === '/admin/') {
     req.url = '/admin/index.html';

@@ -171,6 +171,21 @@ export async function handleAuth(url, req, res) {
     return true;
   }
 
+  if (path === '/api/auth/change-password' && req.method === 'POST') {
+    const s = await resolveSession(req);
+    if (!s) return (sendJson(res, 200, { error: 'login', message: 'Log in first.' }), true);
+    const body = await readBody(req);
+    const cur = String(body.current || ''); const nw = String(body.new || '');
+    const acct = await getAccount(s.username);
+    if (!acct || !verifyPassword(acct, cur)) return (sendJson(res, 200, { error: 'bad-current', message: 'Your current password is wrong.' }), true);
+    if (nw.length < 6 || nw.length > 100) return (sendJson(res, 200, { error: 'bad-password', message: 'New password must be at least 6 characters.' }), true);
+    acct.salt = crypto.randomBytes(16).toString('hex');
+    acct.hash = hashPassword(nw, acct.salt);
+    await putAccount(acct);
+    sendJson(res, 200, { ok: true });
+    return true;
+  }
+
   if (path === '/api/auth/logout' && req.method === 'POST') {
     const c = parseCookies(req);
     if (c.sh_sid) { sessions.delete(c.sh_sid); try { await kvDel(sessKey(c.sh_sid)); } catch (e) {} }

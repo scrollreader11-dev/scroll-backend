@@ -308,6 +308,14 @@
       </div>
       <div id="seFlash" class="flash"></div>
     </div>
+
+    <div class="card">
+      <h2>🚩 Reports</h2>
+      <div class="note">Players reported from the chat profile card.</div>
+      <div class="row"><button class="sm" id="repLoad">Refresh</button><button class="sm red" id="repClear">Clear all</button></div>
+      <div id="repList" class="note" style="margin-top:8px">Click Refresh to load.</div>
+    </div>
+
     <div class="card">
       <h2>🌈 Site-wide takeover</h2>
       <div class="note">Flip a switch and <b>everyone's</b> screen gets the effect instantly — and anyone who joins while it's on gets it too. Stays on until you hit Off.</div>
@@ -764,6 +772,16 @@
     api('endweek', {}).then(function (res) { if (res.ok) { var w = res.data.winners || []; seFlash(w.length ? ('Paid: ' + w.map(function (x) { return x.nick + ' +' + x.prize; }).join(', ') + ' ✓') : 'Week ended — no winners.'); } });
   };
   api('tourstate', {}).then(function (res) { if (res.ok && res.data.tour) { showTour(res.data.tour); var pz = res.data.tour.prizes || []; if (pz[0]) $('tp1').value = pz[0]; if (pz[1]) $('tp2').value = pz[1]; if (pz[2]) $('tp3').value = pz[2]; } });
+  function renderReports(list) {
+    var el = $('repList');
+    if (!list || !list.length) { el.textContent = 'No reports.'; return; }
+    el.innerHTML = list.map(function (r) {
+      return '<div style="margin:5px 0;padding:7px;border:1px solid var(--line2);border-radius:8px">🚩 <b>' + esc(r.targetName) + '</b> reported by ' + esc(r.reporterName) + '<div style="margin:3px 0">' + (r.reason ? esc(r.reason) : '<i>(no reason given)</i>') + '</div><div style="color:var(--mut);font-size:.75rem">' + new Date(r.at).toLocaleString() + '</div></div>';
+    }).join('');
+  }
+  $('repLoad').onclick = function () { api('reports', {}).then(function (res) { if (res.ok) renderReports(res.data.reports); }); };
+  $('repClear').onclick = function () { if (!confirm('Clear all reports?')) return; api('clearreports', {}).then(function () { renderReports([]); }); };
+  api('reports', {}).then(function (res) { if (res.ok) renderReports(res.data.reports); });
   var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
   function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }
   document.querySelectorAll('[data-to]').forEach(function (btn) {
