@@ -50,11 +50,50 @@ if(-not $pw){ Write-Host 'No password given - cannot add games.' -ForegroundColo
 
 $ctmap = @{ 'png'='image/png'; 'jpg'='image/jpeg'; 'jpeg'='image/jpeg'; 'webp'='image/webp'; 'gif'='image/gif' }
 
+function ListGames($base, $pw){
+  try {
+    $r = Invoke-RestMethod -Method Get -Uri "$base/api/games/catalog" -ErrorAction Stop
+    $games = @($r | Where-Object { $_.isGlobal -eq $true })
+    if($games.Count -eq 0){ Write-Host '  No custom games found.' -ForegroundColor Yellow; return $null }
+    Write-Host ''
+    Write-Host '  Your custom games:' -ForegroundColor Cyan
+    for($i=0; $i -lt $games.Count; $i++){
+      Write-Host ("  [{0}] {1}  (id: {2})" -f ($i+1), $games[$i].label, $games[$i].id) -ForegroundColor White
+    }
+    return $games
+  } catch { Write-Host "  Could not fetch games: $(ServerError $_)" -ForegroundColor Red; return $null }
+}
+
 do {
   Write-Host ''
   Write-Host '--------------------------------------' -ForegroundColor DarkGray
+  Write-Host '  [A] Add a game    [R] Remove a game    [Q] Quit' -ForegroundColor Cyan
+  $choice = (Read-Host 'Choose').Trim().ToUpper()
+  if($choice -eq 'Q' -or $choice -eq ''){ break }
+
+  if($choice -eq 'R'){
+    $games = ListGames $base $pw
+    if(-not $games){ $again = 'y'; continue }
+    $sel = Read-Host 'Enter number to remove (or Enter to cancel)'
+    if(-not $sel){ $again = 'y'; continue }
+    $idx = [int]$sel - 1
+    if($idx -lt 0 -or $idx -ge $games.Count){ Write-Host '  Invalid number.' -ForegroundColor Red; $again = 'y'; continue }
+    $g = $games[$idx]
+    $confirm = Read-Host "Remove '$($g.label)'? (y/N)"
+    if($confirm -notmatch '^[Yy]'){ Write-Host '  Cancelled.' -ForegroundColor DarkGray; $again = 'y'; continue }
+    try {
+      $payload = @{ password=$pw; action='delgame'; id=$g.id } | ConvertTo-Json -Compress
+      $r = Invoke-RestMethod -Method Post -Uri "$base/api/admin" -ContentType 'application/json' -Body $payload
+      if($r.ok){ Write-Host "  Removed '$($g.label)'." -ForegroundColor Green }
+      else { Write-Host "  Failed: $($r.error)" -ForegroundColor Red }
+    } catch { Write-Host "  Error: $(ServerError $_)" -ForegroundColor Red }
+    $again = 'y'; continue
+  }
+
+  if($choice -ne 'A'){ $again = 'y'; continue }
+
   $link = Read-Host 'Game link  (https://...  or  github.com/user/repo)'
-  if(-not $link){ break }
+  if(-not $link){ $again = 'y'; continue }
   $link = $link.Trim()
 
   if($link -match '^(https?://)?github\.com/([^/]+)/([^/?#]+)'){
@@ -108,7 +147,7 @@ do {
     }
   } catch { Write-Host "  Error: $(ServerError $_)" -ForegroundColor Red }
 
-  $again = Read-Host "`nAdd another game? (y/N)"
+  $again = 'y'
 } while ($again -match '^[Yy]')
 
 Write-Host ''
