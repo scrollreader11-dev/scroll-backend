@@ -1,11 +1,14 @@
 {
-  "name": "Scroll Unblocker",
-  "short_name": "Scroll",
-  "description": "Scroll Unblocker - Play unblocked games anywhere.",
+  "name": "ScrollHub",
+  "short_name": "ScrollHub",
+  "description": "ScrollHub — games, chat, and more.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#7c5cbf",
+  "orientation": "any",
+  "background_color": "#070a14",
+  "theme_color": "#0b1020",
   "icons": [
     {
       "src": "/logo.svg",
