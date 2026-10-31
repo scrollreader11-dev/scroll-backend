@@ -1024,6 +1024,7 @@ setInterval(saveChat, 60000);
 // ===================== Friends & DMs =====================
 const friendsData = {}; // id -> { friends:[{id,name}], incoming:[{id,name}], outgoing:[{id,name}] }
 const dms = {};         // "idA|idB" (sorted) -> [{ id, from, content, at }]
+const dmReads = {};     // userId -> { convKey: lastReadAt }  (for unread badges)
 let _socialDirty = false;
 function fentry(id) { if (!friendsData[id]) friendsData[id] = { friends: [], incoming: [], outgoing: [] }; return friendsData[id]; }
 function convKey(a, b) { return [a, b].sort().join('|'); }
@@ -1032,10 +1033,20 @@ async function socialFlush() {
   if (!_socialDirty) return; _socialDirty = false;
   try { await kvSet('sh:friends', JSON.stringify(friendsData)); } catch (e) { _socialDirty = true; }
   try { await kvSet('sh:dms', JSON.stringify(dms)); } catch (e) { _socialDirty = true; }
+  try { await kvSet('sh:dmreads', JSON.stringify(dmReads)); } catch (e) { _socialDirty = true; }
 }
 setInterval(socialFlush, 8000);
 try { const s = await kvGet('sh:friends'); if (s) Object.assign(friendsData, JSON.parse(s)); } catch (e) {}
 try { const s = await kvGet('sh:dms'); if (s) Object.assign(dms, JSON.parse(s)); } catch (e) {}
+try { const s = await kvGet('sh:dmreads'); if (s) Object.assign(dmReads, JSON.parse(s)); } catch (e) {}
+function markRead(uid, key) { if (!dmReads[uid]) dmReads[uid] = {}; dmReads[uid][key] = Date.now(); }
+function unreadCount(uid, friendId) {
+  const key = convKey(uid, friendId);
+  const msgs = dms[key] || [];
+  const last = (dmReads[uid] && dmReads[uid][key]) || 0;
+  let n = 0; for (const m of msgs) if (m.from === friendId && m.at > last) n++;
+  return n;
+}
 for (const sig of ['SIGTERM', 'SIGINT']) { try { process.on(sig, () => { socialFlush().catch(() => {}); }); } catch (e) {} }
 
 function isOnline(id) { const p = players.get(id); return !!(p && Date.now() - p.lastSeen < PLAYER_TTL); }
@@ -1101,10 +1112,25 @@ async function handleSocial(url, req, res) {
     g.friends = g.friends.filter((x) => x.id !== me);
     socialSave(); return (sendJson(res, 200, { ok: true }), true);
   }
+  // Unread-DM summary for the notification badges.
+  if (path === '/api/dm/unread' && req.method === 'GET') {
+    const f = fentry(me); const items = []; let total = 0;
+    for (const fr of f.friends) {
+      const count = unreadCount(me, fr.id);
+      if (count > 0) {
+        let cos = { color: '' }; try { cos = getCosmetics(fr.id); } catch (e) {}
+        const color = (cos.color && !cos.color.startsWith('fx:')) ? cos.color : '';
+        items.push({ id: fr.id, username: fr.name, count, color }); total += count;
+      }
+    }
+    items.sort((a, b) => b.count - a.count);
+    return (sendJson(res, 200, { total, items, requests: fentry(me).incoming.length }), true);
+  }
   if (path === '/api/dm' && req.method === 'GET') {
     const withId = String(q.get('with') || '');
     if (!hasId(fentry(me).friends, withId)) return (sendJson(res, 200, { error: 'not-friends' }), true);
     const msgs = (dms[convKey(me, withId)] || []).slice(-120);
+    markRead(me, convKey(me, withId)); socialSave(); // opening the thread clears its unread
     return (sendJson(res, 200, { messages: msgs, me }), true);
   }
   if (path === '/api/dm/send' && req.method === 'POST') {
@@ -1117,6 +1143,7 @@ async function handleSocial(url, req, res) {
     const msg = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), from: me, content, at: Date.now() };
     dms[key].push(msg);
     if (dms[key].length > 500) dms[key] = dms[key].slice(-500);
+    markRead(me, key); // sending means you've seen the thread
     socialSave(); return (sendJson(res, 200, { ok: true, message: msg }), true);
   }
   sendJson(res, 404, { error: 'unknown' }); return true;
