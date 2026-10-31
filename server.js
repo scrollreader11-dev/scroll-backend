@@ -1316,6 +1316,7 @@ function chatMember(req, res, q) {
   return sendJson(res, 200, {
     id,
     username: nick + (owner ? ' 👑' : ''),
+    name: nick, // clean handle for linking to the full profile page
     title: cos.tag || '', titleFx: cos.titleFx || '',
     avatar: '', color: cos.color || (owner ? 'hsl(45 90% 60%)' : colorFor(id)),
     banner: cos.banner || '', avatarFx: cos.avatarFx || '',
