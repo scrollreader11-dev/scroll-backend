@@ -4,6 +4,20 @@
  * has loaded. It finds the game's name + cover from the catalog by its url. */
 (function () {
   var MIN_MS = 1600;
+  // Lite visuals on iPads / slower devices (mirrors the app's lowFx()).
+  var LITE = (function () {
+    try {
+      var o = localStorage.getItem('lowFx'); if (o === 'true') return true; if (o === 'false') return false;
+      var b = localStorage.getItem('batterySaver'); if (b === 'true') return true;
+    } catch (e) {}
+    var ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod|CrOS/.test(ua)) return true;
+    if (/Macintosh/.test(ua) && 'ontouchend' in document) return true;
+    if (navigator.deviceMemory && navigator.deviceMemory <= 4) return true;
+    if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) return true;
+    try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return true; } catch (e) {}
+    return false;
+  })();
   var started = Date.now();
   var gameUrl = new URLSearchParams(location.search).get('url') || '';
 
@@ -52,7 +66,10 @@
     '@keyframes shl-shine{from{background-position:-40% 0}to{background-position:140% 0}}',
     '@keyframes shl-tip{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}',
     '@keyframes shl-rise{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}',
-    '@media (prefers-reduced-motion:reduce){#shl *{animation:none!important}}'
+    '@media (prefers-reduced-motion:reduce){#shl *{animation:none!important}}',
+    '#shl.lite .stage{perspective:none}#shl.lite .wall{transform:rotate(-12deg) scale(1.05)}#shl.lite .col{animation-duration:60s!important}',
+    '#shl.lite .card{box-shadow:none}#shl.lite .bd,#shl.lite .sweep,#shl.lite .scan,#shl.lite .ring:after{display:none}',
+    '#shl.lite h1{animation:none;filter:none}#shl.lite .ring,#shl.lite .feat,#shl.lite .fill:after{animation:none}#shl.lite.out .stage{filter:none}'
   ].join('\n');
 
   var style = document.createElement('style');
@@ -61,6 +78,7 @@
 
   var root = document.createElement('div');
   root.id = 'shl';
+  if (LITE) root.className = 'lite';
   root.innerHTML =
     '<div class="bd"></div>' +
     '<div class="stage"><div class="wall"></div></div>' +
@@ -104,7 +122,7 @@
 
   function buildWall(list) {
     var wall = $('.wall');
-    var COLS = 9, PER = 6, src = list.slice(0, COLS * PER);
+    var COLS = LITE ? 5 : 9, PER = LITE ? 4 : 6, src = list.slice(0, COLS * PER);
     if (!src.length) return;
     for (var c = 0; c < COLS; c++) {
       var col = el('div', 'col' + (c % 2 ? ' dn' : ''));
