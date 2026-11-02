@@ -27,6 +27,7 @@ process.on('uncaughtException', (err) => { try { console.error('uncaughtExceptio
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = join(__dirname, 'dist');
+const SERVER_STARTED = Date.now();
 const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
@@ -41,6 +42,8 @@ const serve = sirv(distDir, {
     // Game thumbnails rarely change: cache hard so the grid loads instantly on
     // repeat visits and navigation instead of re-requesting ~1,200 images.
     else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
+    // Pages must revalidate so a new deploy shows up on the next refresh.
+    else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
   },
 });
 
@@ -1674,6 +1677,12 @@ const httpServer = createServer(async (req, res) => {
   if (url === '/api/admin' && req.method === 'POST') return handleAdmin(req, res);
   if (url === '/api/admin/gameimg' && req.method === 'POST') return handleGameImg(req, res);
   if (url.startsWith('/ci/')) return serveGameImg(req, res, url);
+  // Which commit is live (Render sets RENDER_GIT_COMMIT). Open /api/version to check a deploy.
+  if (url === '/api/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ commit: (process.env.RENDER_GIT_COMMIT || 'unknown').slice(0, 7), startedAt: new Date(SERVER_STARTED).toISOString() }));
+    return;
+  }
 
   // Other unknown API routes 404.
   if (url.startsWith('/api/')) {
