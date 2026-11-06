@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank } from './casino.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade } from './discord.js';
 await initCasino();
@@ -334,6 +334,32 @@ async function handleGameImg(req, res) {
   // Absolute URL to this central backend so custom thumbnails show on any mirror.
   const base = req.headers.host ? ('https://' + req.headers.host) : '';
   return sendJson(res, 200, { ok: true, url: base + '/ci/' + id + '.' + ext });
+}
+// Read a raw request body (binary) up to maxBytes; returns a Buffer or null if too big.
+async function readRawBody(req, maxBytes) {
+  const chunks = []; let n = 0;
+  for await (const c of req) { n += c.length; if (n > maxBytes) return null; chunks.push(c); }
+  return Buffer.concat(chunks);
+}
+// Profile picture / banner upload. The account page POSTs the raw image bytes
+// with the file's Content-Type. Stores it via the same sh:img KV as thumbnails,
+// records the URL on the user's profile, and returns { avatar_url } / { banner_url }.
+async function handleProfileImageUpload(req, res, kind) {
+  const auth = req._auth || await resolveSession(req);
+  if (!auth) return sendJson(res, 401, { error: 'auth' });
+  const ct = String(req.headers['content-type'] || '').toLowerCase();
+  if (!ct.startsWith('image/')) return sendJson(res, 400, { error: 'Expected an image' });
+  const buf = await readRawBody(req, 900 * 1024); // ~900KB cap (before base64)
+  if (!buf) return sendJson(res, 413, { error: 'Image too large (max ~900KB)' });
+  if (!buf.length) return sendJson(res, 400, { error: 'empty' });
+  const ext = extForCt(ct);
+  const id = (kind === 'banner' ? 'b' : 'a') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  try { await kvSet('sh:img:' + id, JSON.stringify({ ct, b64: buf.toString('base64') })); }
+  catch (e) { return sendJson(res, 500, { error: 'storage failed' }); }
+  const base = req.headers.host ? ('https://' + req.headers.host) : '';
+  const imgUrl = base + '/ci/' + id + '.' + ext;
+  try { setProfileImage(auth.id, kind, imgUrl); } catch (e) {}
+  return sendJson(res, 200, kind === 'banner' ? { banner_url: imgUrl } : { avatar_url: imgUrl });
 }
 // Serves a stored custom thumbnail.
 async function serveGameImg(req, res, url) {
@@ -1651,12 +1677,19 @@ const httpServer = createServer(async (req, res) => {
     });
   }
 
+  if (url === '/api/me/avatar' && req.method === 'POST') return handleProfileImageUpload(req, res, 'avatar');
+  if (url === '/api/me/banner' && req.method === 'POST') return handleProfileImageUpload(req, res, 'banner');
   if (url === '/api/me') {
     const a = await resolveSession(req);
     const c = parseCookies(req);
     const cid = a ? a.id : String(c.sh_cid || '').slice(0, 64);
     const nick = a ? a.username : cleanNick(String((() => { try { return c.sh_nick ? decodeURIComponent(c.sh_nick) : ''; } catch (e) { return ''; } })()).slice(0, 40));
-    return sendJson(res, 200, { user: { id: cid || 0, username: nick || 'Guest', email: '', is_admin: 0, is_owner: false, guest: !a } });
+    // Persist profile edits (color / public toggle) for logged-in users.
+    if (req.method === 'POST' && a) {
+      try { const b = await readBody(req); setProfileMeta(a.id, { profile_color: b.profile_color, profile_public: b.profile_public }); } catch (e) {}
+    }
+    const meta = a ? getProfileMeta(a.id) : { avatar_url: '', banner_url: '', profile_color: '', profile_public: true };
+    return sendJson(res, 200, { user: { id: cid || 0, username: nick || 'Guest', email: '', is_admin: 0, is_owner: false, guest: !a, avatar_url: meta.avatar_url, banner_url: meta.banner_url, profile_color: meta.profile_color, profile_public: meta.profile_public } });
   }
   if (url.split('?')[0] === '/api/achievements') {
     const a = req._auth || await resolveSession(req);

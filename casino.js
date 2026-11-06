@@ -32,7 +32,7 @@ async function kvSet(key, value) {
 
 const casino = { users: {}, gotd: null, codes: {}, tour: null }; // cid -> profile; gotd override; event codes; weekly tournament
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
+  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
 function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; } catch (e) {} }
 export async function initCasino() {
@@ -83,8 +83,30 @@ function profileOf(cid) {
 // Cosmetics the chat system reads to decorate a player's name.
 export function getCosmetics(cid) {
   const p = casino.users[cid];
-  if (!p) return { tag: '', color: '', banner: '', avatarFx: '', titleFx: '' };
-  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '' };
+  if (!p) return { tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '' };
+  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', avatar: p.avatar || '' };
+}
+// Profile picture / banner image + public-profile meta (set from the account page).
+export function setProfileImage(cid, kind, url) {
+  if (!cid) return null;
+  const p = profileOf(cid);
+  if (kind === 'avatar') p.avatar = String(url || '');
+  else if (kind === 'banner') p.banner_url = String(url || '');
+  save(); flush();
+  return p;
+}
+export function setProfileMeta(cid, meta) {
+  if (!cid) return null;
+  const p = profileOf(cid);
+  if (typeof meta.profile_color === 'string') p.profile_color = meta.profile_color.slice(0, 32);
+  if (typeof meta.profile_public === 'boolean') p.profile_public = meta.profile_public;
+  save(); flush();
+  return p;
+}
+export function getProfileMeta(cid) {
+  const p = casino.users[cid];
+  if (!p) return { avatar_url: '', banner_url: '', profile_color: '', profile_public: true };
+  return { avatar_url: p.avatar || '', banner_url: p.banner_url || '', profile_color: p.profile_color || '', profile_public: p.profile_public !== false };
 }
 // Admin: add (or remove, if negative) Scrolls for a player by client id.
 export function grantCoins(cid, amount) {
