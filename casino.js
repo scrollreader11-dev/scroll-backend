@@ -273,6 +273,7 @@ export const STORE = [
   { id: 'tag_mystic', type: 'tag', label: '🔮 Mystic', price: 32000, rarity: 'legendary' },
   { id: 'tag_goat', type: 'tag', label: '🐐 GOAT', price: 50000, rarity: 'mythic' },
   { id: 'tag_king', type: 'tag', label: '♛ Overlord', price: 100000, rarity: 'mythic' },
+  { id: 'tag_TruePlonker', type: 'tag', label: 'TRUE PLONKER', price: 9999, rarity: 'mythic' },
   { id: 'col_red', type: 'color', label: 'Red name', value: '#ff5252', price: 2500, rarity: 'common' },
   { id: 'col_green', type: 'color', label: 'Green name', value: '#2bd576', price: 2500, rarity: 'common' },
   { id: 'col_blue', type: 'color', label: 'Blue name', value: '#4cc9f0', price: 2500, rarity: 'common' },
