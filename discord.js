@@ -311,8 +311,34 @@ function leaveVoice(conn) {
   if (!conn.voiceCid) return;
   const cid = conn.voiceCid; conn.voiceCid = null;
   const set = voiceRooms.get(cid);
-  if (set) { set.delete(conn); if (!set.size) voiceRooms.delete(cid); }
+  if (set) { set.delete(conn); if (!set.size && !hasPending(cid)) voiceRooms.delete(cid); }
   voiceBroadcast(cid, { t: 'voice-leave', peer: conn.peerId });
+}
+// Pending-leave grace: when a socket just drops (reconnect/blip) we DON'T tell
+// the room immediately. We wait a few seconds; if the same user rejoins the same
+// channel we cancel it, so a quick reconnect doesn't flash them out of the call.
+const pendingLeaves = new Map(); // peerId -> { timer, cid, uid }
+function hasPending(cid) { for (const v of pendingLeaves.values()) if (v.cid === cid) return true; return false; }
+function leaveVoiceGraceful(conn) {
+  if (!conn.voiceCid) return;
+  const cid = conn.voiceCid, pid = conn.peerId, uid = conn.uid; conn.voiceCid = null;
+  const set = voiceRooms.get(cid);
+  if (set) set.delete(conn);
+  const timer = setTimeout(() => {
+    pendingLeaves.delete(pid);
+    voiceBroadcast(cid, { t: 'voice-leave', peer: pid });
+    const s = voiceRooms.get(cid); if (s && !s.size && !hasPending(cid)) voiceRooms.delete(cid);
+  }, 6000);
+  pendingLeaves.set(pid, { timer, cid, uid });
+}
+// On (re)join, clear any ghost the same user left behind in this channel.
+function clearGhosts(uid, cid) {
+  for (const [pid, info] of pendingLeaves) {
+    if (info.uid === uid && info.cid === cid) {
+      clearTimeout(info.timer); pendingLeaves.delete(pid);
+      voiceBroadcast(cid, { t: 'voice-leave', peer: pid });
+    }
+  }
 }
 
 export function handleDiscordUpgrade(req, socket, head) {
@@ -335,6 +361,7 @@ export function handleDiscordUpgrade(req, socket, head) {
         else if (d.t === 'voice-join' && typeof d.channel === 'string') {
           if (!canAccessChannel(d.channel, ws.uid)) return;
           leaveVoice(ws);
+          clearGhosts(ws.uid, d.channel); // drop any stale copy of us from a dropped socket
           ws.voiceCid = d.channel;
           const set = voiceRooms.get(d.channel) || new Set(); set.add(ws); voiceRooms.set(d.channel, set);
           // tell the newcomer who's already here
@@ -354,10 +381,10 @@ export function handleDiscordUpgrade(req, socket, head) {
           if (!canAccessChannel(d.dmId, ws.uid)) return;
           const out = JSON.stringify({ t: d.t, dmId: d.dmId, fromUid: ws.uid, fromName: ws.uname, video: !!d.video });
           for (const c of conns) { if (c.uid === d.toUid && c.readyState === 1) { try { c.send(out); } catch {} } }
-        }
+        } else if (d.t === 'ping') { try { ws.send('{"t":"pong"}'); } catch {} }
       });
-      ws.on('close', () => { leaveVoice(ws); conns.delete(ws); });
-      ws.on('error', () => { try { leaveVoice(ws); conns.delete(ws); } catch {} });
+      ws.on('close', () => { leaveVoiceGraceful(ws); conns.delete(ws); });
+      ws.on('error', () => { try { leaveVoiceGraceful(ws); conns.delete(ws); } catch {} });
     });
   }).catch(() => { try { socket.destroy(); } catch {} });
 }
