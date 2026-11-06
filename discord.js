@@ -164,6 +164,18 @@ export async function handleDiscord(url, req, res) {
     }
     return sendJson(res, 200, { ok: true });
   }
+  if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/delete$/)) && req.method === 'POST') {
+    const g = dc.guilds[m[1]];
+    if (!g) return sendJson(res, 200, { ok: true });
+    if (g.ownerId !== me.id) return sendJson(res, 403, { error: 'not-owner' });
+    for (const ch of g.channels) { delete dc.messages[ch.id]; delete dc.rev[ch.id]; delete dc.channelIndex[ch.id]; }
+    for (const uid of g.memberIds) {
+      if (dc.userGuilds[uid]) dc.userGuilds[uid] = dc.userGuilds[uid].filter((x) => x !== g.id);
+    }
+    delete dc.guilds[g.id];
+    markDirty();
+    return sendJson(res, 200, { ok: true });
+  }
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/members$/))) {
     const g = dc.guilds[m[1]];
     if (!g || !isMember(g, me.id)) return sendJson(res, 403, { error: 'not-member' });
