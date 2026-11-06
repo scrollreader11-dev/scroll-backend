@@ -66,6 +66,11 @@ function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '
 function clean(s, n) { return String(s == null ? '' : s).slice(0, n); }
 
 function viewerColor(uid) { try { const c = getCosmetics(uid); return c.color || ''; } catch { return ''; } }
+// Full casino cosmetics for a user: name color + name/ring/title effects.
+function cosFull(uid) {
+  try { const c = getCosmetics(uid); return { color: c.color || '', title: c.tag || '', titleFx: c.titleFx || '', avatarFx: c.avatarFx || '' }; }
+  catch { return { color: '', title: '', titleFx: '', avatarFx: '' }; }
+}
 function dmId(a, b) { return 'dm:' + [a, b].sort().join(':'); }
 
 function bumpRev(cid) { dc.rev[cid] = (dc.rev[cid] || 0) + 1; }
@@ -115,7 +120,8 @@ export async function handleDiscord(url, req, res) {
       const msgs = dc.messages[d.id] || [];
       return { id: d.id, user: { id: other, username: d.otherName && d.otherName[other] || 'User' }, lastTs: msgs.length ? msgs[msgs.length - 1].ts : d.ts };
     }).sort((a, b) => b.lastTs - a.lastTs);
-    return sendJson(res, 200, { me: { id: me.id, username: me.username, color: viewerColor(me.id) }, guilds, dms });
+    const mc = cosFull(me.id);
+    return sendJson(res, 200, { me: { id: me.id, username: me.username, color: mc.color, title: mc.title, titleFx: mc.titleFx, avatarFx: mc.avatarFx }, guilds, dms });
   }
 
   if (path === '/api/dc/guild' && req.method === 'POST') {
@@ -160,7 +166,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/members$/))) {
     const g = dc.guilds[m[1]];
     if (!g || !isMember(g, me.id)) return sendJson(res, 403, { error: 'not-member' });
-    const members = g.memberIds.map((uid) => ({ id: uid, username: g.names && g.names[uid] || 'User', owner: uid === g.ownerId, color: viewerColor(uid) }));
+    const members = g.memberIds.map((uid) => { const c = cosFull(uid); return { id: uid, username: g.names && g.names[uid] || 'User', owner: uid === g.ownerId, color: c.color, title: c.title, titleFx: c.titleFx, avatarFx: c.avatarFx }; });
     return sendJson(res, 200, { members });
   }
 
@@ -209,8 +215,9 @@ export async function handleDiscord(url, req, res) {
     const content = clean(b.content, 2000).trim();
     const atts = Array.isArray(b.attachments) ? b.attachments : [];
     if (!content && !atts.length) return sendJson(res, 400, { error: 'empty' });
+    const cc = cosFull(me.id);
     const msg = {
-      id: rid(14), uid: me.id, name: me.username, color: viewerColor(me.id), content,
+      id: rid(14), uid: me.id, name: me.username, color: cc.color, title: cc.title, titleFx: cc.titleFx, avatarFx: cc.avatarFx, content,
       attachments: atts.slice(0, 4).map((a) => ({ url: clean(a.url, 300), name: clean(a.name, 80), type: clean(a.type, 20), w: +a.w || 0, h: +a.h || 0 }))
         .filter((a) => a.url.startsWith('/dcf/') || /^https?:\/\//.test(a.url)),
       ts: Date.now(), edited: false,
@@ -279,7 +286,7 @@ function wsBroadcastChannel(cid, obj) {
 function voiceRoster(cid) {
   const set = voiceRooms.get(cid);
   if (!set) return [];
-  return [...set].map((c) => ({ peer: c.peerId, uid: c.uid, name: c.uname }));
+  return [...set].map((c) => { const cc = cosFull(c.uid); return { peer: c.peerId, uid: c.uid, name: c.uname, color: cc.color, avatarFx: cc.avatarFx }; });
 }
 function voiceBroadcast(cid, obj, except) {
   const set = voiceRooms.get(cid); if (!set) return;
@@ -319,7 +326,7 @@ export function handleDiscordUpgrade(req, socket, head) {
           // tell the newcomer who's already here
           ws.send(JSON.stringify({ t: 'voice-peers', channel: d.channel, peers: voiceRoster(d.channel).filter((p) => p.peer !== ws.peerId) }));
           // tell everyone else a newcomer arrived (they will initiate the offer)
-          voiceBroadcast(d.channel, { t: 'voice-join', peer: ws.peerId, uid: ws.uid, name: ws.uname }, ws);
+          { const cc = cosFull(ws.uid); voiceBroadcast(d.channel, { t: 'voice-join', peer: ws.peerId, uid: ws.uid, name: ws.uname, color: cc.color, avatarFx: cc.avatarFx }, ws); }
         } else if (d.t === 'voice-leave') { leaveVoice(ws); }
         else if (d.t === 'signal' && d.to) {
           // relay WebRTC offer/answer/ICE to the target peer in the same room
