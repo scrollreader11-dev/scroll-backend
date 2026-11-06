@@ -88,9 +88,10 @@ function addMember(g, uid) {
   }
 }
 
-function createGuild(ownerId, name, icon) {
+function createGuild(ownerId, name, icon, ownerName) {
   const id = 'g_' + rid(10);
-  const g = { id, name: clean(name, 40) || 'New Server', icon: clean(icon, 8), ownerId, createdAt: Date.now(), channels: [], memberIds: [], invites: {} };
+  const g = { id, name: clean(name, 40) || 'New Server', icon: clean(icon, 8), ownerId, createdAt: Date.now(), channels: [], memberIds: [], invites: {}, names: {} };
+  if (ownerName) g.names[ownerId] = ownerName;
   const mk = (nm, type) => { const cid = id + '_' + slug(nm) + '_' + rid(4); g.channels.push({ id: cid, name: slug(nm), type }); dc.channelIndex[cid] = { guildId: id, type }; dc.messages[cid] = []; dc.rev[cid] = 1; return cid; };
   mk('general', 'text');
   mk('random', 'text');
@@ -127,7 +128,7 @@ export async function handleDiscord(url, req, res) {
   if (path === '/api/dc/guild' && req.method === 'POST') {
     const b = await readBody(req);
     if (!clean(b.name, 40).trim()) return sendJson(res, 400, { error: 'name-required' });
-    const g = createGuild(me.id, b.name, b.icon);
+    const g = createGuild(me.id, b.name, b.icon, me.username);
     return sendJson(res, 200, { ok: true, guild: guildPublic(g) });
   }
 
