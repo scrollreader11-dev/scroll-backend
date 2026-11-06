@@ -177,6 +177,19 @@ export async function handleDiscord(url, req, res) {
     markDirty();
     return sendJson(res, 200, { ok: true });
   }
+  if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/kick$/)) && req.method === 'POST') {
+    const g = dc.guilds[m[1]];
+    if (!g) return sendJson(res, 404, { error: 'no-guild' });
+    if (g.ownerId !== me.id) return sendJson(res, 403, { error: 'not-owner' });
+    const b = await readBody(req);
+    const uid = clean(b.uid, 64);
+    if (!uid || uid === g.ownerId) return sendJson(res, 400, { error: 'bad-target' });
+    g.memberIds = g.memberIds.filter((u) => u !== uid);
+    if (dc.userGuilds[uid]) dc.userGuilds[uid] = dc.userGuilds[uid].filter((x) => x !== g.id);
+    if (g.names) delete g.names[uid];
+    markDirty();
+    return sendJson(res, 200, { ok: true });
+  }
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/members$/))) {
     const g = dc.guilds[m[1]];
     if (!g || !isMember(g, me.id)) return sendJson(res, 403, { error: 'not-member' });
