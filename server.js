@@ -17,6 +17,7 @@ import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -166,6 +167,8 @@ try {
 } catch {}
 // Durable copy wins over the ephemeral /tmp copy.
 try { const s = await kvGet('sh:state'); if (s) applyState(JSON.parse(s)); } catch (e) { console.log('kv state load failed:', e.message); }
+// ScrollHub Servers (Discord-style layer) — load its durable state now that KV is ready.
+try { await initDiscord({ getCosmetics, kvGet, kvSet }); } catch (e) { console.log('discord init failed:', e.message); }
 async function saveState() {
   _stateDirty = true;
   try {
@@ -1684,6 +1687,10 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
+  // ScrollHub Servers (Discord-style): data API + uploaded files.
+  if (url.startsWith('/api/dc/')) return handleDiscord(url, req, res);
+  if (url.startsWith('/dcf/')) return serveDiscordFile(req, res, url.split('?')[0]);
+
   // Other unknown API routes 404.
   if (url.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1710,6 +1717,8 @@ httpServer.on('upgrade', (req, socket, head) => {
   if ((req.url || '').split('?')[0] === '/skribbl-ws') return handleSkribblUpgrade(req, socket, head);
   // Casino case battles have theirs.
   if ((req.url || '').split('?')[0] === '/battle-ws') return handleBattleUpgrade(req, socket, head);
+  // ScrollHub Servers: live messages + voice signaling.
+  if ((req.url || '').split('?')[0] === '/dc-ws') return handleDiscordUpgrade(req, socket, head);
   wisp.routeRequest(req, socket, head);
  } catch (err) { try { console.error('upgrade error:', err && err.message); socket.destroy(); } catch (e) {} }
 });
