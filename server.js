@@ -347,6 +347,11 @@ async function readRawBody(req, maxBytes) {
 async function handleProfileImageUpload(req, res, kind) {
   const auth = req._auth || await resolveSession(req);
   if (!auth) return sendJson(res, 401, { error: 'auth' });
+  // DELETE (or ?clear=1) removes the current image.
+  if (req.method === 'DELETE' || /[?&]clear=1(&|$)/.test(req.url || '')) {
+    try { setProfileImage(auth.id, kind, ''); } catch (e) {}
+    return sendJson(res, 200, kind === 'banner' ? { banner_url: '' } : { avatar_url: '' });
+  }
   const ct = String(req.headers['content-type'] || '').toLowerCase();
   if (!ct.startsWith('image/')) return sendJson(res, 400, { error: 'Expected an image' });
   const buf = await readRawBody(req, 900 * 1024); // ~900KB cap (before base64)
@@ -1677,8 +1682,8 @@ const httpServer = createServer(async (req, res) => {
     });
   }
 
-  if (url === '/api/me/avatar' && req.method === 'POST') return handleProfileImageUpload(req, res, 'avatar');
-  if (url === '/api/me/banner' && req.method === 'POST') return handleProfileImageUpload(req, res, 'banner');
+  if (url.split('?')[0] === '/api/me/avatar' && (req.method === 'POST' || req.method === 'DELETE')) return handleProfileImageUpload(req, res, 'avatar');
+  if (url.split('?')[0] === '/api/me/banner' && (req.method === 'POST' || req.method === 'DELETE')) return handleProfileImageUpload(req, res, 'banner');
   if (url === '/api/me') {
     const a = await resolveSession(req);
     const c = parseCookies(req);
