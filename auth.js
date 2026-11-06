@@ -114,10 +114,30 @@ export async function accountByName(username) {
   return await getAccount(username);
 }
 
+// Pull the session token from (in order) an Authorization: Bearer header, an
+// x-sh-token header, or the sh_sid cookie. The header forms let a ScrollHub
+// frontend on ANY domain authenticate against this central backend, since
+// cross-site cookies are unreliable/blocked by browsers.
+function tokenFromReq(req) {
+  const h = String(req.headers['authorization'] || '');
+  if (h.startsWith('Bearer ')) return h.slice(7).trim();
+  const x = req.headers['x-sh-token'];
+  if (x) return String(x).trim();
+  const c = parseCookies(req);
+  return c.sh_sid || '';
+}
+
 // Trusted identity for the current request, or null if not logged in.
 export async function resolveSession(req) {
-  const c = parseCookies(req);
-  const s = await loadSession(c.sh_sid);
+  const s = await loadSession(tokenFromReq(req));
+  if (!s) return null;
+  return { id: s.id, username: s.username };
+}
+
+// Identity straight from a token string (used by the WebSocket upgrade, which
+// passes the token as a ?t= query param).
+export async function sessionFromToken(token) {
+  const s = await loadSession(token);
   if (!s) return null;
   return { id: s.id, username: s.username };
 }
@@ -156,7 +176,8 @@ export async function handleAuth(url, req, res) {
     const acct = makeAccount(username, password);
     await putAccount(acct);
     const token = await createSession(acct);
-    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id }, authCookies(acct, token));
+    // token is returned so cross-domain frontends can store it (header auth).
+    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id, token }, authCookies(acct, token));
     return true;
   }
 
@@ -167,7 +188,7 @@ export async function handleAuth(url, req, res) {
     const acct = await getAccount(username);
     if (!acct || !verifyPassword(acct, password)) { sendJson(res, 200, { error: 'bad-login', message: 'Wrong username or password.' }); return true; }
     const token = await createSession(acct);
-    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id }, authCookies(acct, token));
+    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id, token }, authCookies(acct, token));
     return true;
   }
 
@@ -187,8 +208,8 @@ export async function handleAuth(url, req, res) {
   }
 
   if (path === '/api/auth/logout' && req.method === 'POST') {
-    const c = parseCookies(req);
-    if (c.sh_sid) { sessions.delete(c.sh_sid); try { await kvDel(sessKey(c.sh_sid)); } catch (e) {} }
+    const tok = tokenFromReq(req);
+    if (tok) { sessions.delete(tok); try { await kvDel(sessKey(tok)); } catch (e) {} }
     sendJson(res, 200, { ok: true }, clearCookies());
     return true;
   }

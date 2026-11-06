@@ -8,7 +8,7 @@
 // - State is kept in memory and mirrored to Upstash (sh:discord) like chat.
 // ============================================================
 import { WebSocketServer } from 'ws';
-import { resolveSession, accountByName } from './auth.js';
+import { resolveSession, accountByName, sessionFromToken } from './auth.js';
 
 let getCosmetics = () => ({ color: '', tag: '' });
 let kvGet = async () => null;
@@ -237,7 +237,9 @@ export async function handleDiscord(url, req, res) {
     const id = rid(16);
     dc.files[id] = { ct, b64 };
     try { await kvSet('sh:dcf:' + id, JSON.stringify({ ct, b64 })); } catch {}
-    return sendJson(res, 200, { ok: true, url: '/dcf/' + id + '.' + ext, w: +b.w || 0, h: +b.h || 0, name: clean(b.name, 80), type: ct });
+    // Absolute URL to THIS (central) backend so the image loads from any mirror.
+    const base = req.headers.host ? ('https://' + req.headers.host) : '';
+    return sendJson(res, 200, { ok: true, url: base + '/dcf/' + id + '.' + ext, w: +b.w || 0, h: +b.h || 0, name: clean(b.name, 80), type: ct });
   }
 
   return sendJson(res, 404, { error: 'not-found' });
@@ -293,7 +295,12 @@ function leaveVoice(conn) {
 }
 
 export function handleDiscordUpgrade(req, socket, head) {
-  resolveSession(req).then((auth) => {
+  // Cross-origin WebSockets can't send our auth header or cookie, so the token
+  // rides in the ?t= query param; fall back to cookie for same-origin.
+  let tok = '';
+  try { tok = new URL(req.url, 'http://x').searchParams.get('t') || ''; } catch {}
+  const idP = tok ? sessionFromToken(tok) : resolveSession(req);
+  Promise.resolve(idP).then((auth) => {
     if (!auth) { try { socket.destroy(); } catch {} return; }
     wss.handleUpgrade(req, socket, head, (ws) => {
       ws.uid = auth.id; ws.uname = auth.username; ws.peerId = rid(10); ws.subs = new Set(); ws.voiceCid = null;

@@ -331,7 +331,9 @@ async function handleGameImg(req, res) {
   const id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   try { await kvSet('sh:img:' + id, JSON.stringify({ ct, b64 })); }
   catch (e) { return sendJson(res, 500, { error: 'storage failed' }); }
-  return sendJson(res, 200, { ok: true, url: '/ci/' + id + '.' + ext });
+  // Absolute URL to this central backend so custom thumbnails show on any mirror.
+  const base = req.headers.host ? ('https://' + req.headers.host) : '';
+  return sendJson(res, 200, { ok: true, url: base + '/ci/' + id + '.' + ext });
 }
 // Serves a stored custom thumbnail.
 async function serveGameImg(req, res, url) {
@@ -1532,6 +1534,17 @@ const httpServer = createServer(async (req, res) => {
  try {
   const parsed = new URL(req.url || '/', 'http://localhost');
   const url = parsed.pathname;
+
+  // Cross-origin data access: a ScrollHub frontend hosted on ANY domain can
+  // call this central backend's data + file routes. Auth travels in a header
+  // token (not a cookie), so Allow-Origin:* is safe here.
+  if (/^\/(api|dcf|ci)\//.test(url) || url === '/api/version') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-sh-token');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  }
 
   // Auth endpoints (signup/login/logout/me).
   if (url.startsWith('/api/auth/')) { if (await handleAuth(url, req, res)) return; }
