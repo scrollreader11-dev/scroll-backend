@@ -375,8 +375,17 @@ export function handleDiscordUpgrade(req, socket, head) {
           if (!canAccessChannel(d.channel, ws.uid)) return;
           leaveVoice(ws);
           clearGhosts(ws.uid, d.channel); // drop any stale copy of us from a dropped socket
+          const set = voiceRooms.get(d.channel) || new Set();
+          // Enforce ONE presence per user in a channel: evict any still-connected
+          // older socket of the same user (a reconnect/refresh that left a ghost).
+          for (const c of [...set]) {
+            if (c !== ws && c.uid === ws.uid) {
+              set.delete(c); c.voiceCid = null;
+              voiceBroadcast(d.channel, { t: 'voice-leave', peer: c.peerId });
+            }
+          }
           ws.voiceCid = d.channel;
-          const set = voiceRooms.get(d.channel) || new Set(); set.add(ws); voiceRooms.set(d.channel, set);
+          set.add(ws); voiceRooms.set(d.channel, set);
           // tell the newcomer who's already here
           ws.send(JSON.stringify({ t: 'voice-peers', channel: d.channel, peers: voiceRoster(d.channel).filter((p) => p.peer !== ws.peerId) }));
           // tell everyone else a newcomer arrived (they will initiate the offer)
