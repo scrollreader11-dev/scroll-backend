@@ -810,10 +810,10 @@ const CATALOG_OVERRIDES = [
   { label: 'CrazyGames', url: '/iframe.html?url=/storage/ag/originals/crazygames/index.html', imageUrl: '/storage/ag/originals/crazygames/logo.png', categories: ['Arcade'] },
   { label: 'Melon Playground', url: '/iframe.html?url=/storage/ag/originals/melonplayground/index.html', imageUrl: '/storage/ag/originals/melonplayground/IMG_5304.jpeg', categories: ['Simulation'] },
   { label: 'Stickman Dragon Fight', url: '/extframe.html?url=https://ubgwtf.gitlab.io/stickman-dragon-fight/', imageUrl: '/imgx/https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp', categories: ['Fighting'] },
-  // Updated versions from Nexora CDN — replaces any old copies in the base catalog
-  { label: 'Burrito Bison', url: '/extframe.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clburritobison.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/clburritobison.webp', categories: ['Platformer', 'Adventure'] },
-  { label: 'Snow Rider 3D', url: '/extframe.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowrid.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/clsnowrid.webp', categories: ['Arcade', 'Casual'] },
-  { label: '1v1.lol', url: '/extframe.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/cl1v1lol.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/cl1v1lol.webp', categories: ['Shooter', 'Multiplayer'] },
+  // Updated versions from Nexora CDN — routed through /gadget.html to handle Google Gadget XML format
+  { label: 'Burrito Bison', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clburritobison.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/clburritobison.webp', categories: ['Platformer', 'Adventure'] },
+  { label: 'Snow Rider 3D', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowrid.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/clsnowrid.webp', categories: ['Arcade', 'Casual'] },
+  { label: '1v1.lol', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/cl1v1lol.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/cl1v1lol.webp', categories: ['Shooter', 'Multiplayer'] },
 ];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
