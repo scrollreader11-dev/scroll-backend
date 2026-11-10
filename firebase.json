@@ -15,28 +15,6 @@
         "source": "**/*.@(webp|png|jpg|jpeg|gif|svg|ico)",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800, immutable" }]
       }
-    ],
-    "rewrites": [
-      {
-        "source": "/storage/data/collection.json",
-        "function": "api"
-      },
-      {
-        "source": "/cdn-proxy/**",
-        "function": "api"
-      }
     ]
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log"
-      ]
-    }
-  ]
+  }
 }

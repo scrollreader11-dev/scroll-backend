@@ -20,10 +20,13 @@
   const url = params.get('url');
   if (!url) { showErr('No URL provided.'); return; }
 
-  // Route CDN URLs through our server proxy for the initial HTML fetch too,
-  // so school networks that block jsDelivr/unpkg don't get a blank screen.
+  // Hardcoded backend URL — this is where /cdn-proxy/ lives.
+  // Using location.origin breaks when gadget.html is served from a different
+  // domain (e.g. Firebase Hosting) than the backend.
+  const BACKEND = 'https://scrollhub-acvy.onrender.com';
+  const cdnProxyBase = BACKEND + '/cdn-proxy/';
   const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'raw.githubusercontent.com'];
-  const cdnProxyBase = location.origin + '/cdn-proxy/';
+
   function proxyUrl(u) {
     try {
       const p = new URL(u);
@@ -34,11 +37,32 @@
     return u;
   }
 
+  // Fetch helper: try direct first (5s timeout), fall back to proxy.
+  // - At home / open networks: direct CDN fetch is instant.
+  // - At school (CDN blocked): direct times out quickly, proxy takes over.
+  async function fetchWithFallback(rawUrl) {
+    // 1) Try direct with a short timeout
+    try {
+      const ac = new AbortController();
+      const t = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 5000);
+      let r;
+      try { r = await fetch(rawUrl, { cache: 'force-cache', signal: ac.signal }); }
+      finally { clearTimeout(t); }
+      if (r.ok) return r;
+    } catch (e) { /* timed out or blocked — fall through to proxy */ }
+
+    // 2) Try via server-side CDN proxy
+    const proxied = proxyUrl(rawUrl);
+    if (proxied === rawUrl) return null; // not a CDN URL, nothing to proxy
+    const r2 = await fetch(proxied, { cache: 'force-cache' });
+    if (r2.ok) return r2;
+    return null;
+  }
+
   let html = '';
   try {
-    const fetchUrl = proxyUrl(url);
-    const res = await fetch(fetchUrl, { cache: 'force-cache' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const res = await fetchWithFallback(url);
+    if (!res) throw new Error('fetch failed');
     const text = await res.text();
 
     // ── 1) Google Gadget / OpenSocial: <Content type="html"><![CDATA[...]]> ──
@@ -57,24 +81,24 @@
       if (htmlStart >= 0) {
         html = text.slice(htmlStart);
       } else {
-        // Nothing parseable — last-resort load through proxy
+        // Nothing parseable — try loading as a plain iframe via proxy
         document.getElementById('frame').src = proxyUrl(url);
         return;
       }
     }
   } catch (e) {
-    // Fetch failed — try loading through proxy as a plain iframe fallback
+    // All fetch attempts failed — last resort: load via proxy as plain iframe
     document.getElementById('frame').src = proxyUrl(url);
     return;
   }
 
-  // Rewrite CDN URLs inside game HTML to go through our server-side proxy
-  // so game assets load even when the CDN is blocked on the user's network.
+  // Rewrite CDN URLs inside the game HTML so assets (Unity bundles, JS, etc.)
+  // also go through the backend proxy — bypassing school network CDN blocks.
   const CDN_RE = /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|raw\.githubusercontent\.com)\//g;
   html = html.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
 
-  // Always render as a blob so the browser treats content as text/html
-  // regardless of whatever Content-Type the CDN originally sent.
+  // Always render via blob URL so the browser treats content as text/html
+  // regardless of whatever Content-Type the CDN originally served.
   try {
     const blob = new Blob([html], { type: 'text/html' });
     document.getElementById('frame').src = URL.createObjectURL(blob);
