@@ -803,6 +803,11 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // open networks; may be blocked where gitlab.io is filtered). Thumbnail is
 // routed through /imgx/ so it loads on our own domain.
 const CATALOG_OVERRIDES = [
+  // ── Top 3 featured games ─────────────────────────────────────────────────
+  { label: 'Snow Road', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowroad.html', imageUrl: '/storage/images/nexora/clsnowroad.webp', categories: ['Racing'] },
+  { label: 'Wrestle Bros', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clwrestlebros.html', imageUrl: '/storage/images/nexora/clwrestlebros.webp', categories: ['Fighting', 'Multiplayer'] },
+  { label: 'Escape Road 2', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clescaperoad2.html', imageUrl: '/storage/images/nexora/clescaperoad2.webp', categories: ['Racing', 'Action'] },
+  // ── Rest of pinned catalog ───────────────────────────────────────────────
   { label: 'Tomb of the Mask', url: '/iframe.html?url=/storage/ag/arsenic/tomb-of-the-mask/index.html', imageUrl: '/storage/images/main3/tombofthemask.png', categories: ['Arcade'] },
   { label: 'Paper.io 2', url: '/iframe.html?url=/storage/ag/originals/paperio2/index.html', imageUrl: '/storage/images/main/paper2.jpg', categories: ['.io'] },
   { label: 'Tactical Assassin 2', url: '/iframe.html?url=/storage/ag/echo/tacticalassasin2/index.html', imageUrl: '/storage/ag/echo/tacticalassasin2/tacticalassassin2.png', categories: ['Shooting'] },
@@ -810,14 +815,10 @@ const CATALOG_OVERRIDES = [
   { label: 'CrazyGames', url: '/iframe.html?url=/storage/ag/originals/crazygames/index.html', imageUrl: '/storage/ag/originals/crazygames/logo.png', categories: ['Arcade'] },
   { label: 'Melon Playground', url: '/iframe.html?url=/storage/ag/originals/melonplayground/index.html', imageUrl: '/storage/ag/originals/melonplayground/IMG_5304.jpeg', categories: ['Simulation'] },
   { label: 'Stickman Dragon Fight', url: '/extframe.html?url=https://ubgwtf.gitlab.io/stickman-dragon-fight/', imageUrl: '/imgx/https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp', categories: ['Fighting'] },
-  // Updated versions from Nexora CDN — routed through /gadget.html to handle Google Gadget XML format
-  // Thumbnails are served locally from /storage/images/nexora/
+  // Nexora CDN games — routed through /gadget.html to handle Google Gadget XML format
   { label: 'Burrito Bison', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clburritobison.html', imageUrl: '/storage/images/nexora/clburritobison.webp', categories: ['Platformer', 'Adventure'] },
   { label: 'Snow Rider 3D', url: '/iframe.html?url=/storage/ag/arsenic/snow-rider-3d/index.html', imageUrl: '/storage/images/main3/snowrider3d.png', categories: ['Racing', 'Sports'] },
   { label: '1v1.lol', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/cl1v1lol.html', imageUrl: '/storage/images/nexora/cl1v1lol.webp', categories: ['Shooter', 'Multiplayer'] },
-  { label: 'Snow Road', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowroad.html', imageUrl: '/storage/images/nexora/clsnowroad.webp', categories: ['Racing'] },
-  { label: 'Wrestle Bros', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clwrestlebros.html', imageUrl: '/storage/images/nexora/clwrestlebros.webp', categories: ['Fighting', 'Multiplayer'] },
-  { label: 'Escape Road 2', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clescaperoad2.html', imageUrl: '/storage/images/nexora/clescaperoad2.webp', categories: ['Racing', 'Action'] },
 ];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
