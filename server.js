@@ -1794,13 +1794,17 @@ const httpServer = createServer(async (req, res) => {
       if ((ct.includes('text/plain') || ct === 'application/octet-stream') && raw.match(/\.html?(\?|$)/i)) {
         ct = 'text/html; charset=utf-8';
       }
-      const cl = upstream.headers.get('content-length');
+      // ⚠️  Do NOT forward Content-Length from the CDN.
+      // Node's fetch() decompresses gzip/br transparently, so the actual body
+      // bytes we stream to the client are larger than the compressed
+      // content-length the CDN sent. Forwarding that value causes browsers to
+      // stop reading after content-length bytes and treat the truncated JS as
+      // complete, producing "SyntaxError: Unexpected end of input".
       const headers = {
         'Content-Type': ct,
         'Cache-Control': 'public, max-age=86400',
         'Access-Control-Allow-Origin': '*',
       };
-      if (cl) headers['Content-Length'] = cl;
       res.writeHead(upstream.status, headers);
       if (!upstream.body) { res.end(); return; }
       const reader = upstream.body.getReader();
