@@ -812,7 +812,7 @@ const CATALOG_OVERRIDES = [
   { label: 'Stickman Dragon Fight', url: '/extframe.html?url=https://ubgwtf.gitlab.io/stickman-dragon-fight/', imageUrl: '/imgx/https://ubgwtf.gitlab.io/assets/upload/ubgwtforg/png/stickman-dragon-fight.webp', categories: ['Fighting'] },
   // Updated versions from Nexora CDN — routed through /gadget.html to handle Google Gadget XML format
   { label: 'Burrito Bison', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clburritobison.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/clburritobison.webp', categories: ['Platformer', 'Adventure'] },
-  { label: 'Snow Rider 3D', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowrid.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/clsnowrid.webp', categories: ['Arcade', 'Casual'] },
+  { label: 'Snow Rider 3D', url: '/iframe.html?url=/storage/ag/arsenic/snow-rider-3d/index.html', imageUrl: '/storage/images/main3/snowrider3d.png', categories: ['Racing', 'Sports'] },
   { label: '1v1.lol', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/cl1v1lol.html', imageUrl: '/!!/https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/images/cl1v1lol.webp', categories: ['Shooter', 'Multiplayer'] },
 ];
 async function fetchUbgGames() {
