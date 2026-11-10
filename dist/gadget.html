@@ -141,7 +141,16 @@ window.addEventListener('load', async () => {
   }
 
   // ── Non-Flash: rewrite CDN URLs to go through backend proxy ────────────────
-  html = html.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
+  // _pv=2 busts any browser-cached proxy responses from before the
+  // Content-Length fix (the proxy used to forward the compressed size,
+  // truncating decompressed JS to half its length).
+  html = html.replace(
+    /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|raw\.githubusercontent\.com)(\/[^"'\s]*)/g,
+    (_, host, path) => {
+      const sep = path.includes('?') ? '&' : '?';
+      return cdnProxyBase + host + path + sep + '_pv=2';
+    }
+  );
 
   // Render via blob so MIME type is always text/html regardless of CDN headers.
   try {
