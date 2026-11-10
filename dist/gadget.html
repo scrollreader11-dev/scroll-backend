@@ -53,9 +53,16 @@
     return;
   }
 
-  // Always render as a blob so the browser treats it as text/html regardless
-  // of whatever Content-Type the CDN sent.  All asset URLs in Nexora games are
-  // absolute (https://…) so they resolve fine from a blob origin.
+  // Rewrite CDN URLs to go through our server-side proxy so game assets
+  // load even when the CDN is blocked on the user's network (e.g. school).
+  // We use the server origin (location.origin) so the URLs are absolute and
+  // resolve correctly from inside the blob URL context.
+  const cdnProxyBase = location.origin + '/cdn-proxy/';
+  const CDN_RE = /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com)\//g;
+  html = html.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
+
+  // Always render as a blob so the browser treats content as text/html
+  // regardless of whatever Content-Type the CDN originally sent.
   try {
     const blob = new Blob([html], { type: 'text/html' });
     document.getElementById('frame').src = URL.createObjectURL(blob);

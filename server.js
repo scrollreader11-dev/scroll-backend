@@ -1764,6 +1764,56 @@ const httpServer = createServer(async (req, res) => {
   if (url.startsWith('/api/dc/')) return handleDiscord(url, req, res);
   if (url.startsWith('/dcf/')) return serveDiscordFile(req, res, url.split('?')[0]);
 
+  // CDN proxy — lets gadget.html rewrite game asset URLs so they load
+  // through the server instead of directly from jsDelivr (which school
+  // networks typically block).  Only CDN domains are allowed.
+  if (url.startsWith('/cdn-proxy/')) {
+    const raw = url.slice('/cdn-proxy/'.length);
+    // Reconstruct full URL — raw is e.g. "cdn.jsdelivr.net/gh/..."
+    const targetUrl = 'https://' + raw + (parsed.search || '');
+    let targetHost = '';
+    try { targetHost = new URL(targetUrl).hostname; } catch (e) {}
+    const CDN_ALLOWLIST = ['cdn.jsdelivr.net', 'raw.githubusercontent.com', 'unpkg.com', 'cdnjs.cloudflare.com'];
+    if (!CDN_ALLOWLIST.includes(targetHost)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('CDN host not allowed');
+      return;
+    }
+    try {
+      const ac = new AbortController();
+      const to = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 30000);
+      let upstream;
+      try {
+        upstream = await fetch(targetUrl, {
+          headers: { 'user-agent': 'Mozilla/5.0', 'accept': req.headers['accept'] || '*/*' },
+          signal: ac.signal,
+        });
+      } finally { clearTimeout(to); }
+      const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+      const cl = upstream.headers.get('content-length');
+      const headers = {
+        'Content-Type': ct,
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*',
+      };
+      if (cl) headers['Content-Length'] = cl;
+      res.writeHead(upstream.status, headers);
+      if (!upstream.body) { res.end(); return; }
+      const reader = upstream.body.getReader();
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); return; }
+        res.write(Buffer.from(value));
+        return pump();
+      };
+      await pump();
+    } catch (e) {
+      if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end('CDN proxy error: ' + (e && e.message)); }
+      else res.end();
+    }
+    return;
+  }
+
   // Other unknown API routes 404.
   if (url.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
