@@ -815,6 +815,9 @@ const CATALOG_OVERRIDES = [
   { label: 'Burrito Bison', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clburritobison.html', imageUrl: '/storage/images/nexora/clburritobison.webp', categories: ['Platformer', 'Adventure'] },
   { label: 'Snow Rider 3D', url: '/iframe.html?url=/storage/ag/arsenic/snow-rider-3d/index.html', imageUrl: '/storage/images/main3/snowrider3d.png', categories: ['Racing', 'Sports'] },
   { label: '1v1.lol', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/cl1v1lol.html', imageUrl: '/storage/images/nexora/cl1v1lol.webp', categories: ['Shooter', 'Multiplayer'] },
+  { label: 'Snow Road', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowroad.html', imageUrl: '/storage/images/nexora/clsnowroad.webp', categories: ['Racing'] },
+  { label: 'Wrestle Bros', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clwrestlebros.html', imageUrl: '/storage/images/nexora/clwrestlebros.webp', categories: ['Fighting', 'Multiplayer'] },
+  { label: 'Escape Road 2', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clescaperoad2.html', imageUrl: '/storage/images/nexora/clescaperoad2.webp', categories: ['Racing', 'Action'] },
 ];
 async function fetchUbgGames() {
   // The ubgwtf.gitlab.io pack loads games AND thumbnails straight from
