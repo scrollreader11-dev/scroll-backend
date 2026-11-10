@@ -105,11 +105,11 @@
     // We also keep the original SWF URL — jsDelivr has ACAO:* so the blob
     // context can load the SWF directly without the proxy.
     const ruffleUrl = 'https://unpkg.com/@ruffle-rs/ruffle';
-    // ⚠️  IMPORTANT: use \x3c/script> NOT </script> inside this template
-    // literal. The browser HTML parser is not JavaScript-aware; it sees any
-    // </script> in the source and closes the outer <script> tag early,
-    // causing a SyntaxError that breaks ALL game loading on this page.
-    // \x3c evaluates to '<' in JS so the generated blob HTML is correct.
+    // ⚠️  IMPORTANT: use \x3c/script> (NOT <\/script>) inside this template
+    // literal. The HTML parser is not JS-aware; it closes the outer script
+    // tag at the first <\/script> sequence it sees in the source, causing a
+    // SyntaxError that breaks ALL game loading. \x3c evaluates to '<' in JS
+    // so the generated blob HTML still gets correct closing tags.
     html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
