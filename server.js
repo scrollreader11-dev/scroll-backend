@@ -1789,7 +1789,11 @@ const httpServer = createServer(async (req, res) => {
           signal: ac.signal,
         });
       } finally { clearTimeout(to); }
-      const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+      let ct = upstream.headers.get('content-type') || 'application/octet-stream';
+      // Some CDNs (e.g. jsDelivr) serve .html files with text/plain; fix that.
+      if ((ct.includes('text/plain') || ct === 'application/octet-stream') && raw.match(/\.html?(\?|$)/i)) {
+        ct = 'text/html; charset=utf-8';
+      }
       const cl = upstream.headers.get('content-length');
       const headers = {
         'Content-Type': ct,

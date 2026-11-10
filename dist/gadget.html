@@ -20,9 +20,24 @@
   const url = params.get('url');
   if (!url) { showErr('No URL provided.'); return; }
 
+  // Route CDN URLs through our server proxy for the initial HTML fetch too,
+  // so school networks that block jsDelivr/unpkg don't get a blank screen.
+  const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'raw.githubusercontent.com'];
+  const cdnProxyBase = location.origin + '/cdn-proxy/';
+  function proxyUrl(u) {
+    try {
+      const p = new URL(u);
+      if (CDN_HOSTS.includes(p.hostname)) {
+        return cdnProxyBase + p.hostname + p.pathname + (p.search || '');
+      }
+    } catch (e) {}
+    return u;
+  }
+
   let html = '';
   try {
-    const res = await fetch(url, { cache: 'force-cache' });
+    const fetchUrl = proxyUrl(url);
+    const res = await fetch(fetchUrl, { cache: 'force-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
 
@@ -42,23 +57,20 @@
       if (htmlStart >= 0) {
         html = text.slice(htmlStart);
       } else {
-        // Nothing parseable — last-resort direct load
-        document.getElementById('frame').src = url;
+        // Nothing parseable — last-resort load through proxy
+        document.getElementById('frame').src = proxyUrl(url);
         return;
       }
     }
   } catch (e) {
-    // Network / CORS failure → try direct load
-    document.getElementById('frame').src = url;
+    // Fetch failed — try loading through proxy as a plain iframe fallback
+    document.getElementById('frame').src = proxyUrl(url);
     return;
   }
 
-  // Rewrite CDN URLs to go through our server-side proxy so game assets
-  // load even when the CDN is blocked on the user's network (e.g. school).
-  // We use the server origin (location.origin) so the URLs are absolute and
-  // resolve correctly from inside the blob URL context.
-  const cdnProxyBase = location.origin + '/cdn-proxy/';
-  const CDN_RE = /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com)\//g;
+  // Rewrite CDN URLs inside game HTML to go through our server-side proxy
+  // so game assets load even when the CDN is blocked on the user's network.
+  const CDN_RE = /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|raw\.githubusercontent\.com)\//g;
   html = html.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
 
   // Always render as a blob so the browser treats content as text/html
