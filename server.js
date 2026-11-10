@@ -1044,7 +1044,13 @@ async function proxyUpstream(req, res) {
     }
     // Upstream gate answers protected assets with 403 — just a missing asset.
     if (up.status === 403) { finishInflight(null); res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
-    const ctype = up.headers.get('content-type') || 'application/octet-stream';
+    let ctype = up.headers.get('content-type') || 'application/octet-stream';
+    // Some upstream hosts serve .html files with text/plain which causes the
+    // browser to display raw source instead of running the game. Force the
+    // correct type whenever the path ends with .html.
+    if (/\.html(?:[?#]|$)/i.test(req.url) && /^text\/plain/i.test(ctype)) {
+      ctype = 'text/html; charset=utf-8';
+    }
     const outHeaders = {
       'content-type': ctype,
       'cache-control': cacheControlFor(ctype),
