@@ -99,29 +99,40 @@
     let swfUrl = swfMatch[1];
     // Make sure it's absolute
     if (swfUrl.startsWith('//')) swfUrl = 'https:' + swfUrl;
-    // Route the SWF through our CDN proxy so it loads at school too
-    swfUrl = swfUrl.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
-    // Official Ruffle from unpkg (also proxied)
-    const ruffleUrl = cdnProxyBase + 'unpkg.com/@ruffle-rs/ruffle';
+    // Load Ruffle directly from the official CDN (NOT through the proxy).
+    // The blob iframe can fetch unpkg.com directly (ACAO: *), and routing
+    // Ruffle through Render would break if Render is sleeping.
+    // We also keep the original SWF URL — jsDelivr has ACAO:* so the blob
+    // context can load the SWF directly without the proxy.
+    const ruffleUrl = 'https://unpkg.com/@ruffle-rs/ruffle';
+    // ⚠️  IMPORTANT: use \x3c/script> NOT </script> inside this template
+    // literal. The browser HTML parser is not JavaScript-aware; it sees any
+    // </script> in the source and closes the outer <script> tag early,
+    // causing a SyntaxError that breaks ALL game loading on this page.
+    // \x3c evaluates to '<' in JS so the generated blob HTML is correct.
     html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}</style>
-<script src="${ruffleUrl}"></script>
+<script src="${ruffleUrl}">\x3c/script>
 </head><body>
 <script>
 window.addEventListener('load', async () => {
-  const ruffle = window.RufflePlayer && window.RufflePlayer.newest ? window.RufflePlayer.newest() : null;
-  if (!ruffle) { document.body.innerHTML = '<p style="color:#fff;padding:20px">Ruffle failed to load.</p>'; return; }
+  if (!window.RufflePlayer || !window.RufflePlayer.newest) {
+    document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;padding:20px">Flash requires Ruffle, but Ruffle failed to load. Try refreshing the page.</p>';
+    return;
+  }
+  const ruffle = window.RufflePlayer.newest();
   const player = ruffle.createPlayer();
-  player.style.width = '100%';
-  player.style.height = '100%';
+  player.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0';
   document.body.appendChild(player);
-  try { await player.load(${JSON.stringify(swfUrl)}); } catch(e) {
-    document.body.innerHTML = '<p style="color:#fff;padding:20px">Flash game failed: ' + e.message + '</p>';
+  try {
+    await player.load(${JSON.stringify(swfUrl)});
+  } catch(e) {
+    document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;padding:20px">Flash game failed to load: ' + e.message + '</p>';
   }
 });
-</script>
+\x3c/script>
 </body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
