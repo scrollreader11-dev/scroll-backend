@@ -20,12 +20,12 @@
   const url = params.get('url');
   if (!url) { showErr('No URL provided.'); return; }
 
-  // Hardcoded backend URL — this is where /cdn-proxy/ lives.
-  // Using location.origin breaks when gadget.html is served from a different
-  // domain (e.g. Firebase Hosting) than the backend.
+  // Backend URL — where /cdn-proxy/ lives.
+  // Hardcoded so it works even when gadget.html is served from a different domain.
   const BACKEND = 'https://scrollhub-acvy.onrender.com';
   const cdnProxyBase = BACKEND + '/cdn-proxy/';
   const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'raw.githubusercontent.com'];
+  const CDN_RE = /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|raw\.githubusercontent\.com)\//g;
 
   function proxyUrl(u) {
     try {
@@ -37,25 +37,25 @@
     return u;
   }
 
-  // Fetch helper: try direct first (5s timeout), fall back to proxy.
-  // - At home / open networks: direct CDN fetch is instant.
-  // - At school (CDN blocked): direct times out quickly, proxy takes over.
+  // Try direct CDN fetch first (5s timeout — instant on open networks).
+  // Fall back to backend proxy if direct is blocked (school networks).
   async function fetchWithFallback(rawUrl) {
-    // 1) Try direct with a short timeout
     try {
       const ac = new AbortController();
       const t = setTimeout(() => { try { ac.abort(); } catch (e) {} }, 5000);
       let r;
       try { r = await fetch(rawUrl, { cache: 'force-cache', signal: ac.signal }); }
       finally { clearTimeout(t); }
-      if (r.ok) return r;
-    } catch (e) { /* timed out or blocked — fall through to proxy */ }
+      if (r && r.ok) return r;
+    } catch (e) { /* timed out or blocked */ }
 
-    // 2) Try via server-side CDN proxy
+    // Proxy fallback
     const proxied = proxyUrl(rawUrl);
-    if (proxied === rawUrl) return null; // not a CDN URL, nothing to proxy
-    const r2 = await fetch(proxied, { cache: 'force-cache' });
-    if (r2.ok) return r2;
+    if (proxied === rawUrl) return null;
+    try {
+      const r2 = await fetch(proxied, { cache: 'force-cache' });
+      if (r2.ok) return r2;
+    } catch (e) {}
     return null;
   }
 
@@ -71,34 +71,68 @@
     if (cdataMatch) {
       html = cdataMatch[1].trim();
 
-    // ── 2) Plain HTML file (may be served with wrong MIME by CDN) ──
+    // ── 2) Plain HTML ──
     } else if (/^\s*<!DOCTYPE|^\s*<html/i.test(text)) {
       html = text;
 
-    // ── 3) XML wrapper without CDATA (e.g. <Module>…<!DOCTYPE html>…</Module>) ──
+    // ── 3) XML wrapper without CDATA ──
     } else {
       const htmlStart = text.search(/<!DOCTYPE\s+html|<html[\s>]/i);
       if (htmlStart >= 0) {
         html = text.slice(htmlStart);
       } else {
-        // Nothing parseable — try loading as a plain iframe via proxy
         document.getElementById('frame').src = proxyUrl(url);
         return;
       }
     }
   } catch (e) {
-    // All fetch attempts failed — last resort: load via proxy as plain iframe
     document.getElementById('frame').src = proxyUrl(url);
     return;
   }
 
-  // Rewrite CDN URLs inside the game HTML so assets (Unity bundles, JS, etc.)
-  // also go through the backend proxy — bypassing school network CDN blocks.
-  const CDN_RE = /https?:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|raw\.githubusercontent\.com)\//g;
+  // ── Flash (.swf) detection: build a proper Ruffle wrapper ──────────────────
+  // The game HTML may already try to load Ruffle from a broken CDN repo.
+  // We replace the whole thing with a clean wrapper using the official package.
+  const swfMatch = html.match(/(?:src|value)=['"]((?:https?:)?\/\/[^'"]+\.swf(?:\?[^'"]*)?)['"]/i)
+                || html.match(/(https?:\/\/[^"'\s]+\.swf)/i);
+  if (swfMatch) {
+    let swfUrl = swfMatch[1];
+    // Make sure it's absolute
+    if (swfUrl.startsWith('//')) swfUrl = 'https:' + swfUrl;
+    // Route the SWF through our CDN proxy so it loads at school too
+    swfUrl = swfUrl.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
+    // Official Ruffle from unpkg (also proxied)
+    const ruffleUrl = cdnProxyBase + 'unpkg.com/@ruffle-rs/ruffle';
+    html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}</style>
+<script src="${ruffleUrl}"></script>
+</head><body>
+<script>
+window.addEventListener('load', async () => {
+  const ruffle = window.RufflePlayer && window.RufflePlayer.newest ? window.RufflePlayer.newest() : null;
+  if (!ruffle) { document.body.innerHTML = '<p style="color:#fff;padding:20px">Ruffle failed to load.</p>'; return; }
+  const player = ruffle.createPlayer();
+  player.style.width = '100%';
+  player.style.height = '100%';
+  document.body.appendChild(player);
+  try { await player.load(${JSON.stringify(swfUrl)}); } catch(e) {
+    document.body.innerHTML = '<p style="color:#fff;padding:20px">Flash game failed: ' + e.message + '</p>';
+  }
+});
+</script>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    document.getElementById('frame').src = URL.createObjectURL(blob);
+    return;
+  }
+
+  // ── Non-Flash: rewrite CDN URLs to go through backend proxy ────────────────
   html = html.replace(CDN_RE, (m, host) => cdnProxyBase + host + '/');
 
-  // Always render via blob URL so the browser treats content as text/html
-  // regardless of whatever Content-Type the CDN originally served.
+  // Render via blob so MIME type is always text/html regardless of CDN headers.
   try {
     const blob = new Blob([html], { type: 'text/html' });
     document.getElementById('frame').src = URL.createObjectURL(blob);
