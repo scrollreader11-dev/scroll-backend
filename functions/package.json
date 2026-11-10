@@ -1,0 +1,14 @@
+{
+  "name": "scrollhub-functions",
+  "version": "1.0.0",
+  "description": "ScrollHub Cloud Functions — catalog API and CDN proxy",
+  "engines": { "node": "18" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^6.0.0"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.0.0"
+  },
+  "private": true
+}
