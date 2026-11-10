@@ -22,35 +22,43 @@
 
   let html = '';
   try {
-    // jsDelivr supports CORS so this fetch works cross-origin
     const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
 
-    // Google Gadget / OpenSocial format: extract HTML from <Content><![CDATA[...]]>
+    // ── 1) Google Gadget / OpenSocial: <Content type="html"><![CDATA[...]]> ──
     const cdataMatch = text.match(/<Content[^>]*type=["']html["'][^>]*>\s*<!\[CDATA\[([\s\S]*?)\]\]>/i)
                     || text.match(/<!\[CDATA\[([\s\S]*?)\]\]>/i);
-
     if (cdataMatch) {
       html = cdataMatch[1].trim();
+
+    // ── 2) Plain HTML file (may be served with wrong MIME by CDN) ──
     } else if (/^\s*<!DOCTYPE|^\s*<html/i.test(text)) {
-      // Already plain HTML — load directly
-      document.getElementById('frame').src = url;
-      return;
+      html = text;
+
+    // ── 3) XML wrapper without CDATA (e.g. <Module>…<!DOCTYPE html>…</Module>) ──
     } else {
-      throw new Error('Unknown format');
+      const htmlStart = text.search(/<!DOCTYPE\s+html|<html[\s>]/i);
+      if (htmlStart >= 0) {
+        html = text.slice(htmlStart);
+      } else {
+        // Nothing parseable — last-resort direct load
+        document.getElementById('frame').src = url;
+        return;
+      }
     }
   } catch (e) {
-    // Network / CORS fallback: just load the URL directly in the iframe
+    // Network / CORS failure → try direct load
     document.getElementById('frame').src = url;
     return;
   }
 
-  // Render extracted HTML as a blob URL so scripts and Flash (via Ruffle) work
+  // Always render as a blob so the browser treats it as text/html regardless
+  // of whatever Content-Type the CDN sent.  All asset URLs in Nexora games are
+  // absolute (https://…) so they resolve fine from a blob origin.
   try {
     const blob = new Blob([html], { type: 'text/html' });
-    const blobUrl = URL.createObjectURL(blob);
-    document.getElementById('frame').src = blobUrl;
+    document.getElementById('frame').src = URL.createObjectURL(blob);
   } catch (e) {
     showErr('Could not render game: ' + e.message);
   }
