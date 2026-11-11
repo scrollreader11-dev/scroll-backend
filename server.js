@@ -331,9 +331,9 @@ async function handleGameImg(req, res) {
   const id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   try { await kvSet('sh:img:' + id, JSON.stringify({ ct, b64 })); }
   catch (e) { return sendJson(res, 500, { error: 'storage failed' }); }
-  // Absolute URL to this central backend so custom thumbnails show on any mirror.
-  const base = req.headers.host ? ('https://' + req.headers.host) : '';
-  return sendJson(res, 200, { ok: true, url: base + '/ci/' + id + '.' + ext });
+  // Use a relative URL so the image loads from whichever server the client is on.
+  // Both servers share the same KV store, so either can serve any image ID.
+  return sendJson(res, 200, { ok: true, url: '/ci/' + id + '.' + ext });
 }
 // Read a raw request body (binary) up to maxBytes; returns a Buffer or null if too big.
 async function readRawBody(req, maxBytes) {
@@ -361,8 +361,9 @@ async function handleProfileImageUpload(req, res, kind) {
   const id = (kind === 'banner' ? 'b' : 'a') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   try { await kvSet('sh:img:' + id, JSON.stringify({ ct, b64: buf.toString('base64') })); }
   catch (e) { return sendJson(res, 500, { error: 'storage failed' }); }
-  const base = req.headers.host ? ('https://' + req.headers.host) : '';
-  const imgUrl = base + '/ci/' + id + '.' + ext;
+  // Use a relative URL so the image loads from whichever server the client is on.
+  // Both servers share the same KV store, so either can serve any image ID.
+  const imgUrl = '/ci/' + id + '.' + ext;
   try { setProfileImage(auth.id, kind, imgUrl); } catch (e) {}
   return sendJson(res, 200, kind === 'banner' ? { banner_url: imgUrl } : { avatar_url: imgUrl });
 }
