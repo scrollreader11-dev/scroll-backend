@@ -1,379 +1,638 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>ScrollHub Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#05070f; --panel:rgba(16,22,40,.72); --panel2:#0b1120;
-    --line:rgba(120,160,255,.12); --line2:rgba(120,160,255,.24);
-    --txt:#e8edfb; --mut:#8793ad;
-    --blue:#4f8cff; --blue2:#5bd0ff; --cyan:#39e6ff; --violet:#8b5cf6;
-    --red:#ff5c7a; --green:#3ddc97; --amber:#ffc24b;
-    --accent:linear-gradient(135deg,#4f8cff,#8b5cf6);
+/* ── Reset & tokens ───────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08091a;
+  --sidebar:#0b0d1f;
+  --surface:#0f1123;
+  --card:#131726;
+  --border:rgba(255,255,255,.07);
+  --border2:rgba(255,255,255,.13);
+  --accent:#7c5cfc;
+  --accent-dim:rgba(124,92,252,.14);
+  --accent-glow:rgba(124,92,252,.32);
+  --cyan:#22d3ee;
+  --green:#34d399;
+  --red:#f87171;
+  --amber:#fbbf24;
+  --gold:#f59e0b;
+  --text:#e2e8f0;
+  --muted:#4b5675;
+  --muted2:#8b93a8;
+  --r:12px;
+  --sw:220px;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+a{color:var(--cyan)}
+.hide{display:none!important}
+.muted{color:var(--muted2)}
+
+/* ── Background ───────────────────────────────────────── */
+.bg-deco{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(ellipse 55% 38% at 5% -5%,rgba(124,92,252,.13),transparent),
+    radial-gradient(ellipse 40% 30% at 95% 15%,rgba(34,211,238,.07),transparent),
+    var(--bg);
+}
+
+/* ── LOGIN ────────────────────────────────────────────── */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.login-wrap{
+  width:100%;max-width:360px;
+  background:var(--surface);border:1px solid var(--border2);border-radius:20px;
+  padding:36px 32px;
+  box-shadow:0 32px 80px rgba(0,0,0,.55),0 0 0 1px rgba(124,92,252,.08);
+}
+.login-logo{
+  width:52px;height:52px;border-radius:16px;
+  background:linear-gradient(135deg,#7c5cfc,#5b6df0);
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  margin:0 auto 20px;box-shadow:0 8px 28px var(--accent-glow);
+}
+.login-wrap h1{font-family:'Space Grotesk',sans-serif;font-size:1.35rem;text-align:center;
+  letter-spacing:-.02em;margin-bottom:4px}
+.login-sub{text-align:center;color:var(--muted2);font-size:.82rem;margin-bottom:24px}
+
+/* ── Inputs ───────────────────────────────────────────── */
+input[type=text],input[type=password],input[type=number]{
+  width:100%;padding:10px 13px;border-radius:9px;
+  border:1px solid var(--border2);background:rgba(0,0,0,.35);
+  color:var(--text);font-size:.88rem;outline:none;font-family:inherit;
+  transition:border-color .15s,box-shadow .15s;
+}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,92,252,.18)}
+input::placeholder{color:var(--muted)}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+
+/* ── Buttons ──────────────────────────────────────────── */
+button{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:9px 16px;border:none;border-radius:9px;
+  background:linear-gradient(135deg,#7c5cfc,#5b6df0);
+  color:#fff;font-weight:600;font-size:.85rem;cursor:pointer;
+  font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+button:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
+button:active{transform:none;opacity:1}
+button.ghost{background:rgba(255,255,255,.05);border:1px solid var(--border2);color:var(--muted2);box-shadow:none}
+button.ghost:hover{background:rgba(255,255,255,.09);color:var(--text);box-shadow:none;transform:none}
+button.red{background:linear-gradient(135deg,#ef4444,#dc2626)}
+button.red:hover{box-shadow:0 6px 20px rgba(239,68,68,.33)}
+button.amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a0e00}
+button.gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0e00}
+button.sm{padding:6px 12px;font-size:.78rem;border-radius:7px}
+button.full{width:100%}
+
+/* ── Layout helpers ───────────────────────────────────── */
+.row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.field{margin-bottom:14px}
+.label{font-size:.7rem;color:var(--muted2);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+.note{font-size:.76rem;color:var(--muted);line-height:1.55;margin-top:7px}
+.flash{font-size:.8rem;min-height:1.1em;margin-top:6px;font-weight:500}
+sub-head{color:var(--muted2);font-size:.82rem}
+
+/* ── App shell ────────────────────────────────────────── */
+#dash{display:flex;min-height:100vh}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sidebar{
+  width:var(--sw);flex-shrink:0;
+  background:var(--sidebar);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;
+}
+.sb-logo{
+  display:flex;align-items:center;gap:10px;padding:18px 16px 14px;
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.05rem;
+  letter-spacing:-.02em;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.sb-logo-mark{
+  width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,#7c5cfc,#5b6df0);
+  display:flex;align-items:center;justify-content:center;font-size:15px;
+  box-shadow:0 4px 14px var(--accent-glow);
+}
+.sb-nav{padding:10px 8px;flex:1}
+.sb-section{font-size:.64rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--muted);padding:10px 10px 4px;font-weight:700}
+.tab{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:8px 10px;border-radius:8px;text-align:left;
+  background:transparent;color:var(--muted2);border:none;
+  font-size:.85rem;font-weight:500;cursor:pointer;
+  font-family:inherit;transition:all .12s;
+  box-shadow:none;
+}
+.tab svg{flex-shrink:0;opacity:.6;transition:opacity .12s}
+.tab:hover{background:rgba(255,255,255,.045);color:var(--text);transform:none;box-shadow:none}
+.tab:hover svg{opacity:1}
+.tab.active{background:var(--accent-dim);color:#c4b5fd;font-weight:600}
+.tab.active svg{opacity:1;color:#c4b5fd}
+.tab.active:hover{background:var(--accent-dim);transform:none;box-shadow:none;opacity:1}
+
+.sb-bottom{padding:10px 8px 14px;border-top:1px solid var(--border);flex-shrink:0}
+.online-pill{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.18);
+  border-radius:8px;font-size:.8rem;font-weight:600;color:#a7f3d0;margin-bottom:7px;
+}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;
+  animation:pulse 2s infinite;box-shadow:0 0 0 0 rgba(52,211,153,.5)}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}
+  70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}
+  100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}
+}
+
+/* ── Main area ────────────────────────────────────────── */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 22px;border-bottom:1px solid var(--border);
+  background:var(--sidebar);position:sticky;top:0;z-index:50;
+}
+#hamburger{
+  display:none;background:transparent;border:1px solid var(--border2);
+  padding:6px;border-radius:7px;color:var(--muted2);flex-shrink:0;
+}
+#hamburger:hover{background:rgba(255,255,255,.07);transform:none;box-shadow:none}
+.topbar-title{font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:-.01em}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.topbar-tag{font-size:.75rem;color:var(--muted2);
+  background:rgba(255,255,255,.04);border:1px solid var(--border2);
+  border-radius:6px;padding:3px 9px;
+}
+
+/* ── Content ──────────────────────────────────────────── */
+.content{padding:20px 22px 60px}
+
+/* ── Stat vitals ──────────────────────────────────────── */
+.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:15px 16px;position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;bottom:0;width:3px;border-radius:3px 0 0 3px;
+  background:linear-gradient(180deg,var(--accent) 0%,transparent 100%);
+}
+.stat-card.c-green::before{background:linear-gradient(180deg,var(--green) 0%,transparent 100%)}
+.stat-card.c-red::before{background:linear-gradient(180deg,var(--red) 0%,transparent 100%)}
+.stat-card.c-amber::before{background:linear-gradient(180deg,var(--amber) 0%,transparent 100%)}
+.stat-label{font-size:.68rem;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.stat-num{font-family:'Space Grotesk',sans-serif;font-size:1.9rem;font-weight:700;line-height:1}
+
+/* ── Cards ────────────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.card+.card{margin-top:14px}
+.card>h2{font-family:'Space Grotesk',sans-serif;font-size:.9rem;font-weight:700;
+  display:flex;align-items:center;gap:7px;
+  margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);color:var(--text)}
+
+/* ── Tables ───────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 10px;font-size:.67rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+  border-bottom:1px solid var(--border)}
+td{padding:10px 10px;font-size:.85rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+
+/* ── Dots & pills ─────────────────────────────────────── */
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.off{background:#2a3045}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;
+  font-size:.68rem;font-weight:700;
+  background:rgba(124,92,252,.18);color:#c4b5fd;border:1px solid rgba(124,92,252,.28)}
+
+/* ── Toggle ───────────────────────────────────────────── */
+.toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.sw{width:40px;height:22px;border-radius:999px;position:relative;
+  background:#1a2035;border:1px solid var(--border2);
+  transition:background .18s,border-color .18s,box-shadow .18s;flex-shrink:0}
+.sw.on2{background:linear-gradient(135deg,var(--green),#059669);
+  border-color:var(--green);box-shadow:0 0 10px rgba(52,211,153,.38)}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);transition:left .18s}
+.sw.on2::after{left:20px}
+
+/* ── Feed ─────────────────────────────────────────────── */
+.feedrow{display:flex;align-items:baseline;gap:8px;padding:8px 0;
+  border-bottom:1px solid var(--border);font-size:.83rem}
+.feedrow:last-child{border-bottom:none}
+
+/* ── Stat grid (analytics) ────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+
+/* ── Sidebar overlay ──────────────────────────────────── */
+#sb-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.55);z-index:150;backdrop-filter:blur(2px);
+}
+
+/* ── Modal ────────────────────────────────────────────── */
+#modal{
+  position:fixed;inset:0;z-index:999;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.modal-box{
+  max-width:500px;width:100%;max-height:90vh;overflow-y:auto;
+  background:var(--surface);border:1px solid var(--border2);border-radius:18px;
+  padding:22px;box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(124,92,252,.1);
+}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+.modal-title{font-family:'Space Grotesk',sans-serif;font-size:1.25rem;font-weight:700}
+.modal-meta{font-size:.77rem;color:var(--muted2);margin-top:4px}
+.modal-sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+
+/* ── Hour bars ────────────────────────────────────────── */
+#aHours{display:flex;align-items:flex-end;gap:3px;height:76px;margin-top:6px}
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media(max-width:768px){
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:200;
+    transform:translateX(-100%);transition:transform .24s cubic-bezier(.4,0,.2,1);
+    box-shadow:8px 0 32px rgba(0,0,0,.5);
   }
-  * { box-sizing:border-box; }
-  html,body { margin:0; }
-  body {
-    background:var(--bg); color:var(--txt); min-height:100vh;
-    font-family:"Inter",system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased;
-  }
-  .bg { position:fixed; inset:0; z-index:-2;
-    background:
-      radial-gradient(900px 600px at 12% 8%, rgba(79,140,255,.16), transparent 60%),
-      radial-gradient(820px 620px at 88% 16%, rgba(139,92,246,.14), transparent 60%),
-      radial-gradient(760px 560px at 50% 108%, rgba(57,230,255,.10), transparent 60%),
-      var(--bg);
-  }
-  .bg::after { content:""; position:absolute; inset:0;
-    background-image:linear-gradient(rgba(120,160,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,255,.045) 1px,transparent 1px);
-    background-size:46px 46px;
-    -webkit-mask:radial-gradient(circle at 50% 24%, #000, transparent 78%);
-            mask:radial-gradient(circle at 50% 24%, #000, transparent 78%); }
-
-  h1 { font-family:"Space Grotesk",sans-serif; font-size:1.5rem; margin:0; letter-spacing:-.02em; }
-  a { color:var(--blue2); }
-  .sub { color:var(--mut); font-size:.85rem; margin-top:3px; }
-  .muted { color:var(--mut); }
-  .hide { display:none !important; }
-
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px;
-    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); box-shadow:0 14px 50px rgba(0,0,0,.45); }
-  .card + .card { margin-top:18px; }
-  .card h2 { font-family:"Space Grotesk",sans-serif; font-size:1.05rem; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
-
-  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  input[type=text], input[type=password] { flex:1; min-width:150px; padding:11px 14px; border-radius:11px;
-    border:1px solid var(--line2); background:rgba(6,10,20,.7); color:var(--txt); font-size:.95rem; outline:none; transition:border-color .15s, box-shadow .15s; font-family:inherit; }
-  input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(79,140,255,.18); }
-  input::placeholder { color:#5f7496; }
-
-  button { padding:10px 16px; border:none; border-radius:11px; background:var(--accent); color:#fff;
-    font-weight:600; font-size:.9rem; cursor:pointer; font-family:inherit; transition:transform .1s, box-shadow .15s, filter .15s; }
-  button:hover { filter:brightness(1.08); box-shadow:0 6px 22px rgba(79,140,255,.35); transform:translateY(-1px); }
-  button:active { transform:translateY(0); }
-  button.ghost { background:rgba(255,255,255,.04); border:1px solid var(--line2); color:var(--txt); box-shadow:none; }
-  button.ghost:hover { background:rgba(255,255,255,.08); box-shadow:none; }
-  button.red { background:linear-gradient(135deg,#ff5c7a,#e03a5f); }
-  button.amber { background:linear-gradient(135deg,#ffc24b,#f59e0b); color:#1a1200; }
-  button.sm { padding:7px 13px; font-size:.82rem; border-radius:9px; }
-
-  table { width:100%; border-collapse:collapse; }
-  th, td { text-align:left; padding:11px 10px; border-bottom:1px solid var(--line); font-size:.9rem; vertical-align:middle; }
-  th { color:var(--mut); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; }
-  tbody tr { transition:background .12s; }
-  tbody tr:hover { background:rgba(120,160,255,.04); }
-
-  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
-  .on { background:var(--green); box-shadow:0 0 8px var(--green); } .off { background:#53617a; }
-  .pill { display:inline-block; padding:3px 9px; border-radius:999px; font-size:.72rem; font-weight:600;
-    background:rgba(91,208,255,.14); color:var(--blue2); border:1px solid rgba(91,208,255,.25); }
-
-  .stat { font-family:"Space Grotesk",sans-serif; font-size:2.1rem; font-weight:700; line-height:1.1;
-    background:linear-gradient(135deg,#fff,#9fc4ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:14px; }
-  .statbox { position:relative; background:rgba(10,15,30,.6); border:1px solid var(--line); border-radius:14px; padding:16px; overflow:hidden; }
-  .statbox::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); }
-
-  .toggle { display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
-  .sw { width:46px; height:26px; border-radius:999px; position:relative; background:#30415f; transition:background .18s; flex-shrink:0; }
-  .sw.on2 { background:linear-gradient(135deg,#3ddc97,#19b37a); box-shadow:0 0 14px rgba(61,220,151,.5); }
-  .sw::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .18s; }
-  .sw.on2::after { left:23px; }
-
-  .label { font-size:.8rem; color:var(--mut); margin-bottom:7px; }
-  .field { margin-bottom:14px; }
-  .note { font-size:.78rem; color:var(--mut); margin-top:10px; }
-  .flash { font-size:.82rem; color:var(--green); min-height:1em; margin-top:8px; font-weight:500; }
-
-  /* ---- login ---- */
-  #login { max-width:400px; margin:14vh auto 0; text-align:center; }
-  #login .logo { width:60px; height:60px; margin:0 auto 16px; border-radius:18px; background:var(--accent);
-    display:flex; align-items:center; justify-content:center; font-size:30px; box-shadow:0 10px 36px rgba(79,140,255,.45); }
-  #login input { text-align:center; }
-
-  /* ---- dashboard shell ---- */
-  #dash { display:block; max-width:1120px; margin:0 auto; padding:22px 18px 70px; }
-  .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
-  .brand { font-family:"Space Grotesk",sans-serif; font-weight:700; font-size:1.5rem; letter-spacing:-.02em; display:flex; align-items:center; gap:10px; }
-  .brand .mark { width:34px; height:34px; border-radius:10px; background:var(--accent); display:inline-flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 6px 20px rgba(79,140,255,.4); }
-  .brand span { color:var(--mut); font-weight:500; font-size:1rem; }
-  .topbar .right { display:flex; align-items:center; gap:12px; }
-  .livepill { display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px;
-    background:rgba(61,220,151,.1); border:1px solid rgba(61,220,151,.3); font-size:.85rem; font-weight:600; color:#bff3dc; }
-  .livepill b { font-family:"Space Grotesk",sans-serif; color:#fff; }
-  .pulse { width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(61,220,151,.6); animation:pulse 1.8s infinite; }
-  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(61,220,151,.5)} 70%{box-shadow:0 0 0 9px rgba(61,220,151,0)} 100%{box-shadow:0 0 0 0 rgba(61,220,151,0)} }
-
-  .vitals { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:18px; }
-
-  .tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
-  .tab { background:rgba(255,255,255,.03); border:1px solid var(--line); color:var(--mut); padding:9px 16px; border-radius:12px;
-    font-weight:600; font-size:.88rem; cursor:pointer; box-shadow:none; transition:all .15s; }
-  .tab:hover { color:#fff; background:rgba(255,255,255,.06); transform:none; box-shadow:none; }
-  .tab.active { color:#fff; background:linear-gradient(135deg,rgba(79,140,255,.22),rgba(139,92,246,.16));
-    border-color:var(--line2); box-shadow:inset 0 0 0 1px rgba(120,160,255,.25), 0 6px 20px rgba(79,140,255,.18); }
-
-  .feedrow { display:flex; gap:10px; align-items:baseline; padding:8px 4px; border-bottom:1px solid var(--line); font-size:.88rem; }
-
-  @media (max-width:560px) {
-    .topbar { align-items:flex-start; }
-    .stat { font-size:1.7rem; }
-  }
+  .sidebar.open{transform:translateX(0)}
+  #sb-overlay.open{display:block}
+  #hamburger{display:flex}
+  .content{padding:16px 14px 60px}
+  .topbar{padding:11px 14px}
+}
+@media(max-width:480px){
+  .row{flex-direction:column;align-items:stretch}
+  .row input,.row button{width:100%}
+  .row>*{flex:none}
+  .row button.sm{width:auto}
+  .modal-box{padding:16px}
+}
 </style>
 </head>
 <body>
-<div class="bg"></div>
+<div class="bg-deco"></div>
 
-<!-- LOGIN -->
-<div id="login" class="card">
-  <div class="logo">⬡</div>
-  <h1>ScrollHub Admin</h1>
-  <div class="sub" style="margin-bottom:18px">Enter the admin password to continue.</div>
-  <div class="field"><input id="pw" type="password" placeholder="Password" autocomplete="current-password" /></div>
-  <button id="loginBtn" style="width:100%">Sign in →</button>
-  <div id="loginErr" class="flash" style="color:var(--red)"></div>
+<!-- ═══ LOGIN ══════════════════════════════════════════ -->
+<div id="login">
+  <div class="login-wrap">
+    <div class="login-logo">⬡</div>
+    <h1>ScrollHub Admin</h1>
+    <div class="login-sub">Enter the admin password to continue.</div>
+    <div class="field">
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password"/>
+    </div>
+    <button id="loginBtn" class="full">Sign in →</button>
+    <div id="loginErr" class="flash" style="color:var(--red);text-align:center;margin-top:8px"></div>
+  </div>
 </div>
 
-<!-- DASHBOARD -->
+<!-- Sidebar overlay -->
+<div id="sb-overlay"></div>
+
+<!-- ═══ DASHBOARD ════════════════════════════════════════ -->
 <div id="dash" class="hide">
-  <div class="topbar">
-    <div class="brand"><span class="mark">⬡</span> ScrollHub <span>Admin</span></div>
-    <div class="right">
-      <span class="livepill"><i class="pulse"></i> <b id="hdrOnline">0</b> online</span>
-      <button id="logout" class="ghost sm">Sign out</button>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-mark">⬡</div>
+      ScrollHub
     </div>
-  </div>
 
-  <div class="vitals">
-    <div class="statbox"><div class="muted" style="font-size:.78rem">Online now</div><div class="stat" id="sOnline">0</div></div>
-    <div class="statbox"><div class="muted" style="font-size:.78rem">Banned</div><div class="stat" id="sBanned">0</div></div>
-    <div class="statbox"><div class="muted" style="font-size:.78rem">Maintenance</div><div class="stat" id="sMaint">Off</div></div>
-  </div>
+    <nav class="sb-nav">
+      <div class="sb-section">Management</div>
 
-  <nav class="tabs">
-    <button class="tab active" data-view="players">👥 Players</button>
-    <button class="tab" data-view="analytics">📈 Analytics</button>
-    <button class="tab" data-view="feed">📜 Feed</button>
-    <button class="tab" data-view="games">🕹️ Add games</button>
-    <button class="tab" data-view="controls">⚙️ Controls</button>
-    <button class="tab" data-view="bans">⛔ Bans</button>
-  </nav>
+      <button class="tab active" data-view="players">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Players
+      </button>
 
-  <section class="view" data-panel="players">
-    <div class="card">
-      <h2>👥 Live players</h2>
-      <table>
-        <thead><tr><th>Nickname</th><th>Playing</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
-        <tbody id="players"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
-      </table>
-      <div class="note">Updates every few seconds. Click a nickname to open their profile.</div>
+      <button class="tab" data-view="analytics">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+        Analytics
+      </button>
+
+      <button class="tab" data-view="feed">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Activity Feed
+      </button>
+
+      <button class="tab" data-view="games">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="17" cy="12" r="1"/><circle cx="15" cy="10" r="1"/></svg>
+        Add Games
+      </button>
+
+      <div class="sb-section" style="margin-top:4px">Admin</div>
+
+      <button class="tab" data-view="controls">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M5.34 5.34L3.93 6.75"/><path d="M19.07 19.07l-1.41-1.41"/><path d="M5.34 18.66L3.93 17.25"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+        Controls
+      </button>
+
+      <button class="tab" data-view="bans">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Bans
+      </button>
+    </nav>
+
+    <div class="sb-bottom">
+      <div class="online-pill">
+        <span class="pulse"></span>
+        <span><b id="hdrOnline">0</b> online now</span>
+      </div>
+      <button id="logout" class="ghost sm full">Sign out</button>
     </div>
-  </section>
+  </aside>
 
-  <section class="view hide" data-panel="analytics">
-    <div class="card">
-      <h2>📈 Analytics</h2>
-      <div class="grid">
-        <div class="statbox"><div class="muted" style="font-size:.78rem">Peak online</div><div class="stat" id="aPeak">0</div><div class="muted" id="aPeakAt" style="font-size:.7rem"></div></div>
-        <div class="statbox"><div class="muted" style="font-size:.78rem">Total sessions</div><div class="stat" id="aSessions">0</div></div>
+  <!-- ── Main ── -->
+  <div class="main">
+    <div class="topbar">
+      <button id="hamburger">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbarTitle">Players</span>
+      <div class="topbar-right">
+        <span class="topbar-tag">ScrollHub Admin</span>
+        <!-- logout on desktop is in sidebar -->
       </div>
-      <div class="label" style="margin-top:18px">Busiest hours (0–23, server time)</div>
-      <div id="aHours" style="display:flex;align-items:flex-end;gap:3px;height:88px;margin-top:6px"></div>
-      <div class="label" style="margin-top:18px">Most-played games</div>
-      <table><tbody id="aGames"><tr><td class="muted">No plays yet</td></tr></tbody></table>
     </div>
-  </section>
 
-  <section class="view hide" data-panel="feed">
-    <div class="card">
-      <h2>📜 Activity feed</h2>
-      <div id="feed" style="max-height:420px;overflow:auto">Loading…</div>
-    </div>
-  </section>
+    <div class="content">
 
-  <section class="view hide" data-panel="games">
-    <div class="card">
-      <h2>🕹️ Add your own games</h2>
-      <div class="field"><div class="label">Game name</div><input id="gName" type="text" placeholder="e.g. Cool Math Blaster" /></div>
-      <div class="field"><div class="label">Game URL (page the game loads from)</div><input id="gUrl" type="text" placeholder="https://example.com/game/  or  /storage/ag/..." /></div>
-      <div class="field"><div class="label">Thumbnail image URL (optional)</div><input id="gImg" type="text" placeholder="https://.../thumbnail.png" /></div>
-      <div class="field"><div class="label">Category (optional)</div><input id="gCat" type="text" placeholder="e.g. Action" /></div>
-      <button id="gAdd">+ Add game</button>
-      <div id="gFlash" class="flash"></div>
-      <div class="note">Added games show up for everyone in the Games section, mixed in with the rest.</div>
-      <div class="label" style="margin-top:18px">Your added games</div>
-      <table><tbody id="gList"><tr><td class="muted">None yet</td></tr></tbody></table>
-    </div>
-  </section>
-
-  <section class="view hide" data-panel="controls">
-    <div class="card">
-      <h2>⚙️ Site controls</h2>
-      <div class="field">
-        <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode — closes the site for everyone</span></label>
-      </div>
-      <div class="field">
-        <div class="label">Global redirect (send everyone to a URL — blank for none)</div>
-        <div class="row"><input id="redir" type="text" placeholder="https://example.com" /><button id="redirBtn">Apply</button></div>
-      </div>
-      <div class="field">
-        <div class="label">Announcement banner (shown at the top for everyone)</div>
-        <div class="row"><input id="ann" type="text" placeholder="Message…" /><button id="annBtn">Apply</button></div>
-      </div>
-      <div class="field">
-        <div class="label">Broadcast popup (one-time popup to everyone online)</div>
-        <div class="row"><input id="bc" type="text" placeholder="Message…" /><button id="bcBtn">Send</button></div>
-      </div>
-      <div id="flash" class="flash"></div>
-    </div>
-    <div class="card">
-      <h2>📣 Send to everyone</h2>
-      <div class="note">Blast every player who's online right now — a message, or a bit of chaos.</div>
-      <div class="field">
-        <div class="label">Message (used by Popup / Toast)</div>
-        <div class="row"><input id="saMsg" type="text" placeholder="Type a message…" /></div>
-      </div>
-      <div class="field">
-        <div class="label">Blast</div>
-        <div class="row">
-          <button class="sm" data-sa="popup">💬 Popup to all</button>
-          <button class="sm ghost" data-sa="message">🔔 Toast to all</button>
-          <button class="sm" data-sa="shake">📳 Shake all</button>
-          <button class="sm" data-sa="flash">⚡ Flash all</button>
-          <button class="sm amber" data-sa="rickroll">🎵 Rickroll all</button>
-          <button class="sm red" data-sa="jumpscare">😱 Jumpscare all</button>
+      <!-- Vitals row (always visible) -->
+      <div class="vitals">
+        <div class="stat-card c-green">
+          <div class="stat-label">Online Now</div>
+          <div class="stat-num" id="sOnline">0</div>
+        </div>
+        <div class="stat-card c-red">
+          <div class="stat-label">Banned</div>
+          <div class="stat-num" id="sBanned">0</div>
+        </div>
+        <div class="stat-card c-amber">
+          <div class="stat-label">Maintenance</div>
+          <div class="stat-num" id="sMaint">Off</div>
         </div>
       </div>
-      <div class="field">
-        <div class="label">Redirect everyone to a URL</div>
-        <div class="row"><input id="saUrl" type="text" placeholder="https://example.com" /><button class="sm" data-sa="redirect">Send all</button></div>
-      </div>
-      <div class="field">
-        <div class="label">📜 Give everyone online some Scrolls (casino currency)</div>
-        <div class="row"><input id="gaAmt" type="number" placeholder="e.g. 5000" /><button class="sm gold" id="gaBtn">Give to all</button></div>
-      </div>
-      <div id="saFlash" class="flash"></div>
-    </div>
 
-    <div class="card">
-      <h2>📜 Scrolls &amp; Events</h2>
-      <div class="note">Give or take Scrolls from any account by username, run giveaways, and set the Game of the Day.</div>
-      <div class="field">
-        <div class="label">Give / take Scrolls by username (use a negative amount to take)</div>
-        <div class="row">
-          <input id="scUser" type="text" placeholder="username" />
-          <input id="scAmt" type="number" placeholder="amount" />
-          <button class="sm gold" id="scGive">Give</button>
-          <button class="sm red" id="scTake">Take</button>
+      <!-- ── Players ── -->
+      <section class="view" data-panel="players">
+        <div class="card">
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Live Players
+          </h2>
+          <table>
+            <thead><tr><th>Nickname</th><th>Playing</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="players"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+          </table>
+          <div class="note">Updates every few seconds. Click a nickname to open their profile.</div>
         </div>
-      </div>
-      <div class="field">
-        <div class="label">🎉 Event: give Scrolls to EVERY account (even offline players)</div>
-        <div class="row"><input id="allAmt" type="number" placeholder="e.g. 1000" /><button class="sm gold" id="allBtn">Give to all accounts</button></div>
-      </div>
-      <div class="field">
-        <div class="label">🎁 Event code — players redeem once each in the casino</div>
-        <div class="row">
-          <input id="cdCode" type="text" placeholder="CODE (e.g. HALLOWEEN)" />
-          <input id="cdAmt" type="number" placeholder="Scrolls each" />
-          <input id="cdMax" type="number" placeholder="max claims (0 = ∞)" />
-          <button class="sm gold" id="cdCreate">Create code</button>
-        </div>
-        <div id="cdList" class="note" style="margin-top:8px"></div>
-      </div>
-      <div class="field">
-        <div class="label">⭐ Game of the Day — override the daily auto-pick</div>
-        <div class="row">
-          <input id="gdLabel" type="text" placeholder="exact game name as shown on the site" />
-          <button class="sm gold" id="gdSet">Set</button>
-          <button class="sm" id="gdClear">Clear (auto)</button>
-        </div>
-        <div id="gdNow" class="note" style="margin-top:6px"></div>
-      </div>
-      <div class="field">
-        <div class="label">🥇 Weekly tournament prizes (1st / 2nd / 3rd)</div>
-        <div class="row">
-          <input id="tp1" type="number" placeholder="1st" style="max-width:90px" />
-          <input id="tp2" type="number" placeholder="2nd" style="max-width:90px" />
-          <input id="tp3" type="number" placeholder="3rd" style="max-width:90px" />
-          <button class="sm gold" id="tpSet">Save prizes</button>
-          <button class="sm red" id="tpEnd">End week now</button>
-        </div>
-        <div id="tpNow" class="note" style="margin-top:6px"></div>
-      </div>
-      <div id="seFlash" class="flash"></div>
-    </div>
+      </section>
 
-    <div class="card">
-      <h2>🚩 Reports</h2>
-      <div class="note">Players reported from the chat profile card.</div>
-      <div class="row"><button class="sm" id="repLoad">Refresh</button><button class="sm red" id="repClear">Clear all</button></div>
-      <div id="repList" class="note" style="margin-top:8px">Click Refresh to load.</div>
-    </div>
-
-    <div class="card">
-      <h2>🌈 Site-wide takeover</h2>
-      <div class="note">Flip a switch and <b>everyone's</b> screen gets the effect instantly — and anyone who joins while it's on gets it too. Stays on until you hit Off.</div>
-      <div class="field">
-        <div class="label">Pick a mode</div>
-        <div class="row">
-          <button class="sm" data-to="disco">🪩 Disco</button>
-          <button class="sm" data-to="matrix">🟩 Matrix</button>
-          <button class="sm" data-to="snow">❄️ Snow</button>
-          <button class="sm" data-to="confetti">🎉 Confetti</button>
-          <button class="sm" data-to="strobe">⚡ Strobe</button>
-          <button class="sm" data-to="invert">🔀 Invert</button>
-          <button class="sm" data-to="spin">🌀 Spin</button>
-          <button class="sm" data-to="bounce">🟡 Bounce</button>
+      <!-- ── Analytics ── -->
+      <section class="view hide" data-panel="analytics">
+        <div class="card">
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+            Analytics
+          </h2>
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Peak Online</div><div class="stat-num" id="aPeak">0</div><div class="muted" id="aPeakAt" style="font-size:.68rem;margin-top:4px"></div></div>
+            <div class="stat-card"><div class="stat-label">Total Sessions</div><div class="stat-num" id="aSessions">0</div></div>
+          </div>
+          <div class="label" style="margin-top:16px">Busiest hours (0–23, server time)</div>
+          <div id="aHours"></div>
+          <div class="label" style="margin-top:16px">Most-played games</div>
+          <table><tbody id="aGames"><tr><td class="muted">No plays yet</td></tr></tbody></table>
         </div>
-      </div>
-      <div class="row"><button class="sm red" data-to="">⏹ Turn off</button></div>
-      <div id="toFlash" class="flash"></div>
-      <div class="note" style="margin-top:6px">Now active: <b id="toActive">Off</b></div>
-    </div>
-    <div class="card">
-      <h2>📢 Chat announcements</h2>
-      <div class="field"><div class="label">Title</div><input id="anTitle" type="text" placeholder="Announcement title" /></div>
-      <div class="field"><div class="label">Message</div><input id="anBody" type="text" placeholder="What's the news?" /></div>
-      <div class="row">
-        <label style="display:inline-flex;align-items:center;gap:7px;color:var(--mut);font-size:.85rem;cursor:pointer"><input id="anImp" type="checkbox" style="width:16px;height:16px" /> Mark important</label>
-        <button id="anPost">Post to chat</button>
-      </div>
-      <div id="anFlash" class="flash"></div>
-      <div class="note">Shows up in the chat for everyone.</div>
-      <div class="label" style="margin-top:14px">Posted announcements</div>
-      <table><tbody id="anList"><tr><td class="muted">None</td></tr></tbody></table>
-    </div>
-  </section>
+      </section>
 
-  <section class="view hide" data-panel="bans">
-    <div class="card">
-      <h2>⛔ Banned</h2>
-      <table>
-        <thead><tr><th>Nickname</th><th>Reason</th><th>Expires</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
-        <tbody id="bans"><tr><td colspan="5" class="muted">None</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-</div>
+      <!-- ── Feed ── -->
+      <section class="view hide" data-panel="feed">
+        <div class="card">
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Activity Feed
+          </h2>
+          <div id="feed" style="max-height:420px;overflow:auto">Loading…</div>
+        </div>
+      </section>
 
-<!-- PLAYER PROFILE MODAL -->
-<div id="modal" class="hide" style="position:fixed;inset:0;z-index:999;background:rgba(2,6,14,.74);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px">
-  <div style="max-width:540px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:22px;backdrop-filter:blur(20px);box-shadow:0 30px 80px rgba(0,0,0,.6)">
-    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <!-- ── Games ── -->
+      <section class="view hide" data-panel="games">
+        <div class="card">
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="17" cy="12" r="1"/><circle cx="15" cy="10" r="1"/></svg>
+            Add Your Own Games
+          </h2>
+          <div class="field"><div class="label">Game Name</div><input id="gName" type="text" placeholder="e.g. Cool Math Blaster"/></div>
+          <div class="field"><div class="label">Game URL</div><input id="gUrl" type="text" placeholder="https://example.com/game/  or  /storage/ag/..."/></div>
+          <div class="field"><div class="label">Thumbnail URL (optional)</div><input id="gImg" type="text" placeholder="https://.../thumbnail.png"/></div>
+          <div class="field"><div class="label">Category (optional)</div><input id="gCat" type="text" placeholder="e.g. Action"/></div>
+          <button id="gAdd">+ Add game</button>
+          <div id="gFlash" class="flash"></div>
+          <div class="note">Added games appear for everyone in the Games section.</div>
+          <div class="label" style="margin-top:16px">Your Added Games</div>
+          <table><tbody id="gList"><tr><td class="muted">None yet</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <!-- ── Controls ── -->
+      <section class="view hide" data-panel="controls">
+
+        <div class="card">
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M5.34 5.34L3.93 6.75"/><path d="M19.07 19.07l-1.41-1.41"/><path d="M5.34 18.66L3.93 17.25"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+            Site Controls
+          </h2>
+          <div class="field">
+            <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode — closes the site for everyone</span></label>
+          </div>
+          <div class="field">
+            <div class="label">Global redirect (blank = none)</div>
+            <div class="row"><input id="redir" type="text" placeholder="https://example.com"/><button id="redirBtn">Apply</button></div>
+          </div>
+          <div class="field">
+            <div class="label">Announcement banner</div>
+            <div class="row"><input id="ann" type="text" placeholder="Message shown to everyone…"/><button id="annBtn">Apply</button></div>
+          </div>
+          <div class="field">
+            <div class="label">Broadcast popup (one-time, everyone online)</div>
+            <div class="row"><input id="bc" type="text" placeholder="Message…"/><button id="bcBtn">Send</button></div>
+          </div>
+          <div id="flash" class="flash"></div>
+        </div>
+
+        <div class="card">
+          <h2>📣 Send to Everyone Online</h2>
+          <div class="field">
+            <div class="label">Message (for Popup / Toast)</div>
+            <div class="row"><input id="saMsg" type="text" placeholder="Type a message…"/></div>
+          </div>
+          <div class="field">
+            <div class="label">Blast</div>
+            <div class="row">
+              <button class="sm" data-sa="popup">💬 Popup</button>
+              <button class="sm ghost" data-sa="message">🔔 Toast</button>
+              <button class="sm" data-sa="shake">📳 Shake all</button>
+              <button class="sm" data-sa="flash">⚡ Flash all</button>
+              <button class="sm amber" data-sa="rickroll">🎵 Rickroll all</button>
+              <button class="sm red" data-sa="jumpscare">😱 Jumpscare all</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Redirect everyone to a URL</div>
+            <div class="row"><input id="saUrl" type="text" placeholder="https://example.com"/><button class="sm" data-sa="redirect">Send all</button></div>
+          </div>
+          <div class="field">
+            <div class="label">Give everyone online some Scrolls</div>
+            <div class="row"><input id="gaAmt" type="number" placeholder="e.g. 5000"/><button class="sm gold" id="gaBtn">Give to all online</button></div>
+          </div>
+          <div id="saFlash" class="flash"></div>
+        </div>
+
+        <div class="card">
+          <h2>📜 Scrolls &amp; Events</h2>
+          <div class="field">
+            <div class="label">Give / take Scrolls by username (negative to take)</div>
+            <div class="row">
+              <input id="scUser" type="text" placeholder="username"/>
+              <input id="scAmt" type="number" placeholder="amount"/>
+              <button class="sm gold" id="scGive">Give</button>
+              <button class="sm red" id="scTake">Take</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">🎉 Give Scrolls to EVERY account (even offline)</div>
+            <div class="row"><input id="allAmt" type="number" placeholder="e.g. 1000"/><button class="sm gold" id="allBtn">Give to all accounts</button></div>
+          </div>
+          <div class="field">
+            <div class="label">🎁 Event code — players redeem once in the casino</div>
+            <div class="row">
+              <input id="cdCode" type="text" placeholder="CODE (e.g. HALLOWEEN)"/>
+              <input id="cdAmt" type="number" placeholder="Scrolls each"/>
+              <input id="cdMax" type="number" placeholder="max claims (0 = ∞)"/>
+              <button class="sm gold" id="cdCreate">Create code</button>
+            </div>
+            <div id="cdList" class="note" style="margin-top:8px"></div>
+          </div>
+          <div class="field">
+            <div class="label">⭐ Game of the Day override</div>
+            <div class="row">
+              <input id="gdLabel" type="text" placeholder="exact game name as shown on the site"/>
+              <button class="sm gold" id="gdSet">Set</button>
+              <button class="sm" id="gdClear">Clear (auto)</button>
+            </div>
+            <div id="gdNow" class="note" style="margin-top:5px"></div>
+          </div>
+          <div class="field">
+            <div class="label">🥇 Weekly tournament prizes (1st / 2nd / 3rd)</div>
+            <div class="row">
+              <input id="tp1" type="number" placeholder="1st" style="max-width:80px"/>
+              <input id="tp2" type="number" placeholder="2nd" style="max-width:80px"/>
+              <input id="tp3" type="number" placeholder="3rd" style="max-width:80px"/>
+              <button class="sm gold" id="tpSet">Save prizes</button>
+              <button class="sm red" id="tpEnd">End week now</button>
+            </div>
+            <div id="tpNow" class="note" style="margin-top:5px"></div>
+          </div>
+          <div id="seFlash" class="flash"></div>
+        </div>
+
+        <div class="card">
+          <h2>🚩 Reports</h2>
+          <div class="note">Players reported from the chat profile card.</div>
+          <div class="row" style="margin-top:10px">
+            <button class="sm" id="repLoad">Refresh</button>
+            <button class="sm red" id="repClear">Clear all</button>
+          </div>
+          <div id="repList" class="note" style="margin-top:8px">Click Refresh to load.</div>
+        </div>
+
+        <div class="card">
+          <h2>🌈 Site-Wide Takeover</h2>
+          <div class="note">Flip a switch and <b>everyone's</b> screen gets the effect instantly.</div>
+          <div class="field" style="margin-top:12px">
+            <div class="label">Pick a mode</div>
+            <div class="row">
+              <button class="sm" data-to="disco">🪩 Disco</button>
+              <button class="sm" data-to="matrix">🟩 Matrix</button>
+              <button class="sm" data-to="snow">❄️ Snow</button>
+              <button class="sm" data-to="confetti">🎉 Confetti</button>
+              <button class="sm" data-to="strobe">⚡ Strobe</button>
+              <button class="sm" data-to="invert">🔀 Invert</button>
+              <button class="sm" data-to="spin">🌀 Spin</button>
+              <button class="sm" data-to="bounce">🟡 Bounce</button>
+            </div>
+          </div>
+          <div class="row"><button class="sm red" data-to="">⏹ Turn off</button></div>
+          <div id="toFlash" class="flash"></div>
+          <div class="note" style="margin-top:6px">Now active: <b id="toActive">Off</b></div>
+        </div>
+
+        <div class="card">
+          <h2>📢 Chat Announcements</h2>
+          <div class="field"><div class="label">Title</div><input id="anTitle" type="text" placeholder="Announcement title"/></div>
+          <div class="field"><div class="label">Message</div><input id="anBody" type="text" placeholder="What's the news?"/></div>
+          <div class="row">
+            <label style="display:inline-flex;align-items:center;gap:7px;color:var(--muted2);font-size:.82rem;cursor:pointer">
+              <input id="anImp" type="checkbox" style="width:15px;height:15px"/> Mark important
+            </label>
+            <button id="anPost">Post to chat</button>
+          </div>
+          <div id="anFlash" class="flash"></div>
+          <div class="label" style="margin-top:14px">Posted Announcements</div>
+          <table><tbody id="anList"><tr><td class="muted">None</td></tr></tbody></table>
+        </div>
+
+      </section>
+
+      <!-- ── Bans ── -->
+      <section class="view hide" data-panel="bans">
+        <div class="card">
+          <h2>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            Banned Players
+          </h2>
+          <table>
+            <thead><tr><th>Nickname</th><th>Reason</th><th>Expires</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
+            <tbody id="bans"><tr><td colspan="5" class="muted">None</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /dash -->
+
+<!-- ═══ PLAYER PROFILE MODAL ══════════════════════════════ -->
+<div id="modal" class="hide">
+  <div class="modal-box">
+    <div class="modal-header">
       <div>
-        <div id="mName" style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700">Player</div>
-        <div id="mMeta" class="muted" style="font-size:.84rem;margin-top:3px"></div>
+        <div id="mName" class="modal-title">Player</div>
+        <div id="mMeta" class="modal-meta"></div>
       </div>
       <button id="mClose" class="ghost sm">✕</button>
     </div>
 
-    <div style="margin-top:18px">
+    <div class="modal-sec">
       <div class="label">✨ Fun</div>
       <div class="row">
         <button class="sm" data-act="freeze">❄ Freeze</button>
@@ -386,9 +645,10 @@
       </div>
     </div>
 
-    <div style="margin-top:16px">
-      <div class="label">📜 Give / take Scrolls (casino currency)</div>
-      <div class="row"><input id="mCoins" type="number" placeholder="e.g. 5000 (negative to take)" />
+    <div class="modal-sec">
+      <div class="label">📜 Give / take Scrolls</div>
+      <div class="row">
+        <input id="mCoins" type="number" placeholder="e.g. 5000 (negative to take)"/>
         <button class="sm" data-coins="give">Give</button>
         <button class="sm ghost" data-coins="1000">+1k</button>
         <button class="sm ghost" data-coins="10000">+10k</button>
@@ -396,53 +656,66 @@
       <div id="mCoinsFlash" class="flash"></div>
     </div>
 
-    <div style="margin-top:16px">
+    <div class="modal-sec">
       <div class="label">💬 Send a message</div>
-      <div class="row"><input id="mMsg" type="text" placeholder="Type a message…" />
+      <div class="row">
+        <input id="mMsg" type="text" placeholder="Type a message…"/>
         <button class="sm" data-act="popup">Popup</button>
         <button class="sm ghost" data-act="toast">Toast</button>
       </div>
     </div>
 
-    <div style="margin-top:16px">
+    <div class="modal-sec">
       <div class="label">🏷️ Rename their browser tab</div>
-      <div class="row"><input id="mTitle" type="text" placeholder="e.g. Google Classroom" />
-        <button class="sm" data-act="tabtitle">Set tab</button></div>
+      <div class="row">
+        <input id="mTitle" type="text" placeholder="e.g. Google Classroom"/>
+        <button class="sm" data-act="tabtitle">Set tab</button>
+      </div>
     </div>
 
-    <div style="margin-top:16px">
-      <div class="label">🎮 Redirect them to a game</div>
-      <div class="row"><input id="mGame" type="text" placeholder="Search a game…" list="gameList" />
-        <button class="sm" data-act="togame">Send to game</button></div>
+    <div class="modal-sec">
+      <div class="label">🎮 Send to a game or URL</div>
+      <div class="row">
+        <input id="mGame" type="text" placeholder="Search a game…" list="gameList"/>
+        <button class="sm" data-act="togame">Send to game</button>
+      </div>
       <datalist id="gameList"></datalist>
-      <div class="row" style="margin-top:8px"><input id="mUrl" type="text" placeholder="…or any URL (https://…)" />
-        <button class="sm ghost" data-act="tourl">Redirect</button></div>
+      <div class="row" style="margin-top:7px">
+        <input id="mUrl" type="text" placeholder="…or any URL (https://…)"/>
+        <button class="sm ghost" data-act="tourl">Redirect</button>
+      </div>
     </div>
 
-    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px">
+    <div class="modal-sec">
       <div class="label">👑 Chat role</div>
       <div class="row">
-        <button class="sm" data-act="setowner">👑 Make chat owner</button>
+        <button class="sm" data-act="setowner">👑 Make owner</button>
         <button class="sm ghost" data-act="unsetowner">Remove owner</button>
       </div>
-      <div class="label" style="margin-top:14px">🛡️ Moderation</div>
+
+      <div class="label" style="margin-top:12px">🛡️ Moderation</div>
       <div class="row"><button class="amber sm" data-act="kickrow">👢 Kick</button></div>
-      <div class="label" style="margin-top:14px">Ban length: <span id="banDurLabel" style="color:var(--blue2)">Permanent</span></div>
-      <div id="banDur" class="row" style="gap:6px">
+
+      <div class="label" style="margin-top:12px">Ban length: <span id="banDurLabel" style="color:var(--cyan)">Permanent</span></div>
+      <div id="banDur" class="row" style="gap:5px">
         <button class="sm dur" data-dur="0">Permanent</button>
         <button class="sm ghost dur" data-dur="5">5 min</button>
         <button class="sm ghost dur" data-dur="60">1 hour</button>
         <button class="sm ghost dur" data-dur="1440">1 day</button>
       </div>
-      <div class="label" style="margin-top:14px">Ban for…</div>
-      <div id="offenseList" class="row" style="gap:6px"></div>
-      <div class="row" style="margin-top:8px"><input id="mCustomBan" type="text" placeholder="Custom reason…" />
-        <button class="red sm" data-act="banrow">Ban</button></div>
+
+      <div class="label" style="margin-top:12px">Ban for…</div>
+      <div id="offenseList" class="row" style="gap:5px"></div>
+      <div class="row" style="margin-top:7px">
+        <input id="mCustomBan" type="text" placeholder="Custom reason…"/>
+        <button class="red sm" data-act="banrow">Ban</button>
+      </div>
     </div>
     <div id="mFlash" class="flash"></div>
   </div>
 </div>
 
+<!-- ═══ SCRIPTS (logic unchanged) ════════════════════════ -->
 <script>
 (function () {
   var PW = '';
@@ -451,10 +724,10 @@
 
   var OFFENSES = ['Spamming', 'Harassment', 'Inappropriate language', 'NSFW / explicit', 'Cheating / exploiting',
     'Ban evasion', 'Advertising', 'Impersonation', 'Threats', 'Being disruptive'];
-  var playerMap = {};   // id -> player
-  var currentId = null; // player open in modal
-  var games = [];       // {label, url}
-  var banMinutes = 0;   // 0 = permanent
+  var playerMap = {};
+  var currentId = null;
+  var games = [];
+  var banMinutes = 0;
   function fmtLeft(until) {
     var ms = until - Date.now(); if (ms <= 0) return 'expired';
     var m = Math.round(ms / 60000);
@@ -490,7 +763,6 @@
   $('logout').onclick = function () { try { sessionStorage.removeItem('sh_admin_pw'); } catch (e) {} PW = ''; showLogin(); };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
-
   function flash(msg) { $('flash').textContent = msg; setTimeout(function () { $('flash').textContent = ''; }, 2500); }
 
   var redirFocused = false, annFocused = false;
@@ -516,15 +788,14 @@
     if (!players.length) pb.innerHTML = '<tr><td colspan="5" class="muted">No one online right now.</td></tr>';
     else pb.innerHTML = players.map(function (p) {
       playerMap[p.id] = p;
-      return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--blue2);text-decoration:none;font-weight:700">' +
+      return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--cyan);text-decoration:none;font-weight:600">' +
         esc(p.nickname) + '</a>' + (p.chatOwner ? ' <span class="pill">👑</span>' : '') + (p.frozen ? ' <span class="pill">frozen</span>' : '') + '</td>' +
         '<td class="muted">' + esc(p.activity || '—') + '</td>' +
         '<td class="muted">' + esc(p.location) + '</td>' +
         '<td><span class="dot ' + (p.online ? 'on' : 'off') + '"></span>' + (p.online ? 'Online' : 'Idle') + '</td>' +
-        '<td style="text-align:right"><button class="sm" data-open="' + esc(p.id) + '">Manage</button></td></tr>';
+        '<td style="text-align:right"><button class="sm ghost" data-open="' + esc(p.id) + '">Manage</button></td></tr>';
     }).join('');
 
-    // keep the open modal's frozen pill fresh
     if (currentId && playerMap[currentId]) refreshModalMeta(playerMap[currentId]);
 
     var bb = $('bans');
@@ -548,7 +819,7 @@
     if (!list.length) { el.innerHTML = '<tr><td class="muted">None</td></tr>'; return; }
     el.innerHTML = list.slice().reverse().map(function (a) {
       return '<tr><td><strong>' + esc(a.title) + '</strong>' + (a.important ? ' <span class="pill">important</span>' : '') +
-        '<br><span class="muted" style="font-size:.78rem">' + esc(a.content) + '</span></td>' +
+        '<br><span class="muted" style="font-size:.74rem">' + esc(a.content) + '</span></td>' +
         '<td style="text-align:right"><button class="ghost sm" data-delann="' + esc(a.id) + '">Remove</button></td></tr>';
     }).join('');
   }
@@ -558,7 +829,7 @@
     var el = $('gList'); if (!el) return;
     if (!list.length) { el.innerHTML = '<tr><td class="muted">None yet</td></tr>'; return; }
     el.innerHTML = list.map(function (g) {
-      return '<tr><td><strong>' + esc(g.label) + '</strong><br><span class="muted" style="font-size:.74rem">' + esc(g.url) + '</span></td>' +
+      return '<tr><td><strong>' + esc(g.label) + '</strong><br><span class="muted" style="font-size:.72rem">' + esc(g.url) + '</span></td>' +
         '<td style="text-align:right"><button class="ghost sm" data-delgame="' + esc(g.id) + '">Remove</button></td></tr>';
     }).join('');
   }
@@ -566,7 +837,7 @@
   function renderEvents(evs) {
     if (!evs || !evs.length) { $('feed').innerHTML = '<div class="muted">No activity yet.</div>'; return; }
     var ICON = { join: '🟢', leave: '⚪', play: '🎮', ban: '⛔', kick: '👢' };
-    var COLOR = { join: 'var(--green)', leave: 'var(--mut)', play: 'var(--blue2)', ban: 'var(--red)', kick: 'var(--amber)' };
+    var COLOR = { join: 'var(--green)', leave: 'var(--muted2)', play: 'var(--cyan)', ban: 'var(--red)', kick: 'var(--amber)' };
     $('feed').innerHTML = evs.map(function (e) {
       var t = new Date(e.ts).toLocaleTimeString();
       var label = e.type === 'join' ? 'joined' : e.type === 'leave' ? 'left' :
@@ -574,9 +845,9 @@
         e.type === 'kick' ? 'kicked' : '';
       return '<div class="feedrow">' +
         '<span>' + (ICON[e.type] || '•') + '</span>' +
-        '<span style="color:' + (COLOR[e.type] || 'var(--txt)') + ';font-weight:600">' + esc(e.nickname) + '</span>' +
+        '<span style="color:' + (COLOR[e.type] || 'var(--text)') + ';font-weight:600">' + esc(e.nickname) + '</span>' +
         '<span class="muted">' + label + '</span>' +
-        '<span class="muted" style="margin-left:auto;font-size:.76rem">' + t + '</span></div>';
+        '<span class="muted" style="margin-left:auto;font-size:.73rem">' + t + '</span></div>';
     }).join('');
   }
 
@@ -587,19 +858,19 @@
     var hrs = s.hourly || [];
     var max = Math.max.apply(null, hrs.concat([1]));
     $('aHours').innerHTML = hrs.map(function (v, h) {
-      var ht = Math.round((v / max) * 80) + 2;
+      var ht = Math.round((v / max) * 68) + 2;
       return '<div title="' + h + ':00 — ' + v + ' pings" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px">' +
-        '<div style="width:100%;height:' + ht + 'px;background:linear-gradient(180deg,#5bd0ff,#4f8cff);border-radius:4px 4px 0 0;opacity:' + (v ? 1 : 0.25) + '"></div>' +
-        '<div style="font-size:8px;color:var(--mut)">' + (h % 6 === 0 ? h : '') + '</div></div>';
+        '<div style="width:100%;height:' + ht + 'px;background:linear-gradient(180deg,#7c5cfc,#5b6df0);border-radius:3px 3px 0 0;opacity:' + (v ? 1 : 0.2) + '"></div>' +
+        '<div style="font-size:7px;color:var(--muted)">' + (h % 6 === 0 ? h : '') + '</div></div>';
     }).join('');
     var g = s.topGames || [];
     $('aGames').innerHTML = g.length ? g.map(function (x, i) {
-      return '<tr><td style="width:26px;color:var(--mut)">' + (i + 1) + '</td><td><strong>' + esc(x.name) + '</strong></td>' +
-        '<td style="text-align:right;color:var(--blue2)">' + x.plays + ' plays</td></tr>';
+      return '<tr><td style="width:24px;color:var(--muted)">' + (i + 1) + '</td><td><strong>' + esc(x.name) + '</strong></td>' +
+        '<td style="text-align:right;color:var(--cyan)">' + x.plays + ' plays</td></tr>';
     }).join('') : '<tr><td class="muted">No plays yet</td></tr>';
   }
 
-  // ----- player profile modal -----
+  // ----- player modal -----
   function mflash(msg) { $('mFlash').textContent = msg; setTimeout(function () { $('mFlash').textContent = ''; }, 2000); }
   function refreshModalMeta(p) {
     $('mName').innerHTML = esc(p.nickname) + (p.chatOwner ? ' <span class="pill">👑 owner</span>' : '') + (p.frozen ? ' <span class="pill">frozen</span>' : '');
@@ -621,7 +892,6 @@
     api('command', { id: currentId, cmd: Object.assign({ type: type }, extra || {}) });
   }
 
-  // offense chips
   OFFENSES.forEach(function (o) {
     var b = document.createElement('button');
     b.className = 'red sm'; b.textContent = o; b.dataset.offense = o;
@@ -629,7 +899,7 @@
   });
 
   document.addEventListener('click', function (e) {
-    var t = e.target, id;
+    var t = e.target;
     if (t.dataset.open) { e.preventDefault(); openProfile(t.dataset.open); return; }
     if (t.dataset.unban) { api('unban', { ip: t.dataset.unban }).then(tick); return; }
     if (t.dataset.delgame) { api('delgame', { id: t.dataset.delgame }).then(tick); return; }
@@ -678,7 +948,6 @@
     else if (act === 'banrow') { var r = $('mCustomBan').value.trim() || 'Banned by admin'; api('ban', { id: currentId, reason: r, minutes: banMinutes }).then(function () { mflash('Banned.'); closeModal(); tick(); }); }
   });
 
-  // load game list for the "send to game" picker
   var gameByLabel = {};
   function loadGames() {
     fetch('/storage/data/collection.json').then(function (r) { return r.json(); }).then(function (d) {
@@ -698,20 +967,21 @@
   $('redirBtn').onclick = function () { api('settings', { settings: { redirect: $('redir').value } }).then(function () { flash('Redirect updated.'); }); };
   $('annBtn').onclick = function () { api('settings', { settings: { announcement: $('ann').value } }).then(function () { flash('Announcement updated.'); }); };
   $('bcBtn').onclick = function () { var v = $('bc').value; api('broadcast', { text: v }).then(function () { flash('Broadcast sent.'); $('bc').value = ''; }); };
+
   function saFlash(msg) { $('saFlash').textContent = msg; setTimeout(function () { $('saFlash').textContent = ''; }, 2600); }
   document.querySelectorAll('[data-sa]').forEach(function (btn) {
     btn.onclick = function () {
       var type = btn.getAttribute('data-sa');
-      var cmd = { type: type };
+      var c = { type: type };
       if (type === 'popup' || type === 'message') {
-        cmd.text = $('saMsg').value.trim();
-        if (!cmd.text) { saFlash('Type a message first.'); return; }
+        c.text = $('saMsg').value.trim();
+        if (!c.text) { saFlash('Type a message first.'); return; }
       }
       if (type === 'redirect') {
-        cmd.url = $('saUrl').value.trim();
-        if (!cmd.url) { saFlash('Enter a URL first.'); return; }
+        c.url = $('saUrl').value.trim();
+        if (!c.url) { saFlash('Enter a URL first.'); return; }
       }
-      api('sendall', { cmd: cmd }).then(function (res) {
+      api('sendall', { cmd: c }).then(function (res) {
         if (res.ok) saFlash('Sent to ' + ((res.data && res.data.sent) || 0) + ' online ✓');
         else saFlash((res.data && res.data.error) || 'Failed.');
       });
@@ -725,7 +995,7 @@
       else saFlash((res.data && res.data.error) || 'Failed.');
     });
   };
-  // ---- Scrolls & Events ----
+
   function seFlash(msg) { $('seFlash').textContent = msg; setTimeout(function () { $('seFlash').textContent = ''; }, 3200); }
   function scrolls(sign) {
     var u = $('scUser').value.trim(), a = Math.abs(Number($('scAmt').value) || 0) * sign;
@@ -745,7 +1015,9 @@
   function renderCodes(codes) {
     var el = $('cdList');
     if (!codes || !codes.length) { el.textContent = 'No active codes.'; return; }
-    el.innerHTML = codes.map(function (c) { return '<div style="margin:3px 0">🎁 <b>' + c.code + '</b> — ' + c.amount + ' Scrolls · ' + c.count + (c.max ? ('/' + c.max) : '') + ' claimed <button class="sm red" data-del="' + c.code + '" style="padding:0 7px;font-size:11px">✕</button></div>'; }).join('');
+    el.innerHTML = codes.map(function (c) {
+      return '<div style="margin:3px 0">🎁 <b>' + c.code + '</b> — ' + c.amount + ' Scrolls · ' + c.count + (c.max ? ('/' + c.max) : '') + ' claimed <button class="sm red" data-del="' + c.code + '" style="padding:0 7px;font-size:11px">✕</button></div>';
+    }).join('');
     el.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function () { api('deletecode', { code: b.dataset.del }).then(function (res) { renderCodes(res.data && res.data.codes); }); }; });
   }
   $('cdCreate').onclick = function () {
@@ -765,7 +1037,7 @@
   api('listcodes', {}).then(function (res) { if (res.ok) { renderCodes(res.data.codes); showGotd(res.data.gotd); } });
   function showTour(t) { if (!t) return; $('tpNow').textContent = 'Prizes: ' + (t.prizes || []).map(function (p) { return p.toLocaleString(); }).join(' / ') + ' · ' + ((t.top && t.top.length) || 0) + ' players in this week'; }
   $('tpSet').onclick = function () {
-    api('tourprizes', { p1: Number($('tp1').value) || 0, p2: Number($('tp2').value) || 0, p3: Number($('tp3').value) || 0 }).then(function (res) { if (res.ok) { seFlash('Prizes saved: ' + res.data.prizes.join(' / ') + ' ✓'); api('tourstate', {}).then(function (r) { if (r.ok) showTour(r.data.tour); }); } });
+    api('tourprizes', { p1: Number($('tp1').value) || 0, p2: Number($('tp2').value) || 0, p3: Number($('tp3').value) || 0 }).then(function (res) { if (res.ok) { seFlash('Prizes saved ✓'); api('tourstate', {}).then(function (r) { if (r.ok) showTour(r.data.tour); }); } });
   };
   $('tpEnd').onclick = function () {
     if (!confirm('End this week NOW and pay out the top 3?')) return;
@@ -776,12 +1048,15 @@
     var el = $('repList');
     if (!list || !list.length) { el.textContent = 'No reports.'; return; }
     el.innerHTML = list.map(function (r) {
-      return '<div style="margin:5px 0;padding:7px;border:1px solid var(--line2);border-radius:8px">🚩 <b>' + esc(r.targetName) + '</b> reported by ' + esc(r.reporterName) + '<div style="margin:3px 0">' + (r.reason ? esc(r.reason) : '<i>(no reason given)</i>') + '</div><div style="color:var(--mut);font-size:.75rem">' + new Date(r.at).toLocaleString() + '</div></div>';
+      return '<div style="margin:5px 0;padding:8px 10px;border:1px solid var(--border2);border-radius:8px">🚩 <b>' + esc(r.targetName) + '</b> reported by ' + esc(r.reporterName) +
+        '<div style="margin:3px 0;font-size:.8rem">' + (r.reason ? esc(r.reason) : '<i>(no reason given)</i>') + '</div>' +
+        '<div style="color:var(--muted);font-size:.72rem">' + new Date(r.at).toLocaleString() + '</div></div>';
     }).join('');
   }
   $('repLoad').onclick = function () { api('reports', {}).then(function (res) { if (res.ok) renderReports(res.data.reports); }); };
   $('repClear').onclick = function () { if (!confirm('Clear all reports?')) return; api('clearreports', {}).then(function () { renderReports([]); }); };
   api('reports', {}).then(function (res) { if (res.ok) renderReports(res.data.reports); });
+
   var TO_NAMES = { '': 'Off', disco: '🪩 Disco', matrix: '🟩 Matrix', snow: '❄️ Snow', confetti: '🎉 Confetti', strobe: '⚡ Strobe', invert: '🔀 Invert', spin: '🌀 Spin', bounce: '🟡 Bounce' };
   function toFlashMsg(m) { $('toFlash').textContent = m; setTimeout(function () { $('toFlash').textContent = ''; }, 2600); }
   document.querySelectorAll('[data-to]').forEach(function (btn) {
@@ -821,21 +1096,40 @@
   }
 
   setInterval(function () { if (!$('dash').classList.contains('hide')) tick(); }, 4000);
-
   if (PW) { api('state').then(function (res) { if (res.ok) showDash(); else showLogin(); }).catch(showLogin); }
   else showLogin();
 })();
 
-// ----- tab navigation (independent of the main logic) -----
+// ── Tab navigation ─────────────────────────────────────
 (function () {
   var tabs = document.querySelectorAll('.tab');
   var views = document.querySelectorAll('.view');
+  var TITLES = { players:'Players', analytics:'Analytics', feed:'Activity Feed', games:'Add Games', controls:'Controls', bans:'Bans' };
   function show(v) {
     for (var i = 0; i < views.length; i++) views[i].classList.toggle('hide', views[i].getAttribute('data-panel') !== v);
     for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].getAttribute('data-view') === v);
+    var tt = document.getElementById('topbarTitle');
+    if (tt) tt.textContent = TITLES[v] || v;
   }
   for (var k = 0; k < tabs.length; k++) {
     tabs[k].addEventListener('click', function () { show(this.getAttribute('data-view')); });
+  }
+})();
+
+// ── Mobile sidebar ────────────────────────────────────
+(function () {
+  var sb = document.getElementById('sidebar');
+  var ov = document.getElementById('sb-overlay');
+  var hb = document.getElementById('hamburger');
+  if (!sb || !ov || !hb) return;
+  function open() { sb.classList.add('open'); ov.classList.add('open'); }
+  function close() { sb.classList.remove('open'); ov.classList.remove('open'); }
+  hb.addEventListener('click', function () { sb.classList.contains('open') ? close() : open(); });
+  ov.addEventListener('click', close);
+  // close sidebar when a nav item is clicked on mobile
+  var tabs = sb.querySelectorAll('.tab');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener('click', function () { if (window.innerWidth <= 768) close(); });
   }
 })();
 </script>
