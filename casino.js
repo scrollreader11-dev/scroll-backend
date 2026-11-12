@@ -32,7 +32,7 @@ async function kvSet(key, value) {
 
 const casino = { users: {}, gotd: null, codes: {}, tour: null }; // cid -> profile; gotd override; event codes; weekly tournament
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
+  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
 function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; } catch (e) {} }
 export async function initCasino() {
@@ -332,8 +332,126 @@ export const STORE = [
   { id: 'tfx_gold', type: 'titlefx', label: '🥇 Gold Title (animated)', value: 'gold', price: 30000, rarity: 'epic' },
   { id: 'tfx_shimmer', type: 'titlefx', label: '✨ Shimmer Title (animated)', value: 'shimmer', price: 45000, rarity: 'legendary' },
   { id: 'tfx_rainbow', type: 'titlefx', label: '🌈 Rainbow Title (animated)', value: 'rainbow', price: 80000, rarity: 'mythic' },
+
+  // ===== 2D casino world: character cosmetics (price 0 = free for everyone) =====
+  // Character shapes
+  { id: 'skin_gim', type: 'skin', label: 'Classic Gim', value: 'gim', price: 0, rarity: 'common' },
+  { id: 'skin_cat', type: 'skin', label: 'Cat', value: 'cat', price: 0, rarity: 'common' },
+  { id: 'skin_bear', type: 'skin', label: 'Bear', value: 'bear', price: 3000, rarity: 'common' },
+  { id: 'skin_bunny', type: 'skin', label: 'Bunny', value: 'bunny', price: 4500, rarity: 'uncommon' },
+  { id: 'skin_frog', type: 'skin', label: 'Frog', value: 'frog', price: 4500, rarity: 'uncommon' },
+  { id: 'skin_penguin', type: 'skin', label: 'Penguin', value: 'penguin', price: 7500, rarity: 'rare' },
+  { id: 'skin_robot', type: 'skin', label: 'Robot', value: 'robot', price: 9000, rarity: 'rare' },
+  { id: 'skin_ghost', type: 'skin', label: 'Ghost', value: 'ghost', price: 15000, rarity: 'epic' },
+  { id: 'skin_alien', type: 'skin', label: 'Alien', value: 'alien', price: 18000, rarity: 'epic' },
+  { id: 'skin_dino', type: 'skin', label: 'Dino', value: 'dino', price: 30000, rarity: 'legendary' },
+  { id: 'skin_imp', type: 'skin', label: 'Imp', value: 'imp', price: 60000, rarity: 'mythic' },
+  // Body colors (hex) and animated materials (m:*)
+  { id: 'body_sky', type: 'body', label: 'Sky', value: '#3fa9ff', price: 0, rarity: 'common' },
+  { id: 'body_grass', type: 'body', label: 'Grass', value: '#3fd27a', price: 0, rarity: 'common' },
+  { id: 'body_sun', type: 'body', label: 'Sunny', value: '#ffcc33', price: 0, rarity: 'common' },
+  { id: 'body_coral', type: 'body', label: 'Coral', value: '#ff6b6b', price: 0, rarity: 'common' },
+  { id: 'body_grape', type: 'body', label: 'Grape', value: '#9b6bff', price: 0, rarity: 'common' },
+  { id: 'body_bubble', type: 'body', label: 'Bubblegum', value: '#ff8ad8', price: 0, rarity: 'common' },
+  { id: 'body_snow', type: 'body', label: 'Snow', value: '#eef2ff', price: 0, rarity: 'common' },
+  { id: 'body_coal', type: 'body', label: 'Charcoal', value: '#4a4f6a', price: 0, rarity: 'common' },
+  { id: 'body_mint', type: 'body', label: 'Mint', value: '#5eead4', price: 2000, rarity: 'common' },
+  { id: 'body_tang', type: 'body', label: 'Tangerine', value: '#ff922b', price: 2000, rarity: 'common' },
+  { id: 'body_lav', type: 'body', label: 'Lavender', value: '#c4b5fd', price: 3500, rarity: 'uncommon' },
+  { id: 'body_crim', type: 'body', label: 'Crimson', value: '#dc143c', price: 5000, rarity: 'rare' },
+  { id: 'body_mid', type: 'body', label: 'Midnight', value: '#2a3a9a', price: 5000, rarity: 'rare' },
+  { id: 'body_gold', type: 'body', label: 'Solid Gold', value: 'm:gold', price: 25000, rarity: 'legendary' },
+  { id: 'body_chrome', type: 'body', label: 'Chrome', value: 'm:chrome', price: 30000, rarity: 'legendary' },
+  { id: 'body_lava', type: 'body', label: 'Lava (animated)', value: 'm:lava', price: 40000, rarity: 'legendary' },
+  { id: 'body_galaxy', type: 'body', label: 'Galaxy (animated)', value: 'm:galaxy', price: 50000, rarity: 'mythic' },
+  { id: 'body_rainbow', type: 'body', label: 'Rainbow (animated)', value: 'm:rainbow', price: 75000, rarity: 'mythic' },
+  // Hats
+  { id: 'hat_cap', type: 'hat', label: 'Ball Cap', value: 'cap', price: 1500, rarity: 'common' },
+  { id: 'hat_beanie', type: 'hat', label: 'Beanie', value: 'beanie', price: 2000, rarity: 'common' },
+  { id: 'hat_party', type: 'hat', label: 'Party Hat', value: 'party', price: 2500, rarity: 'common' },
+  { id: 'hat_phones', type: 'hat', label: 'Headphones', value: 'phones', price: 4000, rarity: 'uncommon' },
+  { id: 'hat_chef', type: 'hat', label: 'Chef Hat', value: 'chef', price: 4000, rarity: 'uncommon' },
+  { id: 'hat_cowboy', type: 'hat', label: 'Cowboy Hat', value: 'cowboy', price: 6000, rarity: 'rare' },
+  { id: 'hat_prop', type: 'hat', label: 'Propeller Cap', value: 'prop', price: 6000, rarity: 'rare' },
+  { id: 'hat_top', type: 'hat', label: 'Top Hat', value: 'top', price: 9000, rarity: 'rare' },
+  { id: 'hat_viking', type: 'hat', label: 'Viking Helm', value: 'viking', price: 12000, rarity: 'epic' },
+  { id: 'hat_wizard', type: 'hat', label: 'Wizard Hat', value: 'wizard', price: 15000, rarity: 'epic' },
+  { id: 'hat_halo', type: 'hat', label: 'Halo (animated)', value: 'halo', price: 22000, rarity: 'epic' },
+  { id: 'hat_horns', type: 'hat', label: 'Devil Horns', value: 'horns', price: 22000, rarity: 'epic' },
+  { id: 'hat_crown', type: 'hat', label: 'Royal Crown', value: 'crown', price: 50000, rarity: 'legendary' },
+  // Face / neck accessories
+  { id: 'acc_shades', type: 'acc', label: 'Sunglasses', value: 'shades', price: 2000, rarity: 'common' },
+  { id: 'acc_nerd', type: 'acc', label: 'Nerd Glasses', value: 'nerd', price: 2500, rarity: 'common' },
+  { id: 'acc_stache', type: 'acc', label: 'Mustache', value: 'stache', price: 3000, rarity: 'uncommon' },
+  { id: 'acc_bowtie', type: 'acc', label: 'Bow Tie', value: 'bowtie', price: 3500, rarity: 'uncommon' },
+  { id: 'acc_monocle', type: 'acc', label: 'Monocle', value: 'monocle', price: 6000, rarity: 'rare' },
+  { id: 'acc_patch', type: 'acc', label: 'Eye Patch', value: 'patch', price: 6000, rarity: 'rare' },
+  { id: 'acc_scarf', type: 'acc', label: 'Cozy Scarf', value: 'scarf', price: 7000, rarity: 'rare' },
+  { id: 'acc_chain', type: 'acc', label: 'Gold Chain', value: 'chain', price: 15000, rarity: 'epic' },
+  { id: 'acc_pixel', type: 'acc', label: 'Deal-With-It Shades', value: 'pixel', price: 25000, rarity: 'legendary' },
+  { id: 'acc_cape', type: 'acc', label: 'Royal Cape', value: 'cape', price: 30000, rarity: 'legendary' },
+  // Walking trails
+  { id: 'trail_sparkle', type: 'trail', label: 'Sparkles', value: 'sparkle', price: 5000, rarity: 'uncommon' },
+  { id: 'trail_hearts', type: 'trail', label: 'Hearts', value: 'hearts', price: 6000, rarity: 'uncommon' },
+  { id: 'trail_bubbles', type: 'trail', label: 'Bubbles', value: 'bubbles', price: 6000, rarity: 'uncommon' },
+  { id: 'trail_music', type: 'trail', label: 'Music Notes', value: 'music', price: 8000, rarity: 'rare' },
+  { id: 'trail_snow', type: 'trail', label: 'Snowfall', value: 'snow', price: 9000, rarity: 'rare' },
+  { id: 'trail_coins', type: 'trail', label: 'Coin Drop', value: 'coins', price: 15000, rarity: 'epic' },
+  { id: 'trail_stars', type: 'trail', label: 'Shooting Stars', value: 'stars', price: 15000, rarity: 'epic' },
+  { id: 'trail_fire', type: 'trail', label: 'Fire Walk', value: 'fire', price: 25000, rarity: 'legendary' },
+  { id: 'trail_rainbow', type: 'trail', label: 'Rainbow Road', value: 'rainbow', price: 45000, rarity: 'mythic' },
+  // Emotes (shown in a bubble over your character)
+  { id: 'emo_wave', type: 'emote', label: 'Wave', value: '👋', price: 0, rarity: 'common' },
+  { id: 'emo_laugh', type: 'emote', label: 'Laugh', value: '😂', price: 0, rarity: 'common' },
+  { id: 'emo_wow', type: 'emote', label: 'Wow', value: '😮', price: 0, rarity: 'common' },
+  { id: 'emo_thumbs', type: 'emote', label: 'Thumbs Up', value: '👍', price: 0, rarity: 'common' },
+  { id: 'emo_heart', type: 'emote', label: 'Love', value: '❤️', price: 0, rarity: 'common' },
+  { id: 'emo_cry', type: 'emote', label: 'Cry', value: '😭', price: 0, rarity: 'common' },
+  { id: 'emo_gg', type: 'emote', label: 'GG', value: 'GG', price: 0, rarity: 'common' },
+  { id: 'emo_fire', type: 'emote', label: 'On Fire', value: '🔥', price: 1500, rarity: 'common' },
+  { id: 'emo_cool', type: 'emote', label: 'Cool', value: '😎', price: 1500, rarity: 'common' },
+  { id: 'emo_party', type: 'emote', label: 'Party', value: '🎉', price: 2000, rarity: 'uncommon' },
+  { id: 'emo_salute', type: 'emote', label: 'Salute', value: '🫡', price: 2500, rarity: 'uncommon' },
+  { id: 'emo_skull', type: 'emote', label: 'Dead', value: '💀', price: 3000, rarity: 'uncommon' },
+  { id: 'emo_clown', type: 'emote', label: 'Clown', value: '🤡', price: 3000, rarity: 'uncommon' },
+  { id: 'emo_rich', type: 'emote', label: 'Money Face', value: '🤑', price: 4000, rarity: 'rare' },
+  { id: 'emo_moai', type: 'emote', label: 'Stone Face', value: '🗿', price: 5000, rarity: 'rare' },
+  { id: 'emo_crown', type: 'emote', label: 'King', value: '👑', price: 10000, rarity: 'epic' },
+  { id: 'emo_rain', type: 'emote', label: 'Make It Rain', value: '💸', price: 15000, rarity: 'legendary' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
+// Character look (2D casino world). Slots hold item ids.
+const LOOK_SLOTS = ['skin', 'body', 'hat', 'acc', 'trail'];
+const LOOK_DEFAULT = { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' };
+function ensureLook(p) {
+  if (!p.look || typeof p.look !== 'object') p.look = { ...LOOK_DEFAULT };
+  for (const k of LOOK_SLOTS) if (typeof p.look[k] !== 'string') p.look[k] = LOOK_DEFAULT[k];
+  return p.look;
+}
+function ownsItem(p, it) { return !!it && (it.price === 0 || p.inventory.includes(it.id)); }
+// Resolved look values the renderer needs (ids -> draw keys).
+function lookValues(p) {
+  const l = ensureLook(p); const out = {};
+  for (const k of LOOK_SLOTS) { const it = l[k] ? storeItem(l[k]) : null; out[k] = it ? it.value : (k === 'skin' ? 'gim' : k === 'body' ? '#3fa9ff' : ''); }
+  return out;
+}
+export function worldIdentity(req) { return who(req); }
+export function worldProfile(cid) { return cid ? profileOf(cid) : null; }
+export function worldLook(cid) {
+  const p = casino.users[cid];
+  if (!p) return { skin: 'gim', body: '#3fa9ff', hat: '', acc: '', trail: '' };
+  return lookValues(p);
+}
+export function worldOwnsEmote(cid, emoteId) {
+  const it = storeItem(String(emoteId || ''));
+  if (!it || it.type !== 'emote') return null;
+  const p = casino.users[cid];
+  if (it.price !== 0 && !(p && p.inventory.includes(it.id))) return null;
+  return it.value;
+}
+// Lets the 2D world react to every finished play (win pops + big-win feed).
+let playHook = null;
+export function setPlayHook(fn) { playHook = fn; }
 
 // ---- cases (CS2-style loot, coin values with rarity) ----
 export const CASES = {
@@ -364,7 +482,7 @@ function readBody(req) {
 function clampBet(bet, coins) { bet = Math.floor(Number(bet) || 0); return bet; }
 function publicProfile(cid) {
   const p = profileOf(cid);
-  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', stats: p.stats };
+  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', look: { ...ensureLook(p) }, lookValues: lookValues(p), stats: p.stats };
 }
 function recordPlay(p, bet, payout) {
   p.stats.plays++; p.stats.wagered += bet;
@@ -375,6 +493,7 @@ function recordPlay(p, bet, payout) {
   if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
   // Weekly tournament: accumulate this week's net result.
   ensureWeek(p); p.weekNet = (p.weekNet || 0) + net;
+  if (playHook) { try { playHook(p, bet, payout); } catch (e) {} }
 }
 
 // ---- blackjack (transient per-user hands) ----
@@ -549,7 +668,7 @@ export async function handleCasino(url, req, res) {
   if (path === '/api/casino/buy' && req.method === 'POST') {
     const body = await readBody(req); const it = storeItem(String(body.itemId || ''));
     if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
-    if (p.inventory.includes(it.id)) return (sendJson(res, 200, { error: 'owned', profile: publicProfile(cid) }), true);
+    if (p.inventory.includes(it.id) || it.price === 0) return (sendJson(res, 200, { error: 'owned', profile: publicProfile(cid) }), true);
     if (it.price > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
     p.coins -= it.price; p.inventory.push(it.id); save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
@@ -561,9 +680,12 @@ export async function handleCasino(url, req, res) {
     if (id === 'none-banner') { p.banner = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     if (id === 'none-avatarFx') { p.avatarFx = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     if (id === 'none-titlefx') { p.titleFx = ''; save(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
+    if (id === 'none-hat' || id === 'none-acc' || id === 'none-trail') { ensureLook(p)[id.slice(5)] = ''; save(); flush(); return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); }
     const it = storeItem(id);
-    if (!it || !p.inventory.includes(it.id)) return (sendJson(res, 200, { error: 'not-owned' }), true);
-    if (it.type === 'tag') p.tag = it.label;
+    if (!it || !ownsItem(p, it)) return (sendJson(res, 200, { error: 'not-owned' }), true);
+    if (it.type === 'emote') return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); // emotes are used, not equipped
+    if (LOOK_SLOTS.includes(it.type)) ensureLook(p)[it.type] = it.id;
+    else if (it.type === 'tag') p.tag = it.label;
     else if (it.type === 'banner') p.banner = it.value;
     else if (it.type === 'avatar') p.avatarFx = it.value;
     else if (it.type === 'titlefx') p.titleFx = it.value;
@@ -749,6 +871,7 @@ export async function handleCasino(url, req, res) {
     if (p.color === it.value) p.color = '';
     if (p.banner === it.value) p.banner = '';
     if (p.avatarFx === it.value) p.avatarFx = '';
+    if (LOOK_SLOTS.includes(it.type) && ensureLook(p)[it.type] === it.id) p.look[it.type] = LOOK_DEFAULT[it.type];
     rp.inventory.push(itemId);
     save(); flush();
     sendJson(res, 200, { ok: true, itemId, toNick: rp.nick || 'player', profile: publicProfile(cid) }); return true;

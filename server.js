@@ -15,6 +15,7 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
+import { handleWorldUpgrade } from './casinoworld.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade } from './discord.js';
@@ -2053,6 +2054,11 @@ httpServer.on('upgrade', (req, socket, head) => {
   if (banActive(ip)) { try { socket.destroy(); } catch {} return; }
   // Skribbl draw & guess has its own WebSocket channel.
   if ((req.url || '').split('?')[0] === '/skribbl-ws') return handleSkribblUpgrade(req, socket, head);
+  // 2D casino world: resolve the logged-in session first (cookie), then join.
+  if ((req.url || '').split('?')[0] === '/world-ws') {
+    resolveSession(req).then((a) => { req._auth = a; }, () => { req._auth = null; }).then(() => handleWorldUpgrade(req, socket, head));
+    return;
+  }
   // Casino case battles have theirs.
   if ((req.url || '').split('?')[0] === '/battle-ws') return handleBattleUpgrade(req, socket, head);
   // ScrollHub Servers: live messages + voice signaling.
