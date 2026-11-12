@@ -132,6 +132,23 @@ const admin = {
   customGames: [],// admin-added games shown to everyone
   chatOwners: {}  // clientId -> true  (designated chat owners)
 };
+// ── Extended admin state ───────────────────────────────────────────────────
+const muted = {};        // ip -> { until (0=permanent), reason }
+const playerNotes = {};  // clientId -> string  (admin sticky notes)
+const wordFilter = [];   // strings to block in chat
+const coinHistory = [];  // { ts, name, amount, reason } — ring buffer 500
+const onlineHistory = [];// { ts, count } — 24h at 5-min intervals (288 max)
+const errorLog = [];     // { ts, msg } — last 100 console.error calls
+const lastMsgTime = new Map(); // clientId -> ts (slow mode tracking)
+const slowMode = {};     // channelId -> seconds (0 = off)
+
+// Capture console.error to errorLog for the system health viewer
+const _origErr = console.error.bind(console);
+console.error = (...a) => {
+  errorLog.push({ ts: Date.now(), msg: a.map(String).join(' ').slice(0, 500) });
+  if (errorLog.length > 100) errorLog.shift();
+  _origErr(...a);
+};
 // Replicates the frontend's generateGameId so ids stay consistent.
 function makeGameId(label, url) {
   let u = String(url || '').trim();
@@ -177,6 +194,14 @@ async function saveState() {
   } catch {}
 }
 setInterval(saveState, 60000);
+// Online history — record player count every 5 min (288 samples = 24h)
+setInterval(() => {
+  prunePlayers();
+  const now = Date.now();
+  const cnt = [...players.values()].filter(p => now - p.lastSeen < PLAYER_TTL).length;
+  onlineHistory.push({ ts: now, count: cnt });
+  if (onlineHistory.length > 288) onlineHistory.shift();
+}, 5 * 60 * 1000);
 
 async function geoLookup(ip) {
   if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.')) return 'Local';
@@ -279,6 +304,7 @@ async function handlePresence(req, res) {
     location: existing?.location || 'Locating…',
     firstSeen: existing?.firstSeen || now,
     lastSeen: now,
+    account: !!a,  // true = logged-in account, false = guest session
   });
   if (!existing || existing.location === 'Locating…') {
     geoLookup(ip).then((loc) => { const p = players.get(id); if (p) p.location = loc; });
@@ -387,14 +413,18 @@ async function handleAdmin(req, res) {
 
   if (action === 'state') {
     prunePlayers();
+    const _now = Date.now();
     const list = [...players.values()].sort((a, b) => b.lastSeen - a.lastSeen).map((p) => ({
       id: p.id, nickname: p.nickname, location: p.location, ip: p.ip,
       activity: p.activity || '',
-      online: Date.now() - p.lastSeen < PLAYER_TTL,
+      online: _now - p.lastSeen < PLAYER_TTL,
       since: p.firstSeen,
       frozen: frozenActive(p.id),
       frozenUntil: admin.frozen[p.id] || 0,
       chatOwner: !!admin.chatOwners[p.id],
+      account: !!p.account,
+      muted: !!(muted[p.ip] && (muted[p.ip].until === 0 || muted[p.ip].until > _now)),
+      note: playerNotes[p.id] || '',
     }));
     const bans = Object.entries(admin.bansByIp).map(([ip, b]) => ({ ip, nickname: b.nickname, reason: b.reason || '', ts: b.ts, until: b.until || 0 }));
     const online = list.filter((p) => p.online).length;
@@ -451,7 +481,10 @@ async function handleAdmin(req, res) {
     const amount = Math.max(-10000000, Math.min(10000000, Math.floor(Number(body.amount) || 0)));
     const bal = grantCoins(id, amount);
     if (bal === null) return sendJson(res, 400, { error: 'bad id' });
-    logEvent('coins', players.get(id)?.nickname || 'Player', (amount >= 0 ? '+' : '') + amount + ' Scrolls');
+    const pName = players.get(id)?.nickname || id;
+    logEvent('coins', pName, (amount >= 0 ? '+' : '') + amount + ' Scrolls');
+    coinHistory.push({ ts: Date.now(), name: pName, amount, reason: 'Admin grant' });
+    if (coinHistory.length > 500) coinHistory.shift();
     return sendJson(res, 200, { ok: true, balance: bal });
   }
   if (action === 'giveall') {
@@ -621,6 +654,157 @@ async function handleAdmin(req, res) {
     if (body.on) admin.chatOwners[id] = true; else delete admin.chatOwners[id];
     await saveState();
     return sendJson(res, 200, { ok: true });
+  }
+  // ── Mute / unmute (chat-only, separate from freeze) ───────────────────────
+  if (action === 'mute') {
+    const id = String(body.id || '');
+    const p = players.get(id);
+    if (!p) return sendJson(res, 400, { error: 'Player not found' });
+    const minutes = Number(body.minutes) || 0;
+    muted[p.ip] = { until: minutes > 0 ? Date.now() + minutes * 60000 : 0, reason: String(body.reason || 'Muted by admin').slice(0, 120) };
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'unmute') {
+    const id = String(body.id || '');
+    const p = players.get(id);
+    if (p) delete muted[p.ip];
+    return sendJson(res, 200, { ok: true });
+  }
+  // ── Player sticky note ────────────────────────────────────────────────────
+  if (action === 'setnote') {
+    const id = String(body.id || '');
+    const note = String(body.note || '').slice(0, 500);
+    if (note) playerNotes[id] = note; else delete playerNotes[id];
+    return sendJson(res, 200, { ok: true });
+  }
+  // ── Player history (casino card) ──────────────────────────────────────────
+  if (action === 'playerhistory') {
+    const id = String(body.id || '');
+    let card = null;
+    try { card = publicUserCard(id); } catch (e) {}
+    return sendJson(res, 200, { ok: true, history: card, note: playerNotes[id] || '', rank: coinRank(id) });
+  }
+  // ── Chat log (admin view, all channels) ──────────────────────────────────
+  if (action === 'chatlog') {
+    const ch = String(body.channel || 'general');
+    return sendJson(res, 200, { ok: true, channel: ch, channels: chat.channels, messages: (chat.messages[ch] || []).slice(-200) });
+  }
+  // ── Delete a specific chat message (admin power) ─────────────────────────
+  if (action === 'deletemsg') {
+    const ch = String(body.channel || 'general');
+    const msgId = String(body.msgId || '');
+    const arr = chat.messages[ch]; if (!arr) return sendJson(res, 400, { error: 'No channel' });
+    const i = arr.findIndex(m => m.id === msgId);
+    if (i >= 0) { arr.splice(i, 1); chat.rev[ch] = (chat.rev[ch] || 1) + 1; saveChat(); }
+    return sendJson(res, 200, { ok: true });
+  }
+  // ── Word filter ───────────────────────────────────────────────────────────
+  if (action === 'addword') {
+    const w = String(body.word || '').trim().toLowerCase().slice(0, 100);
+    if (w && !wordFilter.includes(w)) wordFilter.push(w);
+    return sendJson(res, 200, { ok: true, wordFilter });
+  }
+  if (action === 'removeword') {
+    const w = String(body.word || '').trim().toLowerCase();
+    const i = wordFilter.indexOf(w); if (i >= 0) wordFilter.splice(i, 1);
+    return sendJson(res, 200, { ok: true, wordFilter });
+  }
+  if (action === 'wordfilterlist') {
+    return sendJson(res, 200, { ok: true, wordFilter });
+  }
+  // ── Slow mode ─────────────────────────────────────────────────────────────
+  if (action === 'setslow') {
+    const ch = String(body.channel || 'general');
+    const seconds = Math.max(0, Math.min(300, Number(body.seconds) || 0));
+    slowMode[ch] = seconds;
+    return sendJson(res, 200, { ok: true, channel: ch, seconds });
+  }
+  // ── Direct IP ban (no live player required) ───────────────────────────────
+  if (action === 'ipbanraw') {
+    const ip = String(body.ip || '').trim();
+    if (!ip) return sendJson(res, 400, { error: 'no ip' });
+    const reason = String(body.reason || 'Admin ban').slice(0, 120);
+    const mins = Number(body.minutes) || 0;
+    admin.bansByIp[ip] = { nickname: '[direct]', reason, ts: Date.now(), until: mins > 0 ? Date.now() + mins * 60000 : 0 };
+    logEvent('ban', ip, reason);
+    await saveState();
+    return sendJson(res, 200, { ok: true });
+  }
+  // ── Bulk player actions ────────────────────────────────────────────────────
+  if (action === 'bulkaction') {
+    const what = String(body.what || '');
+    prunePlayers();
+    if (what === 'kickguests') {
+      const msg = String(body.message || 'Guest session ended.').slice(0, 200);
+      let n = 0;
+      for (const [id, p] of players) { if (!p.account) { admin.kicks[id] = { message: msg, ts: Date.now() }; n++; } }
+      return sendJson(res, 200, { ok: true, count: n });
+    }
+    if (what === 'kickall') {
+      const msg = String(body.message || 'Server maintenance.').slice(0, 200);
+      let n = 0;
+      for (const [id] of players) { admin.kicks[id] = { message: msg, ts: Date.now() }; n++; }
+      return sendJson(res, 200, { ok: true, count: n });
+    }
+    if (what === 'freezeall') {
+      for (const [id] of players) admin.frozen[id] = 0;
+      return sendJson(res, 200, { ok: true, count: players.size });
+    }
+    if (what === 'unfreezeall') {
+      for (const id of Object.keys(admin.frozen)) delete admin.frozen[id];
+      return sendJson(res, 200, { ok: true });
+    }
+    return sendJson(res, 400, { error: 'unknown bulk action' });
+  }
+  // ── Coin history ──────────────────────────────────────────────────────────
+  if (action === 'coinhistory') {
+    return sendJson(res, 200, { ok: true, history: coinHistory.slice(-200) });
+  }
+  // ── Leaderboard (tournament top players) ──────────────────────────────────
+  if (action === 'leaderboard') {
+    const tour = tournamentState('');
+    return sendJson(res, 200, { ok: true, top: tour.top || [] });
+  }
+  // ── System health ─────────────────────────────────────────────────────────
+  if (action === 'syshealth') {
+    const uptimeSec = Math.floor(process.uptime());
+    const h = Math.floor(uptimeSec / 3600), m = Math.floor((uptimeSec % 3600) / 60), s = uptimeSec % 60;
+    const mem = process.memoryUsage();
+    prunePlayers();
+    const now = Date.now();
+    const online = [...players.values()].filter(p => now - p.lastSeen < PLAYER_TTL).length;
+    return sendJson(res, 200, {
+      ok: true,
+      uptime: uptimeSec,
+      uptimeFormatted: `${h}h ${m}m ${s}s`,
+      memRss: mem.rss,
+      memHeap: mem.heapUsed,
+      memHeapTotal: mem.heapTotal,
+      onlineNow: online,
+      onlineHistory,
+      errorLog: errorLog.slice(-50),
+    });
+  }
+  // ── Session / join stats ──────────────────────────────────────────────────
+  if (action === 'sessionstats') {
+    const byDay = {};
+    for (const e of events) {
+      if (e.type !== 'join') continue;
+      const day = new Date(e.ts).toISOString().slice(0, 10);
+      byDay[day] = (byDay[day] || 0) + 1;
+    }
+    return sendJson(res, 200, { ok: true, joinsByDay: byDay, totalSessions: stats.totalSessions });
+  }
+  // ── Most active players (by session time) ────────────────────────────────
+  if (action === 'mostactive') {
+    prunePlayers();
+    const now = Date.now();
+    const active = [...players.values()].map(p => ({
+      id: p.id, nickname: p.nickname, activity: p.activity || '',
+      sessionMin: Math.round((now - p.firstSeen) / 60000),
+      online: now - p.lastSeen < PLAYER_TTL,
+    })).sort((a, b) => b.sessionMin - a.sessionMin).slice(0, 20);
+    return sendJson(res, 200, { ok: true, active });
   }
   return sendJson(res, 400, { error: 'unknown action' });
 }
@@ -1421,6 +1605,19 @@ async function chatSend(req, res) {
   const v = chatViewer(req);
   if (banActive(clientIp(req))) return sendJson(res, 403, { error: 'You are banned.' });
   if (frozenActive(v.id)) return sendJson(res, 403, { error: 'You are timed out.' });
+  const senderIp = clientIp(req);
+  if (muted[senderIp] && (muted[senderIp].until === 0 || muted[senderIp].until > Date.now())) {
+    return sendJson(res, 403, { error: 'You are muted from chat.' });
+  }
+  if (wordFilter.length) {
+    const cl = content.toLowerCase();
+    if (wordFilter.some(w => cl.includes(w))) return sendJson(res, 400, { error: 'Message contains blocked content.' });
+  }
+  const slow = slowMode[ch] || 0;
+  if (slow > 0) {
+    const last = lastMsgTime.get(v.id) || 0;
+    if (Date.now() - last < slow * 1000) return sendJson(res, 429, { error: `Slow mode: wait ${slow}s between messages.` });
+  }
   const media = extractMedia(content);
   const mres = resolveMentions(content);
   content = mres.content;
@@ -1435,6 +1632,7 @@ async function chatSend(req, res) {
   if (chat.messages[ch].length > 800) chat.messages[ch] = chat.messages[ch].slice(-800);
   chat.rev[ch] = (chat.rev[ch] || 1) + 1;
   chatMsgCount.set(v.id, (chatMsgCount.get(v.id) || 0) + 1);
+  if (slowMode[ch]) lastMsgTime.set(v.id, Date.now());
   saveChat();
   // Ping mentioned players so they notice even outside the chat tab. Include a
   // readable snippet (mention tokens → @names) so they see what was said.

@@ -390,6 +390,33 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
+
+/* ── Chat log message rows ───────────────────── */
+.chat-msg{
+  padding:7px 10px;border-radius:9px;
+  background:rgba(255,255,255,.025);
+  display:flex;align-items:flex-start;gap:9px;
+  font-size:.82rem;line-height:1.5;
+  border:1px solid rgba(255,255,255,.04);
+}
+.chat-msg:hover{background:rgba(255,255,255,.05)}
+.chat-msg .cm-author{font-weight:600;color:var(--blue);flex-shrink:0;min-width:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-msg .cm-time{color:var(--muted);font-size:.7rem;flex-shrink:0;margin-left:auto;padding-left:8px}
+.chat-msg .cm-del{margin-left:6px;padding:2px 7px;font-size:.7rem;border-radius:6px;cursor:pointer;border:1px solid rgba(255,70,58,.4);background:rgba(255,70,58,.08);color:rgba(255,70,58,.8);display:none}
+.chat-msg:hover .cm-del{display:inline-flex}
+
+/* ── Word filter chips ───────────────────────── */
+.wf-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px 3px 11px;border-radius:999px;
+  background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.3);
+  color:rgba(255,110,100,.95);font-size:.74rem;font-weight:600;
+}
+.wf-chip button{
+  background:none;border:none;padding:0;color:inherit;cursor:pointer;
+  font-size:.8rem;line-height:1;opacity:.7;box-shadow:none;
+}
+.wf-chip button:hover{opacity:1;transform:none;box-shadow:none}
 </style>
 </head>
 <body>
@@ -453,6 +480,23 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         Bans
       </button>
+
+      <div class="sb-section" style="margin-top:4px">Tools</div>
+
+      <button class="tab" data-view="chat">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </button>
+
+      <button class="tab" data-view="economy">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Economy
+      </button>
+
+      <button class="tab" data-view="system">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        System
+      </button>
     </nav>
 
     <div class="sb-bottom">
@@ -500,11 +544,29 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Live Players
           </h2>
+          <div class="row" style="margin-bottom:12px;gap:8px">
+            <input id="playerSearch" type="text" placeholder="Search by name, location, status…" style="flex:1;min-width:0"/>
+            <button class="sm ghost" id="bulkKickGuests" title="Kick all guest sessions">👢 Kick guests</button>
+            <button class="sm ghost" id="bulkFreezeAll" title="Freeze all online players">❄ Freeze all</button>
+            <button class="sm ghost" id="bulkUnfreezeAll" title="Unfreeze everyone">✓ Unfreeze all</button>
+          </div>
           <table>
             <thead><tr><th>Nickname</th><th>Playing</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
             <tbody id="players"><tr><td colspan="5" style="color:var(--muted)">Loading…</td></tr></tbody>
           </table>
           <div class="note">Updates every few seconds. Click a nickname to open their profile.</div>
+        </div>
+        <div class="card">
+          <h2>🚫 Direct IP Ban</h2>
+          <div class="field">
+            <div class="label">Ban an IP address directly (no live player needed)</div>
+            <div class="row">
+              <input id="rawIp" type="text" placeholder="e.g. 203.0.113.42"/>
+              <input id="rawReason" type="text" placeholder="Reason"/>
+              <button class="sm red" id="rawBanBtn">Ban IP</button>
+            </div>
+          </div>
+          <div id="rawBanFlash" class="flash"></div>
         </div>
       </section>
 
@@ -717,6 +779,86 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         </div>
       </section>
 
+      <!-- Chat Monitor -->
+      <section class="view hide" data-panel="chat">
+        <div class="card">
+          <h2>💬 Live Chat Monitor</h2>
+          <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+            <select id="chatCh" style="padding:8px 12px;border-radius:9px;border:1px solid var(--glass-border2);background:rgba(255,255,255,.06);color:var(--text);font-size:.85rem;font-family:inherit;outline:none;cursor:pointer"></select>
+            <button class="sm ghost" id="chatRefresh">🔄 Refresh</button>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              <span style="font-size:.8rem;color:var(--muted)">Slow mode:</span>
+              <input id="slowSec" type="number" min="0" max="300" placeholder="0 = off" style="width:80px"/>
+              <span style="font-size:.8rem;color:var(--muted)">sec</span>
+              <button class="sm" id="slowSet">Set</button>
+            </div>
+          </div>
+          <div id="chatLog" style="max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:1px">
+            <div style="color:var(--muted);padding:16px 0">Select a channel and click Refresh.</div>
+          </div>
+          <div id="chatFlash" class="flash" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card">
+          <h2>🚫 Word Filter</h2>
+          <div class="note" style="margin-bottom:12px">Words and phrases listed here are blocked in chat. Case-insensitive, partial matches.</div>
+          <div class="row" style="margin-bottom:12px">
+            <input id="wfWord" type="text" placeholder="Add a word or phrase to block…"/>
+            <button id="wfAdd">+ Add</button>
+          </div>
+          <div id="wfList" style="display:flex;flex-wrap:wrap;gap:7px;min-height:28px"></div>
+          <div id="wfFlash" class="flash" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <!-- Economy -->
+      <section class="view hide" data-panel="economy">
+        <div class="card">
+          <h2>🏆 Coin Leaderboard</h2>
+          <table>
+            <thead><tr><th>#</th><th>Player</th><th style="text-align:right">Coins</th></tr></thead>
+            <tbody id="lbTable"><tr><td colspan="3" style="color:var(--muted)">Click Refresh to load.</td></tr></tbody>
+          </table>
+          <button class="sm ghost" id="lbRefresh" style="margin-top:12px">🔄 Refresh</button>
+        </div>
+
+        <div class="card">
+          <h2>💸 Recent Coin Transactions</h2>
+          <div class="note" style="margin-bottom:10px">Admin grants tracked during this session.</div>
+          <table>
+            <thead><tr><th>Time</th><th>Player</th><th>Amount</th><th>Reason</th></tr></thead>
+            <tbody id="txTable"><tr><td colspan="4" style="color:var(--muted)">Click Refresh to load.</td></tr></tbody>
+          </table>
+          <button class="sm ghost" id="txRefresh" style="margin-top:12px">🔄 Refresh</button>
+        </div>
+      </section>
+
+      <!-- System -->
+      <section class="view hide" data-panel="system">
+        <div class="vitals" id="sysCards" style="margin-bottom:22px">
+          <div class="stat-card c-green"><div class="stat-label">Uptime</div><div class="stat-num" id="syUptime">—</div></div>
+          <div class="stat-card"><div class="stat-label">Memory (RSS)</div><div class="stat-num" id="syMem">—</div></div>
+          <div class="stat-card c-amber"><div class="stat-label">Heap Used</div><div class="stat-num" id="syHeap">—</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Online Now</div><div class="stat-num" id="syOnline">—</div></div>
+        </div>
+
+        <div class="card">
+          <h2>📈 Online Players — Last 24h</h2>
+          <canvas id="onlineChart" height="120" style="width:100%;display:block;margin-top:4px"></canvas>
+          <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:.68rem;color:var(--muted)">
+            <span>24h ago</span><span>12h ago</span><span>Now</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>🔴 Error Log</h2>
+          <div id="errLog" style="max-height:320px;overflow-y:auto;font-family:'SF Mono','Fira Mono',monospace;font-size:.72rem;line-height:1.6;color:rgba(255,80,80,.9)">
+            <div style="color:var(--muted)">Click Refresh to load.</div>
+          </div>
+          <button class="sm ghost" id="syRefresh" style="margin-top:12px">🔄 Refresh</button>
+        </div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -788,7 +930,11 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <button class="sm ghost" data-act="unsetowner">Remove owner</button>
       </div>
       <div class="label" style="margin-top:12px">🛡️ Moderation</div>
-      <div class="row"><button class="amber sm" data-act="kickrow">👢 Kick</button></div>
+      <div class="row">
+        <button class="amber sm" data-act="kickrow">👢 Kick</button>
+        <button class="sm ghost" data-act="muterow">🔇 Mute chat</button>
+        <button class="sm ghost" data-act="unmuterow">🔈 Unmute</button>
+      </div>
       <div class="label" style="margin-top:12px">Ban length: <span id="banDurLabel" style="color:var(--blue)">Permanent</span></div>
       <div id="banDur" class="row" style="gap:5px">
         <button class="sm dur" data-dur="0">Permanent</button>
@@ -802,6 +948,18 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <input id="mCustomBan" type="text" placeholder="Custom reason…"/>
         <button class="red sm" data-act="banrow">Ban</button>
       </div>
+    </div>
+    <div class="modal-sec">
+      <div class="label">📌 Sticky Note</div>
+      <div class="row">
+        <input id="mNote" type="text" placeholder="e.g. 'VIP player', 'previous evader'…"/>
+        <button class="sm ghost" data-act="savenote">Save</button>
+        <button class="sm ghost" data-act="clearnote">Clear</button>
+      </div>
+    </div>
+    <div class="modal-sec" id="mHistSec" style="display:none">
+      <div class="label">📊 Player Info</div>
+      <div id="mHist" style="font-size:.8rem;color:var(--muted)"></div>
     </div>
     <div id="mFlash" class="flash"></div>
   </div>
@@ -1189,7 +1347,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 (function () {
   var tabs = document.querySelectorAll('.tab');
   var views = document.querySelectorAll('.view');
-  var TITLES = { players:'Players', analytics:'Analytics', feed:'Activity Feed', games:'Add Games', controls:'Controls', bans:'Bans' };
+  var TITLES = { players:'Players', analytics:'Analytics', feed:'Activity Feed', games:'Add Games', controls:'Controls', bans:'Bans', chat:'Chat', economy:'Economy', system:'System' };
   function show(v) {
     for (var i = 0; i < views.length; i++) views[i].classList.toggle('hide', views[i].getAttribute('data-panel') !== v);
     for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].getAttribute('data-view') === v);
@@ -1198,6 +1356,322 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   }
   for (var k = 0; k < tabs.length; k++) {
     tabs[k].addEventListener('click', function () { show(this.getAttribute('data-view')); });
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════
+   NEW FEATURES: Player search · Bulk actions · IP ban ·
+   Chat monitor · Word filter · Economy · System health
+   ════════════════════════════════════════════════════════ */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var PW = '';
+  try { PW = sessionStorage.getItem('sh_admin_pw') || ''; } catch (e) {}
+  function api(action, extra) {
+    var body = Object.assign({ password: PW, action: action }, extra || {});
+    return fetch('/api/admin', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, data: j }; }); });
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function fmt(n) { return Number(n).toLocaleString(); }
+  function fmtMb(bytes) { return (bytes / 1048576).toFixed(1) + ' MB'; }
+  function fmtTime(ts) { return new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }); }
+
+  // ── Player search / filter ───────────────────────────────────────────────
+  var _rawRows = [];
+  var search = $('playerSearch');
+  if (search) {
+    search.addEventListener('input', function () {
+      var q = search.value.toLowerCase();
+      var tb = $('players');
+      if (!_rawRows.length || !tb) return;
+      if (!q) { tb.innerHTML = _rawRows.join(''); return; }
+      tb.innerHTML = _rawRows.filter(function (r) { return r.toLowerCase().includes(q); }).join('') || '<tr><td colspan="5" style="color:var(--muted)">No matches.</td></tr>';
+    });
+  }
+  // Hook into existing render() to cache rows
+  var _origRender = window._adminRender;
+  // Intercept player tbody writes — observe DOM mutations
+  var tb2 = $('players');
+  if (tb2 && window.MutationObserver) {
+    new MutationObserver(function () {
+      _rawRows = Array.from(tb2.querySelectorAll('tr')).map(function (r) { return r.outerHTML; });
+    }).observe(tb2, { childList: true });
+  }
+
+  // ── Bulk actions ─────────────────────────────────────────────────────────
+  function bulkFlash(msg) { alert(msg); }
+  var bkg = $('bulkKickGuests');
+  if (bkg) bkg.onclick = function () {
+    if (!confirm('Kick all guest (non-account) sessions?')) return;
+    api('bulkaction', { what: 'kickguests' }).then(function (r) { bulkFlash('Kicked ' + ((r.data && r.data.count) || 0) + ' guests.'); });
+  };
+  var bfa = $('bulkFreezeAll');
+  if (bfa) bfa.onclick = function () {
+    if (!confirm('Freeze ALL online players?')) return;
+    api('bulkaction', { what: 'freezeall' }).then(function (r) { bulkFlash('Frozen ' + ((r.data && r.data.count) || 0) + ' players.'); });
+  };
+  var bua = $('bulkUnfreezeAll');
+  if (bua) bua.onclick = function () {
+    api('bulkaction', { what: 'unfreezeall' }).then(function () { bulkFlash('All unfrozen.'); });
+  };
+
+  // ── Direct IP ban ─────────────────────────────────────────────────────────
+  var rawBanBtn = $('rawBanBtn');
+  if (rawBanBtn) rawBanBtn.onclick = function () {
+    var ip = $('rawIp').value.trim(), reason = $('rawReason').value.trim() || 'Admin ban';
+    if (!ip) { $('rawBanFlash').textContent = 'Enter an IP.'; return; }
+    if (!confirm('Ban ' + ip + '?')) return;
+    api('ipbanraw', { ip: ip, reason: reason }).then(function (r) {
+      $('rawBanFlash').textContent = r.ok ? 'Banned ' + ip + ' ✓' : ((r.data && r.data.error) || 'Failed.');
+      if (r.ok) { $('rawIp').value = ''; $('rawReason').value = ''; }
+      setTimeout(function () { $('rawBanFlash').textContent = ''; }, 3000);
+    });
+  };
+
+  // ── Mute / unmute in modal ────────────────────────────────────────────────
+  document.addEventListener('click', function (e) {
+    var t = e.target, act = t.dataset && t.dataset.act;
+    if (!act) return;
+    var currentId = window._adminCurrentId;
+    if (act === 'muterow') {
+      var mins = prompt('Mute for how many minutes? (0 = permanent):', '60');
+      if (mins === null) return;
+      api('mute', { id: currentId, minutes: Number(mins) || 0 }).then(function () {
+        document.getElementById('mFlash').textContent = 'Player muted.';
+        setTimeout(function () { document.getElementById('mFlash').textContent = ''; }, 2000);
+      });
+    }
+    if (act === 'unmuterow') {
+      api('unmute', { id: currentId }).then(function () {
+        document.getElementById('mFlash').textContent = 'Player unmuted.';
+        setTimeout(function () { document.getElementById('mFlash').textContent = ''; }, 2000);
+      });
+    }
+    if (act === 'savenote') {
+      var note = $('mNote').value.trim();
+      api('setnote', { id: currentId, note: note }).then(function () {
+        document.getElementById('mFlash').textContent = 'Note saved.';
+        setTimeout(function () { document.getElementById('mFlash').textContent = ''; }, 2000);
+      });
+    }
+    if (act === 'clearnote') {
+      $('mNote').value = '';
+      api('setnote', { id: currentId, note: '' }).then(function () {
+        document.getElementById('mFlash').textContent = 'Note cleared.';
+        setTimeout(function () { document.getElementById('mFlash').textContent = ''; }, 2000);
+      });
+    }
+  });
+
+  // ── Extend openProfile to load history & note ────────────────────────────
+  var _origOpen = window.openProfile;
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t.dataset || !t.dataset.open) return;
+    var id = t.dataset.open;
+    // Load player history after a short delay (let the original handler run first)
+    setTimeout(function () {
+      api('playerhistory', { id: id }).then(function (r) {
+        if (!r.ok) return;
+        var note = r.data.note || '';
+        var el = $('mNote'); if (el) el.value = note;
+        var h = r.data.history;
+        var histSec = $('mHistSec'), histEl = $('mHist');
+        if (!histSec || !histEl) return;
+        if (h) {
+          var rank = r.data.rank || '—';
+          histEl.innerHTML = [
+            '<b>Coins:</b> ' + fmt(h.coins || 0),
+            '<b>Rank:</b> #' + rank,
+            h.level != null ? '<b>Level:</b> ' + h.level : null,
+            h.gamePlays != null ? '<b>Game plays:</b> ' + h.gamePlays : null,
+          ].filter(Boolean).join('  ·  ');
+          histSec.style.display = '';
+        } else {
+          histSec.style.display = 'none';
+        }
+      });
+    }, 50);
+  });
+
+  // ── Chat tab ──────────────────────────────────────────────────────────────
+  var chatCurCh = 'general';
+  function loadChat() {
+    api('chatlog', { channel: chatCurCh }).then(function (r) {
+      if (!r.ok) return;
+      // populate channel selector
+      var sel = $('chatCh');
+      if (sel && r.data.channels) {
+        var cur = sel.value;
+        sel.innerHTML = r.data.channels.map(function (c) {
+          return '<option value="' + esc(c.id) + '"' + (c.id === chatCurCh ? ' selected' : '') + '>#' + esc(c.id) + '</option>';
+        }).join('');
+        if (!cur) chatCurCh = r.data.channels[0] && r.data.channels[0].id || 'general';
+      }
+      var msgs = r.data.messages || [];
+      var log = $('chatLog');
+      if (!log) return;
+      if (!msgs.length) { log.innerHTML = '<div style="color:var(--muted);padding:10px 0">No messages yet.</div>'; return; }
+      log.innerHTML = msgs.slice().reverse().map(function (m) {
+        var t = fmtTime(m.at);
+        var txt = esc(m.content).slice(0, 300);
+        return '<div class="chat-msg" data-mid="' + esc(m.id) + '" data-ch="' + esc(m.channelId) + '">' +
+          '<span class="cm-author">' + esc(m.author && m.author.username || '?') + '</span>' +
+          '<span style="flex:1;min-width:0;overflow:hidden;word-break:break-word">' + txt + '</span>' +
+          '<button class="cm-del" data-delmsg="' + esc(m.id) + '" data-delch="' + esc(m.channelId) + '">✕ Delete</button>' +
+          '<span class="cm-time">' + t + '</span></div>';
+      }).join('');
+    });
+  }
+  var chatRefresh = $('chatRefresh');
+  if (chatRefresh) chatRefresh.onclick = loadChat;
+  var chatSel = $('chatCh');
+  if (chatSel) chatSel.onchange = function () { chatCurCh = chatSel.value; loadChat(); };
+
+  // Delete a chat message
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t.dataset || !t.dataset.delmsg) return;
+    var msgId = t.dataset.delmsg, ch = t.dataset.delch || chatCurCh;
+    if (!confirm('Delete this message?')) return;
+    api('deletemsg', { msgId: msgId, channel: ch }).then(function (r) {
+      if (r.ok) { var row = t.closest('.chat-msg'); if (row) row.remove(); }
+      var cf = $('chatFlash'); if (cf) { cf.textContent = r.ok ? 'Deleted ✓' : 'Failed.'; setTimeout(function () { cf.textContent = ''; }, 2000); }
+    });
+  });
+
+  // Slow mode
+  var slowSet = $('slowSet');
+  if (slowSet) slowSet.onclick = function () {
+    var sec = Number($('slowSec').value) || 0;
+    var ch = ($('chatCh') && $('chatCh').value) || 'general';
+    api('setslow', { channel: ch, seconds: sec }).then(function (r) {
+      var cf = $('chatFlash'); if (cf) { cf.textContent = r.ok ? 'Slow mode set to ' + sec + 's ✓' : 'Failed.'; setTimeout(function () { cf.textContent = ''; }, 2500); }
+    });
+  };
+
+  // ── Word filter ───────────────────────────────────────────────────────────
+  function renderWordFilter(list) {
+    var el = $('wfList'); if (!el) return;
+    if (!list || !list.length) { el.innerHTML = '<span style="color:var(--muted);font-size:.8rem">No words blocked yet.</span>'; return; }
+    el.innerHTML = list.map(function (w) {
+      return '<span class="wf-chip">' + esc(w) + '<button data-rmword="' + esc(w) + '">✕</button></span>';
+    }).join('');
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t.dataset || !t.dataset.rmword) return;
+    var w = t.dataset.rmword;
+    api('removeword', { word: w }).then(function (r) { if (r.ok) renderWordFilter(r.data.wordFilter); });
+  });
+  var wfAdd = $('wfAdd');
+  if (wfAdd) wfAdd.onclick = function () {
+    var w = $('wfWord').value.trim();
+    if (!w) return;
+    api('addword', { word: w }).then(function (r) {
+      if (r.ok) { renderWordFilter(r.data.wordFilter); $('wfWord').value = ''; }
+      var f = $('wfFlash'); if (f) { f.textContent = r.ok ? 'Added ✓' : 'Failed.'; setTimeout(function () { if (f) f.textContent = ''; }, 2000); }
+    });
+  };
+  // Load word filter on startup
+  api('wordfilterlist', {}).then(function (r) { if (r.ok) renderWordFilter(r.data.wordFilter); });
+
+  // ── Economy tab ───────────────────────────────────────────────────────────
+  var lbRefresh = $('lbRefresh');
+  if (lbRefresh) lbRefresh.onclick = function () {
+    api('leaderboard', {}).then(function (r) {
+      var tb = $('lbTable'); if (!tb) return;
+      var top = (r.data && r.data.top) || [];
+      if (!top.length) { tb.innerHTML = '<tr><td colspan="3" style="color:var(--muted)">No data yet.</td></tr>'; return; }
+      tb.innerHTML = top.slice(0, 25).map(function (p, i) {
+        var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+        return '<tr><td style="width:36px;color:var(--muted)">' + medal + '</td>' +
+          '<td><strong>' + esc(p.nick || p.nickname || p.id || '?') + '</strong></td>' +
+          '<td style="text-align:right;color:var(--gold)">' + fmt(p.coins || p.score || 0) + ' 🪙</td></tr>';
+      }).join('');
+    });
+  };
+  var txRefresh = $('txRefresh');
+  if (txRefresh) txRefresh.onclick = function () {
+    api('coinhistory', {}).then(function (r) {
+      var tb = $('txTable'); if (!tb) return;
+      var hist = (r.data && r.data.history) || [];
+      if (!hist.length) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">No transactions this session.</td></tr>'; return; }
+      tb.innerHTML = hist.slice().reverse().map(function (tx) {
+        var color = tx.amount >= 0 ? 'var(--green)' : 'var(--red)';
+        return '<tr><td style="color:var(--muted);white-space:nowrap">' + fmtTime(tx.ts) + '</td>' +
+          '<td>' + esc(tx.name) + '</td>' +
+          '<td style="color:' + color + ';text-align:right;font-weight:600">' + (tx.amount >= 0 ? '+' : '') + fmt(tx.amount) + '</td>' +
+          '<td style="color:var(--muted)">' + esc(tx.reason || '') + '</td></tr>';
+      }).join('');
+    });
+  };
+
+  // ── System tab ────────────────────────────────────────────────────────────
+  function drawOnlineChart(history) {
+    var canvas = $('onlineChart'); if (!canvas || !canvas.getContext) return;
+    var w = canvas.offsetWidth || 600, h = 120, dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    var ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    if (!history || !history.length) { ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fillRect(0,0,w,h); return; }
+    var pad = 24, cw = w - pad * 2, ch = h - pad * 2;
+    var max = Math.max.apply(null, history.map(function (d) { return d.count; }).concat([1]));
+    var pts = history.map(function (d, i) {
+      return [pad + (i / (history.length - 1 || 1)) * cw, pad + (1 - d.count / max) * ch];
+    });
+    var grad = ctx.createLinearGradient(0, pad, 0, h - pad);
+    grad.addColorStop(0, 'rgba(41,151,255,.35)'); grad.addColorStop(1, 'rgba(41,151,255,.02)');
+    ctx.beginPath();
+    pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+    ctx.lineTo(pts[pts.length - 1][0], h - pad);
+    ctx.lineTo(pts[0][0], h - pad);
+    ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath();
+    pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+    ctx.strokeStyle = 'rgba(41,151,255,.85)'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+    // Peak label
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = '10px system-ui'; ctx.textAlign = 'left';
+    ctx.fillText('Peak: ' + max, pad + 2, pad - 4);
+  }
+
+  function loadSysHealth() {
+    api('syshealth', {}).then(function (r) {
+      if (!r.ok) return;
+      var d = r.data;
+      var su = $('syUptime'), sm = $('syMem'), sh = $('syHeap'), so = $('syOnline');
+      if (su) su.textContent = d.uptimeFormatted || '—';
+      if (sm) sm.textContent = fmtMb(d.memRss || 0);
+      if (sh) sh.textContent = fmtMb(d.memHeap || 0);
+      if (so) so.textContent = d.onlineNow || 0;
+      // Error log
+      var el = $('errLog');
+      if (el) {
+        var errs = d.errorLog || [];
+        if (!errs.length) el.innerHTML = '<div style="color:var(--muted)">No errors logged.</div>';
+        else el.innerHTML = errs.slice().reverse().map(function (e) {
+          return '<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="color:rgba(255,255,255,.3);margin-right:8px">' + fmtTime(e.ts) + '</span>' + esc(e.msg) + '</div>';
+        }).join('');
+      }
+      // Chart
+      if (d.onlineHistory) drawOnlineChart(d.onlineHistory);
+    });
+  }
+
+  var syRefresh = $('syRefresh');
+  if (syRefresh) syRefresh.onclick = loadSysHealth;
+
+  // Auto-load when switching to these tabs
+  var tabEls = document.querySelectorAll('.tab');
+  for (var ti = 0; ti < tabEls.length; ti++) {
+    tabEls[ti].addEventListener('click', function () {
+      var v = this.getAttribute('data-view');
+      if (v === 'chat') loadChat();
+      if (v === 'system') loadSysHealth();
+      if (v === 'economy') { if (lbRefresh) lbRefresh.click(); if (txRefresh) txRefresh.click(); }
+    });
   }
 })();
 
