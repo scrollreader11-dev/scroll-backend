@@ -1625,6 +1625,10 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/casino/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if (url === '/social' || url === '/social/') {
+    req.url = '/social.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
   if (url.split('?')[0].startsWith('/api/casino/')) { if (await handleCasino(url, req, res)) return; }
   if (url === '/storage/data/collection.json') return serveCollection(req, res, parsed.searchParams.get('debug') === '1');
   if (url.startsWith('/ubg/') || url.startsWith('/gf/') || url.startsWith('/imgx/')) return proxyUpstream(req, res);

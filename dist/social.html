@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Friends – ScrollHub</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--surface:#161920;--card:#1c2029;--border:#272c3a;
+  --accent:#6c63ff;--accent2:#ff6b6b;--green:#4caf82;--yellow:#f5c542;
+  --text:#e8eaf0;--muted:#8890a4;--radius:12px;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:16px}
+
+/* ── top nav ── */
+nav{
+  background:#0d0f14;border-bottom:1px solid var(--border);
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+  position:sticky;top:0;z-index:100;
+}
+nav a{color:var(--muted);font-size:.85rem;text-decoration:none}
+nav a:hover{color:var(--text)}
+nav a.home{display:flex;align-items:center;gap:6px;font-weight:600;color:var(--text);font-size:.95rem}
+nav a.home svg{flex-shrink:0}
+nav .spacer{flex:1}
+#username-badge{
+  font-size:.8rem;color:var(--muted);
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:4px 12px;
+}
+
+/* ── layout ── */
+main{max-width:600px;margin:0 auto;padding:20px 16px 80px}
+h2{font-size:1rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+
+/* ── sections ── */
+section{margin-bottom:28px}
+
+/* ── add friend box ── */
+.add-row{display:flex;gap:8px}
+#add-input{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:.95rem;
+  padding:11px 14px;outline:none;transition:border-color .15s;
+  min-width:0;
+}
+#add-input:focus{border-color:var(--accent)}
+#add-input::placeholder{color:var(--muted)}
+.btn{
+  border:none;border-radius:10px;padding:10px 18px;
+  font-size:.9rem;font-weight:600;cursor:pointer;
+  transition:opacity .12s,transform .1s;white-space:nowrap;
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-sm{padding:6px 14px;font-size:.8rem;border-radius:8px}
+.btn-accept{background:var(--green);color:#fff}
+.btn-decline{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+.btn-decline:hover{color:var(--accent2);border-color:var(--accent2)}
+.btn-remove{background:transparent;color:var(--muted);border:1px solid var(--border);font-size:.75rem;padding:4px 10px;border-radius:6px}
+.btn-remove:hover{color:var(--accent2);border-color:var(--accent2)}
+#add-msg{font-size:.82rem;margin-top:8px;min-height:1.2em}
+#add-msg.ok{color:var(--green)}
+#add-msg.err{color:var(--accent2)}
+
+/* ── friend card ── */
+.friend-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:10px;
+  transition:border-color .12s;
+}
+.friend-card:hover{border-color:var(--accent)}
+.avatar{
+  width:42px;height:42px;border-radius:50%;
+  background:var(--surface);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;font-weight:700;overflow:hidden;
+  position:relative;
+}
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.online-dot{
+  position:absolute;bottom:1px;right:1px;
+  width:11px;height:11px;border-radius:50%;
+  border:2px solid var(--card);
+}
+.online-dot.on{background:var(--green)}
+.online-dot.off{background:var(--muted)}
+.friend-info{flex:1;min-width:0}
+.friend-name{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.friend-status{font-size:.75rem;color:var(--muted);margin-top:2px}
+.friend-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* ── request card ── */
+.req-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:10px;
+}
+.req-info{flex:1;min-width:0}
+.req-name{font-weight:600;font-size:.9rem}
+.req-sub{font-size:.75rem;color:var(--muted);margin-top:2px}
+.req-actions{display:flex;gap:7px;flex-shrink:0}
+
+/* ── pending badge ── */
+.pending-badge{
+  font-size:.7rem;background:var(--yellow);color:#000;
+  font-weight:700;border-radius:10px;padding:2px 7px;
+  display:inline-block;margin-left:8px;vertical-align:middle;
+}
+
+/* ── empty state ── */
+.empty{
+  text-align:center;padding:32px 16px;
+  color:var(--muted);font-size:.88rem;
+  background:var(--surface);border:1px dashed var(--border);
+  border-radius:var(--radius);
+}
+.empty svg{display:block;margin:0 auto 10px;opacity:.35}
+
+/* ── loading ── */
+.loading{text-align:center;padding:24px;color:var(--muted);font-size:.88rem}
+
+/* ── not logged in ── */
+#auth-wall{
+  text-align:center;padding:60px 24px;
+}
+#auth-wall h2{color:var(--text);font-size:1.2rem;margin-bottom:8px;text-transform:none;letter-spacing:0}
+#auth-wall p{color:var(--muted);margin-bottom:20px;font-size:.9rem}
+#auth-wall .btn{display:inline-block;text-decoration:none;padding:12px 28px}
+
+/* ── mobile tweaks ── */
+@media(max-width:480px){
+  .friend-card,.req-card{padding:12px}
+  .avatar{width:38px;height:38px;font-size:1rem}
+  .req-actions{flex-direction:column;gap:5px}
+  .btn-sm{width:100%;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="home">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    ScrollHub
+  </a>
+  <span class="spacer"></span>
+  <span id="username-badge">Loading…</span>
+</nav>
+
+<main id="main-content">
+  <div class="loading">Loading…</div>
+</main>
+
+<script>
+(async () => {
+  const main = document.getElementById('main-content');
+  const badge = document.getElementById('username-badge');
+
+  // ── helpers ──
+  async function api(path, body) {
+    const opts = body
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : {};
+    const r = await fetch(path, opts);
+    return r.json();
+  }
+
+  function avatarEl(user) {
+    const wrap = document.createElement('div');
+    wrap.className = 'avatar';
+    if (user.avatar_url) {
+      const img = document.createElement('img');
+      img.src = user.avatar_url;
+      img.alt = user.username;
+      img.onerror = () => { img.remove(); wrap.textContent = (user.username || '?')[0].toUpperCase(); };
+      wrap.appendChild(img);
+    } else {
+      wrap.style.background = user.color || '#6c63ff33';
+      wrap.textContent = (user.username || '?')[0].toUpperCase();
+    }
+    return wrap;
+  }
+
+  function dot(online) {
+    const d = document.createElement('span');
+    d.className = 'online-dot ' + (online ? 'on' : 'off');
+    return d;
+  }
+
+  // ── load me ──
+  let me = null;
+  try {
+    const r = await api('/api/me');
+    if (r.user && !r.user.guest) { me = r.user; badge.textContent = me.username; }
+    else badge.textContent = 'Guest';
+  } catch(e) { badge.textContent = 'Error'; }
+
+  if (!me) {
+    main.innerHTML = '';
+    const wall = document.createElement('div');
+    wall.id = 'auth-wall';
+    wall.innerHTML = `
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#8890a4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <h2>Sign in to see friends</h2>
+      <p>You need an account to send and accept friend requests.</p>
+      <a href="/" class="btn btn-primary">Go to ScrollHub</a>
+    `;
+    main.appendChild(wall);
+    return;
+  }
+
+  // ── render all sections ──
+  async function render() {
+    let data;
+    try { data = await api('/api/friends'); }
+    catch(e) { main.innerHTML = '<div class="loading">Failed to load friends.</div>'; return; }
+
+    main.innerHTML = '';
+
+    // ── Add friend ──
+    const addSec = document.createElement('section');
+    addSec.innerHTML = `<h2>Add Friend</h2>`;
+    const addRow = document.createElement('div');
+    addRow.className = 'add-row';
+    const addInput = document.createElement('input');
+    addInput.id = 'add-input';
+    addInput.placeholder = 'Enter username…';
+    addInput.maxLength = 30;
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary';
+    addBtn.textContent = 'Send Request';
+    const addMsg = document.createElement('div');
+    addMsg.id = 'add-msg';
+    addRow.appendChild(addInput);
+    addRow.appendChild(addBtn);
+    addSec.appendChild(addRow);
+    addSec.appendChild(addMsg);
+
+    async function sendRequest() {
+      const username = addInput.value.trim();
+      if (!username) { addMsg.textContent = 'Enter a username.'; addMsg.className = 'err'; return; }
+      addBtn.disabled = true;
+      addMsg.textContent = '';
+      try {
+        const r = await api('/api/friends/add', { username });
+        if (r.error) { addMsg.textContent = r.message || r.error; addMsg.className = 'err'; }
+        else if (r.accepted) { addMsg.textContent = `You and ${username} are now friends!`; addMsg.className = 'ok'; addInput.value = ''; render(); }
+        else { addMsg.textContent = `Friend request sent to ${username}!`; addMsg.className = 'ok'; addInput.value = ''; render(); }
+      } catch(e) { addMsg.textContent = 'Something went wrong.'; addMsg.className = 'err'; }
+      addBtn.disabled = false;
+    }
+
+    addBtn.onclick = sendRequest;
+    addInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendRequest(); });
+    main.appendChild(addSec);
+
+    // ── Incoming requests ──
+    const incoming = data.incoming || [];
+    if (incoming.length) {
+      const reqSec = document.createElement('section');
+      reqSec.innerHTML = `<h2>Requests <span class="pending-badge">${incoming.length}</span></h2>`;
+      incoming.forEach(u => {
+        const card = document.createElement('div');
+        card.className = 'req-card';
+        const av = avatarEl(u);
+        const info = document.createElement('div');
+        info.className = 'req-info';
+        info.innerHTML = `<div class="req-name">${esc(u.username)}</div><div class="req-sub">Wants to be your friend</div>`;
+        const actions = document.createElement('div');
+        actions.className = 'req-actions';
+        const acc = document.createElement('button');
+        acc.className = 'btn btn-sm btn-accept'; acc.textContent = 'Accept';
+        const dec = document.createElement('button');
+        dec.className = 'btn btn-sm btn-decline'; dec.textContent = 'Decline';
+        acc.onclick = async () => { acc.disabled = dec.disabled = true; await api('/api/friends/accept', { id: u.id }); render(); };
+        dec.onclick = async () => { acc.disabled = dec.disabled = true; await api('/api/friends/decline', { id: u.id }); render(); };
+        actions.appendChild(acc); actions.appendChild(dec);
+        card.appendChild(av); card.appendChild(info); card.appendChild(actions);
+        reqSec.appendChild(card);
+      });
+      main.appendChild(reqSec);
+    }
+
+    // ── Friends list ──
+    const friends = data.friends || [];
+    const friendSec = document.createElement('section');
+    friendSec.innerHTML = `<h2>Friends (${friends.length})</h2>`;
+    if (!friends.length) {
+      friendSec.innerHTML += `
+        <div class="empty">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          No friends yet — search above to add some!
+        </div>`;
+    } else {
+      friends.forEach(u => {
+        const card = document.createElement('div');
+        card.className = 'friend-card';
+        const av = avatarEl(u);
+        av.appendChild(dot(u.online));
+        const info = document.createElement('div');
+        info.className = 'friend-info';
+        info.innerHTML = `<div class="friend-name">${esc(u.username)}</div>
+          <div class="friend-status">${u.online ? '🟢 Online' : '⚫ Offline'}</div>`;
+        const actions = document.createElement('div');
+        actions.className = 'friend-actions';
+        const rm = document.createElement('button');
+        rm.className = 'btn btn-remove'; rm.textContent = 'Remove';
+        rm.onclick = async () => {
+          if (!confirm(`Remove ${u.username} as a friend?`)) return;
+          rm.disabled = true;
+          await api('/api/friends/remove', { id: u.id });
+          render();
+        };
+        actions.appendChild(rm);
+        card.appendChild(av); card.appendChild(info); card.appendChild(actions);
+        friendSec.appendChild(card);
+      });
+    }
+    main.appendChild(friendSec);
+
+    // ── Outgoing requests ──
+    const outgoing = data.outgoing || [];
+    if (outgoing.length) {
+      const outSec = document.createElement('section');
+      outSec.innerHTML = `<h2>Sent Requests</h2>`;
+      outgoing.forEach(u => {
+        const card = document.createElement('div');
+        card.className = 'req-card';
+        const av = avatarEl(u);
+        const info = document.createElement('div');
+        info.className = 'req-info';
+        info.innerHTML = `<div class="req-name">${esc(u.username)}</div><div class="req-sub">Pending…</div>`;
+        const actions = document.createElement('div');
+        actions.className = 'req-actions';
+        const cancel = document.createElement('button');
+        cancel.className = 'btn btn-sm btn-decline'; cancel.textContent = 'Cancel';
+        cancel.onclick = async () => { cancel.disabled = true; await api('/api/friends/decline', { id: u.id }); render(); };
+        actions.appendChild(cancel);
+        card.appendChild(av); card.appendChild(info); card.appendChild(actions);
+        outSec.appendChild(card);
+      });
+      main.appendChild(outSec);
+    }
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
