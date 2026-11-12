@@ -5,347 +5,452 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>ScrollHub Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ── Reset & tokens ───────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#08091a;
-  --sidebar:#0b0d1f;
-  --surface:#0f1123;
-  --card:#131726;
-  --border:rgba(255,255,255,.07);
-  --border2:rgba(255,255,255,.13);
-  --accent:#7c5cfc;
-  --accent-dim:rgba(124,92,252,.14);
-  --accent-glow:rgba(124,92,252,.32);
-  --cyan:#22d3ee;
-  --green:#34d399;
-  --red:#f87171;
-  --amber:#fbbf24;
-  --gold:#f59e0b;
-  --text:#e2e8f0;
-  --muted:#4b5675;
-  --muted2:#8b93a8;
-  --r:12px;
-  --sw:220px;
+  --bg:#00040f;
+  --blue:#2997ff;
+  --blue-soft:rgba(41,151,255,.18);
+  --blue-glow:rgba(41,151,255,.35);
+  --blue-btn:linear-gradient(135deg,#2997ff 0%,#1a6fd4 100%);
+  --glass-bg:rgba(255,255,255,.045);
+  --glass-bg2:rgba(255,255,255,.07);
+  --glass-border:rgba(255,255,255,.1);
+  --glass-border2:rgba(255,255,255,.18);
+  --text:#f5f5f7;
+  --text2:#ffffffcc;
+  --muted:#98a0b3;
+  --muted2:rgba(255,255,255,.35);
+  --green:#30d158;
+  --red:#ff453a;
+  --amber:#ffd60a;
+  --gold:#ff9f0a;
+  --r:16px;
+  --r2:12px;
+  --sw:234px;
+  --blur:saturate(180%) blur(28px);
+  --blur-sm:saturate(160%) blur(16px);
 }
 html,body{min-height:100%;background:var(--bg);color:var(--text);
-  font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
-a{color:var(--cyan)}
+  font-family:'Inter',-apple-system,'SF Pro Display',system-ui,sans-serif;
+  font-size:14px;-webkit-font-smoothing:antialiased;line-height:1.5}
 .hide{display:none!important}
-.muted{color:var(--muted2)}
 
-/* ── Background ───────────────────────────────────────── */
-.bg-deco{position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(ellipse 55% 38% at 5% -5%,rgba(124,92,252,.13),transparent),
-    radial-gradient(ellipse 40% 30% at 95% 15%,rgba(34,211,238,.07),transparent),
-    var(--bg);
+/* ── Background blobs ────────────────────────── */
+.bg-deco{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.bg-deco::before{
+  content:'';position:absolute;
+  width:900px;height:900px;border-radius:50%;top:-220px;left:-200px;
+  background:radial-gradient(circle,rgba(29,78,216,.28) 0%,transparent 65%);
+  filter:blur(60px);
+}
+.bg-deco::after{
+  content:'';position:absolute;
+  width:700px;height:700px;border-radius:50%;bottom:-200px;right:-100px;
+  background:radial-gradient(circle,rgba(14,165,233,.18) 0%,transparent 65%);
+  filter:blur(60px);
+}
+.bg-deco .orb3{
+  position:absolute;width:400px;height:400px;border-radius:50%;
+  top:40%;left:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(99,102,241,.1) 0%,transparent 70%);
+  filter:blur(40px);
 }
 
-/* ── LOGIN ────────────────────────────────────────────── */
-#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+/* ── Glass mixin ─────────────────────────────── */
+.glass{
+  background:var(--glass-bg);
+  backdrop-filter:var(--blur);
+  -webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--glass-border);
+}
+.glass2{
+  background:var(--glass-bg2);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  border:1px solid var(--glass-border2);
+}
+
+/* ── LOGIN ───────────────────────────────────── */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .login-wrap{
   width:100%;max-width:360px;
-  background:var(--surface);border:1px solid var(--border2);border-radius:20px;
-  padding:36px 32px;
-  box-shadow:0 32px 80px rgba(0,0,0,.55),0 0 0 1px rgba(124,92,252,.08);
+  background:rgba(255,255,255,.055);
+  backdrop-filter:saturate(200%) blur(40px);
+  -webkit-backdrop-filter:saturate(200%) blur(40px);
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:24px;padding:40px 32px;
+  box-shadow:0 32px 80px rgba(0,0,0,.55),0 0 0 .5px rgba(255,255,255,.12) inset,
+             0 1px 0 rgba(255,255,255,.24) inset;
 }
-.login-logo{
-  width:52px;height:52px;border-radius:16px;
-  background:linear-gradient(135deg,#7c5cfc,#5b6df0);
-  display:flex;align-items:center;justify-content:center;font-size:24px;
-  margin:0 auto 20px;box-shadow:0 8px 28px var(--accent-glow);
+.login-icon{
+  width:56px;height:56px;border-radius:18px;margin:0 auto 22px;
+  background:var(--blue-btn);
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  box-shadow:0 10px 30px var(--blue-glow),0 0 0 1px rgba(255,255,255,.18) inset;
 }
-.login-wrap h1{font-family:'Space Grotesk',sans-serif;font-size:1.35rem;text-align:center;
-  letter-spacing:-.02em;margin-bottom:4px}
-.login-sub{text-align:center;color:var(--muted2);font-size:.82rem;margin-bottom:24px}
+.login-wrap h1{
+  font-size:1.45rem;font-weight:700;text-align:center;
+  letter-spacing:-.03em;margin-bottom:4px;
+}
+.login-sub{text-align:center;color:var(--muted);font-size:.82rem;margin-bottom:28px}
 
-/* ── Inputs ───────────────────────────────────────────── */
+/* ── Inputs ──────────────────────────────────── */
 input[type=text],input[type=password],input[type=number]{
-  width:100%;padding:10px 13px;border-radius:9px;
-  border:1px solid var(--border2);background:rgba(0,0,0,.35);
+  width:100%;padding:11px 14px;
+  border-radius:10px;border:1px solid var(--glass-border2);
+  background:rgba(255,255,255,.06);
   color:var(--text);font-size:.88rem;outline:none;font-family:inherit;
-  transition:border-color .15s,box-shadow .15s;
+  transition:border-color .15s,box-shadow .15s,background .15s;
+  -webkit-backdrop-filter:blur(8px);
 }
-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,92,252,.18)}
-input::placeholder{color:var(--muted)}
+input:focus{
+  border-color:rgba(41,151,255,.7);
+  box-shadow:0 0 0 3px rgba(41,151,255,.2);
+  background:rgba(41,151,255,.06);
+}
+input::placeholder{color:var(--muted2)}
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 
-/* ── Buttons ──────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────── */
 button{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  padding:9px 16px;border:none;border-radius:9px;
-  background:linear-gradient(135deg,#7c5cfc,#5b6df0);
+  padding:9px 18px;border:none;border-radius:10px;
+  background:var(--blue-btn);
   color:#fff;font-weight:600;font-size:.85rem;cursor:pointer;
-  font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0;
+  font-family:inherit;letter-spacing:-.01em;white-space:nowrap;flex-shrink:0;
+  transition:all .18s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 4px 16px rgba(41,151,255,.3),0 1px 0 rgba(255,255,255,.18) inset;
 }
-button:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
-button:active{transform:none;opacity:1}
-button.ghost{background:rgba(255,255,255,.05);border:1px solid var(--border2);color:var(--muted2);box-shadow:none}
-button.ghost:hover{background:rgba(255,255,255,.09);color:var(--text);box-shadow:none;transform:none}
-button.red{background:linear-gradient(135deg,#ef4444,#dc2626)}
-button.red:hover{box-shadow:0 6px 20px rgba(239,68,68,.33)}
-button.amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a0e00}
-button.gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0e00}
-button.sm{padding:6px 12px;font-size:.78rem;border-radius:7px}
+button:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 8px 24px rgba(41,151,255,.42),0 1px 0 rgba(255,255,255,.18) inset}
+button:active{transform:translateY(0);opacity:1}
+button.ghost{
+  background:rgba(255,255,255,.07);border:1px solid var(--glass-border2);
+  color:var(--muted);box-shadow:none;
+}
+button.ghost:hover{background:rgba(255,255,255,.12);color:var(--text);box-shadow:none;transform:none}
+button.red{background:linear-gradient(135deg,#ff453a,#c0392b);box-shadow:0 4px 16px rgba(255,69,58,.3),0 1px 0 rgba(255,255,255,.12) inset}
+button.red:hover{box-shadow:0 8px 24px rgba(255,69,58,.4),0 1px 0 rgba(255,255,255,.12) inset}
+button.amber{background:linear-gradient(135deg,#ffd60a,#f7a500);color:#1a1000;box-shadow:0 4px 14px rgba(255,214,10,.22),0 1px 0 rgba(255,255,255,.18) inset}
+button.gold{background:linear-gradient(135deg,#ff9f0a,#e08900);color:#1a0e00;box-shadow:0 4px 14px rgba(255,159,10,.24),0 1px 0 rgba(255,255,255,.12) inset}
+button.sm{padding:6px 12px;font-size:.77rem;border-radius:8px}
 button.full{width:100%}
 
-/* ── Layout helpers ───────────────────────────────────── */
+/* ── Layout helpers ──────────────────────────── */
 .row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .field{margin-bottom:14px}
-.label{font-size:.7rem;color:var(--muted2);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
-.note{font-size:.76rem;color:var(--muted);line-height:1.55;margin-top:7px}
+.label{font-size:.68rem;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.note{font-size:.76rem;color:var(--muted);line-height:1.6;margin-top:7px}
 .flash{font-size:.8rem;min-height:1.1em;margin-top:6px;font-weight:500}
-sub-head{color:var(--muted2);font-size:.82rem}
 
-/* ── App shell ────────────────────────────────────────── */
+/* ── App shell ───────────────────────────────── */
 #dash{display:flex;min-height:100vh}
 
-/* ── Sidebar ──────────────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────── */
 .sidebar{
   width:var(--sw);flex-shrink:0;
-  background:var(--sidebar);border-right:1px solid var(--border);
+  background:rgba(0,8,30,.52);
+  backdrop-filter:saturate(180%) blur(32px);
+  -webkit-backdrop-filter:saturate(180%) blur(32px);
+  border-right:1px solid var(--glass-border);
   display:flex;flex-direction:column;
-  position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
 }
 .sb-logo{
-  display:flex;align-items:center;gap:10px;padding:18px 16px 14px;
-  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.05rem;
-  letter-spacing:-.02em;border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;gap:11px;
+  padding:20px 16px 16px;
+  font-size:1rem;font-weight:700;letter-spacing:-.025em;
+  border-bottom:1px solid var(--glass-border);flex-shrink:0;
 }
 .sb-logo-mark{
-  width:30px;height:30px;border-radius:8px;flex-shrink:0;
-  background:linear-gradient(135deg,#7c5cfc,#5b6df0);
-  display:flex;align-items:center;justify-content:center;font-size:15px;
-  box-shadow:0 4px 14px var(--accent-glow);
+  width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  background:var(--blue-btn);
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  box-shadow:0 4px 16px var(--blue-glow),0 0 0 1px rgba(255,255,255,.2) inset;
 }
 .sb-nav{padding:10px 8px;flex:1}
-.sb-section{font-size:.64rem;text-transform:uppercase;letter-spacing:.09em;
-  color:var(--muted);padding:10px 10px 4px;font-weight:700}
+.sb-section{
+  font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;
+  color:rgba(255,255,255,.25);padding:10px 10px 5px;font-weight:700;
+}
 .tab{
   display:flex;align-items:center;gap:9px;width:100%;
-  padding:8px 10px;border-radius:8px;text-align:left;
-  background:transparent;color:var(--muted2);border:none;
-  font-size:.85rem;font-weight:500;cursor:pointer;
-  font-family:inherit;transition:all .12s;
-  box-shadow:none;
+  padding:8px 10px;border-radius:10px;
+  background:transparent;color:rgba(255,255,255,.45);border:none;
+  font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;
+  transition:all .15s;box-shadow:none;letter-spacing:-.01em;
 }
-.tab svg{flex-shrink:0;opacity:.6;transition:opacity .12s}
-.tab:hover{background:rgba(255,255,255,.045);color:var(--text);transform:none;box-shadow:none}
-.tab:hover svg{opacity:1}
-.tab.active{background:var(--accent-dim);color:#c4b5fd;font-weight:600}
-.tab.active svg{opacity:1;color:#c4b5fd}
-.tab.active:hover{background:var(--accent-dim);transform:none;box-shadow:none;opacity:1}
+.tab svg{flex-shrink:0;opacity:.55;transition:opacity .15s}
+.tab:hover{
+  background:rgba(255,255,255,.07);color:var(--text);
+  transform:none;box-shadow:none;
+}
+.tab:hover svg{opacity:.85}
+.tab.active{
+  background:rgba(41,151,255,.15);color:#60b8ff;font-weight:600;
+  box-shadow:0 0 0 1px rgba(41,151,255,.25) inset;
+}
+.tab.active svg{opacity:1;color:#60b8ff}
+.tab.active:hover{background:rgba(41,151,255,.15);transform:none;box-shadow:0 0 0 1px rgba(41,151,255,.25) inset;opacity:1}
 
-.sb-bottom{padding:10px 8px 14px;border-top:1px solid var(--border);flex-shrink:0}
+.sb-bottom{padding:10px 8px 16px;border-top:1px solid var(--glass-border);flex-shrink:0}
 .online-pill{
-  display:flex;align-items:center;gap:8px;padding:8px 10px;
-  background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.18);
-  border-radius:8px;font-size:.8rem;font-weight:600;color:#a7f3d0;margin-bottom:7px;
+  display:flex;align-items:center;gap:8px;padding:9px 11px;
+  background:rgba(48,209,88,.08);border:1px solid rgba(48,209,88,.2);
+  border-radius:10px;font-size:.8rem;font-weight:600;color:rgba(48,209,88,.9);
+  margin-bottom:7px;
 }
 .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;
-  animation:pulse 2s infinite;box-shadow:0 0 0 0 rgba(52,211,153,.5)}
+  animation:pulse 2.4s infinite;
+}
 @keyframes pulse{
-  0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}
-  70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}
-  100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}
+  0%,100%{box-shadow:0 0 0 0 rgba(48,209,88,.6)}
+  50%{box-shadow:0 0 0 6px rgba(48,209,88,0)}
 }
 
-/* ── Main area ────────────────────────────────────────── */
+/* ── Main ────────────────────────────────────── */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{
   display:flex;align-items:center;gap:10px;
-  padding:14px 22px;border-bottom:1px solid var(--border);
-  background:var(--sidebar);position:sticky;top:0;z-index:50;
+  padding:14px 24px;
+  background:rgba(0,8,30,.4);
+  backdrop-filter:saturate(160%) blur(24px);
+  -webkit-backdrop-filter:saturate(160%) blur(24px);
+  border-bottom:1px solid var(--glass-border);
+  position:sticky;top:0;z-index:50;
 }
 #hamburger{
-  display:none;background:transparent;border:1px solid var(--border2);
-  padding:6px;border-radius:7px;color:var(--muted2);flex-shrink:0;
+  display:none;background:rgba(255,255,255,.07);border:1px solid var(--glass-border2);
+  padding:7px;border-radius:9px;color:var(--muted);flex-shrink:0;box-shadow:none;
 }
-#hamburger:hover{background:rgba(255,255,255,.07);transform:none;box-shadow:none}
-.topbar-title{font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:-.01em}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.topbar-tag{font-size:.75rem;color:var(--muted2);
-  background:rgba(255,255,255,.04);border:1px solid var(--border2);
-  border-radius:6px;padding:3px 9px;
+#hamburger:hover{background:rgba(255,255,255,.12);transform:none;box-shadow:none}
+.topbar-title{font-size:.92rem;font-weight:700;letter-spacing:-.025em}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.topbar-tag{
+  font-size:.72rem;color:var(--muted);font-weight:500;
+  background:rgba(255,255,255,.05);border:1px solid var(--glass-border);
+  border-radius:999px;padding:3px 10px;letter-spacing:.01em;
 }
 
-/* ── Content ──────────────────────────────────────────── */
-.content{padding:20px 22px 60px}
+/* ── Content ─────────────────────────────────── */
+.content{padding:22px 24px 70px}
 
-/* ── Stat vitals ──────────────────────────────────────── */
-.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+/* ── Vitals ──────────────────────────────────── */
+.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px}
 .stat-card{
-  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
-  padding:15px 16px;position:relative;overflow:hidden;
+  background:rgba(255,255,255,.045);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r);padding:18px 18px 16px;
+  position:relative;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.18),0 1px 0 rgba(255,255,255,.08) inset;
+  transition:border-color .2s;
 }
+.stat-card:hover{border-color:rgba(41,151,255,.3)}
 .stat-card::before{
-  content:'';position:absolute;top:0;left:0;bottom:0;width:3px;border-radius:3px 0 0 3px;
-  background:linear-gradient(180deg,var(--accent) 0%,transparent 100%);
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);
 }
-.stat-card.c-green::before{background:linear-gradient(180deg,var(--green) 0%,transparent 100%)}
-.stat-card.c-red::before{background:linear-gradient(180deg,var(--red) 0%,transparent 100%)}
-.stat-card.c-amber::before{background:linear-gradient(180deg,var(--amber) 0%,transparent 100%)}
-.stat-label{font-size:.68rem;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
-.stat-num{font-family:'Space Grotesk',sans-serif;font-size:1.9rem;font-weight:700;line-height:1}
+.stat-label{font-size:.67rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.stat-num{
+  font-size:2rem;font-weight:700;line-height:1;letter-spacing:-.04em;
+  background:linear-gradient(135deg,#fff 40%,rgba(255,255,255,.65));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.stat-card.c-green .stat-num{background:linear-gradient(135deg,#30d158,#1aa83e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-card.c-red .stat-num{background:linear-gradient(135deg,#ff453a,#c92a1f);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-card.c-amber .stat-num{background:linear-gradient(135deg,#ffd60a,#e8a800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 
-/* ── Cards ────────────────────────────────────────────── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+/* ── Cards ───────────────────────────────────── */
+.card{
+  background:rgba(255,255,255,.045);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  border:1px solid var(--glass-border);border-radius:var(--r);padding:20px;
+  box-shadow:0 8px 32px rgba(0,0,0,.18),0 1px 0 rgba(255,255,255,.07) inset;
+  position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent);
+}
 .card+.card{margin-top:14px}
-.card>h2{font-family:'Space Grotesk',sans-serif;font-size:.9rem;font-weight:700;
+.card>h2{
+  font-size:.88rem;font-weight:700;letter-spacing:-.02em;
   display:flex;align-items:center;gap:7px;
-  margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);color:var(--text)}
+  margin-bottom:16px;padding-bottom:14px;
+  border-bottom:1px solid var(--glass-border);color:var(--text2);
+}
 
-/* ── Tables ───────────────────────────────────────────── */
+/* ── Tables ──────────────────────────────────── */
 table{width:100%;border-collapse:collapse}
-th{text-align:left;padding:8px 10px;font-size:.67rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
-  border-bottom:1px solid var(--border)}
-td{padding:10px 10px;font-size:.85rem;border-bottom:1px solid var(--border);vertical-align:middle}
+th{text-align:left;padding:7px 10px;font-size:.64rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+  border-bottom:1px solid var(--glass-border)}
+td{padding:10px 10px;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover{background:rgba(255,255,255,.025)}
 
-/* ── Dots & pills ─────────────────────────────────────── */
+/* ── Pills & dots ────────────────────────────── */
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
-.on{background:var(--green);box-shadow:0 0 6px var(--green)}
-.off{background:#2a3045}
-.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;
-  font-size:.68rem;font-weight:700;
-  background:rgba(124,92,252,.18);color:#c4b5fd;border:1px solid rgba(124,92,252,.28)}
-
-/* ── Toggle ───────────────────────────────────────────── */
-.toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
-.sw{width:40px;height:22px;border-radius:999px;position:relative;
-  background:#1a2035;border:1px solid var(--border2);
-  transition:background .18s,border-color .18s,box-shadow .18s;flex-shrink:0}
-.sw.on2{background:linear-gradient(135deg,var(--green),#059669);
-  border-color:var(--green);box-shadow:0 0 10px rgba(52,211,153,.38)}
-.sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
-  border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);transition:left .18s}
-.sw.on2::after{left:20px}
-
-/* ── Feed ─────────────────────────────────────────────── */
-.feedrow{display:flex;align-items:baseline;gap:8px;padding:8px 0;
-  border-bottom:1px solid var(--border);font-size:.83rem}
-.feedrow:last-child{border-bottom:none}
-
-/* ── Stat grid (analytics) ────────────────────────────── */
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
-
-/* ── Sidebar overlay ──────────────────────────────────── */
-#sb-overlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.55);z-index:150;backdrop-filter:blur(2px);
+.on{background:var(--green);box-shadow:0 0 7px var(--green)}
+.off{background:rgba(255,255,255,.18)}
+.pill{
+  display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;
+  font-size:.67rem;font-weight:700;
+  background:rgba(41,151,255,.15);color:#60b8ff;border:1px solid rgba(41,151,255,.3);
 }
 
-/* ── Modal ────────────────────────────────────────────── */
+/* ── Toggle ──────────────────────────────────── */
+.toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.sw{
+  width:40px;height:22px;border-radius:999px;position:relative;
+  background:rgba(255,255,255,.12);border:1px solid var(--glass-border2);
+  transition:all .22s;flex-shrink:0;cursor:pointer;
+}
+.sw.on2{
+  background:linear-gradient(135deg,var(--blue),#1a6fd4);
+  border-color:var(--blue);box-shadow:0 0 12px rgba(41,151,255,.4);
+}
+.sw::after{
+  content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);
+  transition:left .22s cubic-bezier(.4,0,.2,1);
+}
+.sw.on2::after{left:20px}
+
+/* ── Feed ────────────────────────────────────── */
+.feedrow{
+  display:flex;align-items:baseline;gap:8px;padding:9px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);font-size:.83rem;
+}
+.feedrow:last-child{border-bottom:none}
+
+/* ── Stat grid ───────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+
+/* ── Hour bars ───────────────────────────────── */
+#aHours{display:flex;align-items:flex-end;gap:3px;height:76px;margin-top:8px}
+
+/* ── Sidebar overlay ─────────────────────────── */
+#sb-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.6);z-index:150;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+
+/* ── Modal ───────────────────────────────────── */
 #modal{
   position:fixed;inset:0;z-index:999;
-  background:rgba(0,0,0,.72);backdrop-filter:blur(8px);
+  background:rgba(0,0,20,.65);
+  backdrop-filter:saturate(180%) blur(16px);
+  -webkit-backdrop-filter:saturate(180%) blur(16px);
   display:flex;align-items:center;justify-content:center;padding:16px;
 }
 .modal-box{
-  max-width:500px;width:100%;max-height:90vh;overflow-y:auto;
-  background:var(--surface);border:1px solid var(--border2);border-radius:18px;
-  padding:22px;box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(124,92,252,.1);
+  max-width:510px;width:100%;max-height:90vh;overflow-y:auto;
+  background:rgba(10,15,40,.85);
+  backdrop-filter:saturate(200%) blur(40px);
+  -webkit-backdrop-filter:saturate(200%) blur(40px);
+  border:1px solid rgba(255,255,255,.18);border-radius:22px;padding:24px;
+  box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 .5px rgba(255,255,255,.1) inset,
+             0 1px 0 rgba(255,255,255,.18) inset;
 }
-.modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
-.modal-title{font-family:'Space Grotesk',sans-serif;font-size:1.25rem;font-weight:700}
-.modal-meta{font-size:.77rem;color:var(--muted2);margin-top:4px}
-.modal-sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+.modal-title{font-size:1.2rem;font-weight:700;letter-spacing:-.025em}
+.modal-meta{font-size:.77rem;color:var(--muted);margin-top:4px}
+.modal-sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--glass-border)}
 
-/* ── Hour bars ────────────────────────────────────────── */
-#aHours{display:flex;align-items:flex-end;gap:3px;height:76px;margin-top:6px}
-
-/* ── Mobile ───────────────────────────────────────────── */
+/* ── Mobile ──────────────────────────────────── */
 @media(max-width:768px){
   .sidebar{
     position:fixed;top:0;left:0;bottom:0;z-index:200;
-    transform:translateX(-100%);transition:transform .24s cubic-bezier(.4,0,.2,1);
-    box-shadow:8px 0 32px rgba(0,0,0,.5);
+    transform:translateX(-100%);transition:transform .26s cubic-bezier(.4,0,.2,1);
+    box-shadow:12px 0 48px rgba(0,0,0,.7);width:260px;
   }
   .sidebar.open{transform:translateX(0)}
   #sb-overlay.open{display:block}
   #hamburger{display:flex}
   .content{padding:16px 14px 60px}
-  .topbar{padding:11px 14px}
+  .topbar{padding:12px 14px}
 }
 @media(max-width:480px){
   .row{flex-direction:column;align-items:stretch}
   .row input,.row button{width:100%}
   .row>*{flex:none}
   .row button.sm{width:auto}
-  .modal-box{padding:16px}
+  .modal-box{padding:18px}
 }
+
+/* ── Scrollbar ───────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
 </style>
 </head>
 <body>
-<div class="bg-deco"></div>
+<div class="bg-deco"><div class="orb3"></div></div>
 
-<!-- ═══ LOGIN ══════════════════════════════════════════ -->
+<!-- ═══ LOGIN ══════════════════════════════════ -->
 <div id="login">
   <div class="login-wrap">
-    <div class="login-logo">⬡</div>
+    <div class="login-icon">⬡</div>
     <h1>ScrollHub Admin</h1>
-    <div class="login-sub">Enter the admin password to continue.</div>
+    <div class="login-sub">Enter your admin password to continue</div>
     <div class="field">
       <input id="pw" type="password" placeholder="Password" autocomplete="current-password"/>
     </div>
-    <button id="loginBtn" class="full">Sign in →</button>
-    <div id="loginErr" class="flash" style="color:var(--red);text-align:center;margin-top:8px"></div>
+    <button id="loginBtn" class="full">Sign In</button>
+    <div id="loginErr" class="flash" style="color:var(--red);text-align:center;margin-top:10px"></div>
   </div>
 </div>
 
-<!-- Sidebar overlay -->
 <div id="sb-overlay"></div>
 
-<!-- ═══ DASHBOARD ════════════════════════════════════════ -->
+<!-- ═══ DASHBOARD ══════════════════════════════ -->
 <div id="dash" class="hide">
 
-  <!-- ── Sidebar ── -->
   <aside class="sidebar" id="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-mark">⬡</div>
       ScrollHub
     </div>
-
     <nav class="sb-nav">
       <div class="sb-section">Management</div>
 
       <button class="tab active" data-view="players">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Players
       </button>
 
       <button class="tab" data-view="analytics">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
         Analytics
       </button>
 
       <button class="tab" data-view="feed">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         Activity Feed
       </button>
 
       <button class="tab" data-view="games">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="17" cy="12" r="1"/><circle cx="15" cy="10" r="1"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="17" cy="12" r="1"/><circle cx="15" cy="10" r="1"/></svg>
         Add Games
       </button>
 
       <div class="sb-section" style="margin-top:4px">Admin</div>
 
       <button class="tab" data-view="controls">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M5.34 5.34L3.93 6.75"/><path d="M19.07 19.07l-1.41-1.41"/><path d="M5.34 18.66L3.93 17.25"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 5.34L3.93 6.75M19.07 19.07l-1.41-1.41M5.34 18.66L3.93 17.25"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
         Controls
       </button>
 
       <button class="tab" data-view="bans">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         Bans
       </button>
     </nav>
@@ -353,28 +458,26 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     <div class="sb-bottom">
       <div class="online-pill">
         <span class="pulse"></span>
-        <span><b id="hdrOnline">0</b> online now</span>
+        <b id="hdrOnline">0</b>&nbsp;online now
       </div>
-      <button id="logout" class="ghost sm full">Sign out</button>
+      <button id="logout" class="ghost sm full">Sign Out</button>
     </div>
   </aside>
 
-  <!-- ── Main ── -->
   <div class="main">
     <div class="topbar">
       <button id="hamburger">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <span class="topbar-title" id="topbarTitle">Players</span>
       <div class="topbar-right">
         <span class="topbar-tag">ScrollHub Admin</span>
-        <!-- logout on desktop is in sidebar -->
       </div>
     </div>
 
     <div class="content">
 
-      <!-- Vitals row (always visible) -->
+      <!-- Vitals -->
       <div class="vitals">
         <div class="stat-card c-green">
           <div class="stat-label">Online Now</div>
@@ -390,55 +493,55 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         </div>
       </div>
 
-      <!-- ── Players ── -->
+      <!-- Players -->
       <section class="view" data-panel="players">
         <div class="card">
           <h2>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Live Players
           </h2>
           <table>
             <thead><tr><th>Nickname</th><th>Playing</th><th>Location</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
-            <tbody id="players"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+            <tbody id="players"><tr><td colspan="5" style="color:var(--muted)">Loading…</td></tr></tbody>
           </table>
           <div class="note">Updates every few seconds. Click a nickname to open their profile.</div>
         </div>
       </section>
 
-      <!-- ── Analytics ── -->
+      <!-- Analytics -->
       <section class="view hide" data-panel="analytics">
         <div class="card">
           <h2>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
             Analytics
           </h2>
           <div class="stat-grid">
-            <div class="stat-card"><div class="stat-label">Peak Online</div><div class="stat-num" id="aPeak">0</div><div class="muted" id="aPeakAt" style="font-size:.68rem;margin-top:4px"></div></div>
+            <div class="stat-card"><div class="stat-label">Peak Online</div><div class="stat-num" id="aPeak">0</div><div style="color:var(--muted);font-size:.68rem;margin-top:5px" id="aPeakAt"></div></div>
             <div class="stat-card"><div class="stat-label">Total Sessions</div><div class="stat-num" id="aSessions">0</div></div>
           </div>
           <div class="label" style="margin-top:16px">Busiest hours (0–23, server time)</div>
           <div id="aHours"></div>
-          <div class="label" style="margin-top:16px">Most-played games</div>
-          <table><tbody id="aGames"><tr><td class="muted">No plays yet</td></tr></tbody></table>
+          <div class="label" style="margin-top:18px">Most-played games</div>
+          <table><tbody id="aGames"><tr><td style="color:var(--muted)">No plays yet</td></tr></tbody></table>
         </div>
       </section>
 
-      <!-- ── Feed ── -->
+      <!-- Feed -->
       <section class="view hide" data-panel="feed">
         <div class="card">
           <h2>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             Activity Feed
           </h2>
           <div id="feed" style="max-height:420px;overflow:auto">Loading…</div>
         </div>
       </section>
 
-      <!-- ── Games ── -->
+      <!-- Games -->
       <section class="view hide" data-panel="games">
         <div class="card">
           <h2>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="17" cy="12" r="1"/><circle cx="15" cy="10" r="1"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="17" cy="12" r="1"/><circle cx="15" cy="10" r="1"/></svg>
             Add Your Own Games
           </h2>
           <div class="field"><div class="label">Game Name</div><input id="gName" type="text" placeholder="e.g. Cool Math Blaster"/></div>
@@ -448,21 +551,18 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
           <button id="gAdd">+ Add game</button>
           <div id="gFlash" class="flash"></div>
           <div class="note">Added games appear for everyone in the Games section.</div>
-          <div class="label" style="margin-top:16px">Your Added Games</div>
-          <table><tbody id="gList"><tr><td class="muted">None yet</td></tr></tbody></table>
+          <div class="label" style="margin-top:18px">Your Added Games</div>
+          <table><tbody id="gList"><tr><td style="color:var(--muted)">None yet</td></tr></tbody></table>
         </div>
       </section>
 
-      <!-- ── Controls ── -->
+      <!-- Controls -->
       <section class="view hide" data-panel="controls">
 
         <div class="card">
-          <h2>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M5.34 5.34L3.93 6.75"/><path d="M19.07 19.07l-1.41-1.41"/><path d="M5.34 18.66L3.93 17.25"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
-            Site Controls
-          </h2>
+          <h2>⚙️ Site Controls</h2>
           <div class="field">
-            <label class="toggle"><span id="maintSw" class="sw"></span><span>Maintenance mode — closes the site for everyone</span></label>
+            <label class="toggle"><span id="maintSw" class="sw"></span><span style="font-size:.85rem">Maintenance mode — closes the site for everyone</span></label>
           </div>
           <div class="field">
             <div class="label">Global redirect (blank = none)</div>
@@ -482,7 +582,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <div class="card">
           <h2>📣 Send to Everyone Online</h2>
           <div class="field">
-            <div class="label">Message (for Popup / Toast)</div>
+            <div class="label">Message</div>
             <div class="row"><input id="saMsg" type="text" placeholder="Type a message…"/></div>
           </div>
           <div class="field">
@@ -510,7 +610,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <div class="card">
           <h2>📜 Scrolls &amp; Events</h2>
           <div class="field">
-            <div class="label">Give / take Scrolls by username (negative to take)</div>
+            <div class="label">Give / take Scrolls by username</div>
             <div class="row">
               <input id="scUser" type="text" placeholder="username"/>
               <input id="scAmt" type="number" placeholder="amount"/>
@@ -519,11 +619,11 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
             </div>
           </div>
           <div class="field">
-            <div class="label">🎉 Give Scrolls to EVERY account (even offline)</div>
+            <div class="label">🎉 Give Scrolls to EVERY account</div>
             <div class="row"><input id="allAmt" type="number" placeholder="e.g. 1000"/><button class="sm gold" id="allBtn">Give to all accounts</button></div>
           </div>
           <div class="field">
-            <div class="label">🎁 Event code — players redeem once in the casino</div>
+            <div class="label">🎁 Event code</div>
             <div class="row">
               <input id="cdCode" type="text" placeholder="CODE (e.g. HALLOWEEN)"/>
               <input id="cdAmt" type="number" placeholder="Scrolls each"/>
@@ -567,7 +667,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
         <div class="card">
           <h2>🌈 Site-Wide Takeover</h2>
-          <div class="note">Flip a switch and <b>everyone's</b> screen gets the effect instantly.</div>
+          <div class="note">Flip a switch and everyone's screen gets the effect instantly.</div>
           <div class="field" style="margin-top:12px">
             <div class="label">Pick a mode</div>
             <div class="row">
@@ -591,37 +691,37 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
           <div class="field"><div class="label">Title</div><input id="anTitle" type="text" placeholder="Announcement title"/></div>
           <div class="field"><div class="label">Message</div><input id="anBody" type="text" placeholder="What's the news?"/></div>
           <div class="row">
-            <label style="display:inline-flex;align-items:center;gap:7px;color:var(--muted2);font-size:.82rem;cursor:pointer">
+            <label style="display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:.82rem;cursor:pointer">
               <input id="anImp" type="checkbox" style="width:15px;height:15px"/> Mark important
             </label>
             <button id="anPost">Post to chat</button>
           </div>
           <div id="anFlash" class="flash"></div>
           <div class="label" style="margin-top:14px">Posted Announcements</div>
-          <table><tbody id="anList"><tr><td class="muted">None</td></tr></tbody></table>
+          <table><tbody id="anList"><tr><td style="color:var(--muted)">None</td></tr></tbody></table>
         </div>
 
       </section>
 
-      <!-- ── Bans ── -->
+      <!-- Bans -->
       <section class="view hide" data-panel="bans">
         <div class="card">
           <h2>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             Banned Players
           </h2>
           <table>
             <thead><tr><th>Nickname</th><th>Reason</th><th>Expires</th><th>IP</th><th style="text-align:right">Action</th></tr></thead>
-            <tbody id="bans"><tr><td colspan="5" class="muted">None</td></tr></tbody>
+            <tbody id="bans"><tr><td colspan="5" style="color:var(--muted)">None</td></tr></tbody>
           </table>
         </div>
       </section>
 
-    </div><!-- /content -->
-  </div><!-- /main -->
-</div><!-- /dash -->
+    </div>
+  </div>
+</div>
 
-<!-- ═══ PLAYER PROFILE MODAL ══════════════════════════════ -->
+<!-- ═══ PLAYER MODAL ════════════════════════════ -->
 <div id="modal" class="hide">
   <div class="modal-box">
     <div class="modal-header">
@@ -644,7 +744,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <button class="sm" data-act="timeout">⏱ Timeout 5m</button>
       </div>
     </div>
-
     <div class="modal-sec">
       <div class="label">📜 Give / take Scrolls</div>
       <div class="row">
@@ -655,7 +754,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
       </div>
       <div id="mCoinsFlash" class="flash"></div>
     </div>
-
     <div class="modal-sec">
       <div class="label">💬 Send a message</div>
       <div class="row">
@@ -664,7 +762,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <button class="sm ghost" data-act="toast">Toast</button>
       </div>
     </div>
-
     <div class="modal-sec">
       <div class="label">🏷️ Rename their browser tab</div>
       <div class="row">
@@ -672,7 +769,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <button class="sm" data-act="tabtitle">Set tab</button>
       </div>
     </div>
-
     <div class="modal-sec">
       <div class="label">🎮 Send to a game or URL</div>
       <div class="row">
@@ -685,25 +781,21 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <button class="sm ghost" data-act="tourl">Redirect</button>
       </div>
     </div>
-
     <div class="modal-sec">
       <div class="label">👑 Chat role</div>
       <div class="row">
         <button class="sm" data-act="setowner">👑 Make owner</button>
         <button class="sm ghost" data-act="unsetowner">Remove owner</button>
       </div>
-
       <div class="label" style="margin-top:12px">🛡️ Moderation</div>
       <div class="row"><button class="amber sm" data-act="kickrow">👢 Kick</button></div>
-
-      <div class="label" style="margin-top:12px">Ban length: <span id="banDurLabel" style="color:var(--cyan)">Permanent</span></div>
+      <div class="label" style="margin-top:12px">Ban length: <span id="banDurLabel" style="color:var(--blue)">Permanent</span></div>
       <div id="banDur" class="row" style="gap:5px">
         <button class="sm dur" data-dur="0">Permanent</button>
         <button class="sm ghost dur" data-dur="5">5 min</button>
         <button class="sm ghost dur" data-dur="60">1 hour</button>
         <button class="sm ghost dur" data-dur="1440">1 day</button>
       </div>
-
       <div class="label" style="margin-top:12px">Ban for…</div>
       <div id="offenseList" class="row" style="gap:5px"></div>
       <div class="row" style="margin-top:7px">
@@ -715,7 +807,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   </div>
 </div>
 
-<!-- ═══ SCRIPTS (logic unchanged) ════════════════════════ -->
 <script>
 (function () {
   var PW = '';
@@ -785,13 +876,13 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
     playerMap = {};
     var pb = $('players');
-    if (!players.length) pb.innerHTML = '<tr><td colspan="5" class="muted">No one online right now.</td></tr>';
+    if (!players.length) pb.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No one online right now.</td></tr>';
     else pb.innerHTML = players.map(function (p) {
       playerMap[p.id] = p;
-      return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--cyan);text-decoration:none;font-weight:600">' +
+      return '<tr><td><a href="#" data-open="' + esc(p.id) + '" style="color:var(--blue);text-decoration:none;font-weight:600">' +
         esc(p.nickname) + '</a>' + (p.chatOwner ? ' <span class="pill">👑</span>' : '') + (p.frozen ? ' <span class="pill">frozen</span>' : '') + '</td>' +
-        '<td class="muted">' + esc(p.activity || '—') + '</td>' +
-        '<td class="muted">' + esc(p.location) + '</td>' +
+        '<td style="color:var(--muted)">' + esc(p.activity || '—') + '</td>' +
+        '<td style="color:var(--muted)">' + esc(p.location) + '</td>' +
         '<td><span class="dot ' + (p.online ? 'on' : 'off') + '"></span>' + (p.online ? 'Online' : 'Idle') + '</td>' +
         '<td style="text-align:right"><button class="sm ghost" data-open="' + esc(p.id) + '">Manage</button></td></tr>';
     }).join('');
@@ -799,11 +890,11 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     if (currentId && playerMap[currentId]) refreshModalMeta(playerMap[currentId]);
 
     var bb = $('bans');
-    if (!bans.length) bb.innerHTML = '<tr><td colspan="5" class="muted">None</td></tr>';
+    if (!bans.length) bb.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">None</td></tr>';
     else bb.innerHTML = bans.map(function (b) {
-      return '<tr><td>' + esc(b.nickname) + '</td><td class="muted">' + esc(b.reason || '—') + '</td>' +
-        '<td class="muted">' + (b.until ? esc(fmtLeft(b.until)) : 'Permanent') + '</td>' +
-        '<td class="muted">' + esc(b.ip) + '</td>' +
+      return '<tr><td>' + esc(b.nickname) + '</td><td style="color:var(--muted)">' + esc(b.reason || '—') + '</td>' +
+        '<td style="color:var(--muted)">' + (b.until ? esc(fmtLeft(b.until)) : 'Permanent') + '</td>' +
+        '<td style="color:var(--muted)">' + esc(b.ip) + '</td>' +
         '<td style="text-align:right"><button class="ghost sm" data-unban="' + esc(b.ip) + '">Unban</button></td></tr>';
     }).join('');
 
@@ -816,10 +907,10 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   function renderAnnouncements(list) {
     list = list || [];
     var el = $('anList'); if (!el) return;
-    if (!list.length) { el.innerHTML = '<tr><td class="muted">None</td></tr>'; return; }
+    if (!list.length) { el.innerHTML = '<tr><td style="color:var(--muted)">None</td></tr>'; return; }
     el.innerHTML = list.slice().reverse().map(function (a) {
       return '<tr><td><strong>' + esc(a.title) + '</strong>' + (a.important ? ' <span class="pill">important</span>' : '') +
-        '<br><span class="muted" style="font-size:.74rem">' + esc(a.content) + '</span></td>' +
+        '<br><span style="color:var(--muted);font-size:.74rem">' + esc(a.content) + '</span></td>' +
         '<td style="text-align:right"><button class="ghost sm" data-delann="' + esc(a.id) + '">Remove</button></td></tr>';
     }).join('');
   }
@@ -827,17 +918,17 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   function renderGames(list) {
     list = list || [];
     var el = $('gList'); if (!el) return;
-    if (!list.length) { el.innerHTML = '<tr><td class="muted">None yet</td></tr>'; return; }
+    if (!list.length) { el.innerHTML = '<tr><td style="color:var(--muted)">None yet</td></tr>'; return; }
     el.innerHTML = list.map(function (g) {
-      return '<tr><td><strong>' + esc(g.label) + '</strong><br><span class="muted" style="font-size:.72rem">' + esc(g.url) + '</span></td>' +
+      return '<tr><td><strong>' + esc(g.label) + '</strong><br><span style="color:var(--muted);font-size:.72rem">' + esc(g.url) + '</span></td>' +
         '<td style="text-align:right"><button class="ghost sm" data-delgame="' + esc(g.id) + '">Remove</button></td></tr>';
     }).join('');
   }
 
   function renderEvents(evs) {
-    if (!evs || !evs.length) { $('feed').innerHTML = '<div class="muted">No activity yet.</div>'; return; }
+    if (!evs || !evs.length) { $('feed').innerHTML = '<div style="color:var(--muted)">No activity yet.</div>'; return; }
     var ICON = { join: '🟢', leave: '⚪', play: '🎮', ban: '⛔', kick: '👢' };
-    var COLOR = { join: 'var(--green)', leave: 'var(--muted2)', play: 'var(--cyan)', ban: 'var(--red)', kick: 'var(--amber)' };
+    var COLOR = { join: 'var(--green)', leave: 'var(--muted)', play: 'var(--blue)', ban: 'var(--red)', kick: 'var(--amber)' };
     $('feed').innerHTML = evs.map(function (e) {
       var t = new Date(e.ts).toLocaleTimeString();
       var label = e.type === 'join' ? 'joined' : e.type === 'leave' ? 'left' :
@@ -846,8 +937,8 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
       return '<div class="feedrow">' +
         '<span>' + (ICON[e.type] || '•') + '</span>' +
         '<span style="color:' + (COLOR[e.type] || 'var(--text)') + ';font-weight:600">' + esc(e.nickname) + '</span>' +
-        '<span class="muted">' + label + '</span>' +
-        '<span class="muted" style="margin-left:auto;font-size:.73rem">' + t + '</span></div>';
+        '<span style="color:var(--muted)">' + label + '</span>' +
+        '<span style="color:var(--muted);margin-left:auto;font-size:.73rem">' + t + '</span></div>';
     }).join('');
   }
 
@@ -860,17 +951,16 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     $('aHours').innerHTML = hrs.map(function (v, h) {
       var ht = Math.round((v / max) * 68) + 2;
       return '<div title="' + h + ':00 — ' + v + ' pings" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px">' +
-        '<div style="width:100%;height:' + ht + 'px;background:linear-gradient(180deg,#7c5cfc,#5b6df0);border-radius:3px 3px 0 0;opacity:' + (v ? 1 : 0.2) + '"></div>' +
+        '<div style="width:100%;height:' + ht + 'px;background:linear-gradient(180deg,rgba(41,151,255,.85),rgba(41,151,255,.3));border-radius:3px 3px 0 0;opacity:' + (v ? 1 : 0.2) + '"></div>' +
         '<div style="font-size:7px;color:var(--muted)">' + (h % 6 === 0 ? h : '') + '</div></div>';
     }).join('');
     var g = s.topGames || [];
     $('aGames').innerHTML = g.length ? g.map(function (x, i) {
       return '<tr><td style="width:24px;color:var(--muted)">' + (i + 1) + '</td><td><strong>' + esc(x.name) + '</strong></td>' +
-        '<td style="text-align:right;color:var(--cyan)">' + x.plays + ' plays</td></tr>';
-    }).join('') : '<tr><td class="muted">No plays yet</td></tr>';
+        '<td style="text-align:right;color:var(--blue)">' + x.plays + ' plays</td></tr>';
+    }).join('') : '<tr><td style="color:var(--muted)">No plays yet</td></tr>';
   }
 
-  // ----- player modal -----
   function mflash(msg) { $('mFlash').textContent = msg; setTimeout(function () { $('mFlash').textContent = ''; }, 2000); }
   function refreshModalMeta(p) {
     $('mName').innerHTML = esc(p.nickname) + (p.chatOwner ? ' <span class="pill">👑 owner</span>' : '') + (p.frozen ? ' <span class="pill">frozen</span>' : '');
@@ -878,8 +968,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   }
   function openProfile(id) {
     var p = playerMap[id]; if (!p) return;
-    currentId = id;
-    refreshModalMeta(p);
+    currentId = id; refreshModalMeta(p);
     $('mMsg').value = ''; $('mTitle').value = ''; $('mGame').value = ''; $('mUrl').value = ''; $('mCustomBan').value = '';
     $('modal').classList.remove('hide');
   }
@@ -908,13 +997,11 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
       banMinutes = Number(t.dataset.dur);
       var chips = document.querySelectorAll('#banDur .dur');
       for (var ci = 0; ci < chips.length; ci++) chips[ci].className = 'sm ghost dur';
-      t.className = 'sm dur'; $('banDurLabel').textContent = t.textContent;
-      return;
+      t.className = 'sm dur'; $('banDurLabel').textContent = t.textContent; return;
     }
     if (t.dataset.offense) {
       if (!currentId) return;
-      api('ban', { id: currentId, reason: t.dataset.offense, minutes: banMinutes }).then(function () { mflash('Banned: ' + t.dataset.offense); closeModal(); tick(); });
-      return;
+      api('ban', { id: currentId, reason: t.dataset.offense, minutes: banMinutes }).then(function () { mflash('Banned: ' + t.dataset.offense); closeModal(); tick(); }); return;
     }
     if (t.dataset.coins != null) {
       if (!currentId) return;
@@ -923,8 +1010,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
       api('givecoins', { id: currentId, amount: amt }).then(function (res) {
         if (res.ok) { mflash((amt >= 0 ? 'Gave ' : 'Took ') + Math.abs(amt) + ' Scrolls — balance ' + res.data.balance); $('mCoins').value = ''; }
         else mflash((res.data && res.data.error) || 'Failed.');
-      });
-      return;
+      }); return;
     }
     var act = t.dataset.act; if (!act) return;
     if (act === 'freeze') { api('freeze', { id: currentId, on: true }).then(function () { mflash('Frozen.'); tick(); }); }
@@ -1048,7 +1134,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     var el = $('repList');
     if (!list || !list.length) { el.textContent = 'No reports.'; return; }
     el.innerHTML = list.map(function (r) {
-      return '<div style="margin:5px 0;padding:8px 10px;border:1px solid var(--border2);border-radius:8px">🚩 <b>' + esc(r.targetName) + '</b> reported by ' + esc(r.reporterName) +
+      return '<div style="margin:5px 0;padding:9px 12px;border:1px solid var(--glass-border);border-radius:10px;background:rgba(255,255,255,.03)">🚩 <b>' + esc(r.targetName) + '</b> reported by ' + esc(r.reporterName) +
         '<div style="margin:3px 0;font-size:.8rem">' + (r.reason ? esc(r.reason) : '<i>(no reason given)</i>') + '</div>' +
         '<div style="color:var(--muted);font-size:.72rem">' + new Date(r.at).toLocaleString() + '</div></div>';
     }).join('');
@@ -1100,7 +1186,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   else showLogin();
 })();
 
-// ── Tab navigation ─────────────────────────────────────
 (function () {
   var tabs = document.querySelectorAll('.tab');
   var views = document.querySelectorAll('.view');
@@ -1116,7 +1201,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   }
 })();
 
-// ── Mobile sidebar ────────────────────────────────────
 (function () {
   var sb = document.getElementById('sidebar');
   var ov = document.getElementById('sb-overlay');
@@ -1126,7 +1210,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   function close() { sb.classList.remove('open'); ov.classList.remove('open'); }
   hb.addEventListener('click', function () { sb.classList.contains('open') ? close() : open(); });
   ov.addEventListener('click', close);
-  // close sidebar when a nav item is clicked on mobile
   var tabs = sb.querySelectorAll('.tab');
   for (var i = 0; i < tabs.length; i++) {
     tabs[i].addEventListener('click', function () { if (window.innerWidth <= 768) close(); });
