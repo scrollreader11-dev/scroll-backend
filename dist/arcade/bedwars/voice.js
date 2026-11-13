@@ -6,7 +6,8 @@
    distance and pans left/right by where they stand.        -> window.BWV
    ============================================================ */
 (function () {
-  var V = window.BWV = { on: false, muted: false, talking: false, range: 380 };
+  // V.hearing = you hear nearby players (on by default, no mic needed); V.on = your mic is live.
+  var V = window.BWV = { hearing: false, on: false, muted: false, talking: false, range: 380 };
   var RATE = 12000, FRAME = 480;              // 40 ms frames
   var ac = null, stream = null, src = null, cap = null, mix = null, sink = null;
   var sendFn = null, inbuf = new Float32Array(FRAME), inLen = 0, acc = 0, accSum = 0, accN = 0, ratio = 4;
@@ -22,11 +23,24 @@
   var DEC = new Float32Array(256);
   for (var i = 0; i < 256; i++) { var u = ~i & 0xff, sign = u & 0x80, exp = (u >> 4) & 7, man = u & 0x0f; var mag = ((man << 3) + 132) << exp; mag -= 132; DEC[i] = (sign ? -mag : mag) / 32768; }
 
+  // Start hearing other players. Browsers only allow audio after a click/key press,
+  // so the context is resumed on the first interaction.
+  V.listen = function () {
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    if (!ac) ac = new AC();
+    ratio = ac.sampleRate / RATE;
+    if (!mix) { mix = ac.createScriptProcessor(1024, 0, 2); mix.onaudioprocess = mixOut; mix.connect(ac.destination); }
+    V.hearing = true;
+    var wake = function () { if (ac && ac.state === 'suspended') ac.resume(); };
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, wake, { passive: true }); });
+    wake();
+    return true;
+  };
+  V.deaf = function () { return !!(window.SC && SC.sfxMuted && SC.sfxMuted()); };  // game sound off = voices off too
   V.supported = function () { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext)); };
   V.start = function (send) {
     sendFn = send;
-    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
-    ratio = ac.sampleRate / RATE;
+    V.listen();
     return ac.resume().then(function () {
       return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
     }).then(function (s) {
@@ -35,16 +49,15 @@
       sink = ac.createGain(); sink.gain.value = 0;   // ScriptProcessors only run when connected
       src.connect(cap); cap.connect(sink); sink.connect(ac.destination);
       cap.onaudioprocess = function (e) { capture(e.inputBuffer.getChannelData(0)); };
-      mix = ac.createScriptProcessor(1024, 0, 2); mix.onaudioprocess = mixOut; mix.connect(ac.destination);
       V.on = true; V.muted = false;
       return true;
     });
   };
-  V.stop = function () {
+  V.stop = function () { // turn the mic off (you keep hearing people)
     V.on = false; V.talking = false;
     try { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
-    try { if (cap) cap.disconnect(); if (src) src.disconnect(); if (mix) mix.disconnect(); if (sink) sink.disconnect(); } catch (e) {}
-    stream = src = cap = mix = sink = null; speakers = {};
+    try { if (cap) cap.disconnect(); if (src) src.disconnect(); if (sink) sink.disconnect(); } catch (e) {}
+    stream = src = cap = sink = null;
   };
   V.setMuted = function (m) { V.muted = !!m; if (V.muted) V.talking = false; };
   V.reset = function () { speakers = {}; };
@@ -69,7 +82,7 @@
   }
   // incoming: [1][speaker id u32][mu-law samples]
   V.onFrame = function (u8) {
-    if (!V.on || !ac || u8.length < 6 || u8[0] !== 1) return;
+    if (!V.hearing || !ac || u8.length < 6 || u8[0] !== 1) return;
     var id = ((u8[1] << 24) | (u8[2] << 16) | (u8[3] << 8) | u8[4]) >>> 0;
     var n = u8.length - 5, outN = Math.floor(n * ratio), pcm = new Float32Array(outN);
     for (var k = 0; k < outN; k++) {                    // linear upsample to the output rate
@@ -96,13 +109,14 @@
   function mixOut(e) {
     var L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1), N = L.length, k;
     for (k = 0; k < N; k++) { L[k] = 0; R[k] = 0; }
+    var deaf = V.deaf();
     for (var id in speakers) {
       var sp = speakers[id]; if (!sp.started) continue;
       var a = (sp.pan + 1) * Math.PI / 4, gl = Math.cos(a), gr = Math.sin(a);
       for (k = 0; k < N; k++) {
         if (!sp.chunks.length) { sp.started = false; break; }
         sp.g += (sp.gain - sp.g) * 0.002;                 // smooth volume changes as people move
-        var ch = sp.chunks[0], s = ch[sp.off++] * sp.g;
+        var ch = sp.chunks[0], s = deaf ? 0 : ch[sp.off++] * sp.g; if (deaf) sp.off++;
         if (sp.off >= ch.length) { sp.chunks.shift(); sp.len -= ch.length; sp.off = 0; }
         L[k] += s * gl; R[k] += s * gr;
       }

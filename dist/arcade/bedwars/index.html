@@ -404,7 +404,7 @@
   <div class="hchip" id="hubOnline">Connecting…</div>
   <div class="hbtns">
     <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
-    <button class="hbtn voiceBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
+    <button class="hbtn voiceBtn" title="Talk to players near you (V = mute)">🎙️ Talk</button>
     <button class="hbtn" id="hubLb" title="Leaderboard">🏆</button>
     <button class="hbtn" id="hubHow" title="How to play">❓</button>
     <button class="hbtn" id="hubQc" title="Quick chat (Q)">💬</button>
@@ -430,7 +430,7 @@
   </div>
   <div class="hbtns">
     <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
-    <button class="hbtn voiceBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
+    <button class="hbtn voiceBtn" title="Talk to players near you (V = mute)">🎙️ Talk</button>
     <button class="hbtn" id="wQc" title="Quick chat (Q)">💬</button>
     <button class="hbtn muteBtn" title="Sound">🔊</button>
     <button class="btn sm red" id="wLeave">← Leave</button>
@@ -510,7 +510,7 @@
 </div>
 <div id="hudBtns" class="hidden" style="position:fixed;right:12px;top:118px;z-index:11;display:flex;flex-direction:column;gap:8px">
   <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
-  <button class="hbtn voiceBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
+  <button class="hbtn voiceBtn" title="Talk to players near you (V = mute)">🎙️ Talk</button>
   <button class="hbtn muteBtn" title="Sound">🔊</button>
   <button class="hbtn" id="gQc" title="Quick chat (Q)">💬</button>
   <button class="hbtn" id="gScore" title="Scoreboard (Tab)">📋</button>
@@ -539,7 +539,7 @@
         1–9 / scroll: switch items &nbsp;·&nbsp; E: talk to a shop NPC<br>
         Bow: hold left click to charge, release to shoot<br>
         Q: quick chat &nbsp;·&nbsp; Tab: scoreboard</p>
-      <p><b>🎙️ Proximity voice:</b> press the Voice button to talk. You only hear players near you (about 9 blocks), and they get quieter as they walk away. Press <b>V</b> (or the button) to mute your mic. Only people who turn voice on can hear or be heard.</p>
+      <p><b>🎙️ Proximity voice:</b> you automatically hear players near you (about 9 blocks) — they get quieter as they walk away. Press <b>🎙️ Talk</b> to turn on your mic, and <b>V</b> (or the button) to mute it. Turning game sound off (🔊) also silences voices.</p>
       <p><b>Phone:</b> joystick to move (push it all the way to sprint). ⚔️ attacks — with nobody nearby it turns into ⛏️ and mines the block or bed you’re facing (it’s highlighted). 🧱 places a block in front of you; hold it while walking to bridge. ✨ uses your held item.</p>
     </div>
   </div>
@@ -559,8 +559,8 @@
 <script src="/casino/art.js?v=3"></script>
 <script src="/arcade/bedwars/shared.js?v=4"></script>
 <script src="/arcade/bedwars/draw.js?v=3"></script>
-<script src="/arcade/bedwars/voice.js?v=1"></script>
-<script src="/arcade/bedwars/game.js?v=6"></script>
+<script src="/arcade/bedwars/voice.js?v=2"></script>
+<script src="/arcade/bedwars/game.js?v=7"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

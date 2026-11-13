@@ -72,7 +72,7 @@
   function connect() {
     try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/bw-ws'); } catch (e) { scheduleReconnect(); return; }
     ws.binaryType = 'arraybuffer';
-    ws.onopen = function () { wsOpen = true; backoff = 800; lastRecv = Date.now(); send({ t: 'ping', c: Date.now() }); if (window.BWV && BWV.on) send({ t: 'vc', on: true }); };
+    ws.onopen = function () { wsOpen = true; backoff = 800; lastRecv = Date.now(); send({ t: 'ping', c: Date.now() }); if (window.BWV && BWV.hearing) send({ t: 'vc', on: true }); };
     ws.onmessage = function (ev) { lastRecv = Date.now(); if (typeof ev.data !== 'string') { if (window.BWV) BWV.onFrame(new Uint8Array(ev.data)); return; } var m; try { m = JSON.parse(ev.data); } catch (e) { return; } onMsg(m); };
     ws.onclose = function () { wsOpen = false; if (!S.fatal) scheduleReconnect(); };
     ws.onerror = function () {};
@@ -842,7 +842,7 @@
     if (snow() < S.goAt && snow() < S.goAt - 2600) k2 = 0.004;
     cam.x += (target.x + lead.x - cam.x) * k2; cam.y += (target.y - 20 + lead.y - cam.y) * k2;
     // proximity voice: volume/pan from where everyone stands
-    if (window.BWV && BWV.on) BWV.tick(listener.x, listener.y, function (id) { var e = S.ents.get(id); if (!e || e.dead || e.id === S.myId) return null; return { x: e.x, y: e.y }; });
+    if (window.BWV && BWV.hearing) BWV.tick(listener.x, listener.y, function (id) { var e = S.ents.get(id); if (!e || e.dead || e.id === S.myId) return null; return { x: e.x, y: e.y }; });
     if (window.BWV && BWV.on && BWV.talking !== S.wasTalking) { S.wasTalking = BWV.talking; voiceSync(); }
     // HUD timers
     hudTick(); spaceTick(); touchMineTick();
@@ -1021,7 +1021,7 @@
     var dead = e.dead || e.elim; if (dead) return;
     var x = e.x, y = e.y; if (e.id === S.myId && P) { if (P.falling) return; x = P.x; y = P.y; }
     var mine = e.id === S.myId;
-    if (window.BWV && BWV.on && (mine ? BWV.talking : BWV.isTalking(e.id))) {
+    if (window.BWV && BWV.hearing && (mine ? BWV.on && BWV.talking : BWV.isTalking(e.id))) {
       var vy = y - (S.screen === 'hub' || S.screen === 'wait' ? 96 : mine ? 70 : 96), pulse = (Math.sin(t * 14) + 1) / 2;
       A.circ(c, x, vy, 11); c.fillStyle = '#2bd576'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke();
       c.fillStyle = '#05240f'; c.fillRect(x - 5, vy - 3, 4, 6); c.beginPath(); c.moveTo(x - 1, vy - 3); c.lineTo(x + 3, vy - 6); c.lineTo(x + 3, vy + 6); c.lineTo(x - 1, vy + 3); c.fill();
@@ -1341,7 +1341,7 @@
 
   // ------------------------------------------------------------------ proximity voice button
   function voiceSync() {
-    var V = window.BWV, label = !V || !V.on ? '🎙️ Voice' : V.muted ? '🔇 Muted' : V.talking ? '🎙️ Talking' : '🎙️ On';
+    var V = window.BWV, label = !V || !V.on ? '🎙️ Talk' : V.muted ? '🔇 Muted' : V.talking ? '🎙️ Talking' : '🎙️ On';
     [].forEach.call(document.querySelectorAll('.voiceBtn'), function (b) {
       b.textContent = label;
       b.classList.toggle('von', !!(V && V.on && !V.muted)); b.classList.toggle('vmute', !!(V && V.on && V.muted)); b.classList.toggle('vtalk', !!(V && V.on && V.talking));
@@ -1353,10 +1353,9 @@
       if (!V.supported()) { toast('Voice chat isn’t supported in this browser', 2200); return; }
       if (!V.on) {
         b.textContent = '🎙️ …';
-        V.start(sendBin).then(function () { send({ t: 'vc', on: true }); voiceSync(); toast('🎙️ Voice on — players near you can hear you. V = mute', 2600); })
+        V.start(sendBin).then(function () { send({ t: 'vc', on: true }); voiceSync(); toast('🎙️ Mic on — players near you can hear you. V = mute', 2600); })
           .catch(function () { voiceSync(); toast('🎙️ Allow microphone access to use voice chat', 2600); SC.sfx('no'); });
-      } else if (!V.muted) { V.setMuted(true); voiceSync(); toast('🔇 Muted — you can still hear people nearby', 1800); }
-      else { V.stop(); send({ t: 'vc', on: false }); voiceSync(); toast('Voice chat off', 1400); }
+      } else { V.setMuted(!V.muted); voiceSync(); toast(V.muted ? '🔇 Mic muted — you still hear people nearby' : '🎙️ Mic on', 1600); }
     };
   });
 
@@ -1451,6 +1450,7 @@
   // debug hook for automated tests
   window.BWG = { dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
 
+  if (window.BWV) BWV.listen(); // hear nearby players right away (no mic needed)
   requestAnimationFrame(frame);
   boot();
 })();
