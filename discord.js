@@ -356,7 +356,6 @@ export async function serveDiscordFile(req, res, url) {
 // WebSocket: live messages + WebRTC voice signaling.
 // ============================================================
 const wss = new WebSocketServer({ noServer: true });
-let nidSeq = 0;                        // small numeric id per socket, used in relayed audio frames
 const conns = new Set();               // all live sockets
 const voiceRooms = new Map();          // channelId -> Set(conn)
 
@@ -367,7 +366,7 @@ function wsBroadcastChannel(cid, obj) {
 function voiceRoster(cid) {
   const set = voiceRooms.get(cid);
   if (!set) return [];
-  return [...set].map((c) => { const cc = cosFull(c.uid); return { peer: c.peerId, nid: c.nid, uid: c.uid, name: c.uname, color: cc.color, avatarFx: cc.avatarFx, avatar: cc.avatar }; });
+  return [...set].map((c) => { const cc = cosFull(c.uid); return { peer: c.peerId, uid: c.uid, name: c.uname, color: cc.color, avatarFx: cc.avatarFx, avatar: cc.avatar }; });
 }
 function voiceBroadcast(cid, obj, except) {
   const set = voiceRooms.get(cid); if (!set) return;
@@ -418,19 +417,9 @@ export function handleDiscordUpgrade(req, socket, head) {
     if (!auth) { try { socket.destroy(); } catch {} return; }
     wss.handleUpgrade(req, socket, head, (ws) => {
       ws.uid = auth.id; ws.uname = auth.username; ws.peerId = rid(10); ws.subs = new Set(); ws.voiceCid = null;
-      ws.nid = (nidSeq = (nidSeq + 1) >>> 0) || (nidSeq = 1); ws.relay = false;
       conns.add(ws);
-      ws.send(JSON.stringify({ t: 'hello', peer: ws.peerId, nid: ws.nid }));
-      ws.on('message', (raw, isBinary) => {
-        // Server-relayed call audio (same codec as game voice): works on every network,
-        // even where direct WebRTC can't connect. Frame in: [1][mu-law]; out: [1][nid u32][mu-law].
-        if (isBinary) {
-          const set = ws.voiceCid && voiceRooms.get(ws.voiceCid);
-          if (!set || raw.length < 2 || raw.length > 1200 || raw[0] !== 1) return;
-          const out = Buffer.allocUnsafe(raw.length + 4); out[0] = 1; out.writeUInt32BE(ws.nid, 1); raw.copy(out, 5, 1);
-          for (const c of set) { if (c !== ws && c.relay && c.readyState === 1 && c.bufferedAmount < 256000) { try { c.send(out, { binary: true }); } catch {} } }
-          return;
-        }
+      ws.send(JSON.stringify({ t: 'hello', peer: ws.peerId }));
+      ws.on('message', (raw) => {
         let d; try { d = JSON.parse(raw.toString()); } catch { return; }
         if (d.t === 'sub' && typeof d.channel === 'string') {
           if (canAccessChannel(d.channel, ws.uid)) ws.subs.add(d.channel);
@@ -453,7 +442,7 @@ export function handleDiscordUpgrade(req, socket, head) {
           // tell the newcomer who's already here
           ws.send(JSON.stringify({ t: 'voice-peers', channel: d.channel, peers: voiceRoster(d.channel).filter((p) => p.peer !== ws.peerId) }));
           // tell everyone else a newcomer arrived (they will initiate the offer)
-          { const cc = cosFull(ws.uid); voiceBroadcast(d.channel, { t: 'voice-join', peer: ws.peerId, nid: ws.nid, uid: ws.uid, name: ws.uname, color: cc.color, avatarFx: cc.avatarFx, avatar: cc.avatar }, ws); }
+          { const cc = cosFull(ws.uid); voiceBroadcast(d.channel, { t: 'voice-join', peer: ws.peerId, uid: ws.uid, name: ws.uname, color: cc.color, avatarFx: cc.avatarFx, avatar: cc.avatar }, ws); }
         } else if (d.t === 'voice-leave') { leaveVoice(ws); }
         else if (d.t === 'signal' && d.to) {
           // relay WebRTC offer/answer/ICE to the target peer in the same room
@@ -467,7 +456,6 @@ export function handleDiscordUpgrade(req, socket, head) {
           if (!canAccessChannel(d.dmId, ws.uid)) return;
           const out = JSON.stringify({ t: d.t, dmId: d.dmId, fromUid: ws.uid, fromName: ws.uname, video: !!d.video });
           for (const c of conns) { if (c.uid === d.toUid && c.readyState === 1) { try { c.send(out); } catch {} } }
-        } else if (d.t === 'relay') { ws.relay = !!d.on;
         } else if (d.t === 'ping') { try { ws.send('{"t":"pong"}'); } catch {} }
       });
       ws.on('close', () => { leaveVoiceGraceful(ws); conns.delete(ws); });
