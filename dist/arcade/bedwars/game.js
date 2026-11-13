@@ -5,7 +5,7 @@
    ============================================================ */
 (function () {
   'use strict';
-  var B = window.BW, D = window.BWD, SC = window.SC, A = SC.art;
+  var B = window.BW, D = window.BWD, SC = window.SC, A = SC.art, MG = window.MG;
   var T = B.T, W = B.W, H = B.H, TAU = Math.PI * 2;
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), c = cv.getContext('2d');
@@ -59,7 +59,11 @@
     dead: false, elim: false, respawnAt: 0, speedUntil: 0, slowUntil: 0, stats: {},
     teams: [], gens: [], tier: { dia: 0, em: 0 }, tl: 0, projs: new Map(), tnts: new Map(), cracks: {}, placeAnim: {}, slashes: [],
     shake: 0, hurtT: 0, ended: null, qc: [], lastSnap: 0, specId: 0,
+    game: 'bw', flags: [], score: [0, 0], pick: [], endAt: 0, seekAt: 0, sdAt: 0, phase: '', crk: {}, propWob: {}, did: {},
   };
+  var NN = W * H;
+  function isMini() { return S.game !== 'bw'; }
+  function gname(g) { return (MG.GAMES[g] || MG.GAMES.bw).name; }
   var P = null; // my locally-simulated body
   var cam = { x: 36 * T, y: 36 * T, z: 1 };
   var offset = 0, bestRtt = 1e9, rtt = 0;
@@ -99,6 +103,10 @@
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
     if (t === 'god') { S.god = !!m.on; return; }
     if (t === 'goat') { S.goAt = m.goAt; lastTimerS = -1; return; }
+    if (t === 'z') { if (P) { P.z = m.z; P.falling = 0; P.vx = P.vy = 0; if (m.x != null) { P.x = m.x; P.y = m.y; } } var mz = S.ents.get(S.myId); if (mz) mz.z = m.z; D.burst('dust', P.x, P.y, 10); S.shake = Math.max(S.shake, 6); SC.sfx('place'); toast('⬇️ Floor ' + (m.z + 1) + ' of ' + MG.SP_LAYERS + (m.z === MG.SP_LAYERS - 1 ? ' — the LAST one!' : ''), 1500); return; }
+    if (t === 'role') { S.team = m.role; var mr = S.ents.get(S.myId); if (mr) { mr.team = m.role; mr.prop = ''; } S.held = 'sword'; renderHotbar(); mgHudInit(); banner('🔍 YOU’RE A SEEKER NOW', 'Find the hiders that are left!', '#ff5c6c'); tutStart(); return; }
+    if (t === 'radar') { if (m.none) { toast('No hiders left to find', 1400); return; } S.radar = { x: m.x, y: m.y, d: m.d, t: now() }; SC.sfx('level'); toast('📡 ' + (m.d < 6 * T ? 'HOT! A hider is really close' : m.d < 14 * T ? 'Warm — a hider is nearby' : 'Cold — the nearest hider is far away'), 2200); return; }
+    if (t === 'mgt') { if (m.endAt) S.endAt = m.endAt; if (m.seekAt) S.seekAt = m.seekAt; if (m.sdAt) S.sdAt = m.sdAt; return; }
     if (t === 'vcstate') { if (window.BWV) BWV.range = m.range || BWV.range; if (m.off && BWV.on) toast('🔇 Voice chat is turned off right now', 2400); if (m.muted && BWV.on) toast('🔇 An owner muted your voice', 2400); S.vcOff = !!m.off; S.vcMuted = !!m.muted; voiceSync(); return; }
     if (t === 'space') { enterSpace(m); helloArrived(); return; }
     if (t === 'room') { S.room = m; m._at = Date.now(); if (S.screen === 'wait') renderWait(); return; }
@@ -130,7 +138,8 @@
     $('crosshair').classList.toggle('hidden', name !== 'game' || touch);
     $('touch').classList.toggle('hidden', !(touch && name !== 'end' && name !== 'loading'));
     $('qcMenu').classList.add('hidden');
-    if (name !== 'game') { $('death').classList.add('hidden'); $('score').classList.add('hidden'); }
+    if (name !== 'game') { $('death').classList.add('hidden'); $('score').classList.add('hidden'); $('tutor').classList.add('hidden'); $('blind').classList.add('hidden'); }
+    if (name === 'hub' || name === 'wait') { document.body.classList.remove('mg', 'g-ctf', 'g-spleef', 'g-hide'); S.game = 'bw'; ['tAtk', 'tPlace', 'tUse'].forEach(function (id, k) { $(id).textContent = ['⚔️', '🧱', '✨'][k]; $(id).style.visibility = ''; }); }
   }
 
   // ------------------------------------------------------------------ loading screen
@@ -190,19 +199,21 @@
   }
 
   // ------------------------------------------------------------------ hub & waiting island
-  var pMode = 'solo', pDiff = 'normal', cMode = 'solo', cDiff = 'normal';
+  var pMode = 'solo', pDiff = 'normal', cMode = 'solo', cDiff = 'normal', pGame = 'bw', cGame = 'bw';
   function seg(id, cb) { var el = $(id); if (!el) return; el.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; [].forEach.call(el.children, function (x) { x.classList.toggle('on', x === b); }); SC.sfx('click'); cb(b.dataset.v); }); }
   seg('pMode', function (v) { pMode = v; }); seg('pDiff', function (v) { pDiff = v; });
   seg('cMode', function (v) { cMode = v; }); seg('cDiff', function (v) { cDiff = v; });
   seg('hMode', function (v) { send({ t: 'cfg', mode: v }); }); seg('hDiff', function (v) { send({ t: 'cfg', diff: v }); });
-  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin'];
+  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp'];
   function anyModal() { return MODALS.some(function (k) { return !$(k).classList.contains('hidden'); }) || !$('shop').classList.contains('hidden'); }
   function openModal(id) { closeModals(); $(id).classList.remove('hidden'); SC.sfx('open'); mouse.l = mouse.r = false; keys = {}; }
   function closeModals() { MODALS.forEach(function (k) { $(k).classList.add('hidden'); }); }
   [].forEach.call(document.querySelectorAll('[data-close]'), function (b) { b.onclick = function () { closeModals(); SC.sfx('close'); }; });
   MODALS.forEach(function (k) { $(k).addEventListener('mousedown', function (e) { if (e.target === $(k)) closeModals(); }); });
-  $('pGo').onclick = function () { S.lastQueue = { t: 'practice', mode: pMode, diff: pDiff }; send(S.lastQueue); closeModals(); SC.sfx('go'); };
-  $('cGo').onclick = function () { send({ t: 'create', mode: cMode, diff: cDiff }); closeModals(); SC.sfx('go'); };
+  $('pGo').onclick = function () { S.lastQueue = { t: 'practice', game: pGame, mode: pGame === 'bw' ? pMode : pGame, diff: pDiff }; send(S.lastQueue); closeModals(); SC.sfx('go'); };
+  $('cGo').onclick = function () { send({ t: 'create', game: cGame, mode: cGame === 'bw' ? cMode : cGame, diff: cDiff }); closeModals(); SC.sfx('go'); };
+  function openPractice(g) { pGame = g || 'bw'; var G2 = MG.GAMES[pGame]; $('pTitle').textContent = 'Practice ' + G2.name; $('pIco').textContent = G2.icon || '🤖'; $('pModeRow').classList.toggle('hidden', pGame !== 'bw'); openModal('mPractice'); }
+  function openPrivate(g) { cGame = g || 'bw'; var G2 = MG.GAMES[cGame]; $('cTitle').textContent = 'Private ' + G2.name; $('cIco').textContent = G2.icon || '👥'; $('cMode').classList.toggle('hidden', cGame !== 'bw'); $('cHint').textContent = cGame === 'bw' ? '' : G2.tag + ' · empty spots get bots'; openModal('mPrivate'); }
   $('jGo').onclick = function () { var code = $('jCode').value.trim(); if (code.length < 4) { toast('Enter a 4-letter room code', 1800); return; } send({ t: 'join', code: code }); closeModals(); };
   $('jCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('jGo').click(); e.stopPropagation(); });
   function muteSync() { var m = SC.sfxMuted(); [].forEach.call(document.querySelectorAll('.muteBtn'), function (b) { b.textContent = m ? '🔇' : '🔊'; }); }
@@ -213,7 +224,7 @@
   helloWaiters.push(function () { if (qs.get('room') && !roomLinkUsed) { roomLinkUsed = true; setTimeout(function () { send({ t: 'join', code: qs.get('room') }); }, 300); } });
 
   function newBody(x, y) { return { x: x, y: y, vx: 0, vy: 0, cvx: 0, cvy: 0, dead: false, falling: 0, mv: false, sprint: false, ang: Math.PI / 2, lastSend: 0, hopT: -9e9, auto: null }; }
-  function mkEnt(o) { return { id: o.id, nick: o.nick, team: o.team == null ? -1 : o.team, look: o.look, bot: !!o.bot, sword: o.sword || 1, armor: o.armor || 1, pick: o.pick || 0, x: o.x, y: o.y, ang: Math.PI / 2, flags: 0, held: 'sword', hp: 20, buf: [], dead: !!o.dead, elim: !!o.elim, walk: 0, swingT: null, swingDir: 1, flashT: -9e9, fallT: 0, stats: o.stats || {}, dc: o.dc, bubble: null, lastStep: 0, hopT: -9e9, bumpT: -9e9 }; }
+  function mkEnt(o) { return { z: o.z || 0, prop: o.prop || '', carry: o.carry != null ? o.carry : -1, id: o.id, nick: o.nick, team: o.team == null ? -1 : o.team, look: o.look, bot: !!o.bot, sword: o.sword || 1, armor: o.armor || 1, pick: o.pick || 0, x: o.x, y: o.y, ang: Math.PI / 2, flags: 0, held: 'sword', hp: 20, buf: [], dead: !!o.dead, elim: !!o.elim, walk: 0, swingT: null, swingDir: 1, flashT: -9e9, fallT: 0, stats: o.stats || {}, dc: o.dc, bubble: null, lastStep: 0, hopT: -9e9, bumpT: -9e9 }; }
   function addSpacePlayer(o) {
     var e = S.ents.get(o.id);
     if (!e) { e = mkEnt(o); S.ents.set(o.id, e); }
@@ -252,7 +263,7 @@
     var x = $('hubCv').getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 96, 96);
     x.save(); x.translate(48, 86); x.scale(1.6, 1.6); A.drawGim(x, 0, 0, (S.hello && S.hello.look) || { skin: 'gim', body: '#3fa9ff' }, { t: 0, dir: 0, shadow: false }); x.restore();
   }
-  function updateOnline() { if (S.screen !== 'hub') return; var o = S.online || {}; $('hubOnline').textContent = S.ents.size + ' in the hub' + (o.playing ? ' · ' + o.playing + ' playing Bedwars' : ''); }
+  function updateOnline() { if (S.screen !== 'hub') return; var o = S.online || {}; $('hubOnline').textContent = S.ents.size + ' in the hub' + (o.playing ? ' · ' + o.playing + ' in games' : ''); }
   function interactables() { return ((S.map && S.map.objs) || []).filter(function (o) { return o.act; }); }
   function objRange(o) { return (o.kind === 'portal' || o.kind === 'board' || o.kind === 'soon' ? 3.3 : 2.4) * T; }
   function nearObj() { if (!P || (S.screen !== 'hub' && S.screen !== 'wait')) return null; var best = null, bd = 1e9; interactables().forEach(function (o) { var d = Math.hypot(o.x - P.x, o.y - P.y); if (d < objRange(o) && d < bd) { bd = d; best = o; } }); return best; }
@@ -264,13 +275,15 @@
     });
     return hit;
   }
-  function objLabel(o) { return o.act === 'quick' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : o.act === 'practice' ? 'Practice vs bots' : o.act === 'private' ? 'Private room' : o.act === 'how' ? 'How to play' : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
+  function objGame(o) { return o.game && o.game !== 'bedwars' ? o.game : 'bw'; }
+  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
-    if (o.act === 'quick') { S.lastQueue = { t: 'quick', mode: o.mode }; send(S.lastQueue); toast('Joining ' + B.MODES[o.mode].name + '…', 1500); }
-    else if (o.act === 'practice') openModal('mPractice');
-    else if (o.act === 'private') openModal('mPrivate');
-    else if (o.act === 'how') openModal('how');
+    var g = objGame(o);
+    if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
+    else if (o.act === 'practice') openPractice(g);
+    else if (o.act === 'private') openPrivate(g);
+    else if (o.act === 'how') openHelp(g);
     else if (o.act === 'lb') { renderLb(); openModal('mLb'); }
     else if (o.act === 'casino') { toast('Heading to the casino…', 1500); D.burst('magic', P.x, P.y - 20, 20, '#ffd166'); setTimeout(function () { location.href = '/casino'; }, 350); }
     else if (o.act === 'soon') toast('🚧 A new game is coming to this island soon!', 2200);
@@ -299,15 +312,22 @@
   }
   function renderWait() {
     var r = S.room; if (!r || S.screen !== 'wait') return;
-    var md = B.MODES[r.mode];
-    $('wTitle').textContent = (r.kind === 'private' ? 'Private Room' : r.kind === 'practice' ? 'Practice' : 'Quick Play') + ' · ' + md.name;
+    var rg = r.game || 'bw', md = rg === 'bw' ? B.MODES[r.mode] : MG.GAMES[rg];
+    $('wTitle').textContent = (r.kind === 'private' ? 'Private Room' : r.kind === 'practice' ? 'Practice' : 'Quick Play') + ' · ' + (rg === 'bw' ? 'Bedwars ' : '') + md.name;
     $('wCodeWrap').classList.toggle('hidden', !r.code); $('wCode').textContent = r.code || '';
     var host = r.kind === 'private' && r.host === r.you;
     $('wHost').classList.toggle('hidden', !host);
     if (host) { [].forEach.call($('hMode').children, function (b) { b.classList.toggle('on', b.dataset.v === r.mode); }); [].forEach.call($('hDiff').children, function (b) { b.classList.toggle('on', b.dataset.v === r.diff); }); }
-    $('wHint').innerHTML = r.kind === 'private' ? '🟥🟦 Stand on a colored pad to join that team' : r.kind === 'practice' ? '🤖 Bots are getting ready…' : '🤖 Empty slots get filled with bots';
+    $('hMode').classList.toggle('hidden', rg !== 'bw');
+    $('wHint').innerHTML = (rg !== 'bw' ? '<b>' + md.icon + ' ' + esc(md.desc) + '</b><br>' : '') + (r.kind === 'private' && (rg === 'bw' || rg === 'ctf') ? '🟥🟦 Stand on a colored pad to join that team' : r.kind === 'practice' ? '🤖 Bots are getting ready…' : '🤖 Empty slots get filled with bots');
     var html = '';
-    for (var t = 0; t < 4; t++) {
+    if (rg === 'spleef' || rg === 'hide') {
+      var row2 = ''; for (var k2 = 0; k2 < (r.cap || 8); k2++) { var mm = r.members[k2]; row2 += mm ? '<span class="wp' + (mm.cid === r.you ? ' you' : '') + '">' + esc(mm.nick) + '</span>' : '<span class="wp bot">🤖</span>'; }
+      $('wRoster').innerHTML = '<div class="wt">' + row2 + '</div>' + (rg === 'hide' ? '<div class="whint">🎲 Seekers are picked at random when the round starts</div>' : '');
+      r.members.forEach(function (m) { var e = S.ents.get(m.pid); if (e) e.team = rg === 'spleef' ? m.team : -1; });
+      updateWaitCount(); return;
+    }
+    for (var t = 0; t < (r.teams || 4); t++) {
       var mem = r.members.filter(function (m) { return m.team === t; }), row = '';
       for (var k = 0; k < r.per; k++) row += mem[k] ? '<span class="wp' + (mem[k].cid === r.you ? ' you' : '') + '">' + esc(mem[k].nick) + '</span>' : '<span class="wp bot">🤖</span>';
       html += '<div class="wt"><i style="background:' + teamCol(t) + '"></i>' + row + '</div>';
@@ -320,7 +340,7 @@
   function updateWaitCount() {
     var r = S.room; if (!r) return;
     var left = waitLeft();
-    var n = r.members.length, cap = r.per * 4;
+    var n = r.members.length, cap = r.cap || r.per * 4;
     $('wCount').innerHTML = left >= 0 ? 'Starting in <b>' + left + '</b>' : r.kind === 'private' ? (r.host === r.you ? 'Start when you’re ready' : 'Waiting for the host…') : 'Waiting for players…';
     $('wPlayers').textContent = n + '/' + cap + ' players';
     if (left >= 0 && left <= 5 && left !== S.lastWaitBeep) { S.lastWaitBeep = left; if (left > 0) SC.sfx('count'); }
@@ -329,15 +349,23 @@
   $('hStart').onclick = function () { send({ t: 'start' }); SC.sfx('go'); };
   $('wCopy').onclick = function () { var u = location.origin + '/arcade?room=' + (S.room && S.room.code); try { navigator.clipboard.writeText(u); toast('Invite link copied!', 1600); } catch (e) { toast(u, 4000); } };
   $('hubLb').onclick = function () { renderLb(); openModal('mLb'); };
-  $('hubHow').onclick = function () { openModal('how'); };
+  $('hubHow').onclick = function () { openHelp(S.helpGame || 'bw'); };
+  $('gHelp').onclick = function () { openHelp(S.game); };
   $('hubQc').onclick = $('wQc').onclick = function () { toggleQc(); };
 
   // ------------------------------------------------------------------ game start
   function startGame(m) {
     S.ended = null; closeShop(); closeModals(); if (window.BWV) BWV.reset();
-    var map = B.genMap();
+    S.game = m.game || 'bw';
+    ['bw', 'ctf', 'spleef', 'hide'].forEach(function (g) { document.body.classList.toggle('g-' + g, g === S.game); });
+    document.body.classList.toggle('mg', isMini());
+    var map = isMini() ? MG.genMap(S.game, m.seed) : B.genMap();
     m.blocks.forEach(function (b) { map.f[b[0]] = b[1]; map.fc[b[0]] = b[2]; map.w[b[0]] = b[3]; map.wc[b[0]] = b[4]; });
-    m.beds.forEach(function (a, t) { if (!a) { map.beds[t].alive = false; map.obj[map.beds[t].foot] = 0; map.obj[map.beds[t].head] = 0; } });
+    m.beds.forEach(function (a, t) { if (!a && map.beds[t]) { map.beds[t].alive = false; map.obj[map.beds[t].foot] = 0; map.obj[map.beds[t].head] = 0; } });
+    S.crk = {}; S.propWob = {}; S.radar = null; S.did = {};
+    if (S.game === 'spleef') { (m.sp || []).forEach(function (q) { map.L[q[0]][q[1]] = q[2]; if (q[2] === 2) S.crk[q[0] * NN + q[1]] = now(); }); S.sdAt = m.sdAt; S.spCv = null; }
+    if (S.game === 'ctf') { S.flags = m.flags; S.score = m.score; S.endAt = m.endAt; S.pick = m.pick || []; }
+    if (S.game === 'hide') { S.seekAt = m.seekAt; S.endAt = m.endAt; S.phase = m.phase; }
     S.map = map; D.resetChunks();
     S.myId = m.you; S.team = m.team; S.mode = m.mode; S.kind = m.kind; S.code = m.code;
     offset = m.now - Date.now(); bestRtt = 1e9;
@@ -347,7 +375,7 @@
     (m.tnts || []).forEach(function (x) { S.tnts.set(x[0], { x: x[1], y: x[2], at: x[3] }); });
     m.ents.forEach(function (o) { S.ents.set(o.id, mkEnt(o)); });
     var me = S.ents.get(S.myId);
-    P = newBody(me.x, me.y); P.dead = me.dead;
+    P = newBody(me.x, me.y); P.dead = me.dead; P.z = me.z || 0;
     S.held = 'sword'; S.inv = {}; S.res = { iron: 0, gold: 0, dia: 0, em: 0 }; S.hp = 20; S.absorb = 0; S.god = false;
     S.dead = me.dead; S.elim = me.elim;
     cam.x = 36 * T; cam.y = 36 * T; cam.introFrom = { x: 36 * T, y: 36 * T };
@@ -357,11 +385,14 @@
     if (snow() < S.goAt) intro(); else { cam.x = P.x; cam.y = P.y; }
     miniBase = null;
     if (me.elim) showDeath(null, true);
+    mgHudInit(); tutStart();
   }
   function intro() {
     var el = $('intro'), tm = B.TEAMS[S.team];
     el.classList.remove('hidden');
-    el.innerHTML = '<div class="who">You are on the</div><div class="team" style="color:' + tm.color + '">' + tm.name.toUpperCase() + ' TEAM</div><div class="goal">🛏 Protect your bed · ⚔️ Destroy the others</div><div class="num" id="introNum"></div>';
+    var it = introText();
+    el.innerHTML = '<div class="who">' + it[0] + '</div><div class="team" style="color:' + it[2] + '">' + it[1] + '</div><div class="goal">' + it[3] + '</div><div class="num" id="introNum"></div>';
+    void tm;
     SC.sfx('open');
     var last = -1;
     var iv = setInterval(function () {
@@ -384,6 +415,7 @@
       var a = m.p[k], e = S.ents.get(a[0]); if (!e) continue;
       var f = a[4];
       e.flags = f; e.hp = a[6];
+      if (a.length > 7) { var x7 = a[7]; if (S.game === 'spleef') { if (e.id !== S.myId) e.z = x7 & 3; e.spFall = !!(x7 & 4); } else if (S.game === 'hide') e.prop = x7 ? MG.PROP_KINDS[x7 - 1] : ''; else if (S.game === 'ctf') e.carry = x7 ? x7 - 1 : -1; }
       if (e.id !== S.myId) {
         e.held = HELD[a[5]] || 'sword';
         e.buf.push([ts, a[1], a[2], a[3] / 100]); if (e.buf.length > 30) e.buf.shift();
@@ -400,6 +432,7 @@
     });
     S.projs.forEach(function (p, id) { if (!seen[id]) S.projs.delete(id); });
     if (m.teams) { S.teams = m.teams; renderTeams(); }
+    if (m.fl) { S.flags = m.fl; S.score = m.sc || S.score; }
     if (m.e) m.e.forEach(onEvent);
   }
   function entPos(e) { return e.id === S.myId && P ? { x: P.x, y: P.y } : { x: e.x, y: e.y }; }
@@ -415,6 +448,7 @@
       e = S.ents.get(ev[1]); if (!e) return; p = entPos(e);
       var dmg = ev[2] / 10, crit = ev[3], att = ev[4], kind = ev[5];
       e.flashT = now(); e.bumpT = now();
+      if (!dmg && (kind === 'punch' || kind === 'snow')) { D.burst(kind === 'snow' ? 'cube' : 'spark', p.x, p.y - 20, 8, kind === 'snow' ? '#f4f9ff' : '#ffffff', { speed: 140 }); if (e.id === S.myId) { S.shake = Math.max(S.shake, 5); SC.sfx('hurt'); } else sfxAt('hit', p.x, p.y); return; }
       D.burst('spark', p.x, p.y - 20, crit ? 12 : 7, crit ? '#ffd166' : '#ffffff', { speed: 160 });
       D.text(p.x + (Math.random() - 0.5) * 16, p.y - 52, (crit ? '✦' : '') + (Math.round(dmg * 10) / 10), crit ? '#ffd166' : '#ff6b7a', crit ? 22 : 17, { pop: true });
       if (crit) { D.burst('star', p.x, p.y - 26, 6, '#ffd166'); D.text(p.x, p.y - 74, 'CRIT!', '#ffd166', 14, { vy: -50 }); }
@@ -459,6 +493,7 @@
     if (k === 'tl') { var tl = B.TIMELINE[ev[1]]; S.tl = ev[1] + 1; if (tl.ev === 'dia2') S.tier.dia = 1; if (tl.ev === 'em2') S.tier.em = 1; if (tl.ev === 'dia3') S.tier.dia = 2; if (tl.ev === 'em3') S.tier.em = 2; if (tl.ev !== 'beds' && tl.ev !== 'end') { banner(tl.ev.indexOf('dia') === 0 ? '💎 DIAMOND ' + (tl.ev === 'dia2' ? 'II' : 'III') : '💚 EMERALD ' + (tl.ev === 'em2' ? 'II' : 'III'), tl.text, tl.ev.indexOf('dia') === 0 ? '#5ff0e6' : '#2bd576'); SC.sfx('level'); } return; }
     if (k === 'elim') { feed('<b style="color:' + teamCol(ev[1]) + '">' + tname(ev[1]) + ' team</b> has been <b style="color:#ff5c6c">ELIMINATED</b>', true); if (ev[1] !== S.team) toastBig(tname(ev[1]).toUpperCase() + ' TEAM ELIMINATED', teamCol(ev[1])); return; }
     if (k === 'qc') { e = S.ents.get(ev[1]); if (e) { e.bubble = { text: S.qc[ev[2]] || '', t: now() }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
+    if (mgEvent(k, ev)) return;
     if (k === 'dc') { e = S.ents.get(ev[1]); if (e) { e.dc = !!ev[2]; if (ev[2] && e.id !== S.myId) feed(nameHtml(e) + ' disconnected — a bot took over'); } return; }
   }
   function tcen(i) { return { x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2 }; }
@@ -519,11 +554,13 @@
   // ------------------------------------------------------------------ me
   function onMe(m) {
     var oldRes = S.res, oldInv = S.inv;
+    if (m.role != null && isMini()) { var mmr = S.ents.get(S.myId); S.team = m.role; if (mmr) { mmr.team = m.role; mmr.prop = m.prop; } }
+    S.prop = m.prop;
     S.hp = m.hp; S.absorb = m.absorb; S.inv = m.inv; S.res = m.res; S.sword = m.sword; S.armor = m.armor; S.pick = m.pick; S.stats = m.stats;
     S.dead = m.dead; S.elim = m.elim; if (m.dead && !m.elim) S.respawnAt = now() + m.respawn; S.speedUntil = now() + m.speed;
     var me = S.ents.get(S.myId); if (me) { me.sword = m.sword; me.armor = m.armor; me.pick = m.pick; }
-    var hb = B.hotbar(Object.assign({}, S.inv, { pick: S.pick }));
-    if (hb.indexOf(S.held) < 0) { S.held = hb.indexOf(m.held) >= 0 ? m.held : 'sword'; }
+    var hb = hotbarItems();
+    if (hb.indexOf(S.held) < 0) { S.held = hb.indexOf(m.held) >= 0 ? m.held : hb[0]; }
     updateHearts(); renderHotbar(); renderRes(false, oldRes);
     if (!$('shop').classList.contains('hidden')) renderShop();
     void oldInv;
@@ -544,6 +581,7 @@
     if (k === ' ') { e.preventDefault(); if (!e.repeat) doHop(); }
     if (S.screen === 'game') {
       if (/^[1-9]$/.test(k)) selectSlot(+k - 1);
+      if (isMini() && mgKey(k)) return;
       if (k === 'e') { var n = nearNpc(); if (n) openShop(n.kind); else closeShop(); }
     } else if (k === 'e') { var o = nearObj(); if (o) useObj(o); }
     if (k === 'q') toggleQc();
@@ -569,7 +607,7 @@
       var n = npcUnderCursor(); if (n && Math.hypot(n.x - P.x, n.y - P.y) < 3.2 * T) { mouse.l = false; openShop(n.kind); return; }
       primaryDown();
     }
-    if (e.button === 2) { mouse.r = true; tryPlace(true); }
+    if (e.button === 2) { mouse.r = true; if (isMini() && mgSecondary()) { mouse.r = false; return; } tryPlace(true); }
   });
   addEventListener('mouseup', function (e) { if (e.button === 0) { if (mouse.l) primaryUp(); mouse.l = false; } if (e.button === 2) mouse.r = false; });
   cv.addEventListener('wheel', function (e) { if (S.screen !== 'game') return; var hb = hotbarItems(); var i = hb.indexOf(S.held); selectSlot((i + (e.deltaY > 0 ? 1 : -1) + hb.length) % hb.length); e.preventDefault(); }, { passive: false });
@@ -583,9 +621,9 @@
     var jEnd = function (e) { for (var i = 0; i < e.changedTouches.length; i++) if (e.changedTouches[i].identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; jK.style.transform = ''; } };
     jEl.addEventListener('touchend', jEnd); jEl.addEventListener('touchcancel', jEnd);
     var hold = function (id, down, up) { var b = $(id); b.addEventListener('touchstart', function (e) { e.preventDefault(); down(); }, { passive: false }); b.addEventListener('touchend', function (e) { e.preventDefault(); if (up) up(); }, { passive: false }); };
-    hold('tAtk', function () { if (S.screen !== 'game') { doSwing(); return; } S.touchAtk = true; touchMineTick(); if (S.autoMine < 0) touchAim(); if (S.held === 'bow') primaryDown(); else { var h = S.held; if (h !== 'sword' && h !== 'kbstick' && h !== 'pick') S.held = 'sword', renderHotbar(), send({ t: 'sel', it: 'sword' }); primaryDown(); } mouse.l = true; }, function () { S.touchAtk = false; if (mouse.l) primaryUp(); mouse.l = false; });
-    hold('tPlace', function () { S.touchPlace = true; }, function () { S.touchPlace = false; });
-    hold('tUse', function () { var it = S.held; if (['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(it) < 0) { var hb = hotbarItems().filter(function (x) { return ['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(x) >= 0; }); if (!hb.length) { toast('No usable item — buy some at the shop!', 1600); return; } it = hb[0]; S.held = it; renderHotbar(); send({ t: 'sel', it: it }); } touchAim(); useHeld(); });
+    hold('tAtk', function () { if (S.screen !== 'game') { doSwing(); return; } if (isMini() && mgTouch('atk')) return; S.touchAtk = true; touchMineTick(); if (S.autoMine < 0) touchAim(); if (S.held === 'bow') primaryDown(); else { var h = S.held; if (h !== 'sword' && h !== 'kbstick' && h !== 'pick') S.held = 'sword', renderHotbar(), send({ t: 'sel', it: 'sword' }); primaryDown(); } mouse.l = true; }, function () { S.touchAtk = false; if (mouse.l) primaryUp(); mouse.l = false; });
+    hold('tPlace', function () { if (S.screen === 'game' && isMini() && mgTouch('place')) return; S.touchPlace = true; }, function () { S.touchPlace = false; });
+    hold('tUse', function () { if (S.screen === 'game' && isMini() && mgTouch('use')) return; var it = S.held; if (['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(it) < 0) { var hb = hotbarItems().filter(function (x) { return ['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(x) >= 0; }); if (!hb.length) { toast('No usable item — buy some at the shop!', 1600); return; } it = hb[0]; S.held = it; renderHotbar(); send({ t: 'sel', it: it }); } touchAim(); useHeld(); });
     cv.addEventListener('touchstart', function (e) {
       if ((S.screen === 'hub' || S.screen === 'wait') && P) {
         var t0 = e.changedTouches[0]; mouse.x = t0.clientX; mouse.y = t0.clientY; screenToWorld();
@@ -625,6 +663,7 @@
   var atkIcon = '';
   function touchMineTick() {
     if (!touch || S.screen !== 'game' || !P) return;
+    if (S.game === 'spleef' || S.game === 'hide') { S.autoMine = -1; return; }
     S.autoMine = !P.dead && !S.dead && (S.held === 'sword' || S.held === 'kbstick' || S.held === 'pick') && !enemyInMelee() ? autoMineTile() : -1;
     var ic = S.autoMine >= 0 ? '⛏️' : '⚔️';
     if (ic !== atkIcon) { atkIcon = ic; $('tAtk').textContent = ic; }
@@ -637,15 +676,16 @@
     else if (S.touchTarget && now() < S.touchTarget.until) P.ang = Math.atan2(S.touchTarget.y - (P.y - 16), S.touchTarget.x - P.x);
   }
 
-  function hotbarItems() { return B.hotbar(Object.assign({}, S.inv, { pick: S.pick })); }
+  function hotbarItems() { return isMini() ? MG.hotbar(S.game, S.inv || {}, S.team) : B.hotbar(Object.assign({}, S.inv, { pick: S.pick })); }
   function selectSlot(i) { var hb = hotbarItems(); if (i < 0 || i >= hb.length) return; if (S.held !== hb[i]) { S.held = hb[i]; send({ t: 'sel', it: S.held }); SC.sfx('click'); renderHotbar(); flashHeldName(); } }
   var heldNameT = 0;
-  function flashHeldName() { var it = S.held, nm = it === 'sword' ? B.SWORDS[S.sword].name : it === 'pick' ? B.PICKS[S.pick].name : B.ITEM_NAMES[it]; var n = S.inv[it]; $('heldName').textContent = nm + (n > 1 && it !== 'bow' ? ' ×' + n : it === 'bow' ? ' · ' + (S.inv.arrows || 0) + ' arrows' : ''); $('heldName').style.opacity = 1; clearTimeout(heldNameT); heldNameT = setTimeout(function () { $('heldName').style.opacity = 0; }, 1600); }
+  function flashHeldName() { var it = S.held, nm = it === 'sword' ? B.SWORDS[S.sword || 1].name : it === 'pick' ? B.PICKS[S.pick].name : B.ITEM_NAMES[it]; var n = S.inv[it]; $('heldName').textContent = nm + (n > 1 && it !== 'bow' ? ' ×' + n : it === 'bow' ? ' · ' + (S.inv.arrows || 0) + ' arrows' : ''); $('heldName').style.opacity = 1; clearTimeout(heldNameT); heldNameT = setTimeout(function () { $('heldName').style.opacity = 0; }, 1600); }
 
   var swingCd = 0, mineSendT = 0, placeT = 0, lastPlaceTile = -1, bowStart = 0;
   function primaryDown() {
     if (!canAct()) return;
     var it = S.held;
+    if (isMini() && mgPrimary(it)) return;
     if (it === 'bow') { if (!(S.inv.arrows > 0)) { toast('No arrows!', 1200); SC.sfx('no'); return; } bowStart = now(); return; }
     if (B.BLOCK_OF[it]) { tryPlace(true); return; }
     if (['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(it) >= 0) { useHeld(); return; }
@@ -676,8 +716,8 @@
   function doHop() {
     if (!P || P.dead || P.falling || anyModal()) return;
     if (S.screen === 'game' && snow() < S.goAt) return;
-    if (now() - P.hopT < HOP_MS + 60) return;
-    P.hopT = now(); send({ t: 'hop' });
+    if (now() - P.hopT < (S.game === 'spleef' && S.screen === 'game' ? 960 : HOP_MS + 60)) return;
+    P.hopT = now(); send({ t: 'hop' }); S.did.hop = true;
     SC.sfxTone(330, 0.09, 'sine', 0.08, 0, 520);
     D.burst('dust', P.x, P.y, 3);
   }
@@ -702,7 +742,7 @@
     S.pending = S.pending || {}; S.pending[i] = now();
     S.placeAnim[i] = now(); S.inv[key]--; renderHotbar();
     D.burst('dust', cp.x, cp.y + 10, 3); SC.sfx('place');
-    send({ t: 'pl', i: i, b: key });
+    send({ t: 'pl', i: i, b: key }); S.did.place = true;
     lastPlaceTile = i; placeT = now();
     var me = S.ents.get(S.myId); if (me) { me.swingT = 0.12; }
     return true;
@@ -737,7 +777,7 @@
     if (!P) return;
     var me = S.ents.get(S.myId);
     var inGame = S.screen === 'game';
-    var locked = (inGame && snow() < S.goAt) || S.screen === 'end' || S.screen === 'loading' || anyModal();
+    var locked = (inGame && snow() < S.goAt) || S.screen === 'end' || S.screen === 'loading' || anyModal() || (inGame && S.game === 'hide' && S.team === 1 && snow() < S.seekAt);
     if (me) me.hopT = P.hopT;
     if (!P.dead && !S.dead && !P.falling && !locked) {
       var ix = 0, iy = 0;
@@ -761,7 +801,7 @@
       var acc = 1 - Math.exp(-(il > 0.1 ? 16 : 22) * dt);
       P.cvx += (ix * sp - P.cvx) * acc; P.cvy += (iy * sp - P.cvy) * acc;
       var kbOn = Math.hypot(P.vx, P.vy) > 60;
-      var res = B.move(S.map, P, P.cvx * dt + P.vx * dt, P.cvy * dt + P.vy * dt, !kbOn && !(inGame && S.god));
+      var res = B.move(S.map, P, P.cvx * dt + P.vx * dt, P.cvy * dt + P.vy * dt, !kbOn && !(inGame && S.god) && !(inGame && S.game === 'spleef'));
       if (res.bx) P.cvx = 0; if (res.by) P.cvy = 0;
       var kd = Math.exp(-6.5 * dt); P.vx *= kd; P.vy *= kd; if (Math.hypot(P.vx, P.vy) < 4) P.vx = P.vy = 0;
       P.mv = Math.hypot(P.cvx, P.cvy) > 25;
@@ -769,11 +809,20 @@
       if (touch) { if (il > 0.2 && (!S.touchAtk || S.autoMine >= 0)) P.ang = Math.atan2(iy, ix); if (S.touchAtk && S.autoMine < 0) touchAim(); }
       else P.ang = Math.atan2(mouse.wy - (P.y - 16), mouse.wx - P.x);
       // fell?
-      if (inGame && !S.god && !B.groundUnder(S.map, P.x, P.y)) { P.falling = now(); P.fallX = P.x; P.fallY = P.y; SC.sfx('fall'); }
+      if (inGame && S.game === 'spleef') {
+        var air = now() - P.hopT < HOP_MS;
+        if (!air && !MG.spFloor(S.map, P.z || 0, P.x, P.y)) { P.noF = (P.noF || 0) + dt; if (P.noF > 0.1) { P.noF = 0; P.falling = now(); P.fallX = P.x; P.fallY = P.y; SC.sfx('fall'); } } else P.noF = 0;
+      } else if (inGame && !S.god && !B.groundUnder(S.map, P.x, P.y)) { P.falling = now(); P.fallX = P.x; P.fallY = P.y; SC.sfx('fall'); }
+      // Prop Hunt: standing still lines a hider up with the grid, just like a real prop
+      if (inGame && S.game === 'hide' && S.team === 0 && il < 0.1 && Math.hypot(P.vx, P.vy) < 5) {
+        P.idleT = (P.idleT || 0) + dt;
+        if (P.idleT > 0.4) { var scx = Math.floor(P.x / T) * T + T / 2, scy = Math.floor(P.y / T) * T + T / 2; if (!B.hits(S.map, scx, scy, false)) { P.x += (scx - P.x) * Math.min(1, dt * 8); P.y += (scy - P.y) * Math.min(1, dt * 8); } }
+      } else P.idleT = 0;
       // holding the mouse outside a match just keeps swinging (for fun)
       if (!inGame && mouse.l && now() - (S.lastHoldSwing || 0) > 260) doSwing();
       // held actions
-      if (inGame && mouse.l && canAct()) {
+      if (inGame && mouse.l && canAct() && isMini() && mgHold(S.held)) { /* handled */ }
+      else if (inGame && mouse.l && canAct()) {
         var it = S.held;
         if (it === 'sword' || it === 'kbstick' || it === 'pick') {
           var ti = S.touchMine != null ? S.touchMine : touch ? (S.touchAtk ? S.autoMine : -1) : cursorTile();
@@ -800,7 +849,7 @@
       // footsteps (sprinting kicks up more dust)
       if (P.mv && t - (P.stepT || 0) > (P.sprint ? 0.13 : 0.24)) { P.stepT = t; D.burst('dust', P.x, P.y, P.sprint ? 2 : 1); if (me && me.look && me.look.trail) A.spawnTrail(trails, me.look.trail, P.x, P.y, t); }
     } else if (P) { P.cvx = P.cvy = 0; P.mv = false; P.sprint = false; }
-    if (P.falling && now() - P.falling > 1200 && !S.dead) { /* waiting for the server's death */ }
+    if (P.falling && S.game === 'spleef' && S.screen === 'game' && now() - P.falling > 1700 && !S.dead) P.falling = 0; // the server said we didn't fall
     // send state 20 Hz
     if (wsOpen && !locked && now() - P.lastSend > (inGame ? 50 : 90) && !P.dead) {
       P.lastSend = now();
@@ -903,6 +952,8 @@
       var pa = S.placeAnim[i], sc = pa ? D.ease.back(Math.min(1, (tnow - pa) / 180)) : 1; if (pa && tnow - pa > 200) delete S.placeAnim[i];
       D.floorBlock(c, map.f[i], map.fc[i], x * T, y * T, southVoid, map.w[i] ? 1 : sc);
     }
+    var vz = 0, spDrawn = null;
+    if (S.game === 'spleef' && (S.screen === 'game' || S.screen === 'end')) { vz = viewZ(); spDrawn = drawSpleef(L, Tp, vw, vh, t, vz); }
     // under-layer particles (debris on the floor)
     D.drawParts(c, dt, 0); D.drawParts(c, dt, 1);
     A.drawParticles(c, trails, dt);
@@ -915,8 +966,10 @@
     map.bases.forEach(function (b) { if (!b.flag) return; [b.flag, b.flag2].forEach(function (f) { var fx = f[0] * T + T / 2, fy = f[1] * T + T / 2; if (fx > L - 80 && fx < L + vw + 80 && fy > Tp - 120 && fy < Tp + vh + 60) list.push({ k: 'flag', y: fy, x: fx, team: b.team }); }); });
     S.tnts.forEach(function (tn) { list.push({ k: 'tnt', y: tn.y + 14, tn: tn }); });
     (map.objs || []).forEach(function (o) { if (o.x > L - 260 && o.x < L + vw + 260 && o.y > Tp - 60 && o.y < Tp + vh + 260) list.push({ k: 'obj', y: o.y + (o.kind === 'fountain' ? -6 : 4), o: o }); });
+    if (map.props) map.props.forEach(function (pp) { if (pp.x > L - 60 && pp.x < L + vw + 60 && pp.y > Tp - 60 && pp.y < Tp + vh + 80) list.push({ k: 'prop', y: pp.y + 12, p: pp }); });
+    if (S.game === 'ctf' && map.game === 'ctf') mgCtfDrawables(list, t);
     var ents = Array.from(S.ents.values());
-    ents.forEach(function (e) { if (e.x > L - 80 && e.x < L + vw + 80 && e.y > Tp - 120 && e.y < Tp + vh + 120) list.push({ k: 'ent', y: e.y, e: e }); });
+    ents.forEach(function (e) { if (spDrawn && ((e.id === S.myId ? (P.z || 0) : e.z || 0) !== vz)) return; if (e.x > L - 80 && e.x < L + vw + 80 && e.y > Tp - 120 && e.y < Tp + vh + 120) list.push({ k: 'ent', y: e.y, e: e }); });
     list.sort(function (a, b) { return a.y - b.y; });
     var inGame = S.screen === 'game' || S.screen === 'end';
     var near = inGame ? nearNpc() : nearObj();
@@ -931,6 +984,8 @@
       else if (d.k === 'flag') D.flag(c, d.x, d.y, d.team, t);
       else if (d.k === 'tnt') D.tnt(c, d.tn.x, d.tn.y, (d.tn.at - snow()) / 1000, t);
       else if (d.k === 'ent') drawEnt(d.e, t);
+      else if (d.k === 'prop') { var wb = S.propWob[d.p.id]; D.prop(c, d.p.kind, d.p.x, d.p.y + 12, t, { wob: wb && tnow - wb < 350 ? 1 - (tnow - wb) / 350 : 0, face: true }); }
+      else if (d.k === 'fn') d.fn();
     }
     // floor cracks (bridge blocks)
     for (var ck in S.cracks) { ck = +ck; if (!map.w[ck] && map.f[ck] && map.obj[ck] !== 1) D.cracks(c, (ck % W) * T, ((ck / W) | 0) * T, S.cracks[ck], 0); }
@@ -938,6 +993,7 @@
     if (S.screen === 'game' && P && !P.dead && !touch) drawTarget(t);
     if (S.screen === 'game' && touch && P && !P.dead && S.autoMine >= 0) { var am = S.autoMine, amk = S.map.w[am] ? 'wall' : 'floor'; D.tileCursor(c, (am % W) * T, ((am / W) | 0) * T, amk, true, t); }
     if (S.screen === 'wait') drawWaitHolo(t);
+    if (isMini() && S.screen === 'game') mgWorldTop(t);
     // projectiles, slashes, top particles
     S.projs.forEach(function (p) { D.projectile(c, { kind: p.kind, x: p.x, y: p.y, vx: p.vx || 1, vy: p.vy }, t); });
     for (var s2 = S.slashes.length - 1; s2 >= 0; s2--) { var fx = S.slashes[s2]; if (fx.owner === S.myId && P) { fx.x = P.x; fx.y = P.y - 18; } else if (fx.owner) { var oe = S.ents.get(fx.owner); if (oe) { fx.x = oe.x; fx.y = oe.y - 18; } } if (!D.slash(c, fx, tnow)) S.slashes.splice(s2, 1); }
@@ -945,9 +1001,10 @@
     D.drawParts(c, dt, 2);
     drawSpecial(dt);
     // name tags
-    ents.forEach(function (e) { if (e.x > L - 80 && e.x < L + vw + 80 && e.y > Tp - 120 && e.y < Tp + vh + 120) drawTag(e, t); });
+    ents.forEach(function (e) { if (spDrawn && ((e.id === S.myId ? (P.z || 0) : e.z || 0) !== vz)) return; if (e.x > L - 80 && e.x < L + vw + 80 && e.y > Tp - 120 && e.y < Tp + vh + 120) drawTag(e, t); });
     // screen fx
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (isMini() && S.screen === 'game') mgScreen(t, z);
     if (S.screen === 'game') {
       var hurt = Math.max(0, 1 - (tnow - S.hurtT) / 450), low = S.hp <= 6 && !S.dead ? (0.35 + Math.sin(t * 6) * 0.15) : 0;
       $('vign').style.opacity = Math.max(hurt, low);
@@ -967,6 +1024,8 @@
     if (e.id === S.myId && P) { x = P.x; y = P.y; }
     var dead = e.dead || e.elim || (e.id === S.myId && (P.dead || S.dead));
     var falling = e.fallT && tn - e.fallT < 1100 ? (tn - e.fallT) / 1100 : (e.id === S.myId && P && P.falling && !S.dead ? Math.min(1, (tn - P.falling) / 1100) : -1);
+    if (S.game === 'spleef' && !dead) { var fu = e.id === S.myId ? (P && P.falling ? Math.min(1, (tn - P.falling) / 420) : -1) : e.spFall ? Math.min(1, (tn - (e.spFallT || tn)) / 420) : -1; falling = -1; if (fu >= 0) { sc = 1 - fu * 0.4; alpha = 1 - fu * 0.55; y += fu * 18; } }
+    if (S.game === 'hide' && e.prop && !dead) { drawDisguised(e, x, y, t); return; }
     if (falling >= 0) { if (e.fallX != null && e.id !== S.myId) { x = e.fallX; y = e.fallY; } else if (e.id === S.myId && P.fallX != null) { x = P.fallX; y = P.fallY; } sc = Math.max(0.05, 1 - falling * 0.95); rot = falling * 5; alpha = 1 - falling * 0.6; y += falling * 40; if (Math.random() < 0.4) D.burst('magic', x, y - 10, 1, '#3b2a8a'); }
     else if (dead) return;
     var ang = e.ang || 0, ca = Math.cos(ang), sa = Math.sin(ang);
@@ -981,6 +1040,7 @@
     if (e.id === S.myId && P && P.sprint && P.mv) { c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 2; for (var sk = 0; sk < 2; sk++) { var sa2 = P.ang + Math.PI + (sk - 0.5) * 0.5; c.beginPath(); c.moveTo(Math.cos(sa2) * 18, -14 + Math.sin(sa2) * 8); c.lineTo(Math.cos(sa2) * 34, -14 + Math.sin(sa2) * 14); c.stroke(); } }
     c.translate(0, -hz);
     if (f & 32) { c.strokeStyle = 'rgba(125,211,252,.6)'; c.lineWidth = 2; for (var k = 0; k < 3; k++) { c.beginPath(); var ly = -10 - k * 9; c.moveTo(-ca * 26 - 6, ly); c.lineTo(-ca * 40 - 6, ly); c.stroke(); } }
+    if (S.game === 'ctf' && e.carry >= 0) { D.flagBack(c, e.carry, t, e.moving); if (Math.random() < 0.3) D.burst('magic', x, y - 50, 1, teamCol(e.carry)); }
     var behind = sa < -0.35;
     var ee = { team: team, ang: ang, held: e.held, sword: e.sword, pick: e.pick, armor: e.armor, swingT: e.swingT, swingDir: e.swingDir, mining: e.mining, bowing: e.bowing, bowT: e.bowT, dead: false };
     if (behind) D.held(c, ee, 0, 0, t);
@@ -998,7 +1058,8 @@
   }
   function drawObj(o, t, near) {
     var k = o.kind;
-    if (k === 'npc') { var cnt = o.act === 'quick' && S.online ? (S.online[o.mode] || 0) : 0; D.hubNpc(c, o, t, near, cnt); }
+    if (k === 'npc') { var cnt = o.act === 'quick' && S.online ? (S.online[o.mode] || 0) + (o.game && o.game !== 'bedwars' && S.online.inGame ? S.online.inGame[o.game] || 0 : 0) : 0; D.hubNpc(c, o, t, near, cnt); }
+    else if (k === 'deco') D.prop(c, o.what, o.x, o.y + 14, t, { face: true });
     else if (k === 'tree') D.tree(c, o.x, o.y, t);
     else if (k === 'lamp') D.lamp(c, o.x, o.y, t);
     else if (k === 'fountain') D.fountain(c, o.x, o.y, t);
@@ -1015,10 +1076,11 @@
     var r = S.room; if (!r) return;
     var left = waitLeft(), x = 36 * T + T / 2, y = 29 * T - 10 + Math.sin(t * 2) * 4;
     D.tag(c, left >= 0 ? (left > 0 ? 'STARTING IN ' + left : 'GO!') : 'WAITING FOR PLAYERS', x, y, { size: 22, color: left >= 0 && left <= 5 ? '#ffd166' : '#fff', bg: 'rgba(20,16,50,.88)' });
-    D.tag(c, r.members.length + '/' + r.per * 4 + ' players · ' + B.MODES[r.mode].name, x, y + 30, { size: 13, color: '#cfc8ff' });
+    D.tag(c, r.members.length + '/' + (r.cap || r.per * 4) + ' players · ' + (r.game && r.game !== 'bw' ? gname(r.game) : 'Bedwars ' + B.MODES[r.mode].name), x, y + 30, { size: 13, color: '#cfc8ff' });
   }
   function drawTag(e, t) {
     var dead = e.dead || e.elim; if (dead) return;
+    if (S.game === 'hide' && S.screen === 'game' && e.prop) { if (S.team === 0 && e.id !== S.myId) D.tag(c, e.nick, e.x, e.y - 50, { size: 11, color: 'rgba(181,245,207,.85)' }); if (!(window.BWV && BWV.hearing && BWV.isTalking(e.id))) return; }
     var x = e.x, y = e.y; if (e.id === S.myId && P) { if (P.falling) return; x = P.x; y = P.y; }
     var mine = e.id === S.myId;
     if (window.BWV && BWV.hearing && (mine ? BWV.on && BWV.talking : BWV.isTalking(e.id))) {
@@ -1033,6 +1095,7 @@
       var tag = (e.bot ? '🤖 ' : '') + e.nick + (e.dc ? ' (AFK)' : '');
       D.tag(c, tag, x, y - 72, { size: 12, color: teamCol(e.team) });
       var hp = clamp(e.hp / 20, 0, 1);
+      if (S.game === 'spleef') return;
       A.rr(c, x - 18, y - 62, 36, 6, 3); c.fillStyle = 'rgba(15,10,40,.85)'; c.fill();
       A.rr(c, x - 17, y - 61, 34 * hp, 4, 2); c.fillStyle = hp > 0.5 ? '#2bd576' : hp > 0.25 ? '#ffd166' : '#ff5c6c'; c.fill();
     }
@@ -1047,6 +1110,7 @@
     }
   }
   function drawTarget(t) {
+    if ((S.game === 'spleef' || S.game === 'hide') && mgTarget(t)) return;
     var it = S.held, ti = cursorTile(); if (ti < 0) return;
     var cp = tcen(ti), inR = Math.hypot(cp.x - P.x, cp.y - P.y) <= B.REACH;
     var m = S.map, x = (ti % W) * T, y = ((ti / W) | 0) * T;
@@ -1143,10 +1207,10 @@
   }
   function renderHotbar() {
     var hb = hotbarItems();
-    if (hb.indexOf(S.held) < 0) S.held = 'sword';
+    if (hb.indexOf(S.held) < 0) S.held = hb[0];
     $('hotbar').innerHTML = hb.map(function (it, i) {
       var icon = it === 'sword' ? 'sword' + S.sword : it === 'pick' ? 'pick' + Math.max(1, S.pick) : it;
-      var n = it === 'bow' ? (S.inv.arrows || 0) : (it === 'sword' || it === 'pick' || it === 'kbstick') ? '' : (S.inv[it] || 0);
+      var n = it === 'bow' ? (S.inv.arrows || 0) : (it === 'sword' || it === 'pick' || it === 'kbstick' || it === 'shovel' || it === 'mask' || it === 'taunt' || it === 'radar') ? '' : (S.inv[it] || 0);
       return '<div class="hs' + (it === S.held ? ' on' : '') + '" data-i="' + i + '"><span class="k">' + (i + 1) + '</span><img src="' + D.iconURL(icon, S.team, it === 'sword' ? S.sword : it === 'pick' ? S.pick : 1, 64) + '"><span class="n">' + (n === '' ? '' : n) + '</span></div>';
     }).join('');
   }
@@ -1165,10 +1229,12 @@
     if (s !== lastTimerS) {
       lastTimerS = s;
       $('tmT').textContent = B.fmtTime(el);
-      var nx = B.TIMELINE[S.tl]; $('tmN').textContent = nx ? (nx.ev === 'end' ? 'Game ends' : nx.ev === 'beds' ? 'Beds break' : nx.ev.indexOf('dia') === 0 ? 'Diamond ' + (nx.ev === 'dia2' ? 'II' : 'III') : 'Emerald ' + (nx.ev === 'em2' ? 'II' : 'III')) + ' in ' + B.fmtTime(nx.t - el) : '';
+      var nx = isMini() ? null : B.TIMELINE[S.tl]; if (!isMini()) $('tmN').textContent = nx ? (nx.ev === 'end' ? 'Game ends' : nx.ev === 'beds' ? 'Beds break' : nx.ev.indexOf('dia') === 0 ? 'Diamond ' + (nx.ev === 'dia2' ? 'II' : 'III') : 'Emerald ' + (nx.ev === 'em2' ? 'II' : 'III')) + ' in ' + B.fmtTime(nx.t - el) : '';
       if (S.dead && !S.elim) { var left = Math.max(0, Math.ceil((S.respawnAt - now()) / 1000)); var cd = $('deathCd'); if (cd && cd.textContent !== String(left)) { cd.textContent = left || '…'; if (left > 0) SC.sfx('tick'); } }
     }
-    var n = nearNpc(); var pr = $('prompt');
+    if (isMini() && S.screen === 'game') { mgTimer(el); mgHudTick(); } else if (S.screen === 'game') tutTick();
+    var n = isMini() ? null : nearNpc(); var pr = $('prompt');
+    if (isMini() && S.screen === 'game' && mgPrompt(pr)) { /* shown */ } else
     if (n && $('shop').classList.contains('hidden') && !S.dead) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap the ' : 'Press E · ') + (n.kind === 'shop' ? 'Item Shop' : 'Team Upgrades'); } else pr.classList.add('hidden');
     if (S.screen === 'game' && now() - (S.miniAt || 0) > 200) { S.miniAt = now(); drawMini(); }
   }
@@ -1192,6 +1258,7 @@
   function toast(text, ms, html) { var el = $('toast'); if (html) el.innerHTML = text; else el.textContent = text; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, ms || 1800); }
   function showDeath(killer, final, kind) {
     var d = $('death'); d.classList.remove('hidden');
+    if (isMini() && mgDeath(d, killer, final, kind)) return;
     if (final) {
       d.innerHTML = '<div class="big">ELIMINATED</div><div class="sub">' + (killer ? 'Final kill by <span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span>' : 'Your bed was gone — no more respawns') + '</div><div class="sub" style="font-size:15px;color:#cfc8ff">You’re spectating. Stick around or jump into a new game.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dSpec">👀 Keep watching</button><button class="btn" id="dHub">🏠 Hub</button></div>';
       $('dAgain').onclick = playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); }; $('dHub').onclick = function () { send({ t: 'hub' }); };
@@ -1203,6 +1270,7 @@
   }
   function showScore(on) {
     var el = $('score'); if (!on) { el.classList.add('hidden'); return; }
+    if (isMini()) { el.innerHTML = mgScore(); el.classList.remove('hidden'); return; }
     var rows = '<table><tr><th></th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>';
     for (var t = 0; t < 4; t++) {
       var tm = S.teams[t] || {};
@@ -1229,13 +1297,15 @@
     if (!miniBase) {
       miniBase = document.createElement('canvas'); miniBase.width = mc.width; miniBase.height = mc.height; var b = miniBase.getContext('2d');
       b.fillStyle = '#1a1446'; b.fillRect(0, 0, mc.width, mc.height);
-      for (var i = 0; i < W * H; i++) { var g = m.g[i]; if (!g) continue; b.fillStyle = g === 1 ? '#5fbf4b' : g === 2 ? '#8d98ad' : g === 4 ? '#c9925a' : g === 6 ? '#b6bdcc' : '#cfc6f0'; b.fillRect((i % W) * s, ((i / W) | 0) * s, s + 0.5, s + 0.5); }
+      for (var i = 0; i < W * H; i++) { var g = m.g[i]; if (!g) continue; b.fillStyle = g === 1 ? '#5fbf4b' : g === 2 ? '#8d98ad' : g === 4 ? '#c9925a' : g === 6 ? '#b6bdcc' : g === 7 ? '#a7a2b8' : g === 8 ? '#b07b4f' : g === 9 ? '#eef6ff' : '#cfc6f0'; b.fillRect((i % W) * s, ((i / W) | 0) * s, s + 0.5, s + 0.5); }
     }
     x.drawImage(miniBase, 0, 0);
+    if (m.L) { var LZ = m.L[viewZ()]; for (var li = 0; li < W * H; li++) if (LZ[li]) { x.fillStyle = LZ[li] === 2 ? '#ff9f6b' : D.SPC[MG.SP.kinds[viewZ()]].top; x.fillRect((li % W) * s, ((li / W) | 0) * s, s + 0.5, s + 0.5); } }
+    if (S.game === 'ctf' && S.flags) S.flags.forEach(function (f, ft) { x.fillStyle = '#fff'; x.fillRect(f[2] / T * s - 5, f[3] / T * s - 5, 10, 10); x.fillStyle = teamCol(ft); x.fillRect(f[2] / T * s - 4, f[3] / T * s - 4, 8, 8); });
     for (var j = 0; j < W * H; j++) { if (m.w[j] || m.f[j]) { x.fillStyle = m.w[j] ? D.blockColor(m.w[j], m.wc[j]) : D.blockColor(m.f[j], m.fc[j]); x.fillRect((j % W) * s, ((j / W) | 0) * s, s + 0.5, s + 0.5); } }
     m.beds.forEach(function (bd) { if (!bd.alive) return; x.fillStyle = '#fff'; x.fillRect(bd.x / T * s - 4, bd.y / T * s - 4, 8, 8); x.fillStyle = teamCol(bd.team); x.fillRect(bd.x / T * s - 3, bd.y / T * s - 3, 6, 6); });
     S.gens.forEach(function (g) { if (g.g.team != null) return; x.fillStyle = g.g.kind === 'dia' ? '#5ff0e6' : '#2bd576'; x.beginPath(); x.arc(g.g.x / T * s, g.g.y / T * s, 3, 0, TAU); x.fill(); });
-    S.ents.forEach(function (e) { if (e.dead || e.elim || e.id === S.myId) return; x.fillStyle = teamCol(e.team); x.strokeStyle = '#120e2e'; x.lineWidth = 2; x.beginPath(); x.arc(e.x / T * s, e.y / T * s, 4, 0, TAU); x.fill(); x.stroke(); });
+    S.ents.forEach(function (e) { if (e.dead || e.elim || e.id === S.myId) return; if (S.game === 'hide' && e.team === 0 && S.team !== 0) return; if (S.game === 'spleef' && (e.z || 0) !== viewZ()) return; x.fillStyle = teamCol(e.team); x.strokeStyle = '#120e2e'; x.lineWidth = 2; x.beginPath(); x.arc(e.x / T * s, e.y / T * s, 4, 0, TAU); x.fill(); x.stroke(); });
     if (P && !P.dead) { x.save(); x.translate(P.x / T * s, P.y / T * s); x.rotate(P.ang); x.fillStyle = '#fff'; x.strokeStyle = '#120e2e'; x.lineWidth = 2; x.beginPath(); x.moveTo(7, 0); x.lineTo(-5, -5); x.lineTo(-2, 0); x.lineTo(-5, 5); x.closePath(); x.fill(); x.stroke(); x.restore(); }
     var vw = innerWidth / cam.z / T * s, vh = innerHeight / cam.z / T * s;
     x.strokeStyle = 'rgba(255,255,255,.35)'; x.lineWidth = 1.5; x.strokeRect(cam.x / T * s - vw / 2, cam.y / T * s - vh / 2, vw, vh);
@@ -1245,7 +1315,7 @@
   var shopKind = 'shop', shopCat = 'quick';
   function openShop(kind) {
     if (S.dead) return;
-    shopKind = kind; $('shop').classList.remove('hidden'); mouse.l = mouse.r = false; SC.sfx('open');
+    shopKind = kind; S.did.shop = true; $('shop').classList.remove('hidden'); mouse.l = mouse.r = false; SC.sfx('open');
     $('shTitle').textContent = kind === 'shop' ? 'Item Shop' : 'Team Upgrades'; $('shIco').textContent = kind === 'shop' ? '🛒' : '⬆️';
     $('shCats').style.display = kind === 'shop' ? '' : 'none';
     renderShop();
@@ -1294,16 +1364,18 @@
   var podium = null;
   function onEnd(m) {
     S.ended = m; mouse.l = mouse.r = false; closeShop();
-    var win = m.winner === m.team;
+    var win = m.win != null ? m.win : m.winner === m.team;
     $('eTitle').textContent = win ? 'VICTORY!' : m.winner < 0 ? 'DRAW' : 'GAME OVER';
     $('eTitle').style.color = win ? '#ffd166' : '#ff5c6c';
     $('eSub').innerHTML = m.winner >= 0 ? '<span style="color:' + teamCol(m.winner) + '">' + tname(m.winner) + ' team</span> wins!' : 'Nobody wins this time';
+    if (m.game && m.game !== 'bw') mgEndSub(m, win);
     var rw = m.reward;
     $('eReward').innerHTML = rw ? '+' + rw.give + ' 📜 Scrolls' + (rw.capped ? '<small>Daily Bedwars reward limit reached</small>' : '<small>' + ('Match length ' + B.fmtTime((m.mins || 0) * 60)) + '</small>') : '';
     $('eReward').classList.toggle('hidden', !rw);
     var st = m.stats.slice().sort(function (a, b) { return (b.finals * 3 + b.kills + b.beds * 4) - (a.finals * 3 + a.kills + a.beds * 4); });
-    $('eTable').innerHTML = '<tr><th>#</th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + teamCol(s.team) + '">' + (s.bot ? '🤖 ' : '') + esc(s.nick) + '</b></td><td>' + s.kills + '</td><td>' + s.finals + '</td><td>' + s.beds + '</td><td>' + s.deaths + '</td></tr>'; }).join('');
-    podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now() };
+    if (m.game && m.game !== 'bw') $('eTable').innerHTML = mgEndTable(m); else $('eTable').innerHTML = '<tr><th>#</th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + teamCol(s.team) + '">' + (s.bot ? '🤖 ' : '') + esc(s.nick) + '</b></td><td>' + s.kills + '</td><td>' + s.finals + '</td><td>' + s.beds + '</td><td>' + s.deaths + '</td></tr>'; }).join('');
+    podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now(), label: m.game === 'hide' ? (m.winner === 0 ? 'HIDERS' : 'SEEKERS') : m.game === 'spleef' ? 'LAST ONE STANDING' : null };
+    if (m.game === 'hide') podium.team = m.winner === 0 ? 2 : 0;
     if (S.hello && rw) { S.hello.stats = Object.assign(S.hello.stats || {}, rw.stats, { coins: rw.coins, earnedToday: rw.stats.earned, cap: (S.hello.stats && S.hello.stats.cap) || 1500 }); }
     setTimeout(function () { show('end'); SC.sfx(win ? 'bigwin' : 'lose'); }, 1600);
   }
@@ -1321,7 +1393,7 @@
     A.rr(x, px0, top + 18, pw, 64, 18); x.fillStyle = A.shade(col, -0.35); x.fill(); x.strokeStyle = '#1b1636'; x.lineWidth = 6; x.stroke();
     A.ell(x, w / 2, top + 20, pw / 2, 26); x.fillStyle = col; x.fill(); x.stroke();
     A.ell(x, w / 2, top + 16, pw / 2 - 26, 16); x.fillStyle = 'rgba(255,255,255,.18)'; x.fill();
-    x.font = '700 28px Fredoka, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(255,255,255,.9)'; x.fillText('🏆 ' + (podium.team >= 0 ? tname(podium.team).toUpperCase() + ' TEAM' : 'DRAW'), w / 2, top + 58);
+    x.font = '700 28px Fredoka, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(255,255,255,.9)'; x.fillText('🏆 ' + (podium.label || (podium.team >= 0 ? tname(podium.team).toUpperCase() + ' TEAM' : 'DRAW')), w / 2, top + 58);
     podium.players.forEach(function (p, i) {
       var ppx = w / 2 + (i - (n - 1) / 2) * Math.min(200, (pw - 120) / Math.max(1, n - 1 || 1));
       if (n === 1) ppx = w / 2;
@@ -1335,7 +1407,7 @@
     if (winMe && Math.random() < 0.6) podium.conf.push({ x: Math.random() * w, y: -10, vx: (Math.random() - 0.5) * 60, vy: 90 + Math.random() * 130, r: Math.random() * 6, col: ['#ffd166', '#ff6ec7', '#5cf2ff', '#b8ff5c', '#ff5c6c', '#9b6bff'][Math.random() * 6 | 0] });
     for (var k = podium.conf.length - 1; k >= 0; k--) { var q = podium.conf[k]; q.x += q.vx * dt; q.y += q.vy * dt; q.r += dt * 5; if (q.y > pc.height + 10) { podium.conf.splice(k, 1); continue; } x.save(); x.translate(q.x, q.y); x.rotate(q.r); x.fillStyle = q.col; x.fillRect(-7, -3.5, 14, 7); x.restore(); }
   }
-  function playAgain() { $('death').classList.add('hidden'); var q = S.lastQueue || { t: 'quick', mode: S.mode }; send(q); }
+  function playAgain() { $('death').classList.add('hidden'); var q = S.lastQueue && (S.lastQueue.game || 'bw') === S.game ? S.lastQueue : { t: 'quick', game: S.game, mode: S.game === 'bw' ? S.mode : S.game }; send(q); }
   $('eAgain').onclick = playAgain;
   $('eMenu').onclick = function () { send({ t: 'hub' }); };
 
@@ -1382,12 +1454,14 @@
       if (!d.rooms.length) html = '<div class="admempty">No matches or waiting rooms right now.</div>';
       d.rooms.forEach(function (r) {
         var st = r.state === 'play' ? '<span class="st play">▶ Playing ' + fmtT(r.elapsed) + '</span>' : r.state === 'lobby' ? '<span class="st lobby">Waiting' + (r.startIn ? ' · starts in ' + Math.ceil(r.startIn / 1000) + 's' : '') + '</span>' : '<span class="st end">Finished</span>';
-        html += '<div class="admcard"><div class="admhead">#' + r.id + ' · ' + (r.kind === 'private' ? 'Private' : r.kind === 'practice' ? 'Practice' : 'Public') + ' ' + B.MODES[r.mode].name + (r.code ? ' <span class="tag2">' + esc(r.code) + '</span>' : '') + ' ' + st + (r.id === d.myRoom ? ' <span class="tag2" style="background:#ffd166;color:#2a1300">YOU</span>' : '') + '</div>';
+        var rmode = r.game && r.game !== 'bw' ? MG.GAMES[r.game].icon + ' ' + MG.GAMES[r.game].name : 'Bedwars ' + (B.MODES[r.mode] || B.MODES.solo).name;
+        html += '<div class="admcard"><div class="admhead">#' + r.id + ' · ' + (r.kind === 'private' ? 'Private' : r.kind === 'practice' ? 'Practice' : 'Public') + ' ' + rmode + (r.info ? ' <span class="tag2">' + esc(r.info) + '</span>' : '') + (r.code ? ' <span class="tag2">' + esc(r.code) + '</span>' : '') + ' ' + st + (r.id === d.myRoom ? ' <span class="tag2" style="background:#ffd166;color:#2a1300">YOU</span>' : '') + '</div>';
         html += '<div class="admrow">';
         if (r.state === 'lobby') html += ab('▶ Start now', { act: 'start', room: r.id }, 'green');
         if (r.state === 'play') {
           html += ab('+1 min', { act: 'time', room: r.id, sec: 60 }) + ab('+5 min', { act: 'time', room: r.id, sec: 300 });
           html += '<span class="lbl" style="margin-left:6px">End:</span>' + ab('Draw', { act: 'end', room: r.id, winner: -1 }, '', true);
+          if (r.game === 'ctf' || r.game === 'hide') [0, 1].forEach(function (t3) { html += ab('🏆 ' + (r.game === 'hide' ? (t3 ? 'Seekers' : 'Hiders') : B.TEAMS[t3].name), { act: 'end', room: r.id, winner: t3 }, '', true).replace('class="ab ', 'style="background:' + teamCol(t3) + '" class="ab '); });
           for (var t = 0; t < 4; t++) if (r.teams && !r.teams[t].elim) html += ab('🏆 ' + B.TEAMS[t].name, { act: 'end', room: r.id, winner: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ');
         }
         html += ab('✖ Close', { act: 'delete', room: r.id }, 'red', true) + '</div>';
@@ -1447,8 +1521,492 @@
     SC.sfx('click'); send(m);
   });
 
+  // ================================================================== MINIGAMES (CTF / TNT Spleef / Prop Hunt)
+  SC.sfxAdd('crack', function () { noise(0.08, 0.16, 0, 1800); });
+  SC.sfxAdd('flag', function () { [0, 4, 7, 12, 16].forEach(function (n, i) { tone(SC.sfxNotes[n % 15] * (n > 14 ? 2 : 1), 0.14, 'square', 0.1, i * 0.06); }); });
+  SC.sfxAdd('score', function () { [0, 4, 7, 12, 7, 12].forEach(function (n, i) { tone(SC.sfxNotes[n % 15] * (n > 11 ? 2 : 1), 0.18, 'triangle', 0.14, i * 0.09); }); noise(0.4, 0.15, 0.4, 300); });
+  var TAUNTS = [[0, 2, 4, 0], [7, 7, 9, 7], [4, 2, 0, 2], [0, 4, 7, 12], [12, 11, 9, 7]];
+  TAUNTS.forEach(function (q, k) { SC.sfxAdd('taunt' + k, function () { q.forEach(function (n, i) { tone(SC.sfxNotes[n % 15] * (n > 11 ? 2 : 1), 0.16, k % 2 ? 'square' : 'triangle', 0.13, i * 0.13); }); }); });
+
+  var SPX0 = 18, SPN = 37;
+  function viewZ() { if ((S.dead || S.elim) && S.specId) { var sp = S.ents.get(S.specId); if (sp) return sp.z || 0; } return P ? (P.z || 0) : 0; }
+  function spPaint(x, z, i) {
+    var L = S.map.L[z], tx = i % W, ty = (i / W) | 0, lx = (tx - SPX0) * T, ly = (ty - SPX0) * T;
+    if (tx < SPX0 || ty < SPX0 || tx >= SPX0 + SPN || ty >= SPX0 + SPN || !L[i]) return;
+    D.spTile(x, MG.SP.kinds[z], lx, ly, i, !L[i + W]);
+  }
+  function spBuild() {
+    S.spCv = [];
+    for (var z = 0; z < MG.SP_LAYERS; z++) {
+      var cv2 = document.createElement('canvas'); cv2.width = SPN * T; cv2.height = SPN * T + 16; var x = cv2.getContext('2d');
+      for (var ty = SPX0; ty < SPX0 + SPN; ty++) for (var tx = SPX0; tx < SPX0 + SPN; tx++) spPaint(x, z, ty * W + tx);
+      S.spCv.push(cv2);
+    }
+  }
+  function spGone(z, i) {
+    if (!S.spCv) return; var x = S.spCv[z].getContext('2d'), tx = i % W, ty = (i / W) | 0;
+    x.clearRect((tx - SPX0) * T, (ty - SPX0) * T, T, T + 16);
+    spPaint(x, z, i - W); spPaint(x, z, i + W);
+  }
+  function drawSpleef(Lx, Tp, vw, vh, t, vz) {
+    var m = S.map; if (!m.L) return null;
+    if (!S.spCv) spBuild();
+    var tn = now();
+    for (var z = MG.SP_LAYERS - 1; z >= vz; z--) {
+      var d = z - vz, s = 1 - 0.075 * d;
+      c.save();
+      if (d) { c.translate(cam.x, cam.y); c.scale(s, s); c.translate(-cam.x, -cam.y); }
+      c.save(); c.globalAlpha = 0.35; c.filter = 'blur(10px)'; c.drawImage(S.spCv[z], SPX0 * T + 10, SPX0 * T + 60); c.restore();
+      c.drawImage(S.spCv[z], SPX0 * T, SPX0 * T);
+      // crumbling tiles shake, glow and crack
+      for (var k in S.crk) {
+        k = +k; var kz = (k / NN) | 0; if (kz !== z) continue;
+        var i = k % NN; if (m.L[z][i] !== 2) { delete S.crk[k]; continue; }
+        var age = Math.min(1, (tn - S.crk[k]) / 800), px = (i % W) * T, py = ((i / W) | 0) * T, jx = (Math.random() - 0.5) * age * 4, jy = (Math.random() - 0.5) * age * 4;
+        c.fillStyle = 'rgba(255,90,40,' + (0.12 + age * 0.38) + ')'; c.fillRect(px + jx, py + jy, T, T);
+        D.cracks(c, px + jx, py + jy, Math.min(5, (age * 6) | 0), 0);
+      }
+      if (d) {
+        var lst = []; S.ents.forEach(function (e) { if ((e.id === S.myId ? (P.z || 0) : e.z || 0) === z && !e.dead && !e.elim) lst.push(e); });
+        lst.sort(function (a, b) { return a.y - b.y; }).forEach(function (e) { drawEnt(e, t); });
+      }
+      c.restore();
+      if (d >= 0 && z > vz) { c.fillStyle = 'rgba(8,5,26,.34)'; c.fillRect(Lx - 400, Tp - 400, vw + 800, vh + 800); }
+    }
+    return true;
+  }
+  function mgCtfDrawables(list, t) {
+    var m = S.map;
+    m.bases.forEach(function (b, team) {
+      var f = S.flags[team] || [0], home = f[0] === 0;
+      list.push({ k: 'fn', y: b.fy - 6, fn: function () { D.flagStand(c, b.fx, b.fy, team, t, home); } });
+      if (home) list.push({ k: 'fn', y: b.fy + 2, fn: function () { D.flag(c, b.fx, b.fy, team, t); } });
+      else if (f[0] === 2) list.push({ k: 'fn', y: f[3] + 2, fn: function () {
+        D.flag(c, f[2], f[3], team, t);
+        var pu = (Math.sin(t * 6) + 1) / 2; c.strokeStyle = 'rgba(255,255,255,' + (0.3 + pu * 0.5) + ')'; c.lineWidth = 3; A.ell(c, f[2], f[3], 26, 10); c.stroke();
+      } });
+    });
+    (m.pickSpots || []).forEach(function (sp, k) {
+      list.push({ k: 'fn', y: sp.y - 2, fn: function () { D.pad(c, sp.x, sp.y, t); if (S.pick[k]) D.pickup(c, S.pick[k], sp.x, sp.y, t); } });
+    });
+  }
+  function drawDisguised(e, x, y, t) {
+    var fl = Math.max(0, 1 - (now() - (e.flashT || -1e9)) / 320);
+    if (e.id === S.myId) { c.save(); c.strokeStyle = 'rgba(43,213,118,' + (0.5 + Math.sin(t * 4) * 0.3) + ')'; c.lineWidth = 2.5; c.setLineDash([5, 5]); c.lineDashOffset = -t * 18; A.ell(c, x, y + 10, 24, 9); c.stroke(); c.restore(); }
+    else if (S.team === 0) { c.strokeStyle = 'rgba(43,213,118,.35)'; c.lineWidth = 2; A.ell(c, x, y + 10, 20, 7); c.stroke(); }
+    D.prop(c, e.prop, x, y + 12, t, { wob: fl, face: true });
+    if (e.moving && Math.random() < 0.2) D.burst('dust', x, y + 10, 1);
+  }
+  function mgWorldTop(t) {
+    var tn = now();
+    if (S.game === 'hide') {
+      var m = S.map;
+      if (snow() < S.seekAt && m.cage) { // the seekers' cage
+        var x0 = m.cage[0] * T, y0 = m.cage[1] * T, x1 = (m.cage[2] + 1) * T, y1 = (m.cage[3] + 1) * T;
+        c.strokeStyle = '#1b1636'; c.lineWidth = 7; c.strokeRect(x0, y0, x1 - x0, y1 - y0); c.strokeStyle = '#9aa3b5'; c.lineWidth = 4; c.strokeRect(x0, y0, x1 - x0, y1 - y0);
+        for (var bx = x0; bx <= x1; bx += 20) { c.fillStyle = '#1b1636'; c.fillRect(bx - 2.5, y0 - 30, 5, 34); c.fillRect(bx - 2.5, y1 - 30, 5, 34); c.fillStyle = '#c5cfe2'; c.fillRect(bx - 1, y0 - 29, 2, 32); c.fillRect(bx - 1, y1 - 29, 2, 32); }
+        for (var by = y0; by <= y1; by += 20) { c.fillStyle = '#1b1636'; c.fillRect(x0 - 2.5, by - 30, 5, 34); c.fillRect(x1 - 2.5, by - 30, 5, 34); c.fillStyle = '#c5cfe2'; c.fillRect(x0 - 1, by - 29, 2, 32); c.fillRect(x1 - 1, by - 29, 2, 32); }
+        D.tag(c, '🔒 SEEKERS RELEASED IN ' + Math.max(0, Math.ceil((S.seekAt - snow()) / 1000)), (x0 + x1) / 2, y0 - 50, { size: 16, color: '#fff', bg: '#c1121f' });
+      }
+      if (S.radar && tn - S.radar.t < 3000) { var u = (tn - S.radar.t) / 3000; for (var k = 0; k < 3; k++) { var uu = (u * 2 + k / 3) % 1; c.strokeStyle = 'rgba(43,213,118,' + (1 - uu) * (1 - u) + ')'; c.lineWidth = 4; A.circ(c, S.radar.x, S.radar.y, 30 + uu * 160); c.stroke(); } }
+    }
+    if (S.game === 'spleef') {
+      var vz = viewZ();
+      if (vz > 0 && S.spCv) { // floors above you, faint
+        for (var z = vz - 1; z >= 0; z--) { var s = 1 + 0.06 * (vz - z); c.save(); c.globalAlpha = 0.09; c.translate(cam.x, cam.y); c.scale(s, s); c.translate(-cam.x, -cam.y); c.drawImage(S.spCv[z], SPX0 * T, SPX0 * T); c.restore(); }
+      }
+      if (touch && P && !P.dead) { var ft = frontDigTile(); if (ft >= 0 && S.map.L[P.z || 0][ft]) D.tileCursor(c, (ft % W) * T, ((ft / W) | 0) * T, 'floor', true, t); }
+    }
+    if (S.game === 'hide' && touch && P && S.team === 0 && S.held === 'mask') { var pr = MG.propAt(S.map, P.x, P.y, 2.6 * T); if (pr) { c.strokeStyle = 'rgba(255,209,102,' + (0.5 + Math.sin(t * 6) * 0.3) + ')'; c.lineWidth = 3; c.setLineDash([6, 6]); A.ell(c, pr.x, pr.y + 10, 28, 11); c.stroke(); c.setLineDash([]); } }
+  }
+  // arrows on the screen edge pointing at things that matter
+  function edgeArrow(wx, wy, col, label, z) {
+    var sx = (wx - cam.x) * z + innerWidth / 2, sy = (wy - 30 - cam.y) * z + innerHeight / 2, mg = 70;
+    if (sx > mg && sx < innerWidth - mg && sy > mg && sy < innerHeight - mg) {
+      var bo = Math.abs(Math.sin(now() / 200)) * 8; c.save(); c.translate(sx, sy - 56 * z - bo);
+      c.beginPath(); c.moveTo(-10, -12); c.lineTo(10, -12); c.lineTo(0, 2); c.closePath(); c.fillStyle = col; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 3; c.stroke(); c.restore(); return;
+    }
+    var cx = innerWidth / 2, cy = innerHeight / 2, a = Math.atan2(sy - cy, sx - cx);
+    var k = Math.min((innerWidth / 2 - mg) / Math.abs(Math.cos(a) || 1e-6), (innerHeight / 2 - mg) / Math.abs(Math.sin(a) || 1e-6));
+    var ax = cx + Math.cos(a) * k, ay = cy + Math.sin(a) * k;
+    c.save(); c.translate(ax, ay); c.rotate(a);
+    c.beginPath(); c.moveTo(22, 0); c.lineTo(-10, -15); c.lineTo(-4, 0); c.lineTo(-10, 15); c.closePath(); c.fillStyle = col; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 3.5; c.stroke();
+    c.restore();
+    if (label) D.tag(c, label, ax - Math.cos(a) * 30, ay - Math.sin(a) * 30, { size: 12, color: '#fff', bg: col });
+  }
+  function mgScreen(t, z) {
+    if (!P) return;
+    var me = S.ents.get(S.myId);
+    if (S.game === 'ctf' && S.flags.length) {
+      var my = S.flags[S.team], en = S.flags[1 - S.team], b = S.map.bases[S.team];
+      if (me && me.carry >= 0) edgeArrow(b.fx, b.fy, '#2bd576', 'BRING IT HOME', z);
+      else if (en && en[0] !== 1) edgeArrow(en[2], en[3], teamCol(1 - S.team), en[0] === 2 ? 'ENEMY FLAG (dropped)' : 'ENEMY FLAG', z);
+      if (my && my[0] === 1) { var th = S.ents.get(my[1]); if (th) edgeArrow(th.x, th.y, '#ff5c6c', 'FLAG THIEF!', z); }
+      else if (my && my[0] === 2) edgeArrow(my[2], my[3], teamCol(S.team), 'RETURN YOUR FLAG', z);
+    }
+    if (S.game === 'hide' && S.radar && now() - S.radar.t < 3500) edgeArrow(S.radar.x, S.radar.y, '#2bd576', '📡 HIDER NEAR HERE', z);
+  }
+  function cursorTileFloor() { var tx = Math.floor(mouse.wx / T), ty = Math.floor(mouse.wy / T); return B.inb(tx, ty) ? ty * W + tx : -1; }
+  function frontDigTile() { if (!P) return -1; var x = P.x + Math.cos(P.ang) * 58, y = P.y + Math.sin(P.ang) * 58, tx = Math.floor(x / T), ty = Math.floor(y / T); return B.inb(tx, ty) ? ty * W + tx : -1; }
+  function mgTarget(t) {
+    if (S.game === 'spleef') {
+      if (S.held === 'snow') { c.save(); c.setLineDash([6, 8]); c.lineDashOffset = -t * 30; c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 2; c.beginPath(); c.moveTo(P.x, P.y - 16); var dd = Math.min(9 * T, Math.hypot(mouse.wx - P.x, mouse.wy - P.y + 16)); c.lineTo(P.x + Math.cos(P.ang) * dd, P.y - 16 + Math.sin(P.ang) * dd); c.stroke(); c.restore(); return true; }
+      var ti = cursorTileFloor(); if (ti < 0 || !S.map.L[P.z || 0][ti]) return true;
+      var cp = tcen(ti), ok = Math.hypot(cp.x - P.x, cp.y - P.y) <= B.REACH + 20 && ti !== Math.floor(P.y / T) * W + Math.floor(P.x / T);
+      D.tileCursor(c, (ti % W) * T, ((ti / W) | 0) * T, 'floor', ok, t); return true;
+    }
+    if (S.game === 'hide') {
+      if (S.team === 0 && S.held === 'mask') { var pr = nearProp(mouse.wx, mouse.wy); if (pr) { c.strokeStyle = 'rgba(255,209,102,' + (0.5 + Math.sin(t * 6) * 0.3) + ')'; c.lineWidth = 3; c.setLineDash([6, 6]); A.ell(c, pr.x, pr.y + 10, 28, 11); c.stroke(); c.setLineDash([]); } }
+      return true;
+    }
+    return false;
+  }
+  function nearProp(wx, wy) { var best = null, bd = 1e9; (S.map.props || []).forEach(function (p) { if (Math.hypot(p.x - P.x, p.y - P.y) > 2.6 * T) return; var d = Math.hypot(p.x - wx, p.y - wy); if (d < bd) { bd = d; best = p; } }); return best; }
+  // ---- actions
+  function enemyClose() { var best = null, bd = B.MELEE + 10; S.ents.forEach(function (e) { if (e.id === S.myId || e.dead || e.elim || (S.game !== 'spleef' && e.team === S.team)) return; if (S.game === 'spleef' && (e.z || 0) !== (P.z || 0)) return; var d = Math.hypot(e.x - P.x, e.y - P.y); if (d < bd) { bd = d; best = e; } }); return best; }
+  function digTile(ti) {
+    if (ti < 0 || now() - (S.digT || 0) < 270) return; var L = S.map.L[P.z || 0];
+    if (!L[ti] || ti === Math.floor(P.y / T) * W + Math.floor(P.x / T)) return;
+    var cp = tcen(ti); if (Math.hypot(cp.x - P.x, cp.y - P.y) > B.REACH + 20) return;
+    S.digT = now(); send({ t: 'dig', i: ti }); S.did.dig = true;
+    var me = S.ents.get(S.myId); if (me) { me.swingT = 0; me.swingDir = -(me.swingDir || 1); }
+    P.ang = Math.atan2(cp.y - P.y, cp.x - P.x); SC.sfx('mine');
+  }
+  function throwSnow(tx, ty) {
+    if (!(S.inv.snow > 0)) { toast('Dig blocks with your shovel to get snowballs ❄️', 1600); SC.sfx('no'); return; }
+    send({ t: 'use', it: 'snow', x: Math.round(tx), y: Math.round(ty) }); S.did.snow = true; SC.sfx('throw');
+    var me = S.ents.get(S.myId); if (me) { me.swingT = 0; me.swingDir = 1; }
+  }
+  function disguiseNear(wx, wy) {
+    var pr = nearProp(wx, wy);
+    if (!pr) { toast('🎭 Walk right up to a prop (barrel, crate, bush…) to copy it', 1800); SC.sfx('no'); return; }
+    send({ t: 'dis', p: pr.id }); var me = S.ents.get(S.myId); if (me) me.prop = pr.kind;
+    D.burst('smoke', P.x, P.y - 10, 10); D.burst('magic', P.x, P.y - 20, 10, '#ffd166'); SC.sfx('pop'); S.did.dis = true;
+    toast('🎭 You’re a ' + MG.PROPS[pr.kind].name + '! Stand still to blend in', 1800);
+  }
+  function doTaunt() { if (now() - (S.tauntT || 0) < 5000) { toast('Taunt is recharging…', 1000); return; } S.tauntT = now(); send({ t: 'taunt' }); S.did.taunt = true; }
+  function doRadar() {
+    if (snow() < S.seekAt) { toast('You’re still blindfolded!', 1200); return; }
+    var left = 20000 - (now() - (S.radarT || -1e9)); if (left > 0) { toast('📡 Radar ready in ' + Math.ceil(left / 1000) + 's', 1200); return; }
+    S.radarT = now(); send({ t: 'radar' }); S.did.radar = true;
+  }
+  function mgPrimary(it) {
+    if (S.game === 'spleef') { if (it === 'snow') { throwSnow(mouse.wx, mouse.wy); return true; } var en = enemyClose(); if (en && !touch) { var da = Math.abs(Math.atan2(en.y - P.y, en.x - P.x) - P.ang); if (da > Math.PI) da = TAU - da; if (da < 1.3) { doSwing(); return true; } } digTile(cursorTileFloor()); return true; }
+    if (S.game === 'hide') {
+      if (S.team === 0) { if (it === 'taunt') doTaunt(); else disguiseNear(mouse.wx, mouse.wy); return true; }
+      if (it === 'radar') { doRadar(); return true; }
+      S.did.swingSeek = true; return false;
+    }
+    return false;
+  }
+  function mgHold(it) {
+    if (S.game === 'spleef') { if (it === 'shovel' && !touch) digTile(cursorTileFloor()); return true; }
+    if (S.game === 'hide') { if (S.team === 1 && it === 'sword' && now() - (S.lastHoldSwing || 0) > 300) { doSwing(); S.did.swingSeek = true; } return true; }
+    return false;
+  }
+  function mgSecondary() {
+    if (S.game === 'spleef') { throwSnow(mouse.wx, mouse.wy); return true; }
+    if (S.game === 'hide') { if (S.team === 0) doTaunt(); else doRadar(); return true; }
+    return false;
+  }
+  function mgKey(k) {
+    if (S.game === 'hide') {
+      if (S.team === 0 && k === 'e') { disguiseNear(P.x, P.y); return true; }
+      if (S.team === 0 && (k === 'f' || k === 't')) { doTaunt(); return true; }
+      if (S.team === 1 && (k === 'f' || k === 'r' || k === 'e')) { doRadar(); return true; }
+    }
+    if (S.game === 'spleef' && (k === 'f' || k === 'e')) { throwSnow(P.x + Math.cos(P.ang) * 200, P.y + Math.sin(P.ang) * 200); return true; }
+    return false;
+  }
+  function mgTouch(btn) {
+    if (!P || P.dead) return true;
+    if (S.game === 'spleef') {
+      if (btn === 'atk') { var en = enemyClose(); if (en) { P.ang = Math.atan2(en.y - P.y, en.x - P.x); doSwing(); } else digTile(frontDigTile()); return true; }
+      if (btn === 'place') { doHop(); return true; }
+      if (btn === 'use') { var best = null, bd = 9 * T; S.ents.forEach(function (e) { if (e.id === S.myId || e.dead || e.elim || (e.z || 0) !== (P.z || 0)) return; var d = Math.hypot(e.x - P.x, e.y - P.y); if (d < bd) { bd = d; best = e; } }); if (best) throwSnow(best.x, best.y); else throwSnow(P.x + Math.cos(P.ang) * 220, P.y + Math.sin(P.ang) * 220); return true; }
+    }
+    if (S.game === 'hide') {
+      if (S.team === 0) { if (btn === 'atk') disguiseNear(P.x, P.y); else if (btn === 'place') doTaunt(); return true; }
+      if (btn === 'use') { doRadar(); return true; }
+      if (btn === 'place') return true;
+      S.did.swingSeek = true; return false;
+    }
+    return false;
+  }
+  // ---- HUD
+  function mgHudInit() {
+    $('mgTop').classList.toggle('hidden', !isMini());
+    $('mgRole').classList.toggle('hidden', S.game !== 'hide');
+    $('blind').classList.add('hidden');
+    var ic = { bw: ['⚔️', '🧱', '✨'], ctf: ['⚔️', '🧱', '✨'], spleef: ['⛏️', '⤴️', '❄️'], hide: S.team === 0 ? ['🎭', '🎵', ''] : ['⚔️', '', '📡'] }[S.game];
+    $('tAtk').textContent = ic[0]; $('tPlace').textContent = ic[1]; $('tUse').textContent = ic[2];
+    $('tPlace').style.visibility = ic[1] ? '' : 'hidden'; $('tUse').style.visibility = ic[2] ? '' : 'hidden';
+    if (S.game === 'hide') $('mgRole').innerHTML = S.team === 0 ? '<span class="ic">🎭</span><div>HIDER<small>Copy a prop · stand still · survive</small></div>' : '<span class="ic">🔍</span><div>SEEKER<small>Hit the fake props · F = radar</small></div>';
+    renderHotbar(); mgHudTick(true);
+  }
+  function mgTimer(el) {
+    var sn = snow(), tm = $('tmT'), nx = $('tmN');
+    if (S.game === 'ctf') { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'First to ' + MG.GAMES.ctf.caps + ' captures'; }
+    else if (S.game === 'hide') { if (sn < S.seekAt) { tm.textContent = B.fmtTime((S.seekAt - sn) / 1000); nx.textContent = 'Hiding time'; } else { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'Hiders survive in'; } }
+    else if (S.game === 'spleef') { tm.textContent = B.fmtTime(el); nx.textContent = sn < S.sdAt ? 'Sudden death in ' + B.fmtTime((S.sdAt - sn) / 1000) : '💥 SUDDEN DEATH'; }
+  }
+  function mgHudTick(force) {
+    if (!force && now() - (S.mgTopT || 0) < 200) { tutTick(); return; } S.mgTopT = now();
+    var h = '';
+    if (S.game === 'ctf') {
+      var fl = S.flags || [];
+      var fs2 = function (t2) { var f = fl[t2] || [0]; return f[0] === 0 ? '🏠 home' : f[0] === 1 ? '🏃 taken!' : '⚠️ dropped'; };
+      h = '<div class="sc"><span class="sq" style="background:' + teamCol(0) + '">🚩</span>' + (S.score[0] || 0) + '</div><div class="fs"><b style="color:' + teamCol(0) + '">' + fs2(0) + '</b><b style="color:' + teamCol(1) + '">' + fs2(1) + '</b></div><div class="sc">' + (S.score[1] || 0) + '<span class="sq" style="background:' + teamCol(1) + '">🚩</span></div>';
+    } else if (S.game === 'spleef') {
+      var al = 0, tot = 0; S.ents.forEach(function (e) { tot++; if (!e.elim) al++; });
+      h = '<span class="pill">👥 ' + al + '/' + tot + ' left</span><span class="pill">⬇️ Floor ' + ((P ? P.z || 0 : 0) + 1) + '/' + MG.SP_LAYERS + '</span>' + (snow() >= S.sdAt ? '<span class="pill hot">💥 SUDDEN DEATH</span>' : '') + '<span class="pill">❄️ ' + (S.inv.snow || 0) + '</span>';
+    } else if (S.game === 'hide') {
+      var hd = 0, sk = 0; S.ents.forEach(function (e) { if (e.dead && e.team === 0) return; if (e.team === 0) hd++; else sk++; });
+      h = '<span class="pill" style="color:#2bd576">🎭 ' + hd + ' hiding</span><span class="pill" style="color:#ff8b98">🔍 ' + sk + ' seeking</span>' + (S.team === 1 ? '<span class="pill">📡 ' + (now() - (S.radarT || -1e9) >= 20000 ? 'ready (F)' : Math.ceil((20000 - (now() - S.radarT)) / 1000) + 's') + '</span>' : '<span class="pill">🎵 ' + (now() - (S.tauntT || -1e9) >= 5000 ? 'taunt (F)' : '…') + '</span>');
+      var bl = $('blind'), blind = S.team === 1 && snow() < S.seekAt && S.screen === 'game';
+      bl.classList.toggle('hidden', !blind);
+      if (blind) bl.innerHTML = '<div class="big">🙈 YOU’RE BLINDFOLDED</div><div class="sub">The hiders are picking their disguises…</div><div class="cd">' + Math.max(0, Math.ceil((S.seekAt - snow()) / 1000)) + '</div><div class="sub">Tip: props that move, taunt or talk are hiders!</div>';
+    }
+    if ($('mgTop').innerHTML !== h) $('mgTop').innerHTML = h;
+    tutTick();
+  }
+  function mgPrompt(pr) {
+    if (S.game === 'hide' && S.team === 0 && P && !P.dead) { var p = nearProp(P.x, P.y); if (p) { pr.classList.remove('hidden'); pr.textContent = (touch ? '🎭 Tap to become a ' : 'E · Become a ') + MG.PROPS[p.kind].name; return true; } }
+    return false;
+  }
+  function mgDeath(d, killer, final, kind) {
+    if (S.game === 'spleef') {
+      var left = 0; S.ents.forEach(function (e) { if (!e.elim && e.id !== S.myId) left++; });
+      d.innerHTML = '<div class="big">YOU FELL!</div><div class="sub">' + (killer ? 'Knocked off by <span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span> · ' : '') + 'You placed <b style="color:#ffd166">#' + (left + 1) + '</b></div><div class="sub" style="font-size:15px;color:#cfc8ff">Watch who wins, or jump into another round.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dSpec">👀 Keep watching</button><button class="btn" id="dHub">🏠 Hub</button></div>';
+      $('dAgain').onclick = playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); }; $('dHub').onclick = function () { send({ t: 'hub' }); };
+      d.style.pointerEvents = 'auto'; return true;
+    }
+    if (S.game === 'hide' && S.team === 0) {
+      d.innerHTML = '<div class="big" style="color:#ffd166">FOUND!</div><div class="sub">' + (killer ? '<span style="color:#ff8b98">' + esc(killer.nick) + '</span> found you' : 'You were found') + '</div><div class="sub" style="margin:0">You’ll come back as a 🔍 SEEKER in</div><div class="cd" id="deathCd">4</div>';
+      d.style.pointerEvents = 'none'; return true;
+    }
+    if (S.game === 'hide') { d.innerHTML = '<div class="big">OUCH!</div><div class="sub">' + (kind === 'prop' ? 'Too many wrong props!' : 'You went down') + '</div><div class="sub" style="margin:0">Back in</div><div class="cd" id="deathCd">5</div>'; d.style.pointerEvents = 'none'; return true; }
+    if (S.game === 'ctf') {
+      var carried = ''; d.innerHTML = '<div class="big">YOU DIED!</div><div class="sub">' + (killer ? (kind === 'void' ? 'Knocked into the void by ' : 'Killed by ') + '<span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span>' : kind === 'void' ? 'You fell into the void' : '') + carried + '</div><div class="sub" style="margin:0">Respawning in</div><div class="cd" id="deathCd">4</div>';
+      d.style.pointerEvents = 'none'; return true;
+    }
+    return false;
+  }
+  function mgScore() {
+    var rows = '<table>';
+    if (S.game === 'ctf') {
+      rows += '<tr><th></th><th>Player</th><th>Status</th></tr>';
+      for (var t2 = 0; t2 < 2; t2++) {
+        rows += '<tr class="tm"><td colspan="3" style="color:' + teamCol(t2) + '">' + tname(t2) + ' · ' + (S.score[t2] || 0) + ' 🚩</td></tr>';
+        S.ents.forEach(function (e) { if (e.team !== t2) return; rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.carry >= 0 ? '🚩' : e.dead ? '⏳' : '') + '</td><td>' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (e.carry >= 0 ? 'has the flag!' : e.dead ? 'respawning' : 'alive') + '</td></tr>'; });
+      }
+    } else if (S.game === 'spleef') {
+      rows += '<tr><th></th><th>Player</th><th>Floor</th></tr>';
+      var arr = Array.from(S.ents.values()).sort(function (a, b) { return (a.elim - b.elim) || ((a.z || 0) - (b.z || 0)); });
+      arr.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.elim ? '💀' : '❄️') + '</td><td style="color:' + teamCol(e.team) + '">' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (e.elim ? 'out' : ((e.id === S.myId ? P.z : e.z) || 0) + 1) + '</td></tr>'; });
+    } else {
+      rows += '<tr><th></th><th>Player</th><th>Role</th></tr>';
+      S.ents.forEach(function (e) { var hid = e.team === 0; if (hid && S.team !== 0 && e.id !== S.myId) return; rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (hid ? '🎭' : '🔍') + '</td><td>' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (hid ? (e.prop ? MG.PROPS[e.prop].name : 'hider') : 'seeker') + '</td></tr>'; });
+      if (S.team !== 0) rows += '<tr><td colspan="3" style="color:var(--mut)">Hiders are secret until the round ends 🤫</td></tr>';
+    }
+    return rows + '</table>';
+  }
+  function mgEndSub(m, win) {
+    var me = (m.stats || []).find(function (x) { return x.id === m.you; }) || {};
+    if (m.game === 'ctf') $('eSub').innerHTML = (m.winner >= 0 ? '<span style="color:' + teamCol(m.winner) + '">' + tname(m.winner) + ' team</span> captures the win! ' : 'It’s a tie! ') + '<b>' + (m.score ? m.score[0] + ' – ' + m.score[1] : '') + '</b>';
+    if (m.game === 'spleef') { var w = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (w ? '<span style="color:' + teamCol(w.team) + '">' + esc(w.nick) + '</span> is the last one standing!' : 'Nobody survived!') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
+    if (m.game === 'hide') $('eSub').innerHTML = m.winner === 0 ? '🎭 The hiders survived!' : '🔍 The seekers found everyone!';
+    void win;
+  }
+  function mgEndTable(m) {
+    var st = m.stats.slice(), head, row;
+    if (m.game === 'ctf') { st.sort(function (a, b) { return (b.caps * 5 + b.kills + b.rets * 2) - (a.caps * 5 + a.kills + a.rets * 2); }); head = '<th>Caps</th><th>Kills</th><th>Returns</th><th>Deaths</th>'; row = function (s) { return '<td>' + (s.caps || 0) + '</td><td>' + s.kills + '</td><td>' + (s.rets || 0) + '</td><td>' + s.deaths + '</td>'; }; }
+    else if (m.game === 'spleef') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Knock-offs</th><th>Blocks dug</th>'; row = function (s) { return '<td>' + (['🥇', '🥈', '🥉'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.knocks || 0) + '</td><td>' + (s.digs || 0) + '</td>'; }; }
+    else { st.sort(function (a, b) { return (b.finds * 3 + b.taunts + (b.survived ? 5 : 0)) - (a.finds * 3 + a.taunts + (a.survived ? 5 : 0)); }); head = '<th>Started as</th><th>Found</th><th>Taunts</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.team === 0 || s.survived ? '🎭' : '🔍') + '</td><td>' + (s.finds || 0) + '</td><td>' + (s.taunts || 0) + '</td><td>' + (s.survived ? '✅' : '–') + '</td>'; }; }
+    return '<tr><th>#</th><th>Player</th>' + head + '</tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + (m.game === 'hide' ? (s.team === 0 ? '#2bd576' : '#ff8b98') : teamCol(s.team)) + '">' + (s.bot ? '🤖 ' : '') + esc(s.nick) + '</b></td>' + row(s) + '</tr>'; }).join('');
+  }
+  function introText() {
+    var tm = B.TEAMS[S.team] || B.TEAMS[0];
+    if (S.game === 'ctf') return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, '🚩 Steal their flag · bring it home · first to ' + MG.GAMES.ctf.caps];
+    if (S.game === 'spleef') return ['Welcome to', 'TNT SPLEEF', '#7dd3fc', '❄️ Keep moving — the floor crumbles behind you. Last one standing wins!'];
+    if (S.game === 'hide') return S.team === 0 ? ['You are a', 'HIDER 🎭', '#2bd576', 'Copy a prop and hide! The seekers come out in ' + MG.GAMES.hide.hideSec + 's'] : ['You are a', 'SEEKER 🔍', '#ff5c6c', 'Hiders are disguised as props. Hit the fakes!'];
+    return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, '🛏 Protect your bed · ⚔️ Destroy the others'];
+  }
+  function mgEvent(k, ev) {
+    var e, p;
+    if (k === 'take') { e = S.ents.get(ev[1]); if (S.flags[ev[2]]) { S.flags[ev[2]][0] = 1; S.flags[ev[2]][1] = ev[1]; } if (e) e.carry = ev[2];
+      feed(nameHtml(e) + ' grabbed the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b> 🚩');
+      if (ev[1] === S.myId) { banner('YOU HAVE THE FLAG!', 'Run it back to your own flag!', '#ffd166'); SC.sfx('flag'); S.did.take = true; }
+      else if (ev[2] === S.team) { banner('YOUR FLAG WAS TAKEN!', 'Stop ' + (e ? esc(e.nick) : 'them') + '!', '#ff5c6c'); SC.sfx('alarm'); }
+      else SC.sfx('flag'); return true; }
+    if (k === 'drop') { e = S.ents.get(ev[1]); if (e) e.carry = -1; if (S.flags[ev[2]]) S.flags[ev[2]] = [2, 0, ev[3], ev[4]]; feed(nameHtml(e) + ' dropped the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b>'); if (ev[2] === S.team) toast('⚠️ Your flag is on the ground — touch it to send it home!', 2400); return true; }
+    if (k === 'ret') { e = S.ents.get(ev[1]); var b = S.map.bases[ev[2]]; if (S.flags[ev[2]] && b) S.flags[ev[2]] = [0, 0, b.fx, b.fy]; S.ents.forEach(function (x) { if (x.carry === ev[2]) x.carry = -1; }); feed('<b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b> went home' + (e ? ' — returned by ' + nameHtml(e) : '')); sfxAt('pop', b ? b.fx : 0, b ? b.fy : 0); return true; }
+    if (k === 'cap') {
+      e = S.ents.get(ev[1]); S.score = [ev[3], ev[4]]; if (e) e.carry = -1;
+      var bb = S.map.bases[ev[2]]; if (S.flags[ev[2]] && bb) S.flags[ev[2]] = [0, 0, bb.fx, bb.fy];
+      var ct = e ? e.team : 1 - ev[2], hb = S.map.bases[ct];
+      banner(tname(ct).toUpperCase() + ' SCORES!', (e ? esc(e.nick) + ' captured the flag · ' : '') + ev[3] + ' – ' + ev[4], teamCol(ct));
+      if (hb) { for (var q = 0; q < 4; q++) setTimeout(function () { D.burst('star', hb.fx + (Math.random() - 0.5) * 80, hb.fy - 40, 10, teamCol(ct)); D.ring(hb.fx, hb.fy, teamCol(ct), 120, 0.6, 8); }, q * 180); D.flash(hb.fx, hb.fy, 200, '255,255,255', 0.35); }
+      SC.sfx('score'); S.shake = Math.max(S.shake, 6); feed('🚩 ' + nameHtml(e) + ' <b style="color:#ffd166">CAPTURED</b> the flag!', true);
+      if (ev[1] === S.myId) { S.did.cap = true; toastBig('+1 CAPTURE!', '#ffd166'); }
+      return true;
+    }
+    if (k === 'pu') { S.pick[ev[1]] = ev[2]; var sp = (S.map.pickSpots || [])[ev[1]]; if (sp) { D.burst('magic', sp.x, sp.y - 20, 10, '#ffd166'); sfxAt('pop2', sp.x, sp.y); } return true; }
+    if (k === 'put') { S.pick[ev[1]] = ''; if (ev[2] === S.myId) { SC.sfx('buy'); toast('+ ' + (ev[3] === 'arrows' ? '8 Arrows' : ev[3] === 'wool' ? '16 Wool' : B.ITEM_NAMES[ev[3]] || ev[3]), 1400); } return true; }
+    if (k === 'sp') {
+      var z = ev[1], i = ev[2], st = ev[3]; if (!S.map.L) return true;
+      var was = S.map.L[z][i]; S.map.L[z][i] = st;
+      if (st === 2) { S.crk[z * NN + i] = now(); if (ev[4] && z === viewZ()) { var c1 = tcen(i); D.burst('cube', c1.x, c1.y, 3, D.SPC[MG.SP.kinds[z]].side, { speed: 60 }); sfxAt('crack', c1.x, c1.y); } }
+      else if (st === 0 && was) { delete S.crk[z * NN + i]; spGone(z, i); if (z === viewZ()) { var c2 = tcen(i); D.burst('cube', c2.x, c2.y + 6, 5, D.SPC[MG.SP.kinds[z]].top, { speed: 90 }); if (Math.random() < 0.35) sfxAt('break', c2.x, c2.y); } }
+      return true;
+    }
+    if (k === 'fall') { e = S.ents.get(ev[1]); if (e) { e.spFall = true; e.spFallT = now(); p = entPos(e); sfxAt('fall', p.x, p.y); } return true; }
+    if (k === 'land') { e = S.ents.get(ev[1]); if (e) { e.spFall = false; if (e.id !== S.myId) e.z = ev[2]; e.buf = []; p = entPos(e); if (ev[2] === viewZ()) D.burst('dust', p.x, p.y, 8); } return true; }
+    if (k === 'sd') { banner('💥 SUDDEN DEATH!', 'The floors are falling apart on their own!', '#ff5c6c'); SC.sfx('alarm'); return true; }
+    if (k === 'phase') { S.phase = 'seek'; if (S.team === 1) banner('GO FIND THEM! 🔍', 'Hit props that look suspicious', '#ff5c6c'); else banner('THE SEEKERS ARE OUT!', 'Stay still… don’t make a sound 🤫', '#ffd166'); SC.sfx('go'); $('blind').classList.add('hidden'); return true; }
+    if (k === 'taunt') {
+      e = S.ents.get(ev[1]); var tx = ev[2], ty = ev[3];
+      sfxAt('taunt' + (ev[5] % TAUNTS.length), tx, ty);
+      for (var n2 = 0; n2 < 4; n2++) setTimeout(function () { D.text(tx + (Math.random() - 0.5) * 40, ty - 40, Math.random() < 0.5 ? '♪' : '♫', '#ffd166', 22, { vy: -60, life: 1.2 }); }, n2 * 120);
+      if (ev[1] === S.myId) { S.did.taunt = true; if (!ev[4]) toast('🎵 Taunted! +3 Scrolls at the end', 1400); else toast('🎵 Auto-taunt! Hiders make a sound every 30 seconds', 1800); }
+      return true;
+    }
+    if (k === 'dis') { e = S.ents.get(ev[1]); if (e) { e.prop = MG.PROP_KINDS[ev[2]]; p = entPos(e); D.burst('smoke', p.x, p.y - 10, 8); } return true; }
+    if (k === 'found') {
+      e = S.ents.get(ev[1]); var fa = S.ents.get(ev[2]);
+      if (e) { e.team = 1; e.prop = ''; }
+      D.burst('star', ev[3], ev[4] - 20, 14, '#ffd166'); D.ring(ev[3], ev[4], '#ffd166', 70, 0.5, 6);
+      feed('🔍 ' + (fa ? nameHtml(fa) : 'Someone') + ' found ' + nameHtml(e) + (ev[5] ? ' (the ' + MG.PROPS[ev[5]].name + ')' : ''), true);
+      if (ev[2] === S.myId) { toastBig('FOUND ONE! 🎉', '#ffd166'); SC.sfx('final'); S.did.find = true; }
+      return true;
+    }
+    if (k === 'miss') { S.propWob[ev[2]] = now(); var pr = S.map.props && S.map.props[ev[2]]; if (pr) D.burst('dust', pr.x, pr.y, 5); if (ev[1] === S.myId) { toast('❌ Just a real prop! (−½ ❤)', 1100); SC.sfx('no'); } return true; }
+    return false;
+  }
+
+  // ================================================================== TUTORIALS
+  // In-match: a little card walks you through the basics the first time you play each game.
+  var TUT = {
+    bw: [
+      { d: 'Walk around with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', t: 'Move with the joystick', ok: function () { return S.did.move; } },
+      { d: 'Stand on your generator to collect <b>iron</b> ⚪', ok: function () { return (S.res.iron || 0) > 0; } },
+      { d: 'Walk to the <b>Item Shop</b> NPC and press <kbd>E</kbd>', t: 'Tap the <b>Item Shop</b> NPC', ok: function () { return S.did.shop; } },
+      { d: 'Buy <b>Wool</b> — it costs 4 iron', ok: function () { return (S.inv.wool || 0) > 0 || S.did.place; } },
+      { d: 'Hold <b>right click</b> and walk to bridge over the void', t: 'Hold 🧱 while walking to bridge', ok: function () { return S.did.place; } },
+      { d: 'Sprint with <kbd>Shift</kbd> (or double-tap) and jump with <kbd>Space</kbd>', t: 'Push the joystick all the way to sprint', ok: function () { return S.did.sprint; } },
+      { d: '🛏 Cover your bed in blocks, then go break everyone else’s!', wait: 7000 }],
+    ctf: [
+      { d: 'Walk around with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, sprint with <kbd>Shift</kbd>', t: 'Move with the joystick — push it all the way to sprint', ok: function () { return S.did.move; } },
+      { d: 'Follow the arrow to the <b>enemy flag</b> and touch it 🚩', ok: function () { return S.did.take; } },
+      { d: 'Carry it back to <b>your own flag</b> to score!', ok: function () { return S.did.cap || (S.score[S.team] || 0) > 0; } },
+      { d: 'If your flag gets dropped, touch it to send it home', wait: 6000 },
+      { d: 'Bridge with wool (<b>right click</b>), shoot with the bow. First to 3 wins! 🏆', t: '🧱 bridges, ✨ uses items. First to 3 wins! 🏆', wait: 7000 }],
+    spleef: [
+      { d: 'Keep moving! The floor crumbles right after you step on it', t: 'Keep moving! The floor crumbles behind you', ok: function () { return S.did.move; } },
+      { d: 'Press <kbd>Space</kbd> to jump over a hole', t: 'Tap ⤴️ to jump over holes', ok: function () { return S.did.hop; } },
+      { d: '<b>Left click</b> a block to dig it — dig under other players! 😈', t: 'Tap ⛏️ to dig the block in front of you 😈', ok: function () { return S.did.dig; } },
+      { d: 'Digging gives snowballs ❄️ — <b>right click</b> to throw one', t: 'Tap ❄️ to throw a snowball', ok: function () { return S.did.snow; } },
+      { d: 'There are ' + MG.SP_LAYERS + ' floors. Fall through all of them and you’re out. Last one standing wins!', wait: 7000 }],
+    hide: [
+      { d: 'Walk up to a prop and press <kbd>E</kbd> to become it', t: 'Stand next to a prop and tap 🎭 to become it', ok: function () { return S.did.dis; } },
+      { d: 'Find a spot next to matching props and <b>stand still</b> — you snap into place', ok: function () { return P && P.idleT > 1.5 && S.did.dis; } },
+      { d: 'Press <kbd>F</kbd> to taunt 🎵 for bonus Scrolls (seekers can hear it!)', t: 'Tap 🎵 to taunt for bonus Scrolls', ok: function () { return S.did.taunt; } },
+      { d: 'Seekers can hear you talk too 🎙️ Survive until the timer runs out!', wait: 7000 }],
+    seek: [
+      { d: 'You’re blindfolded while the hiders pick their disguises…', ok: function () { return snow() >= S.seekAt; } },
+      { d: '<b>Left click</b> to hit props that look out of place. Real props hurt you a bit!', t: 'Tap ⚔️ near suspicious props. Real ones hurt you a bit!', ok: function () { return S.did.swingSeek; } },
+      { d: 'Press <kbd>F</kbd> for the 📡 radar — it shows roughly where a hider is', t: 'Tap 📡 for the radar', ok: function () { return S.did.radar; } },
+      { d: 'Listen for taunts 🎵 and voices — and watch for props that move!', wait: 7000 }],
+  };
+  function tutDone(key) { try { return !!JSON.parse(localStorage.getItem('sh_tut') || '{}')[key]; } catch (e) { return false; } }
+  function tutMark(key, v) { try { var o = JSON.parse(localStorage.getItem('sh_tut') || '{}'); if (v) o[key] = 1; else delete o[key]; localStorage.setItem('sh_tut', JSON.stringify(o)); } catch (e) {} }
+  function tutStart() {
+    var key = S.game === 'hide' ? (S.team === 1 ? 'seek' : 'hide') : S.game;
+    S.tut = null; $('tutor').classList.add('hidden');
+    if (tutDone(key) || !TUT[key]) return;
+    S.tut = { key: key, i: 0, st: now() }; tutRender();
+  }
+  function tutRender() {
+    var tu = S.tut, el = $('tutor'); if (!tu) { el.classList.add('hidden'); return; }
+    var L2 = TUT[tu.key], st = L2[tu.i];
+    el.classList.remove('hidden');
+    el.innerHTML = '<div class="th">📘 Tutorial · ' + (tu.i + 1) + '/' + L2.length + '<span class="grow"></span><button id="tutSkip">Skip</button></div><div class="tx">' + (touch && st.t ? st.t : st.d) + '</div><div class="bar"><i style="width:' + Math.round(tu.i / L2.length * 100) + '%"></i></div>';
+    $('tutSkip').onclick = function () { tutMark(tu.key, 1); S.tut = null; el.classList.add('hidden'); toast('Tutorial skipped — open ❓ any time', 1600); };
+  }
+  function tutTick() {
+    var tu = S.tut; if (!tu || S.screen !== 'game') return;
+    if (snow() < S.goAt) { tu.st = now(); return; }
+    if (P && P.mv) S.did.move = true; if (P && P.sprint && P.mv) S.did.sprint = true;
+    var L2 = TUT[tu.key], st = L2[tu.i];
+    if (st.wait ? now() - tu.st > st.wait : st.ok()) {
+      tu.i++; tu.st = now(); SC.sfx('pop');
+      var el = $('tutor'); el.classList.remove('done'); void el.offsetWidth; el.classList.add('done');
+      if (tu.i >= L2.length) { tutMark(tu.key, 1); S.tut = null; el.innerHTML = '<div class="th">📘 Tutorial</div><div class="tx">🎉 You’ve got it! Have fun!</div><div class="bar"><i style="width:100%"></i></div>'; setTimeout(function () { if (!S.tut) el.classList.add('hidden'); }, 2600); return; }
+      tutRender();
+    }
+  }
+
+  // The "How to play" book: illustrated pages for every game.
+  function hcv(fn) { return fn; }
+  function artBg(x, col) { var g = x.createRadialGradient(150, 120, 10, 150, 150, 210); g.addColorStop(0, col || '#3b2f8f'); g.addColorStop(1, '#151040'); x.fillStyle = g; x.fillRect(0, 0, 300, 300); }
+  function gimAt(x, cx, cy, look, t, o) { x.save(); x.translate(cx, cy); x.scale(1.7, 1.7); A.drawGim(x, 0, 0, look, Object.assign({ t: t, dir: 0, moving: false }, o || {})); x.restore(); }
+  function itemAt(x, id, cx, cy, s, o) { x.save(); x.translate(cx, cy); D.drawItem(x, id, s, o || {}); x.restore(); }
+  var MEL = { skin: 'gim', body: '#3fa9ff' }, YOU = function () { return (S.hello && S.hello.look) || MEL; };
+  var HELP = {
+    bw: { name: 'Bedwars', icon: '🛏️', pages: [
+      { h: 'Protect your bed', p: 'Every team has a 🛏 bed. While it stands you respawn. Once it’s broken, your next death is <b style="color:#ff5c6c">final</b>. Last team standing wins.', art: function (x, t) { artBg(x, '#4a2a6a'); D.bed(x, { team: 0, x: 150, y: 170, dir: [0, 1] }, t, true); gimAt(x, 90, 230, YOU(), t); gimAt(x, 220, 230, { skin: 'fox', body: '#ff4b5c' }, t + 1); } },
+      { h: 'Collect & shop', p: 'Stand on your generator for <b>iron</b> and <b>gold</b>. Diamonds and emeralds spawn on the islands. Spend them at the <b>Item Shop</b> (<kbd>E</kbd>).', keys: '<kbd>E</kbd> talk to shop', art: function (x, t) { artBg(x); ['iron', 'gold', 'dia', 'em'].forEach(function (r, k) { D.res(x, r, 60 + k * 60, 110 + Math.sin(t * 3 + k) * 6, 2); }); itemAt(x, 'wool', 100, 210, 2.2); itemAt(x, 'sword3', 200, 210, 2.2); } },
+      { h: 'Bridge across the void', p: 'Hold <b>right click</b> and walk to lay blocks in front of you. You can’t walk off edges — but knockback can throw you off!', keys: '<kbd>Right click</kbd> place · <kbd>Left click</kbd> mine', tk: '🧱 places blocks · ⚔️ mines', art: function (x, t) { artBg(x, '#1d3a6a'); for (var k = 0; k < 5; k++) itemAt(x, 'wool', 50 + k * 50, 200, 1.5, { team: 1 }); gimAt(x, 50 + ((t * 40) % 200), 170, YOU(), t, { moving: true, walk: t * 10 }); } },
+      { h: 'Fight like Minecraft', p: '<kbd>Shift</kbd> or double-tap to sprint (big knockback). Jump with <kbd>Space</kbd> and hit while falling for a <b style="color:#ffd166">critical hit</b>.', art: function (x, t) { artBg(x, '#5a1a3a'); gimAt(x, 110, 200, YOU(), t); gimAt(x, 200, 200 - Math.abs(Math.sin(t * 3)) * 30, { skin: 'bear', body: '#2bd576' }, t); itemAt(x, 'sword4', 150, 110, 2.4); } },
+    ] },
+    ctf: { name: 'Capture the Flag', icon: '🚩', pages: [
+      { h: 'Steal their flag', p: 'Two teams, two flags. Run to the <b>enemy flag</b> and touch it to pick it up. Arrows on your screen point the way.', art: function (x, t) { artBg(x, '#1d3a6a'); D.flagStand(x, 80, 220, 0, t, true); D.flag(x, 80, 220, 0, t); D.flagStand(x, 220, 220, 1, t, true); D.flag(x, 220, 220, 1, t); gimAt(x, 150, 180, YOU(), t, { moving: true, walk: t * 10 }); } },
+      { h: 'Bring it home', p: 'Carry it back to <b>your own flag</b> to score a capture. Your flag has to be home to score! First team to <b>3</b> wins.', art: function (x, t) { artBg(x, '#1d4a3a'); x.save(); x.translate(150, 200); x.scale(1.7, 1.7); D.flagBack(x, 1, t, true); A.drawGim(x, 0, 0, YOU(), { t: t, dir: 0, moving: true, walk: t * 10 }); x.restore(); x.fillStyle = '#2bd576'; x.font = '700 30px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('🏠 +1', 150, 70); } },
+      { h: 'Stop the thief', p: 'If they take <b>your</b> flag, hunt the carrier down. Kill them and the flag drops — touch it to send it home.', art: function (x, t) { artBg(x, '#5a1a3a'); x.save(); x.translate(200, 200); x.scale(1.7, 1.7); D.flagBack(x, 0, t, true); A.drawGim(x, 0, 0, { skin: 'fox', body: '#3fa9ff' }, { t: t, dir: 0 }); x.restore(); gimAt(x, 100, 200, YOU(), t); itemAt(x, 'sword2', 150, 100, 2.2); } },
+      { h: 'Your kit', p: 'You spawn with a stone sword, chain armor, a bow and wool. Grab ✨ pickups in the middle: golden apples, speed, pearls and fireballs.', keys: '<kbd>Left</kbd> attack · <kbd>Right</kbd> bridge · hold <kbd>Left</kbd> with bow to shoot', tk: '⚔️ attack · 🧱 bridge · ✨ use item', art: function (x, t) { artBg(x); ['sword2', 'armor2', 'bow', 'wool', 'gapple', 'pearl'].forEach(function (id, k) { itemAt(x, id, 70 + (k % 3) * 80, 100 + ((k / 3) | 0) * 100 + Math.sin(t * 3 + k) * 5, 1.8, { team: 0 }); }); } },
+    ] },
+    spleef: { name: 'TNT Spleef', icon: '❄️', pages: [
+      { h: 'The floor falls away', p: 'Every block you step on crumbles a moment later. <b>Keep moving</b> and don’t walk back over your own trail!', art: function (x, t) { artBg(x, '#1d3a6a'); for (var ty = 0; ty < 5; ty++) for (var tx = 0; tx < 5; tx++) { var gone = (tx + ty * 5) < ((t * 3) % 12) && ty === 2; if (!gone) D.spTile(x, 'snow', 50 + tx * 40, 60 + ty * 40, tx + ty * 7, false); } gimAt(x, 70 + ((t * 40) % 160), 165, YOU(), t, { moving: true, walk: t * 10 }); } },
+      { h: 'Four floors deep', p: 'Fall through a hole and you land on the floor below. There are <b>' + MG.SP_LAYERS + '</b> floors: snow, sand, clay and TNT. Fall off the last one and you’re out.', art: function (x, t) { artBg(x, '#2a1a5e'); MG.SP.kinds.forEach(function (k2, z) { for (var tx = 0; tx < 4; tx++) D.spTile(x, k2, 70 + tx * 40 + z * 6, 50 + z * 55, tx + z, true); }); } },
+      { h: 'Jump the gaps', p: 'Press <kbd>Space</kbd> to jump over a hole. While you’re in the air the floor can’t fall under you.', tk: 'Tap ⤴️ to jump', art: function (x, t) { artBg(x, '#1d3a6a'); D.spTile(x, 'snow', 60, 170, 1, true); D.spTile(x, 'snow', 200, 170, 2, true); var u = (t % 1.4) / 1.4; gimAt(x, 80 + u * 140, 190 - Math.sin(u * Math.PI) * 60, YOU(), t, { moving: true, walk: t * 10 }); } },
+      { h: 'Dig & throw', p: '<b>Left click</b> a block to dig it out, ideally right under someone else 😈. Each dig gives a snowball ❄️; <b>right click</b> to throw it and knock people around.', keys: '<kbd>Left</kbd> dig · <kbd>Right</kbd> snowball · hit people to push them', tk: '⛏️ dig · ❄️ throw · ⤴️ jump', art: function (x, t) { artBg(x, '#3a2a6a'); itemAt(x, 'shovel', 110, 150, 3); itemAt(x, 'snow', 200, 150 + Math.sin(t * 4) * 10, 2.6); } },
+    ] },
+    hide: { name: 'Prop Hunt', icon: '🎃', pages: [
+      { h: 'Hiders become props', p: 'Walk up to any prop and press <kbd>E</kbd> to turn into it. Then pick a sneaky spot near matching props and <b>stand still</b>.', tk: 'Stand by a prop and tap 🎭', art: function (x, t) { artBg(x, '#1d4a3a'); ['barrel', 'pumpkin', 'crate'].forEach(function (k2, i) { D.prop(x, k2, 70 + i * 80, 230, t, { sc: 2.3, wob: i === 1 ? (Math.sin(t * 2) > 0.8 ? 1 : 0) : 0, face: true }); }); x.fillStyle = '#ffd166'; x.font = '700 22px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('Which one is a player? 🤔', 150, 60); } },
+      { h: 'Seekers hunt', p: 'Seekers are blindfolded for 30 seconds, then go looking. They hit props that look out of place. Hitting a <b>real</b> prop hurts the seeker a little!', art: function (x, t) { artBg(x, '#5a1a3a'); gimAt(x, 110, 210, { skin: 'ninja', body: '#ff4b5c' }, t); itemAt(x, 'sword2', 150, 150, 1.8); D.prop(x, 'barrel', 215, 235, t, { sc: 2.3, wob: Math.sin(t * 6) > 0 ? 0.6 : 0 }); } },
+      { h: 'Found? Join the hunt', p: 'When a hider is found they come back as a <b>seeker</b>. Hiders win if anyone is still hidden when time runs out.', art: function (x, t) { artBg(x, '#3a2a6a'); D.prop(x, 'crate', 85, 225, t, { sc: 2.2 }); x.fillStyle = '#fff'; x.font = '700 40px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('➜', 155, 195); gimAt(x, 215, 215, { skin: 'cat', body: '#ff4b5c' }, t); } },
+      { h: 'Taunts, radar & voice', p: 'Hiders: <kbd>F</kbd> taunts 🎵 for bonus Scrolls (and every 30s you taunt automatically). Seekers: <kbd>F</kbd> uses the 📡 radar. Proximity voice is on, so whispering hiders can be heard!', tk: 'Hiders: 🎵 taunt · Seekers: 📡 radar', art: function (x, t) { artBg(x, '#2a1a5e'); itemAt(x, 'taunt', 100, 150, 2.8); itemAt(x, 'radar', 200, 150, 2.8); for (var k = 0; k < 3; k++) { x.fillStyle = 'rgba(255,209,102,' + (1 - ((t + k / 3) % 1)) + ')'; x.font = '700 28px Fredoka, sans-serif'; x.fillText('♪', 80 + k * 20, 100 - ((t + k / 3) % 1) * 50); } } },
+    ] },
+  };
+  var help = { g: 'bw', i: 0, raf: 0 };
+  function openHelp(g) {
+    help.g = HELP[g] ? g : 'bw'; help.i = 0; S.helpGame = help.g;
+    $('hGames').innerHTML = ['bw', 'ctf', 'spleef', 'hide'].map(function (k) { return '<button data-hg="' + k + '"' + (k === help.g ? ' class="on"' : '') + '>' + HELP[k].icon + ' ' + HELP[k].name + '</button>'; }).join('');
+    openModal('mHelp'); helpRender();
+    cancelAnimationFrame(help.raf); (function loop() { if ($('mHelp').classList.contains('hidden')) return; var cvh = $('hArt'); if (cvh) { var x = cvh.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 300, 300); try { HELP[help.g].pages[help.i].art(x, now() / 1000); } catch (e) {} } help.raf = requestAnimationFrame(loop); })();
+  }
+  function helpRender() {
+    var H2 = HELP[help.g], pg = H2.pages[help.i];
+    $('hTitle').textContent = 'How to play · ' + H2.name; $('hIco').textContent = H2.icon;
+    [].forEach.call($('hGames').children, function (b) { b.classList.toggle('on', b.dataset.hg === help.g); });
+    $('hPage').innerHTML = '<canvas id="hArt" width="300" height="300"></canvas><div><h3>' + pg.h + '</h3><p>' + pg.p + '</p>' + ((touch ? pg.tk : pg.keys) ? '<div class="keys2">' + (touch ? pg.tk : pg.keys) + '</div>' : '') + '</div>';
+    $('hDots').innerHTML = H2.pages.map(function (_, k) { return '<i' + (k === help.i ? ' class="on"' : '') + '></i>'; }).join('');
+    $('hPrev').style.visibility = help.i ? '' : 'hidden';
+    var last = help.i === H2.pages.length - 1, inMatch = S.screen === 'game';
+    $('hNext').textContent = last ? (inMatch ? '✔ Got it' : '▶ Practice now') : 'Next ▶';
+  }
+  $('hGames').addEventListener('click', function (e) { var b = e.target.closest('[data-hg]'); if (!b) return; help.g = b.dataset.hg; help.i = 0; S.helpGame = help.g; SC.sfx('click'); helpRender(); });
+  $('hPrev').onclick = function () { if (help.i > 0) { help.i--; SC.sfx('click'); helpRender(); } };
+  $('hNext').onclick = function () {
+    var H2 = HELP[help.g]; SC.sfx('click');
+    if (help.i < H2.pages.length - 1) { help.i++; helpRender(); return; }
+    closeModals();
+    if (S.screen === 'hub') { tutMark(help.g === 'hide' ? 'hide' : help.g, 0); if (help.g === 'hide') tutMark('seek', 0); openPractice(help.g); }
+  };
+  void hcv;
+
   // debug hook for automated tests
-  window.BWG = { dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
+  window.BWG = { openHelp: function (g) { openHelp(g); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
 
   if (window.BWV) BWV.listen(); // hear nearby players right away (no mic needed)
   requestAnimationFrame(frame);

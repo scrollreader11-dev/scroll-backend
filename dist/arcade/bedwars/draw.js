@@ -71,6 +71,9 @@
     4: { top: '#c9925a', alt: '#c08a52', rim: '#e2b27d', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
     5: { top: '#ddd6f7', alt: '#cfc6f0', rim: '#f5f1ff', cliff: ['#8f80c9', '#5f519b', '#2c2457'], band: '#4b3f88' },
     6: { top: '#b6bdcc', alt: '#aab2c3', rim: '#e3e8f2', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
+    7: { top: '#a7a2b8', alt: '#9d98ae', rim: '#d0cce0', cliff: ['#7d879b', '#58617a', '#2e3346'], band: '#4a5266' },
+    8: { top: '#b07b4f', alt: '#a87348', rim: '#d4a272', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
+    9: { top: '#eef6ff', alt: '#e2eefc', rim: '#ffffff', cliff: ['#9fb8d8', '#6f89b0', '#3a4d73'], band: '#5a6f98' },
   };
   function gAt(m, x, y) { return x < 0 || y < 0 || x >= W || y >= H ? 0 : m.g[y * W + x]; }
   function drawGroundTile(c, m, tx, ty, x, y) {
@@ -90,6 +93,14 @@
     } else if (g === 3 || g === 5) {
       c.strokeStyle = 'rgba(120,100,200,.35)'; c.lineWidth = 2; c.strokeRect(x + 3, y + 3, T - 6, T - 6);
       if (((tx + ty) & 3) === 0) { c.fillStyle = 'rgba(255,209,102,.55)'; c.beginPath(); c.moveTo(x + T / 2, y + 12); c.lineTo(x + T - 12, y + T / 2); c.lineTo(x + T / 2, y + T - 12); c.lineTo(x + 12, y + T / 2); c.closePath(); c.fill(); }
+    } else if (g === 7) {
+      c.strokeStyle = 'rgba(60,55,80,.35)'; c.lineWidth = 2;
+      for (var cy2 = 0; cy2 < 2; cy2++) for (var cx2 = 0; cx2 < 2; cx2++) { rr(c, x + 2 + cx2 * 19 + (cy2 ? 4 : 0) * 0, y + 2 + cy2 * 19, 17, 17, 5); c.stroke(); }
+    } else if (g === 8) {
+      c.fillStyle = 'rgba(0,0,0,.16)'; for (var py2 = 0; py2 < T; py2 += 8) c.fillRect(x, y + py2, T, 2);
+      c.fillRect(x + ((ty & 1) ? 10 : 28), y, 2, 8); c.fillRect(x + ((ty & 1) ? 24 : 6), y + 16, 2, 8); c.fillRect(x + ((ty & 1) ? 16 : 32), y + 32, 2, 8);
+    } else if (g === 9) {
+      c.fillStyle = 'rgba(160,200,255,.35)'; for (var k2 = 0; k2 < 3; k2++) { circ(c, x + 6 + hash(i * 5 + k2) * 28, y + 6 + hash(i * 9 + k2) * 28, 2 + hash(i + k2) * 2); c.fill(); }
     } else if (g === 6) {
       var tc = teamCol(teamOfTile(m, tx, ty));
       c.strokeStyle = 'rgba(80,90,110,.45)'; c.lineWidth = 2; c.strokeRect(x + 2, y + 2, T - 4, T - 4);
@@ -570,14 +581,20 @@
   };
   D.banner = function (c, o, t) { // big game title arch over the island
     var x = o.x, y = o.y + 8;
-    [-104, 104].forEach(function (dx) { rr(c, x + dx - 6, y - 96, 12, 100, 3); fs(c, '#5a331b', OL, 3); });
-    rr(c, x - 120, y - 118, 240, 54, 14); fs(c, '#1a0f3d', OL, 4);
-    c.save(); c.font = '700 38px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
-    var w1 = c.measureText('BED').width, w2 = c.measureText('WARS').width, x0 = x - (w1 + w2) / 2;
-    c.textAlign = 'left'; c.lineWidth = 7; c.strokeStyle = OL; c.strokeText('BED', x0, y - 90); c.strokeText('WARS', x0 + w1, y - 90);
-    var gl = 0.7 + Math.sin(t * 3) * 0.3; c.shadowColor = 'rgba(255,75,92,' + gl + ')'; c.shadowBlur = 14; c.fillStyle = '#ff4b5c'; c.fillText('BED', x0, y - 90); c.shadowColor = 'rgba(255,255,255,' + gl * 0.6 + ')'; c.fillStyle = '#fff'; c.fillText('WARS', x0 + w1, y - 90);
+    var txt = o.text || 'BEDWARS', sp = txt.indexOf(' ');
+    var A1 = txt === 'BEDWARS' ? 'BED' : sp > 0 ? txt.slice(0, sp + 1) : txt, A2 = txt === 'BEDWARS' ? 'WARS' : sp > 0 ? txt.slice(sp + 1) : '';
+    var col = { ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b' }[o.game] || '#ff4b5c';
+    c.save(); c.font = '700 38px Fredoka, sans-serif';
+    var fsz = Math.min(38, 38 * 260 / Math.max(1, c.measureText(txt).width)); c.restore();
+    var half = Math.max(120, Math.min(170, (fsz * txt.length * 0.32) + 40));
+    [-half + 16, half - 16].forEach(function (dx) { rr(c, x + dx - 6, y - 96, 12, 100, 3); fs(c, '#5a331b', OL, 3); });
+    rr(c, x - half, y - 118, half * 2, 54, 14); fs(c, '#1a0f3d', OL, 4);
+    c.save(); c.font = '700 ' + fsz + 'px Fredoka, sans-serif'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+    var w1 = c.measureText(A1).width, w2 = c.measureText(A2).width, x0 = x - (w1 + w2) / 2;
+    c.textAlign = 'left'; c.lineWidth = 7; c.strokeStyle = OL; c.strokeText(A1, x0, y - 90); if (A2) c.strokeText(A2, x0 + w1, y - 90);
+    var gl = 0.7 + Math.sin(t * 3) * 0.3; c.shadowColor = col; c.shadowBlur = 14 * gl; c.fillStyle = col; c.fillText(A1, x0, y - 90); c.shadowColor = 'rgba(255,255,255,' + gl * 0.6 + ')'; c.fillStyle = '#fff'; if (A2) c.fillText(A2, x0 + w1, y - 90);
     c.restore();
-    for (var k = 0; k < 9; k++) { circ(c, x - 104 + k * 26, y - 122, 3.5); c.fillStyle = (Math.floor(t * 4) + k) % 2 ? '#ffd166' : '#ff6ec7'; c.fill(); }
+    var n = Math.round(half * 2 / 26); for (var k = 0; k <= n; k++) { circ(c, x - half + 16 + k * ((half * 2 - 32) / n), y - 122, 3.5); c.fillStyle = (Math.floor(t * 4) + k) % 2 ? '#ffd166' : '#ff6ec7'; c.fill(); }
   };
   D.portal = function (c, o, t, label) {
     var px = o.x, py = o.y;

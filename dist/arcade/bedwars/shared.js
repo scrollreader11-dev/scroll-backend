@@ -209,7 +209,7 @@
     disc(m, 36, 40, 7, G.MID);
     obj(m, { kind: 'fountain', tx: 36, ty: 40, dy: 20 }, [[35, 39], [36, 39], [35, 40], [36, 40]]);
     [[31, 36], [41, 36], [31, 44], [41, 44]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
-    obj(m, { kind: 'sign', tx: 33, ty: 45, text: 'WELCOME!', lines: ['Walk with WASD', 'Click NPCs to play', 'E = interact'] , dy: 10 }, [[33, 45]]);
+    obj(m, { kind: 'sign', tx: 33, ty: 45, text: 'WELCOME!', lines: ['Bedwars: north', 'More games: south', 'Click NPCs to play'] , dy: 10 }, [[33, 45]]);
     // Bedwars island (north)
     fill(m, 27, 18, 45, 29, G.GRASS, true);
     fill(m, 35, 30, 37, 33, G.PATH);
@@ -217,7 +217,7 @@
     modes.forEach(function (q, k) { obj(m, { kind: 'npc', tx: 30 + k * 4, ty: 22, act: q[0] === 'practice' ? 'practice' : 'quick', mode: q[0], label: q[1], sub: q[2], look: q[3], game: 'bedwars' }); });
     obj(m, { kind: 'npc', tx: 31, ty: 26, act: 'private', label: 'PRIVATE ROOM', sub: 'play with friends', look: { skin: 'panda', body: '#eef2ff', hat: 'top' }, game: 'bedwars' });
     obj(m, { kind: 'bedDeco', tx: 36, ty: 26 }, [[36, 25], [36, 26]]);
-    obj(m, { kind: 'npc', tx: 41, ty: 26, act: 'how', label: 'HOW TO PLAY', sub: 'controls & tips', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
+    obj(m, { kind: 'npc', tx: 41, ty: 26, act: 'how', game: 'bw', mode: 'bw', label: 'HOW TO PLAY', sub: 'tutorial', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
     obj(m, { kind: 'banner', tx: 36, ty: 19, text: 'BEDWARS', dy: 0 }, [[34, 19], [35, 19], [36, 19], [37, 19], [38, 19]]);
     [[28, 19], [44, 19]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k }); });
     [[28, 28], [44, 28]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k + 2 }); });
@@ -231,15 +231,29 @@
     fill(m, 23, 39, 28, 41, G.PATH);
     obj(m, { kind: 'board', tx: 17, ty: 37, act: 'lb', dy: 20 }, [[15, 37], [16, 37], [17, 37], [18, 37], [19, 37]]);
     [[13, 43], [21, 43]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
-    // Coming-soon islands (south)
+    // Game islands (south): Capture the Flag, TNT Spleef, Prop Hunt
     fill(m, 35, 47, 37, 51, G.PATH);
-    fill(m, 26, 52, 46, 53, G.PATH);
-    [[24, 54, 32, 61], [40, 54, 48, 61]].forEach(function (r, k) {
-      fill(m, r[0], r[1], r[2], r[3], G.GRASS, true);
-      obj(m, { kind: 'soon', tx: (r[0] + r[2]) >> 1, ty: r[1] + 3, act: 'soon', label: 'NEW GAME', sub: 'coming soon', dy: 16 }, [[((r[0] + r[2]) >> 1) - 1, r[1] + 3], [(r[0] + r[2]) >> 1, r[1] + 3], [((r[0] + r[2]) >> 1) + 1, r[1] + 3]]);
+    fill(m, 13, 52, 59, 53, G.PATH);
+    var games = [
+      { g: 'ctf', x0: 8, x1: 24, ground: G.GRASS, title: 'CAPTURE THE FLAG', looks: [{ skin: 'knight', body: '#3fa9ff', hat: 'viking' }, { skin: 'fox', body: '#ff4b5c' }, { skin: 'bear', body: '#3fa9ff', hat: 'cap' }, { skin: 'duck', body: '#ffd166', hat: 'wizard' }] },
+      { g: 'spleef', x0: 28, x1: 44, ground: G.SNOW, title: 'TNT SPLEEF', looks: [{ skin: 'penguin', body: '#eef2ff', hat: 'beanie' }, { skin: 'bunny', body: '#7dd3fc' }, { skin: 'robot', body: '#9b6bff', hat: 'phones' }, { skin: 'astro', body: '#eef2ff', hat: 'top' }] },
+      { g: 'hide', x0: 48, x1: 64, ground: G.GRASS, title: 'PROP HUNT', looks: [{ skin: 'cat', body: '#ff922b', hat: 'party' }, { skin: 'ninja', body: '#4a4f6a' }, { skin: 'frog', body: '#3fd27a', hat: 'cowboy' }, { skin: 'skeleton', body: '#eef2ff', hat: 'pirate' }] },
+    ];
+    games.forEach(function (q) {
+      var cx = (q.x0 + q.x1) >> 1;
+      fill(m, cx - 1, 54, cx + 1, 55, G.PATH);
+      fill(m, q.x0, 56, q.x1, 67, q.ground, true);
+      fill(m, q.x0 + 1, 55, q.x1 - 1, 68, q.ground, true);
+      obj(m, { kind: 'banner', tx: cx, ty: 57, text: q.title, game: q.g }, [[cx - 2, 57], [cx - 1, 57], [cx, 57], [cx + 1, 57], [cx + 2, 57]]);
+      [['quick', 'PLAY', 'quick match'], ['practice', 'PRACTICE', 'vs bots'], ['private', 'PRIVATE', 'with friends'], ['how', 'HOW TO PLAY', 'tutorial']].forEach(function (n, k) {
+        obj(m, { kind: 'npc', tx: k === 3 ? cx : q.x0 + 4 + k * 4, ty: k === 3 ? 65 : 61, act: n[0], mode: q.g, game: q.g, label: n[1], sub: n[2], look: q.looks[k] });
+      });
+      if (q.g === 'ctf') { obj(m, { kind: 'flag', tx: q.x0 + 1, ty: 59, team: 0 }); obj(m, { kind: 'flag', tx: q.x1 - 1, ty: 59, team: 1 }); obj(m, { kind: 'flag', tx: q.x0 + 1, ty: 66, team: 0 }); obj(m, { kind: 'flag', tx: q.x1 - 1, ty: 66, team: 1 }); }
+      if (q.g === 'spleef') { [[q.x0 + 1, 59], [q.x1 - 1, 59], [q.x0 + 2, 66], [q.x1 - 2, 66], [q.x0 + 6, 66], [q.x1 - 6, 66]].forEach(function (p, k) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: k % 2 ? 'tnt' : 'snowman' }); }); }
+      if (q.g === 'hide') { [[q.x0 + 1, 59, 'barrel'], [q.x1 - 1, 59, 'pumpkin'], [q.x0 + 2, 66, 'crate'], [q.x1 - 2, 66, 'hay'], [q.x0 + 6, 66, 'bush'], [q.x1 - 6, 66, 'pot']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); }); }
     });
     // trees around the grass islands
-    [[28, 20], [44, 20], [28, 27], [44, 27], [25, 55], [31, 60], [41, 55], [47, 60], [25, 60], [47, 55]].forEach(function (p) { if (m.g[p[1] * W + p[0]]) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
+    [[28, 20], [44, 20], [28, 27], [44, 27], [9, 63], [23, 63], [49, 63], [63, 63]].forEach(function (p) { if (m.g[p[1] * W + p[0]]) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
     return m;
   };
   // The island you wait on before a match. Private rooms pick teams by standing on a pad.

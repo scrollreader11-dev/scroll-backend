@@ -377,6 +377,54 @@
     .items{grid-template-columns:repeat(2,1fr)}
     #feed{max-width:52vw} .kf{font-size:12px}
   }
+  /* ---------- minigames (CTF / Spleef / Prop Hunt) ---------- */
+  body.mg .bwonly{display:none!important}
+  body.g-spleef #hpRow{display:none}
+  #mgTop{left:50%;top:70px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:6px 12px;font-weight:700;font-size:16px;white-space:nowrap}
+  #mgTop .sc{display:flex;align-items:center;gap:6px;font-size:26px;font-variant-numeric:tabular-nums}
+  #mgTop .sq{width:26px;height:26px;border-radius:8px;border:3px solid var(--line);display:grid;place-items:center;font-size:14px}
+  #mgTop .fs{font-size:12px;color:#cfc8ff;text-align:center;line-height:1.25;min-width:96px}
+  #mgTop .fs b{display:block;font-size:13px}
+  #mgTop .pill{background:rgba(0,0,0,.28);border-radius:10px;padding:3px 10px;font-size:14px}
+  #mgTop .pill.hot{background:#ff5c6c;animation:livep .8s infinite}
+  #mgRole{left:12px;top:12px;padding:8px 12px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+  #mgRole .ic{font-size:24px}
+  #mgRole small{display:block;font-size:11px;color:#cfc8ff;font-weight:600}
+  #blind{inset:0;z-index:9;background:radial-gradient(ellipse at center,rgba(8,5,22,.92),#05030f 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center}
+  #blind .big{font-size:clamp(34px,7vw,64px);font-weight:700;-webkit-text-stroke:7px var(--line);paint-order:stroke fill;color:#ff5c6c}
+  #blind .sub{font-size:18px;font-weight:700;color:#cfc8ff;margin-top:6px}
+  #blind .cd{font-size:clamp(60px,12vw,120px);font-weight:700;-webkit-text-stroke:9px var(--line);paint-order:stroke fill;margin-top:8px}
+  #tutor{left:12px;bottom:200px;width:min(320px,calc(100vw - 24px));padding:10px 12px;pointer-events:auto;animation:popIn .3s cubic-bezier(.2,1.5,.4,1)}
+  #tutor .th{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px;color:#ffd166;text-transform:uppercase;letter-spacing:1px}
+  #tutor .th .grow{flex:1} #tutor .th button{border:0;background:rgba(255,255,255,.1);color:#cfc8ff;border-radius:8px;font-weight:700;font-size:11px;padding:3px 8px}
+  #tutor .tx{font-size:16px;font-weight:700;margin:5px 0 7px;line-height:1.3}
+  #tutor .tx kbd{font-size:13px}
+  #tutor .bar{height:8px;border-radius:6px;background:rgba(0,0,0,.35);overflow:hidden}
+  #tutor .bar i{display:block;height:100%;background:linear-gradient(90deg,#2bd576,#7dffb3);transition:width .4s}
+  #tutor.done{animation:tutDone .5s}
+  @keyframes tutDone{40%{transform:scale(1.06);box-shadow:0 0 0 4px #2bd576}}
+  body.touch #tutor{bottom:auto;top:110px;left:8px;width:min(260px,60vw);padding:7px 9px} body.touch #tutor .tx{font-size:13px}
+  /* tutorial book */
+  .hgames{display:flex;gap:6px;padding:10px 14px 0;flex-wrap:wrap}
+  .hgames button{border:3px solid var(--line);border-radius:12px;background:rgba(255,255,255,.06);color:#cfc8ff;font-weight:700;font-size:14px;padding:6px 12px}
+  .hgames button.on{background:#7b5cff;color:#fff}
+  .hpage{padding:16px 20px 8px;display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center;min-height:210px}
+  .hpage canvas{width:150px;height:150px;border-radius:20px;background:radial-gradient(circle at 50% 40%,#3b2f8f,#1a1446);border:3px solid var(--line)}
+  .hpage h3{margin:0 0 6px;font-size:24px}
+  .hpage p{margin:0 0 8px;font-size:15px;line-height:1.45;color:#e6e2ff}
+  .hpage .keys2{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:13px;color:#cfc8ff}
+  .hfoot{display:flex;align-items:center;gap:10px;padding:10px 16px 16px}
+  .hdots{display:flex;gap:6px;flex:1;justify-content:center}
+  .hdots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid var(--line)}
+  .hdots i.on{background:#ffd166}
+  @media (max-width:560px){ .hpage{grid-template-columns:1fr;justify-items:center;text-align:center} .hpage canvas{width:110px;height:110px} .hpage .keys2{justify-content:center} }
+  body.touch #mgTop{top:44px;font-size:13px;padding:3px 8px;gap:6px} body.touch #mgTop .sc{font-size:19px} body.touch #mgTop .fs{min-width:70px;font-size:10px}
+  body.touch #mgRole{display:none}
+  body.touch.mg #timerP{left:8px;right:auto;transform:none;top:8px}
+  body.touch.mg #mgTop{left:8px;transform:none;top:58px}
+  body.touch.mg #tutor{top:100px}
+  body.touch.ingame #toast{top:auto;bottom:92px}
+  @media (orientation:portrait){ body.touch.mg #mgTop{top:58px} body.touch.mg #tutor{top:100px;width:min(240px,62vw)} }
 </style>
 </head>
 <body>
@@ -440,10 +488,10 @@
 <!-- ============ HUB POPUPS ============ -->
 <div id="mPractice" class="modal hidden">
   <div class="mwrap" style="width:min(460px,100%)">
-    <div class="mh"><div style="font-size:30px">🤖</div><h2>Practice vs Bots</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="mh"><div style="font-size:30px" id="pIco">🤖</div><h2 id="pTitle">Practice vs Bots</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
     <div style="padding:16px">
-      <div class="lab">Mode</div>
-      <div class="seg" id="pMode"><button data-v="solo" class="on">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
+      <div id="pModeRow"><div class="lab">Mode</div>
+      <div class="seg" id="pMode"><button data-v="solo" class="on">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div></div>
       <div class="lab">Bot difficulty</div>
       <div class="seg" id="pDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
       <button class="btn green" style="width:100%;margin-top:6px" id="pGo">▶ Start practice</button>
@@ -452,12 +500,13 @@
 </div>
 <div id="mPrivate" class="modal hidden">
   <div class="mwrap" style="width:min(460px,100%)">
-    <div class="mh"><div style="font-size:30px">👥</div><h2>Private Room</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="mh"><div style="font-size:30px" id="cIco">👥</div><h2 id="cTitle">Private Room</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
     <div style="padding:16px">
       <div class="lab">Join a friend</div>
       <div class="flex"><input class="code-in" id="jCode" maxlength="4" placeholder="CODE" autocomplete="off" style="margin:0" /><button class="btn blue" id="jGo">Join</button></div>
       <div class="lab" style="margin-top:14px">Or make your own room</div>
       <div class="seg" id="cMode"><button data-v="solo" class="on">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
+      <div class="whint" id="cHint" style="margin:-4px 0 8px"></div>
       <div class="seg" id="cDiff"><button data-v="easy">Easy bots</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
       <button class="btn gold" style="width:100%" id="cGo">＋ Create room</button>
     </div>
@@ -483,11 +532,14 @@
 
 <!-- ============ HUD ============ -->
 <div id="hud" class="hidden">
-  <div id="teamsP" class="gonly hpanel"></div>
+  <div id="teamsP" class="gonly hpanel bwonly"></div>
+  <div id="mgTop" class="gonly hpanel hidden"></div>
+  <div id="mgRole" class="gonly hpanel hidden"></div>
+  <div id="tutor" class="hpanel hidden"></div>
   <div id="timerP" class="gonly hpanel"><div class="tm" id="tmT">0:00</div><div class="nx" id="tmN"></div></div>
   <div id="topBtns" style="top:auto;bottom:auto"></div>
   <div id="feed" class="gonly"></div>
-  <div id="resP" class="gonly hpanel"></div>
+  <div id="resP" class="gonly hpanel bwonly"></div>
   <div id="bottomC" class="gonly">
     <div id="heldName"></div>
     <div id="hpRow"><div id="hearts"></div><div id="armorChip"></div></div>
@@ -498,6 +550,7 @@
   <div id="toast"></div>
   <div id="prompt" class="hidden"></div>
   <div id="vign"></div>
+  <div id="blind" class="hidden"></div>
   <div id="score" class="gonly hpanel hidden"></div>
   <div id="intro" class="hidden"></div>
   <div id="death" class="hidden"></div>
@@ -514,6 +567,7 @@
   <button class="hbtn muteBtn" title="Sound">🔊</button>
   <button class="hbtn" id="gQc" title="Quick chat (Q)">💬</button>
   <button class="hbtn" id="gScore" title="Scoreboard (Tab)">📋</button>
+  <button class="hbtn" id="gHelp" title="How to play">❓</button>
   <button class="hbtn" id="gLeave" title="Leave match">🚪</button>
 </div>
 <div id="qcMenu" class="hidden" style="position:fixed;right:64px;top:160px;z-index:12;display:flex;flex-direction:column;gap:5px"></div>
@@ -545,6 +599,15 @@
   </div>
 </div>
 
+<div id="mHelp" class="modal hidden">
+  <div class="mwrap" style="width:min(680px,100%)">
+    <div class="mh"><div style="font-size:30px" id="hIco">📖</div><h2 id="hTitle">How to play</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="hgames" id="hGames"></div>
+    <div class="hpage" id="hPage"></div>
+    <div class="hfoot"><button class="btn sm" id="hPrev">◀ Back</button><div class="hdots" id="hDots"></div><button class="btn sm green" id="hNext">Next ▶</button></div>
+  </div>
+</div>
+
 <!-- ============ END ============ -->
 <div id="end" class="screen hidden">
   <div class="title" id="eTitle">VICTORY!</div>
@@ -557,10 +620,12 @@
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=3"></script>
-<script src="/arcade/bedwars/shared.js?v=4"></script>
-<script src="/arcade/bedwars/draw.js?v=3"></script>
+<script src="/arcade/bedwars/shared.js?v=5"></script>
+<script src="/arcade/bedwars/mg.js?v=1"></script>
+<script src="/arcade/bedwars/draw.js?v=4"></script>
+<script src="/arcade/bedwars/mgdraw.js?v=1"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=7"></script>
+<script src="/arcade/bedwars/game.js?v=8"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

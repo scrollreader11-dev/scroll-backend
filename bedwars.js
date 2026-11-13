@@ -6,9 +6,12 @@
 // ============================================================
 import { WebSocketServer } from 'ws';
 import './dist/arcade/bedwars/shared.js';
+import './dist/arcade/bedwars/mg.js';
+import { MINI, initMini } from './minigames.js';
 import { worldIdentity, worldLook, bwReward, bwStats, bwLeaderboard } from './casino.js';
 
 const BW = globalThis.BW;
+const MG = globalThis.MG;
 const { T, W, H, G } = BW;
 const N = W * H;
 const TICK = 50, DT = TICK / 1000;
@@ -99,8 +102,9 @@ function goHub(c) { enterSpace(c, HUB); }
 function tickSpace(sp, now) {
   if (!sp.conns.size) { sp.events = []; return; }
   const r = sp.room;
-  if (r && r.kind === 'private' && r.state === 'lobby') for (const c of sp.conns) { // team pads
+  if (r && r.kind === 'private' && r.state === 'lobby' && (r.game === 'bw' || r.game === 'ctf')) for (const c of sp.conns) { // team pads
     const t = BW.padAt(WAIT_MAP, c.sx, c.sy), mb = r.members.find((m) => m.conn === c);
+    if (t >= nTeams(r)) continue;
     if (t >= 0 && mb && mb.team !== t && r.members.filter((m) => m.team === t).length < per(r)) { mb.team = t; sp.events.push(['pt', c.pid, t]); pushRoom(r); }
   }
   const p = [];
@@ -129,36 +133,40 @@ function spaceMsg(c, m, now) {
 
 // ============================================================ rooms / lobby
 function newCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c; do { c = ''; for (let i = 0; i < 4; i++) c += A[(rnd() * A.length) | 0]; } while (codes.has(c)); return c; }
-function makeRoom(kind, mode, diff, host) {
-  const r = { id: nextRoom++, kind, mode: BW.MODES[mode] ? mode : 'solo', diff: SK[diff] ? diff : 'normal', code: kind === 'private' ? newCode() : '', host: host || '', state: 'lobby', members: [], startAt: 0, created: Date.now() };
+function makeRoom(kind, mode, diff, host, game) {
+  game = MG.isMini(game) ? game : 'bw';
+  const r = { id: nextRoom++, game, kind, mode: game !== 'bw' ? game : BW.MODES[mode] ? mode : 'solo', diff: SK[diff] ? diff : 'normal', code: kind === 'private' ? newCode() : '', host: host || '', state: 'lobby', members: [], startAt: 0, created: Date.now() };
   r.space = makeSpace('wait', r);
   rooms.set(r.id, r); if (r.code) codes.set(r.code, r);
   return r;
 }
-function per(r) { return BW.MODES[r.mode].per; }
+function per(r) { return r.game !== 'bw' ? MG.GAMES[r.game].per : BW.MODES[r.mode].per; }
+function nTeams(r) { return r.game !== 'bw' ? MG.GAMES[r.game].teams : 4; }
+function capOf(r) { return r.game !== 'bw' ? MG.GAMES[r.game].max : 4 * per(r); }
 function bestTeam(r) {
-  const cnt = [0, 0, 0, 0]; for (const m of r.members) cnt[m.team]++;
-  let best = -1; for (let t = 0; t < 4; t++) if (cnt[t] < per(r) && (best < 0 || cnt[t] < cnt[best])) best = t;
+  if (r.game === 'hide') return r.members.length < capOf(r) ? 0 : -1;
+  const cnt = [0, 0, 0, 0, 0, 0, 0, 0]; for (const m of r.members) cnt[m.team]++;
+  let best = -1; for (let t = 0; t < nTeams(r); t++) if (cnt[t] < per(r) && (best < 0 || cnt[t] < cnt[best])) best = t;
   return best;
 }
 function roomInfo(r, c) {
   return {
-    t: 'room', id: r.id, kind: r.kind, code: r.code, mode: r.mode, diff: r.diff, state: r.state, host: r.host,
-    startIn: r.startAt ? Math.max(0, r.startAt - Date.now()) : 0, per: per(r), you: c ? c.cid : '',
+    t: 'room', id: r.id, game: r.game, kind: r.kind, code: r.code, mode: r.mode, diff: r.diff, state: r.state, host: r.host,
+    startIn: r.startAt ? Math.max(0, r.startAt - Date.now()) : 0, per: per(r), teams: nTeams(r), cap: capOf(r), you: c ? c.cid : '',
     members: r.members.map((m) => ({ cid: m.cid, pid: m.conn ? m.conn.pid : 0, nick: m.nick, team: m.team, look: m.look })),
   };
 }
 function pushRoom(r) { for (const m of r.members) if (m.conn) send(m.conn, roomInfo(r, m.conn)); }
 function joinLobby(c, r, team) {
   leaveRoom(c, true);
-  const t = team != null && team >= 0 && team < 4 && r.members.filter((m) => m.team === team).length < per(r) ? team : bestTeam(r);
+  const t = r.game !== 'hide' && team != null && team >= 0 && team < nTeams(r) && r.members.filter((m) => m.team === team).length < per(r) ? team : bestTeam(r);
   if (t < 0) return send(c, { t: 'err', msg: 'That room is full.' });
   r.members.push({ cid: c.cid, nick: c.nick, look: c.look, team: t, conn: c });
   c.room = r; c.ent = null;
   if (r.kind === 'public') {
     const now = Date.now();
     if (!r.startAt) r.startAt = now + 25000;
-    if (r.members.length >= 4 * per(r)) r.startAt = Math.min(r.startAt, now + 5000);
+    if (r.members.length >= capOf(r)) r.startAt = Math.min(r.startAt, now + 5000);
   }
   if (r.kind === 'practice') r.startAt = Date.now() + 2500;
   enterSpace(c, r.space);
@@ -201,6 +209,7 @@ function makeEnt(r, o) {
 }
 function botLook() { return { skin: pick(BOT_SKINS), body: pick(BOT_BODIES), hat: pick(BOT_HATS), acc: pick(BOT_ACCS), trail: '' }; }
 function startMatch(r) {
+  if (r.game !== 'bw') return MINI.start(r);
   r.state = 'play';
   r.map = BW.genMap();
   r.ents = new Map();
@@ -228,11 +237,12 @@ function teamsInfo(r) {
     return { bed: tm.bed, elim: tm.elim, up: tm.up, alive, total };
   });
 }
-function entPub(e) { return { id: e.id, nick: e.nick, team: e.team, look: e.look, bot: e.bot, sword: e.sword, armor: e.armor, pick: e.pick, dead: e.dead, elim: e.elim, x: Math.round(e.x), y: Math.round(e.y), stats: e.stats, dc: e.ctl === 'ai' && !e.bot }; }
+function entPub(e) { return { z: e.z || 0, prop: e.prop || '', carry: e.carry != null ? e.carry : -1, id: e.id, nick: e.nick, team: e.team, look: e.look, bot: e.bot, sword: e.sword, armor: e.armor, pick: e.pick, dead: e.dead, elim: e.elim, x: Math.round(e.x), y: Math.round(e.y), stats: e.stats, dc: e.ctl === 'ai' && !e.bot }; }
 function fullState(r, e) {
   const m = r.map, blocks = [];
   for (let i = 0; i < N; i++) if (m.f[i] || m.w[i]) blocks.push([i, m.f[i], m.fc[i], m.w[i], m.wc[i]]);
   return {
+    ...(r.game !== 'bw' ? MINI.state(r, e) : { game: 'bw' }),
     t: 'game', you: e.id, team: e.team, mode: r.mode, kind: r.kind, code: r.code, diff: r.diff, goAt: r.goAt, now: Date.now(),
     ents: [...r.ents.values()].map(entPub), beds: m.beds.map((b) => (b.alive ? 1 : 0)), gens: r.gens.map((g) => [g.n, g.last]),
     teams: teamsInfo(r), tier: r.tier, tl: r.tl, blocks, tnts: r.tnts.map((x) => [x.id, x.x, x.y, x.at]), qc: BW_QC,
@@ -240,7 +250,7 @@ function fullState(r, e) {
 }
 function meMsg(e) {
   const now = Date.now();
-  return { t: 'me', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), stats: e.stats };
+  return { t: 'me', role: e.team, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), stats: e.stats };
 }
 
 // ============================================================ actions (shared by players & bots)
@@ -276,6 +286,7 @@ function mineStep(r, e, i, dt) {
   // No mining through walls: whatever is in the way gets mined first.
   const blk = BW.mineBlocker(r.map, e.x, e.y, i);
   if (blk >= 0) i = blk;
+  if (r.map.noMine && r.map.noMine[i]) { e.mine = null; return 'none'; }
   const tg = BW.mineTarget(r.map, i); if (!tg) { e.mine = null; return 'none'; }
   if (tg.kind === 'bed') { const bed = BW.bedAt(r.map, i); if (!bed || bed.team === e.team) return 'none'; }
   const c = tc(i); if (Math.hypot(c.x - e.x, c.y - e.y) > BW.REACH + 30) return 'far';
@@ -311,6 +322,7 @@ function hurt(r, v, amount, att, kind, kx, ky, kbPow, crit) {
   return true;
 }
 function swing(r, e, ang, now, jump) {
+  if (r.game !== 'bw' && MINI.swingBlocked(r, e, now)) return false;
   const kbs = e.held === 'kbstick';
   if (now - e.lastSwing < (e.ctl === 'human' ? (kbs ? 300 : 110) : (kbs ? 520 : 330))) return false;
   e.lastSwing = now; e.ang = ang;
@@ -319,12 +331,14 @@ function swing(r, e, ang, now, jump) {
   const slack = e.ctl === 'human' ? 18 : 0;
   for (const o of r.ents.values()) {
     if (o === e || o.dead || o.elim || o.team === e.team) continue;
+    if (r.game === 'spleef' && ((o.z || 0) !== (e.z || 0) || o.fallUntil)) continue;
     const dx = o.x - e.x, dy = (o.y - 14) - (e.y - 14), d = Math.hypot(dx, dy);
     if (d > BW.MELEE + slack) continue;
     if (d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ang)) > BW.ARC + 0.25) continue;
     if (d < bd) { bd = d; best = o; }
   }
-  if (!best) return true;
+  if (!best) { if (r.game === 'hide') MINI.missProp(r, e, ang, now); return true; }
+  if (r.game === 'spleef') { knock(r, best, best.x - e.x, best.y - e.y, e.sprint ? 500 : 370); r.ev(['hit', best.id, 0, 0, e.id, 'punch']); best.lastHitBy = e.id; best.lastHitAt = now; return true; }
   // Minecraft-style: crits come from hitting while falling out of a jump.
   const sinceHop = now - (e.hopAt || 0);
   const crit = (jump || e.ctl !== 'human') && sinceHop > 120 && sinceHop < 700;
@@ -336,6 +350,7 @@ function swing(r, e, ang, now, jump) {
 }
 function die(r, v, kind, att) {
   if (v.dead) return;
+  if (r.game !== 'bw') return MINI.die(r, v, kind, att);
   const now = Date.now();
   if (!att && v.lastHitBy && now - v.lastHitAt < 10000) att = r.ents.get(v.lastHitBy);
   if (att === v || (att && att.team === v.team)) att = null;
@@ -358,6 +373,7 @@ function die(r, v, kind, att) {
   checkWin(r);
 }
 function respawn(r, e) {
+  if (r.game !== 'bw') return MINI.respawn(r, e);
   const b = r.map.bases[e.team];
   e.dead = false; e.hp = BW.MAX_HP; e.absorb = 0; e.x = b.spawn.x + (rnd() - 0.5) * 30; e.y = b.spawn.y + (rnd() - 0.5) * 16; e.vx = e.vy = 0;
   e.invulnUntil = Date.now() + 1800; e.fall = 0; e.lastHitBy = 0; e.dirty = true;
@@ -408,13 +424,14 @@ function useItem(r, e, it, tx, ty, now) {
     if (r.tnts.some((x) => x.i === i)) return false;
     const tn = { id: nextProj++, i, x: c.x, y: c.y, at: now + 2800, owner: e.id, team: e.team }; r.tnts.push(tn);
     r.ev(['tnt', tn.id, c.x, c.y, 2800]);
-  } else if (it === 'fireball' || it === 'pearl' || it === 'egg') {
-    const sp = it === 'fireball' ? 430 : it === 'pearl' ? 560 : 400;
-    const dist = Math.min(Math.hypot(tx - e.x, ty - e.y), it === 'pearl' ? 12 * T : 14 * T);
-    const pj = { id: nextProj++, kind: it === 'fireball' ? 'fb' : it, x: e.x + Math.cos(ang) * 18, y: e.y - 16 + Math.sin(ang) * 18, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, owner: e.id, team: e.team, life: it === 'pearl' ? dist / sp : it === 'egg' ? Math.max(0.3, dist / sp) : 3, placed: 0 };
+  } else if (it === 'fireball' || it === 'pearl' || it === 'egg' || it === 'snow') {
+    if (it === 'pearl' && e.carry != null && e.carry >= 0) return false; // no teleporting with the flag
+    const sp = it === 'fireball' ? 430 : it === 'pearl' ? 560 : it === 'snow' ? 620 : 400;
+    const dist = Math.min(Math.hypot(tx - e.x, ty - e.y), it === 'pearl' ? 12 * T : it === 'snow' ? 9 * T : 14 * T);
+    const pj = { id: nextProj++, kind: it === 'fireball' ? 'fb' : it, z: e.z || 0, x: e.x + Math.cos(ang) * 18, y: e.y - 16 + Math.sin(ang) * 18, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, owner: e.id, team: e.team, life: it === 'pearl' || it === 'snow' ? Math.max(0.12, dist / sp) : it === 'egg' ? Math.max(0.3, dist / sp) : 3, placed: 0 };
     r.projs.push(pj); r.ev(['shoot', e.id, pj.kind]);
   } else return false;
-  e.useAt = now; e.inv[it]--; if (!e.inv[it] && e.held === it) e.held = 'sword'; e.dirty = true;
+  e.useAt = now; e.inv[it]--; if (!e.inv[it] && e.held === it) e.held = r.game === 'spleef' ? 'shovel' : 'sword'; e.dirty = true;
   return true;
 }
 function shootBow(r, e, ang, pow, now) {
@@ -451,6 +468,7 @@ function explode(r, x, y, rad, maxDmg, owner, kind) {
 
 function checkWin(r) {
   if (r.state !== 'play') return;
+  if (r.game !== 'bw') return MINI.checkEnd(r, Date.now());
   const alive = [];
   for (let t = 0; t < 4; t++) {
     const tm = r.teams[t];
@@ -465,12 +483,13 @@ function endMatch(r, winner) {
   r.state = 'end'; r.winner = winner; flush(r);
   const stats = [...r.ents.values()].map((e) => ({ id: e.id, nick: e.nick, team: e.team, bot: e.bot, look: e.look, ...e.stats }));
   const mult = r.kind === 'public' ? 1 : 0.5;
+  const extra = r.game !== 'bw' ? MINI.endInfo(r) : {};
   for (const e of r.ents.values()) {
     if (e.bot || !e.cid) continue;
-    const win = e.team === winner;
-    const amount = (15 + (win ? 100 : 0) + e.stats.kills * 3 + e.stats.finals * 8 + e.stats.beds * 25) * mult;
-    let rew = null; try { rew = bwReward(e.cid, amount, { win, nick: e.nick, ...e.stats }); } catch (err) {}
-    if (e.conn) send(e.conn, { t: 'end', winner, you: e.id, team: e.team, stats, reward: rew, mins: Math.max(0, (Date.now() - r.goAt) / 60000) });
+    const win = r.game !== 'bw' ? MINI.isWinner(r, e, winner) : e.team === winner;
+    const amount = (r.game !== 'bw' ? MINI.reward(r, e, win) : 15 + (win ? 100 : 0) + e.stats.kills * 3 + e.stats.finals * 8 + e.stats.beds * 25) * mult;
+    let rew = null; try { rew = bwReward(e.cid, amount, { win, nick: e.nick, kills: e.stats.kills | 0, finals: e.stats.finals | 0, beds: e.stats.beds | 0, deaths: e.stats.deaths | 0 }); } catch (err) {}
+    if (e.conn) send(e.conn, { t: 'end', game: r.game, winner, win, you: e.id, team: e.team, stats, reward: rew, mins: Math.max(0, (Date.now() - r.goAt) / 60000), ...extra });
   }
   setTimeout(() => killRoom(r), 60000);
 }
@@ -661,9 +680,20 @@ function aiTick(r, e, now) {
   if (e.dead || e.elim || now < r.goAt) return;
   if (Math.hypot(e.vx, e.vy) > 70) return; // flying from a hit
   if (now >= ai.thinkAt) { ai.thinkAt = now + 300 + rnd() * 250; think(r, e, now); }
-  const sk = SK[r.diff];
   // --- fighting
-  if (ai.enemy) {
+  if (ai.enemy) { fight(r, e, now); return; }
+  const g = ai.goal; if (!g) return;
+  // --- path following (bridge over void, dig through walls)
+  if (ai.path) {
+    if ((g.type === 'hunt' || g.type === 'defend') && now - ai.planAt > 2500) { ai.path = null; return; }
+    if (stepPath(r, e, now) === 'done') arrive(r, e, now);
+    return;
+  }
+  atGoal(r, e, now, g);
+}
+function fight(r, e, now) {
+  const ai = e.ai, sk = SK[r.diff];
+  {
     const f = ai.enemy;
     if (f.dead || f.elim) { ai.enemy = null; return; }
     if (e.held !== 'sword' && e.held !== 'kbstick') e.held = e.inv.kbstick && rnd() < 0.3 ? 'kbstick' : 'sword';
@@ -679,37 +709,40 @@ function aiTick(r, e, now) {
       if (!ai.reactAt) ai.reactAt = now + sk.react * (0.7 + rnd() * 0.6);
       if (now >= ai.reactAt && now >= ai.swingAt) { swing(r, e, e.ang, now); ai.swingAt = now + sk.swing * (0.8 + rnd() * 0.4); }
     } else ai.reactAt = 0;
-    return;
   }
-  const g = ai.goal; if (!g) return;
-  // --- path following (bridge over void, dig through walls)
-  if (ai.path) {
-    if (ai.pi >= ai.path.length) { ai.path = null; arrive(r, e, now); return; }
-    if ((g.type === 'hunt' || g.type === 'defend') && now - ai.planAt > 2500) { ai.path = null; return; }
+}
+// Follow ai.path one tick: walk, bridge over void, dig through walls. -> 'done' | 'go' | 'fail'
+function stepPath(r, e, now) {
+  const ai = e.ai, sk = SK[r.diff];
+  {
+    if (ai.pi >= ai.path.length) { ai.path = null; return 'done'; }
     const i = ai.path[ai.pi], c = tc(i), m = r.map;
-    if (m.obj[i] || m.g[i] === G.ROCK) { ai.path = null; return; }
+    if (m.obj[i] || m.g[i] === G.ROCK) { ai.path = null; return 'fail'; }
     if (m.w[i]) {
       e.held = e.pick ? 'pick' : 'sword'; e.ang = Math.atan2(c.y - e.y, c.x - e.x);
-      if (Math.hypot(c.x - e.x, c.y - e.y) > T * 1.6) { moveToward(r, e, c.x, c.y, DT); return; }
-      mineStep(r, e, i, DT); return;
+      if (Math.hypot(c.x - e.x, c.y - e.y) > T * 1.6) { moveToward(r, e, c.x, c.y, DT); return 'go'; }
+      if (mineStep(r, e, i, DT) === 'none' && m.noMine && m.noMine[i]) ai.path = null;
+      return 'go';
     }
     if (!m.g[i] && !m.f[i]) {
-      const key = blockKey(e); if (!key) { ai.path = null; ai.goal = null; return; }
+      const key = blockKey(e); if (!key) { ai.path = null; if (r.game === 'bw') ai.goal = null; return 'fail'; }
       e.held = key; e.ang = Math.atan2(c.y - e.y, c.x - e.x);
       const prev = ai.pi > 0 ? tc(ai.path[ai.pi - 1]) : null;
-      if (prev && Math.hypot(prev.x - e.x, prev.y - e.y) > 8) { moveToward(r, e, prev.x, prev.y, DT); return; }
+      if (prev && Math.hypot(prev.x - e.x, prev.y - e.y) > 8) { moveToward(r, e, prev.x, prev.y, DT); return 'go'; }
       if (now >= ai.placeAt) { ai.placeAt = now + sk.place * (0.8 + rnd() * 0.4); if (!place(r, e, i, key)) { ai.fails = (ai.fails || 0) + 1; if (ai.fails > 4) { ai.fails = 0; ai.path = null; } } else ai.fails = 0; }
-      return;
+      return 'go';
     }
-    if (e.held !== 'sword' && g.type !== 'attack') e.held = 'sword';
+    if (e.held !== 'sword' && !(ai.goal && ai.goal.type === 'attack') && r.game !== 'hide') e.held = 'sword';
     const d = moveToward(r, e, c.x, c.y, DT);
     if (d < 6) ai.pi++;
     // stuck?
     if (Math.hypot(e.x - ai.lx, e.y - ai.ly) > 6) { ai.lx = e.x; ai.ly = e.y; ai.stuckT = now; }
-    else if (now - ai.stuckT > 1800) { ai.stuckT = now; ai.path = null; BW.move(r.map, e, (rnd() - 0.5) * 20, (rnd() - 0.5) * 20, true); }
-    return;
+    else if (now - ai.stuckT > 1800) { ai.stuckT = now; ai.path = null; BW.move(r.map, e, (rnd() - 0.5) * 20, (rnd() - 0.5) * 20, true); return 'fail'; }
+    return 'go';
   }
-  // --- at the destination
+}
+function atGoal(r, e, now, g) {
+  const ai = e.ai;
   if (g.type === 'attack') {
     const bed = r.map.beds[g.team];
     if (!bed.alive) { ai.goal = null; return; }
@@ -750,6 +783,7 @@ function tickRoom(r, now) {
   const m = r.map;
   if (humans(r).length) r.lastHuman = now;
   else if (now - r.lastHuman > 45000) { r.state = 'dead'; killRoom(r); return; }
+  if (r.game !== 'bw') { MINI.tick(r, now); if (r.state !== 'play') return; tickProj(r, now); if (r.state === 'play') flush(r); return; }
   const el = (now - r.goAt) / 1000;
   // timeline
   while (r.tl < BW.TIMELINE.length && el >= BW.TIMELINE[r.tl].t) {
@@ -810,7 +844,12 @@ function tickRoom(r, now) {
       }
     }
   }
-  // projectiles
+  tickProj(r, now);
+  if (r.state !== 'play') return;
+  flush(r);
+}
+function tickProj(r, now) {
+  const m = r.map;
   for (let k = r.projs.length - 1; k >= 0; k--) {
     const p = r.projs[k]; let done = false;
     const steps = 3;
@@ -823,9 +862,11 @@ function tickRoom(r, now) {
       }
       if (BW.solidAt(m, ptx, pty) && p.kind !== 'egg') { done = true; break; }
       if (p.kind !== 'egg' && p.kind !== 'pearl') for (const v of r.ents.values()) {
-        if (v.dead || v.elim || v.team === p.team) continue;
+        if (v.dead || v.elim || v.team === p.team || v.id === p.owner) continue;
+        if (r.game === 'spleef' && ((v.z || 0) !== (p.z || 0) || v.fallUntil)) continue;
         if (Math.hypot(v.x - p.x, v.y - 16 - p.y) < 20) {
           if (p.kind === 'arrow') hurt(r, v, p.dmg, r.ents.get(p.owner), 'arrow', p.vx, p.vy, 220, false);
+          else if (p.kind === 'snow') { MINI.snowHit(r, v, p); }
           done = true; break;
         }
       }
@@ -845,12 +886,11 @@ function tickRoom(r, now) {
           hurt(r, o, 1, null, 'pearl', 0, 0, 0, false);
         }
       } else if (p.kind === 'arrow') r.ev(['arrow', Math.round(p.x), Math.round(p.y)]);
+      else if (p.kind === 'snow') MINI.snowLand(r, p);
     }
   }
   // TNT
   for (let k = r.tnts.length - 1; k >= 0; k--) { const tn = r.tnts[k]; if (now >= tn.at) { r.tnts.splice(k, 1); explode(r, tn.x, tn.y, 2.6, 9, tn.owner, 'tnt'); } }
-  if (r.state !== 'play') return;
-  flush(r);
 }
 function flags(e, now) {
   return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0) | (e.god ? 512 : 0);
@@ -858,11 +898,12 @@ function flags(e, now) {
 function flush(r) {
   const now = Date.now();
   const p = [];
-  for (const e of r.ents.values()) p.push([e.id, Math.round(e.x), Math.round(e.y), q2(e.ang), flags(e, now), HELD.indexOf(e.held), Math.ceil(e.hp)]);
+  for (const e of r.ents.values()) { const a = [e.id, Math.round(e.x), Math.round(e.y), q2(e.ang), flags(e, now), HELD.indexOf(e.held), Math.ceil(e.hp)]; if (r.game !== 'bw') a.push(MINI.extra(r, e, now)); p.push(a); }
   const pr = r.projs.map((x) => [x.id, x.kind, Math.round(x.x), Math.round(x.y)]);
   const msg = { t: 's', n: now, p, pr };
   if (r.events.length) { msg.e = r.events; r.events = []; }
   if (r.teamsDirty) { r.teamsDirty = false; msg.teams = teamsInfo(r); }
+  if (r.game !== 'bw') MINI.snapExtra(r, msg, now);
   const s = JSON.stringify(msg);
   for (const e of r.ents.values()) if (e.conn) {
     send(e.conn, s);
@@ -883,8 +924,11 @@ setInterval(() => {
 
 // ============================================================ connections
 function lobbyList() {
-  const out = { solo: 0, duos: 0, squads: 0, playing: 0, hub: HUB.conns.size };
-  for (const r of rooms.values()) { if (r.state === 'lobby' && r.kind === 'public') out[r.mode] += r.members.length; if (r.state === 'play') out.playing += humans(r).length; }
+  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0 } };
+  for (const r of rooms.values()) {
+    if (r.state === 'lobby' && r.kind === 'public') out[r.mode] = (out[r.mode] || 0) + r.members.length;
+    if (r.state === 'play') { const n = humans(r).length; out.playing += n; out.inGame[r.game] = (out.inGame[r.game] || 0) + n; }
+  }
   return out;
 }
 export function bwOnline() { return lobbyList(); }
@@ -932,15 +976,16 @@ function onMsg(c, m, now) {
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
   // ---- menus
+  const game = MG.isMini(m.game) ? m.game : 'bw';
   if (t === 'quick') {
-    const mode = BW.MODES[m.mode] ? m.mode : 'solo';
+    const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
     let room = null;
-    for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.mode === mode && x.members.length < 4 * per(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
-    if (!room) room = makeRoom('public', mode, 'normal', '');
+    for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && x.mode === mode && x.members.length < capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
+    if (!room) room = makeRoom('public', mode, 'normal', '', game);
     return joinLobby(c, room);
   }
-  if (t === 'practice') { const room = makeRoom('practice', m.mode, m.diff, c.cid); return joinLobby(c, room, 0); }
-  if (t === 'create') { const room = makeRoom('private', m.mode, m.diff, c.cid); return joinLobby(c, room, 0); }
+  if (t === 'practice') { const room = makeRoom('practice', m.mode, m.diff, c.cid, game); return joinLobby(c, room, 0); }
+  if (t === 'create') { const room = makeRoom('private', m.mode, m.diff, c.cid, game); return joinLobby(c, room, 0); }
   if (t === 'join') {
     const room = codes.get(String(m.code || '').toUpperCase().trim());
     if (!room || room.state !== 'lobby') return send(c, { t: 'err', msg: 'No open room with that code.' });
@@ -951,11 +996,11 @@ function onMsg(c, m, now) {
   if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
   if (!r) return;
   if (r.state === 'lobby') {
-    if (t === 'team' && r.kind === 'private') {
+    if (t === 'team' && r.kind === 'private' && r.game !== 'hide') {
       const tm = Number(m.team); const mb = r.members.find((x) => x.conn === c);
-      if (mb && tm >= 0 && tm < 4 && r.members.filter((x) => x.team === tm).length < per(r)) { mb.team = tm; pushRoom(r); }
+      if (mb && tm >= 0 && tm < nTeams(r) && r.members.filter((x) => x.team === tm).length < per(r)) { mb.team = tm; pushRoom(r); }
     } else if (t === 'cfg' && r.kind === 'private' && r.host === c.cid) {
-      if (BW.MODES[m.mode]) { r.mode = m.mode; for (const t2 of [0, 1, 2, 3]) { const mm = r.members.filter((x) => x.team === t2); while (mm.length > per(r)) { const x = mm.pop(); x.team = bestTeam(r); } } }
+      if (r.game === 'bw' && BW.MODES[m.mode]) { r.mode = m.mode; for (const t2 of [0, 1, 2, 3]) { const mm = r.members.filter((x) => x.team === t2); while (mm.length > per(r)) { const x = mm.pop(); x.team = bestTeam(r); } } }
       if (SK[m.diff]) r.diff = m.diff;
       pushRoom(r);
     } else if (t === 'start' && r.kind === 'private' && r.host === c.cid) { r.startAt = now + 3000; pushRoom(r); }
@@ -966,6 +1011,7 @@ function onMsg(c, m, now) {
   if (t === 'qc') { if (now - (e.qcAt || 0) < 1200) return; e.qcAt = now; const i = m.i | 0; if (i >= 0 && i < BW_QC.length) r.ev(['qc', e.id, i]); return; }
   if (e.dead || e.elim) return;
   if (now < r.goAt) return;
+  if (r.game !== 'bw' && MINI.onMsg(r, e, m, now)) return;
   if (t === 'mv') {
     let x = Number(m.x), y = Number(m.y); if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const dt = Math.min(1, (now - (e.lastMv || now - 50)) / 1000); e.lastMv = now;
@@ -981,10 +1027,10 @@ function onMsg(c, m, now) {
     return;
   }
   if (t === 'sw') { swing(r, e, Number(m.a) / 100 || 0, now, !!m.j); return; }
-  if (t === 'hop') { if (now - (e.hopAt || 0) < 450) return; e.hopAt = now; r.ev(['hop', e.id]); return; }
+  if (t === 'hop') { if (now - (e.hopAt || 0) < (r.game === 'spleef' ? 900 : 450)) return; e.hopAt = now; r.ev(['hop', e.id]); return; }
   if (t === 'mine') { const i = m.i | 0; e.mineReq = i >= 0 && i < N ? { i, until: now + 260 } : null; return; }
   if (t === 'pl') { const i = m.i | 0; if (!place(r, e, i, String(m.b))) { e.dirty = true; const mm = r.map; send(c, { t: 'fix', i, f: mm.f[i], fc: mm.fc[i], w: mm.w[i], wc: mm.wc[i] }); } return; }
-  if (t === 'sel') { const it = String(m.it); if (BW.hotbar({ ...e.inv, pick: e.pick }).includes(it)) e.held = it; return; }
+  if (t === 'sel') { const it = String(m.it); if ((r.game !== 'bw' ? MG.hotbar(r.game, e.inv, e.team) : BW.hotbar({ ...e.inv, pick: e.pick })).includes(it)) e.held = it; return; }
   if (t === 'use') { useItem(r, e, String(m.it), Number(m.x) || e.x, Number(m.y) || e.y, now); return; }
   if (t === 'bow') { shootBow(r, e, Number(m.a) / 100 || 0, m.p, now); return; }
   if (t === 'buy') { const res = buy(r, e, String(m.id)); send(c, { t: 'buy', id: m.id, res }); return; }
@@ -1002,11 +1048,12 @@ function onMsg(c, m, now) {
 // ============================================================ owner panel
 function roomSummary(r) {
   const now = Date.now();
-  const o = { id: r.id, kind: r.kind, mode: r.mode, diff: r.diff, code: r.code, state: r.state };
+  const o = { id: r.id, game: r.game, kind: r.kind, mode: r.mode, diff: r.diff, code: r.code, state: r.state };
   if (r.state === 'lobby') { o.players = r.members.map((m) => ({ nick: m.nick, team: m.team, pid: m.conn ? m.conn.pid : 0 })); o.startIn = r.startAt ? Math.max(0, r.startAt - now) : 0; }
   else if (r.ents) {
     o.elapsed = Math.max(0, (now - r.goAt) / 1000);
-    o.teams = r.teams.map((t) => ({ bed: t.bed, elim: t.elim }));
+    o.teams = r.game === 'bw' ? r.teams.map((t) => ({ bed: t.bed, elim: t.elim })) : null;
+    if (r.game !== 'bw') o.info = MINI.adminInfo(r);
     o.players = [...r.ents.values()].map((e) => ({ id: e.id, nick: e.nick, team: e.team, bot: e.bot, human: !!e.cid && !e.bot, online: !!e.conn, dead: e.dead, elim: e.elim, hp: Math.ceil(e.hp), god: !!e.god, res: e.res, sword: e.sword, armor: e.armor, k: e.stats.kills, f: e.stats.finals }));
   }
   return o;
@@ -1052,6 +1099,7 @@ function adminMsg(c, m, now) {
     const op = String(m.op);
     if (op === 'god') { e.god = !e.god; if (e.god) { e.hp = BW.MAX_HP; e.dead = false; } e.dirty = true; send(c, { t: 'god', on: e.god }); return ok(e.god ? 'God mode ON — no damage, no void, walk on air.' : 'God mode OFF.'); }
     if (op === 'res') { e.res.iron += 64; e.res.gold += 32; e.res.dia += 16; e.res.em += 16; e.dirty = true; return ok('+64 iron, +32 gold, +16 diamonds, +16 emeralds'); }
+    if (op === 'kit' && r.game !== 'bw') { MINI.kit(r, e); return ok('Max kit given.'); }
     if (op === 'kit') { e.sword = 4; e.armor = 4; e.pick = 4; e.inv.wool += 64; e.inv.end += 32; e.inv.fireball += 5; e.inv.tnt += 3; e.inv.pearl += 3; e.inv.gapple += 3; e.inv.bow = 1; e.inv.arrows += 32; e.inv.kbstick = 1; e.dirty = true; r.ev(['gear', e.id, e.sword, e.armor, e.pick]); return ok('Max kit given.'); }
     return no('Unknown power.');
   }
@@ -1064,9 +1112,9 @@ function adminMsg(c, m, now) {
     r.state = 'dead'; killRoom(r); return ok('Match #' + r.id + ' closed.');
   }
   if (r.state !== 'play') return no('That match isn’t being played right now.');
-  if (a === 'end') { const w = Number(m.winner); endMatch(r, w >= 0 && w < 4 ? w : -1); return ok('Match #' + r.id + ' ended.'); }
-  if (a === 'time') { const sec = clamp(Number(m.sec) || 0, 0, 1200); r.goAt -= sec * 1000; roomSend(r, { t: 'goat', goAt: r.goAt }); return ok('Skipped ' + sec + 's ahead.'); }
-  if (a === 'bed') { const t = Number(m.team); const b = r.map.beds[t]; if (!b || !b.alive) return no('That bed is already gone.'); destroyBed(r, b, null); return ok(BW.TEAMS[t].name + ' bed destroyed.'); }
+  if (a === 'end') { const w = Number(m.winner); endMatch(r, w >= 0 && w < 8 ? w : -1); return ok('Match #' + r.id + ' ended.'); }
+  if (a === 'time') { const sec = clamp(Number(m.sec) || 0, 0, 1200); if (r.game !== 'bw') { MINI.skip(r, sec * 1000); return ok('Skipped ' + sec + 's ahead.'); } r.goAt -= sec * 1000; roomSend(r, { t: 'goat', goAt: r.goAt }); return ok('Skipped ' + sec + 's ahead.'); }
+  if (a === 'bed') { const t = Number(m.team); const b = r.map.beds[t]; if (r.game !== 'bw') return no('That match has no beds.'); if (!b || !b.alive) return no('That bed is already gone.'); destroyBed(r, b, null); return ok(BW.TEAMS[t].name + ' bed destroyed.'); }
   if (a === 'ent') {
     const e = ent(r); if (!e) return no('Player not found.');
     const op = String(m.op);
@@ -1088,3 +1136,11 @@ function adminMsg(c, m, now) {
   }
   return no('Unknown command.');
 }
+
+// ============================================================ minigames (CTF, TNT Spleef, Prop Hunt)
+initMini({
+  DT, SK, BOT_NAMES, send, roomSend, humans, makeEnt, botLook, emptyInv, leaveSpace, fullState, endMatch,
+  swing, hurt, knock, place, stopMine, mineStep, useItem, shootBow, moveToward, physics, pathTo, pathNear, astar,
+  stepPath, fight, foeNear, clearLine, aliveEnts, setTile, die: (r, v, kind, att) => die(r, v, kind, att),
+});
+export const __bwTest = DEBUG ? { makeRoom, startMatch, rooms, tickRoom } : null;
