@@ -53,34 +53,6 @@
   $('daily').onclick = function () { api('daily', {}).then(function (d) { if (d.gained) { toast('+' + fmt(d.gained) + ' Scrolls! 🔥 ' + (d.streak || 1) + '-day streak' + (d.milestone ? ' — milestone bonus!' : '')); SC.fx && SC.fx('confetti'); } else if (d.error === 'cooldown') toast('Not yet — come back later'); setProfile(d.profile); updateDaily(); }); };
   $('redeemGo').onclick = function () { var code = $('redeemCode').value.trim(); if (!code) return; api('redeem', { code: code }).then(function (d) { if (d.error) { toast(errMsg(d.error)); return; } toast('🎁 Redeemed +' + fmt(d.gained) + ' Scrolls!'); $('redeemCode').value = ''; setProfile(d.profile); SC.fx && SC.fx('confetti'); }); };
 
-  // ---- blackjack ----
-  function pcard(c) {
-    if (c.hidden) return '<div class="pcard back"></div>';
-    var names = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; var n = names[c.n] || c.n; var red = (c.s === '♥' || c.s === '♦');
-    return '<div class="pcard' + (red ? ' red' : '') + '">' + n + '<br>' + c.s + '</div>';
-  }
-  function renderBj(st) {
-    if (!st) return;
-    $('bjFelt').style.display = 'block';
-    $('bjDealer').innerHTML = st.dealer.map(pcard).join('');
-    $('bjPlayer').innerHTML = st.player.map(pcard).join('');
-    $('bjPV').textContent = st.playerValue; $('bjDV').textContent = st.done ? st.dealerValue : '?';
-    var m = $('bjMsg'); m.className = 'msg';
-    if (st.done) {
-      $('bjActions').style.display = 'none'; $('bjBetRow').style.display = 'flex';
-      var r = st.result;
-      if (r === 'blackjack') { m.textContent = 'Blackjack! 🎉'; m.classList.add('win'); }
-      else if (r === 'win') { m.textContent = 'You win! 🎉'; m.classList.add('win'); }
-      else if (r === 'push') { m.textContent = 'Push — bet returned.'; m.classList.add('push'); }
-      else if (r === 'bust') { m.textContent = 'Bust! 💥'; m.classList.add('lose'); }
-      else { m.textContent = 'Dealer wins.'; m.classList.add('lose'); }
-    } else { $('bjActions').style.display = 'flex'; $('bjBetRow').style.display = 'none'; m.textContent = ''; }
-  }
-  $('bjDeal').onclick = function () { api('bj/start', { bet: +$('bjBet').value }).then(function (d) { if (d.error) { toast(errMsg(d.error)); return; } setProfile(d.profile); renderBj(d.state); }); };
-  $('bjHit').onclick = function () { api('bj/hit', {}).then(function (d) { if (d.error) return; setProfile(d.profile); renderBj(d.state); }); };
-  $('bjStand').onclick = function () { api('bj/stand', {}).then(function (d) { if (d.error) return; setProfile(d.profile); renderBj(d.state); }); };
-  betChips('data-bj', 'bjBet');
-
   // ---- slots ----
   betChips('data-sl', 'slBet');
   $('slSpin').onclick = function () {
@@ -90,11 +62,12 @@
       if (d.error) { btn.disabled = false; ['r0', 'r1', 'r2'].forEach(function (id) { $(id).classList.remove('spin'); }); toast(errMsg(d.error)); return; }
       d.reels.forEach(function (sym, i) {
         setTimeout(function () {
-          var r = $('r' + i); r.classList.remove('spin'); r.textContent = sym;
+          var r = $('r' + i); r.classList.remove('spin'); r.textContent = sym; SC.sfx && SC.sfx('reel');
           if (i === 2) {
             btn.disabled = false; setProfile(d.profile); var m = $('slMsg'); m.className = 'msg';
-            if (d.win > 0) { m.textContent = (d.line || 'Win') + ' +' + fmt(d.win) + '!'; m.classList.add('win'); if (d.win >= bet * 5) SC.fx && SC.fx('confetti'); }
-            else { m.textContent = 'No win — try again'; m.classList.add('lose'); }
+            if (d.jackpot) { m.textContent = '💰 PROGRESSIVE JACKPOT! +' + fmt(d.jackpot) + '!!'; m.classList.add('win'); SC.fx && SC.fx('money'); SC.fx && SC.fx('confetti'); SC.sfx && SC.sfx('jackpot'); }
+            else if (d.win > 0) { m.textContent = (d.line || 'Win') + ' +' + fmt(d.win) + '!'; m.classList.add('win'); if (d.win >= bet * 5) { SC.fx && SC.fx('confetti'); SC.sfx && SC.sfx('bigwin'); } else SC.sfx && SC.sfx('win'); }
+            else { m.textContent = 'No win — try again'; m.classList.add('lose'); SC.sfx && SC.sfx('lose'); }
           }
         }, 350 * (i + 1));
       });
@@ -295,27 +268,6 @@
     });
   };
 
-  // ---- roulette ----
-  betChips('data-rlb', 'rlBet');
-  document.querySelectorAll('[data-rl]').forEach(function (b) {
-    b.onclick = function () {
-      var choice = b.dataset.rl; if (choice === 'num') choice = String(+$('rlNumIn').value || 0);
-      var bet = +$('rlBet').value;
-      var el = $('rlNum'); var iv = setInterval(function () { el.textContent = Math.floor(Math.random() * 37); }, 65);
-      api('roulette', { bet: bet, choice: choice }).then(function (d) {
-        setTimeout(function () {
-          clearInterval(iv);
-          if (d.error) { el.textContent = '—'; toast(errMsg(d.error)); return; }
-          var col = d.color === 'red' ? '#ff5c6c' : d.color === 'green' ? '#2bd576' : '#cbd5e1';
-          el.innerHTML = '<span style="color:' + col + '">' + d.number + '</span>';
-          setProfile(d.profile); var m = $('rlMsg'); m.className = 'msg';
-          if (d.win > 0) { m.textContent = d.number + ' ' + d.color + ' — win +' + fmt(d.win) + '! 🎉'; m.classList.add('win'); }
-          else { m.textContent = d.number + ' ' + d.color + ' — you lose.'; m.classList.add('lose'); }
-        }, 1500);
-      });
-    };
-  });
-
   // ---- mines ----
   function mnReset() { var g = $('mnGrid'); g.innerHTML = ''; for (var i = 0; i < 25; i++) (function (i) { var t = document.createElement('button'); t.className = 'mtile'; t.onclick = function () { mnPick(i, t); }; g.appendChild(t); })(i); }
   function mnLock(lock) { document.querySelectorAll('#mnGrid button').forEach(function (b) { b.disabled = lock; }); }
@@ -385,79 +337,6 @@
     });
   };
   buildPkSlots(-1);
-
-  // ---- wheel ----
-  var WSEG = [0, 1.5, 0, 2, 0, 1.2, 0, 1.5, 0, 3, 0, 1.2, 0, 1.5, 0, 2, 0, 1.2, 0, 4];
-  function wheelCells() { return WSEG.map(function (m) { return '<div class="wcell' + (m === 0 ? ' bust' : m >= 3 ? ' big' : '') + '">' + (m === 0 ? '✖' : (m + '×')) + '</div>'; }).join(''); }
-  function buildWheelStrip() { var s = $('whStrip'); var html = ''; for (var rep = 0; rep < 10; rep++) html += wheelCells(); s.innerHTML = html; s.style.transition = 'none'; s.style.transform = 'translateX(0)'; }
-  betChips('data-wh', 'whBet');
-  $('whSpin').onclick = function () {
-    api('wheel', { bet: +$('whBet').value }).then(function (d) {
-      if (d.error) { toast(errMsg(d.error)); return; }
-      buildWheelStrip(); var s = $('whStrip'); var cellW = 62; var rep = 8;
-      var cellIndex = rep * WSEG.length + d.idx; var container = s.parentElement.clientWidth;
-      var offset = cellIndex * cellW + 31 - container / 2;
-      requestAnimationFrame(function () { s.style.transition = 'transform 4s cubic-bezier(.16,.84,.3,1)'; s.style.transform = 'translateX(-' + offset + 'px)'; });
-      setTimeout(function () {
-        setProfile(d.profile); var m = $('whMsg'); m.className = 'msg';
-        if (d.win > 0) { m.textContent = 'Landed ' + d.mult + '× — win +' + fmt(d.win) + '! 🎉'; m.classList.add('win'); }
-        else { m.textContent = 'Landed ' + (d.mult === 0 ? 'bust' : d.mult + '×') + ' — you lose.'; m.classList.add('lose'); }
-      }, 4150);
-    });
-  };
-  buildWheelStrip();
-
-  // ---- crash ----
-  var cr = { raf: 0, running: false, start: 0, k: 0, cp: 0, bet: 0 };
-  function crScaleY(m) { var cv = $('crCanvas'); return cv.height - 8 - Math.min(cv.height - 22, (Math.log(Math.max(1, m)) / Math.log(cr.cp * 1.4 + 0.2)) * (cv.height - 26)); }
-  function crDraw(mult, boom) {
-    var cv = $('crCanvas'); if (!cv || !cv.getContext) return; var ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
-    ctx.clearRect(0, 0, W, H);
-    var el = performance.now() - cr.start, tMax = Math.max(el, 2600), pts = 48;
-    function px(t) { return (t / tMax) * (W - 16) + 8; }
-    ctx.beginPath(); ctx.moveTo(8, H - 8);
-    for (var i = 0; i <= pts; i++) { var t = el * (i / pts); ctx.lineTo(px(t), crScaleY(Math.exp(cr.k * t))); }
-    ctx.lineTo(px(el), H - 8); ctx.closePath();
-    var gd = ctx.createLinearGradient(0, 0, 0, H); var cc = boom ? '255,82,82' : '92,242,255'; gd.addColorStop(0, 'rgba(' + cc + ',.45)'); gd.addColorStop(1, 'rgba(' + cc + ',0)'); ctx.fillStyle = gd; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(8, H - 8);
-    for (i = 0; i <= pts; i++) { t = el * (i / pts); ctx.lineTo(px(t), crScaleY(Math.exp(cr.k * t))); }
-    ctx.strokeStyle = boom ? '#ff5252' : '#5cf2ff'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.font = '22px serif'; ctx.fillText(boom ? '💥' : '🚀', px(el) - 10, crScaleY(mult) + 8);
-  }
-  function crEnd() { cr.running = false; cancelAnimationFrame(cr.raf); $('crSetup').style.display = 'flex'; $('crPlay').style.display = 'none'; }
-  function crLoop() {
-    var el = performance.now() - cr.start, mult = Math.exp(cr.k * el);
-    if (mult >= cr.cp) {
-      $('crMult').textContent = cr.cp.toFixed(2) + '×'; $('crMult').style.color = '#ff5252'; crDraw(cr.cp, true);
-      crEnd(); api('crash/bust', {}).then(function (r) { if (r && r.profile) setProfile(r.profile); });
-      var m = $('crMsg'); m.className = 'msg lose'; m.textContent = '💥 Crashed at ' + cr.cp.toFixed(2) + '× — lost ' + fmt(cr.bet) + '.';
-      return;
-    }
-    $('crMult').textContent = mult.toFixed(2) + '×'; $('crMult').style.color = '#eaf0ff'; crDraw(mult, false);
-    cr.raf = requestAnimationFrame(crLoop);
-  }
-  betChips('data-cr', 'crBet');
-  $('crStart').onclick = function () {
-    if (cr.running) return; var bet = +$('crBet').value;
-    api('crash/start', { bet: bet }).then(function (d) {
-      if (d.error) { toast(errMsg(d.error)); return; }
-      setProfile(d.profile); cr.running = true; cr.start = performance.now(); cr.k = d.k; cr.cp = d.crashPoint; cr.bet = bet;
-      $('crSetup').style.display = 'none'; $('crPlay').style.display = 'flex'; $('crMsg').textContent = ''; $('crMsg').className = 'msg';
-      crLoop();
-    });
-  };
-  $('crCash').onclick = function () {
-    if (!cr.running) return;
-    var el = performance.now() - cr.start, mult = Math.min(Math.exp(cr.k * el), cr.cp);
-    crEnd();
-    api('crash/cashout', { mult: +mult.toFixed(2) }).then(function (d) {
-      if (d.error) { toast(errMsg(d.error)); return; }
-      setProfile(d.profile); var m = $('crMsg');
-      if (d.busted) { m.className = 'msg lose'; m.textContent = '💥 Crashed at ' + (d.crashPoint || cr.cp).toFixed(2) + '× — too late!'; $('crMult').style.color = '#ff5252'; crDraw(cr.cp, true); }
-      else { m.className = 'msg win'; m.textContent = 'Cashed out at ' + d.mult.toFixed(2) + '× — won +' + fmt(d.win) + '! 🎉'; $('crMult').textContent = d.mult.toFixed(2) + '×'; $('crMult').style.color = '#2bd576'; }
-    });
-  };
-  SC.crashRunning = function () { return cr.running; };
 
   // Called by the world when a panel opens.
   var casesRendered = false;

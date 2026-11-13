@@ -43,7 +43,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; } catch (e) {} }
+function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -61,7 +61,7 @@ export async function initCasino() {
   } catch (e) { console.log('reset check failed:', e.message); }
 }
 let dirty = false;
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot }); }
 function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -355,6 +355,22 @@ export const STORE = [
   { id: 'skin_alien', type: 'skin', label: 'Alien', value: 'alien', price: 18000, rarity: 'epic' },
   { id: 'skin_dino', type: 'skin', label: 'Dino', value: 'dino', price: 30000, rarity: 'legendary' },
   { id: 'skin_imp', type: 'skin', label: 'Imp', value: 'imp', price: 60000, rarity: 'mythic' },
+  { id: 'skin_fox', type: 'skin', label: 'Fox', value: 'fox', price: 0, rarity: 'common' },
+  { id: 'skin_pig', type: 'skin', label: 'Piggy', value: 'pig', price: 2500, rarity: 'common' },
+  { id: 'skin_duck', type: 'skin', label: 'Duck', value: 'duck', price: 3500, rarity: 'common' },
+  { id: 'skin_panda', type: 'skin', label: 'Panda', value: 'panda', price: 5000, rarity: 'uncommon' },
+  { id: 'skin_mushroom', type: 'skin', label: 'Mushroom', value: 'mushroom', price: 6000, rarity: 'uncommon' },
+  { id: 'skin_slime', type: 'skin', label: 'Slime', value: 'slime', price: 6500, rarity: 'uncommon' },
+  { id: 'skin_snowman', type: 'skin', label: 'Snowman', value: 'snowman', price: 8000, rarity: 'rare' },
+  { id: 'skin_pumpkin', type: 'skin', label: 'Pumpkin', value: 'pumpkin', price: 8000, rarity: 'rare' },
+  { id: 'skin_shark', type: 'skin', label: 'Shark', value: 'shark', price: 12000, rarity: 'rare' },
+  { id: 'skin_octopus', type: 'skin', label: 'Octopus', value: 'octopus', price: 14000, rarity: 'epic' },
+  { id: 'skin_skeleton', type: 'skin', label: 'Skeleton', value: 'skeleton', price: 16000, rarity: 'epic' },
+  { id: 'skin_ninja', type: 'skin', label: 'Ninja', value: 'ninja', price: 20000, rarity: 'epic' },
+  { id: 'skin_astro', type: 'skin', label: 'Astronaut', value: 'astro', price: 28000, rarity: 'legendary' },
+  { id: 'skin_knight', type: 'skin', label: 'Knight', value: 'knight', price: 32000, rarity: 'legendary' },
+  { id: 'skin_unicorn', type: 'skin', label: 'Unicorn', value: 'unicorn', price: 55000, rarity: 'mythic' },
+  { id: 'skin_dragon', type: 'skin', label: 'Dragon', value: 'dragon', price: 90000, rarity: 'mythic' },
   // Body colors (hex) and animated materials (m:*)
   { id: 'body_sky', type: 'body', label: 'Sky', value: '#3fa9ff', price: 0, rarity: 'common' },
   { id: 'body_grass', type: 'body', label: 'Grass', value: '#3fd27a', price: 0, rarity: 'common' },
@@ -388,6 +404,12 @@ export const STORE = [
   { id: 'hat_halo', type: 'hat', label: 'Halo (animated)', value: 'halo', price: 22000, rarity: 'epic' },
   { id: 'hat_horns', type: 'hat', label: 'Devil Horns', value: 'horns', price: 22000, rarity: 'epic' },
   { id: 'hat_crown', type: 'hat', label: 'Royal Crown', value: 'crown', price: 50000, rarity: 'legendary' },
+  { id: 'hat_beret', type: 'hat', label: 'Beret', value: 'beret', price: 3000, rarity: 'common' },
+  { id: 'hat_flowers', type: 'hat', label: 'Flower Crown', value: 'flowers', price: 5000, rarity: 'uncommon' },
+  { id: 'hat_santa', type: 'hat', label: 'Santa Hat', value: 'santa', price: 6000, rarity: 'rare' },
+  { id: 'hat_grad', type: 'hat', label: 'Grad Cap', value: 'grad', price: 7000, rarity: 'rare' },
+  { id: 'hat_pirate', type: 'hat', label: 'Pirate Hat', value: 'pirate', price: 14000, rarity: 'epic' },
+  { id: 'hat_antlers', type: 'hat', label: 'Antlers', value: 'antlers', price: 18000, rarity: 'epic' },
   // Face / neck accessories
   { id: 'acc_shades', type: 'acc', label: 'Sunglasses', value: 'shades', price: 2000, rarity: 'common' },
   { id: 'acc_nerd', type: 'acc', label: 'Nerd Glasses', value: 'nerd', price: 2500, rarity: 'common' },
@@ -399,6 +421,9 @@ export const STORE = [
   { id: 'acc_chain', type: 'acc', label: 'Gold Chain', value: 'chain', price: 15000, rarity: 'epic' },
   { id: 'acc_pixel', type: 'acc', label: 'Deal-With-It Shades', value: 'pixel', price: 25000, rarity: 'legendary' },
   { id: 'acc_cape', type: 'acc', label: 'Royal Cape', value: 'cape', price: 30000, rarity: 'legendary' },
+  { id: 'acc_hearts', type: 'acc', label: 'Heart Shades', value: 'hearts', price: 8000, rarity: 'rare' },
+  { id: 'acc_medal', type: 'acc', label: 'Gold Medal', value: 'medal', price: 12000, rarity: 'epic' },
+  { id: 'acc_wings', type: 'acc', label: 'Angel Wings', value: 'wings', price: 40000, rarity: 'legendary' },
   // Walking trails
   { id: 'trail_sparkle', type: 'trail', label: 'Sparkles', value: 'sparkle', price: 5000, rarity: 'uncommon' },
   { id: 'trail_hearts', type: 'trail', label: 'Hearts', value: 'hearts', price: 6000, rarity: 'uncommon' },
@@ -427,6 +452,12 @@ export const STORE = [
   { id: 'emo_moai', type: 'emote', label: 'Stone Face', value: '🗿', price: 5000, rarity: 'rare' },
   { id: 'emo_crown', type: 'emote', label: 'King', value: '👑', price: 10000, rarity: 'epic' },
   { id: 'emo_rain', type: 'emote', label: 'Make It Rain', value: '💸', price: 15000, rarity: 'legendary' },
+  { id: 'emo_sleep', type: 'emote', label: 'Sleepy', value: '😴', price: 1500, rarity: 'common' },
+  { id: 'emo_pray', type: 'emote', label: 'Please', value: '🙏', price: 2000, rarity: 'uncommon' },
+  { id: 'emo_mind', type: 'emote', label: 'Mind Blown', value: '🤯', price: 3500, rarity: 'uncommon' },
+  { id: 'emo_100', type: 'emote', label: '100', value: '💯', price: 4000, rarity: 'rare' },
+  { id: 'emo_party2', type: 'emote', label: 'Party Face', value: '🥳', price: 4500, rarity: 'rare' },
+  { id: 'emo_dice', type: 'emote', label: 'Roll the Dice', value: '🎲', price: 6000, rarity: 'epic' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 // Character look (2D casino world). Slots hold item ids.
@@ -458,6 +489,25 @@ export function worldOwnsEmote(cid, emoteId) {
   if (it.price !== 0 && !(p && p.inventory.includes(it.id))) return null;
   return it.value;
 }
+// ---- shared wallet for the 2D world's multiplayer tables (casinotables.js) ----
+export function walletCoins(cid) { const p = casino.users[cid]; return p ? p.coins : 0; }
+export function walletBet(cid, bet) {
+  const p = profileOf(cid); bet = Math.floor(Number(bet) || 0);
+  if (bet < 1) return { error: 'bad-bet' };
+  if (bet > p.coins) return { error: 'broke' };
+  p.coins -= bet; save(); return { ok: true, coins: p.coins };
+}
+export function walletRefund(cid, amount) { const p = profileOf(cid); p.coins += Math.max(0, Math.floor(amount)); save(); return p.coins; }
+// Finish a play: pay out and record it (stats, tournament, win pops) exactly like a solo game.
+export function walletSettle(cid, bet, payout) { const p = profileOf(cid); payout = Math.max(0, Math.floor(payout)); p.coins += payout; recordPlay(p, bet, payout); save(); return p.coins; }
+export function crashRoll() { return Math.min(250, rollCrashPoint()); }
+export function crashRate() { return CRASH_K; } // (function: CRASH_K is declared further down)
+// Progressive slots jackpot.
+const JACKPOT_SEED = 25000;
+function ensureJackpot() { if (!casino.jackpot || typeof casino.jackpot.pool !== 'number') casino.jackpot = { pool: JACKPOT_SEED, last: null }; return casino.jackpot; }
+export function jackpotInfo() { const j = ensureJackpot(); return { pool: Math.floor(j.pool), last: j.last }; }
+let jackpotHook = null;
+export function setJackpotHook(fn) { jackpotHook = fn; }
 // Lets the 2D world react to every finished play (win pops + big-win feed).
 let playHook = null;
 export function setPlayHook(fn) { playHook = fn; }
@@ -622,8 +672,18 @@ export async function handleCasino(url, req, res) {
     let payout = 0, line = '';
     if (reels[0].s === reels[1].s && reels[1].s === reels[2].s) { payout = bet * reels[0].pay; line = 'JACKPOT — three ' + reels[0].s; }
     else if (reels[0].s === reels[1].s || reels[1].s === reels[2].s || reels[0].s === reels[2].s) { payout = Math.floor(bet * 1.5); line = 'Two match'; }
+    // Progressive jackpot shared by every slot machine: 1% of each bet feeds the pot,
+    // and every spin has a small chance (bigger bets = better odds) to win all of it.
+    const jp = ensureJackpot();
+    jp.pool += Math.max(1, Math.floor(bet * 0.01));
+    let jackpotWon = 0;
+    if (Math.random() < Math.min(1 / 1500, bet / 3000000)) {
+      jackpotWon = Math.floor(jp.pool); payout += jackpotWon; line = '💰 PROGRESSIVE JACKPOT!';
+      jp.last = { nick: p.nick || 'Player', amount: jackpotWon, ts: Date.now() }; jp.pool = JACKPOT_SEED;
+    }
     p.coins += payout; recordPlay(p, bet, payout); save();
-    sendJson(res, 200, { reels: reels.map((r) => r.s), payout, win: payout - bet, line, profile: publicProfile(cid) }); return true;
+    if (jackpotWon && jackpotHook) { try { jackpotHook(p, jackpotWon); } catch (e) {} }
+    sendJson(res, 200, { reels: reels.map((r) => r.s), payout, win: payout - bet, line, jackpot: jackpotWon, jackpotPool: Math.floor(jp.pool), profile: publicProfile(cid) }); return true;
   }
 
   if (path === '/api/casino/coinflip' && req.method === 'POST') {
