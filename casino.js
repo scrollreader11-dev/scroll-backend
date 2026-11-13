@@ -508,6 +508,25 @@ function ensureJackpot() { if (!casino.jackpot || typeof casino.jackpot.pool !==
 export function jackpotInfo() { const j = ensureJackpot(); return { pool: Math.floor(j.pool), last: j.last }; }
 let jackpotHook = null;
 export function setJackpotHook(fn) { jackpotHook = fn; }
+// ---- Bedwars 2D (bedwars.js): lifetime stats + Scroll rewards with a daily cap ----
+const BW_DAILY_CAP = 1500;
+function bwOf(p) {
+  if (!p.bw || typeof p.bw !== 'object') p.bw = { games: 0, wins: 0, kills: 0, finals: 0, beds: 0, deaths: 0, day: '', earned: 0 };
+  return p.bw;
+}
+export function bwStats(cid) { const p = casino.users[cid]; if (!p) return null; const b = bwOf(p); const day = new Date().toISOString().slice(0, 10); return { ...b, earnedToday: b.day === day ? b.earned : 0, cap: BW_DAILY_CAP, coins: p.coins }; }
+export function bwReward(cid, amount, st) {
+  const p = profileOf(cid); if (!p) return null;
+  const b = bwOf(p), day = new Date().toISOString().slice(0, 10);
+  if (b.day !== day) { b.day = day; b.earned = 0; }
+  b.games++; if (st.win) b.wins++;
+  b.kills += st.kills | 0; b.finals += st.finals | 0; b.beds += st.beds | 0; b.deaths += st.deaths | 0;
+  const give = Math.max(0, Math.min(Math.floor(amount), BW_DAILY_CAP - b.earned));
+  b.earned += give; p.coins += give;
+  if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+  save();
+  return { give, coins: p.coins, capped: give < Math.floor(amount), stats: { ...b } };
+}
 // Lets the 2D world react to every finished play (win pops + big-win feed).
 let playHook = null;
 export function setPlayHook(fn) { playHook = fn; }

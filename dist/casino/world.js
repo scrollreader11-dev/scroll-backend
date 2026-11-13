@@ -72,6 +72,7 @@
     piano: { box: [-62, -48, 62, 0], act: 'piano', label: 'Play the piano', ia: [0, 26], pr: -128, ar: 70 },
     statue: { box: [-40, -30, 40, 0] },
     easel: { box: [-32, -8, 32, 0] },
+    portal: { box: [-50, -22, 50, 0], act: 'arcade', label: 'Enter ScrollHub Games', ia: [0, 26], pr: -150, ar: 74 },
   };
   var OBJ = [];
   function add(type, x, y, o) {
@@ -119,6 +120,7 @@
   add('couch', 1150, 2010, { col: '#5a189a' }); add('couch', 1730, 2010, { col: '#5a189a' });
   add('plant', 760, 2010); add('plant', 2120, 2010);
   add('exit', 1440, 2100);
+  add('portal', 1200, 1650);
   // --- The Vault
   add('casebox', 2330, 192, { v: 0, label: 'Open Starter Case' }); add('casebox', 2700, 192, { v: 1, label: 'Open High Roller Case' });
   add('sign', 2515, 26, { text: 'THE VAULT', color: '#b185ff', size: 26, v: 3 });
@@ -378,6 +380,7 @@
   function interact() {
     if (!target || panelOpen()) return;
     if (target.act === 'player') return openPanel('player', target.p);
+    if (target.act === 'arcade') { sfx('open'); setTimeout(function () { location.href = '/arcade'; }, 180); return; }
     if (target.act === 'bar') { netSend({ t: 'drink' }); sfx('drink'); return; }
     if (target.act === 'piano') { var n = Math.floor(Math.random() * 15); netSend({ t: 'piano', n: n }); return; }
     openPanel(target.act, target);
@@ -732,6 +735,24 @@
     if (o.type === 'npc') {
       if (o.stand) { A.ell(ctx, o.x, o.y - 2, 26, 9); ctx.fillStyle = '#d4a63a'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 3; ctx.stroke(); }
       A.drawGim(ctx, o.x, o.y - (o.stand ? 4 : 0), o.look, { t: tnow + o.x, lookAt: o.stand ? null : npcCtx.lookAt(o.x, o.y - 20), blink: npcCtx.blink(o.x % 7), shadow: !o.stand, dir: o.stand ? 0 : 0 });
+      return;
+    }
+    if (o.type === 'portal') { // doorway to the Games section (Bedwars)
+      var px = o.x, py = o.y, t = tnow;
+      ctx.fillStyle = 'rgba(10,6,30,.3)'; A.ell(ctx, px, py, 62, 14); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.moveTo(px - 38, py - 8); ctx.lineTo(px - 38, py - 92); ctx.arc(px, py - 92, 38, Math.PI, 0); ctx.lineTo(px + 38, py - 8); ctx.closePath(); ctx.clip();
+      var vg = ctx.createRadialGradient(px, py - 80, 4, px, py - 70, 90); vg.addColorStop(0, '#ffe6ff'); vg.addColorStop(0.3, '#c77dff'); vg.addColorStop(0.7, '#5a189a'); vg.addColorStop(1, '#240046');
+      ctx.fillStyle = vg; ctx.fillRect(px - 40, py - 132, 80, 126);
+      ctx.translate(px, py - 76);
+      for (var k = 0; k < 5; k++) { ctx.rotate(t * 1.6 + k * 1.256); ctx.strokeStyle = 'rgba(255,255,255,' + (0.18 + k * 0.05) + ')'; ctx.lineWidth = 3; ctx.beginPath(); for (var a = 0; a < 6; a += 0.3) ctx.lineTo(Math.cos(a) * a * 6, Math.sin(a) * a * 6); ctx.stroke(); }
+      ctx.restore();
+      ctx.beginPath(); ctx.moveTo(px - 46, py - 4); ctx.lineTo(px - 46, py - 92); ctx.arc(px, py - 92, 46, Math.PI, 0); ctx.lineTo(px + 46, py - 4); ctx.lineTo(px + 38, py - 4); ctx.lineTo(px + 38, py - 92); ctx.arc(px, py - 92, 38, 0, Math.PI, true); ctx.lineTo(px - 38, py - 4); ctx.closePath();
+      ctx.fillStyle = '#4a3f88'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 3; ctx.stroke();
+      for (var b = 0; b < 7; b++) { var ang = Math.PI + b * Math.PI / 6; A.circ(ctx, px + Math.cos(ang) * 42, py - 92 + Math.sin(ang) * 42, 3.2); ctx.fillStyle = (Math.floor(t * 4) + b) % 2 ? '#ffd166' : '#ff6ec7'; ctx.fill(); }
+      A.rr(ctx, px - 58, py - 162, 116, 30, 10); ctx.fillStyle = '#1a0f3d'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 3; ctx.stroke();
+      A.neon(ctx, '🎮 GAMES', px, py - 147, '#c77dff', 17, tnow, 4);
+      A.rr(ctx, px + 26, py - 178, 70, 20, 8); ctx.fillStyle = '#ff4b5c'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.font = '700 11px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText('BEDWARS!', px + 61, py - 167.5);
       return;
     }
     if (o.type === 'exit') {

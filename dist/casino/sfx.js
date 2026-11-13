@@ -54,6 +54,17 @@
     if (name === 'note') return tone(NOTES[(arg || 0) % NOTES.length] * (arg >= 15 ? 2 : 1), 0.6, 'triangle', 0.22);
     var f = FX[name]; if (f) try { f(); } catch (e) {}
   };
+  // Let other games (Bedwars) register their own sounds with the same synth.
+  SC.sfxAdd = function (name, fn) { FX[name] = fn; };
+  SC.sfxTone = tone; SC.sfxNoise = noise; SC.sfxNotes = NOTES;
+  SC.sfxSweep = function (dur, vol, f0, f1, when, q) { // band-passed noise sweep (whooshes)
+    var a = ctx(); if (!a || muted) return;
+    var t0 = a.currentTime + (when || 0), len = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, len, a.sampleRate), d = b.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+    var s = a.createBufferSource(), g = a.createGain(), f = a.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q || 1.4;
+    f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t0 + dur);
+    s.buffer = b; g.gain.value = vol || 0.3; s.connect(f); f.connect(g); g.connect(master); s.start(t0);
+  };
   SC.sfxMuted = function () { return muted; };
   SC.sfxToggle = function () { muted = !muted; try { localStorage.setItem('sh_casino_mute', muted ? '1' : '0'); } catch (e) {} return muted; };
 })();

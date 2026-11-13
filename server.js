@@ -15,7 +15,9 @@ import { Readable } from 'node:stream';
 import sirv from 'sirv';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleWorldUpgrade } from './casinoworld.js';
+import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
+import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
+import { worldIdentity, bwStats } from './casino.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade } from './discord.js';
@@ -1807,10 +1809,15 @@ const httpServer = createServer(async (req, res) => {
   if (url.startsWith('/api/auth/')) { if (await handleAuth(url, req, res)) return; }
   // Resolve the trusted session once for identity-bearing routes so chat/casino
   // can read it synchronously (and can't be spoofed via client-set cookies).
-  if (url.startsWith('/api/casino/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) {
+  if (url.startsWith('/api/casino/') || url.startsWith('/api/arcade/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) {
     try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; }
   }
   if (url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) { if (await handleSocial(url, req, res)) return; }
+  // Games hub (/arcade): who's playing + your Bedwars stats.
+  if (url.split('?')[0] === '/api/arcade/info') {
+    const id = worldIdentity(req);
+    return sendJson(res, 200, { online: bwOnline(), casino: worldOnline(), me: id.cid ? { nick: id.nick, bw: bwStats(id.cid) } : null });
+  }
 
   if (url === '/admin' || url === '/admin/') {
     req.url = '/admin/index.html';
@@ -1822,6 +1829,14 @@ const httpServer = createServer(async (req, res) => {
   }
   if (url === '/casino' || url === '/casino/') {
     req.url = '/casino/index.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
+  if (url === '/arcade' || url === '/arcade/' || url === '/play' || url === '/play/') {
+    req.url = '/arcade/index.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
+  if (url === '/arcade/bedwars' || url === '/arcade/bedwars/' || url === '/bedwars' || url === '/bedwars/') {
+    req.url = '/arcade/bedwars/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
   if (url === '/social' || url === '/social/') {
@@ -1881,6 +1896,9 @@ const httpServer = createServer(async (req, res) => {
     }, {
       id: 'scrollhub-casino', label: 'Scrolls Casino', url: '/casino',
       imageUrl: '/casino/cover.png', categories: ['Casino', 'ScrollHub Originals'], isGlobal: true,
+    }, {
+      id: 'scrollhub-bedwars', label: 'Bedwars 2D (Multiplayer)', url: '/arcade/bedwars',
+      imageUrl: '/arcade/bedwars/cover.png', categories: ['Multiplayer', 'ScrollHub Originals'], isGlobal: true,
     }];
     const customIds = new Set(admin.customGames.map((g) => g.id));
     const globals = [...builtins.filter((b) => !customIds.has(b.id)), ...admin.customGames];
@@ -2057,6 +2075,11 @@ httpServer.on('upgrade', (req, socket, head) => {
   // 2D casino world: resolve the logged-in session first (cookie), then join.
   if ((req.url || '').split('?')[0] === '/world-ws') {
     resolveSession(req).then((a) => { req._auth = a; }, () => { req._auth = null; }).then(() => handleWorldUpgrade(req, socket, head));
+    return;
+  }
+  // Bedwars 2D (Games section): same login resolution as the casino world.
+  if ((req.url || '').split('?')[0] === '/bw-ws') {
+    resolveSession(req).then((a) => { req._auth = a; }, () => { req._auth = null; }).then(() => handleBedwarsUpgrade(req, socket, head));
     return;
   }
   // Casino case battles have theirs.
