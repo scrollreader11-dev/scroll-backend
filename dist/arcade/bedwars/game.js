@@ -573,7 +573,7 @@
     var jEnd = function (e) { for (var i = 0; i < e.changedTouches.length; i++) if (e.changedTouches[i].identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; jK.style.transform = ''; } };
     jEl.addEventListener('touchend', jEnd); jEl.addEventListener('touchcancel', jEnd);
     var hold = function (id, down, up) { var b = $(id); b.addEventListener('touchstart', function (e) { e.preventDefault(); down(); }, { passive: false }); b.addEventListener('touchend', function (e) { e.preventDefault(); if (up) up(); }, { passive: false }); };
-    hold('tAtk', function () { if (S.screen !== 'game') { doSwing(); return; } S.touchAtk = true; touchAim(); if (S.held === 'bow') primaryDown(); else { var h = S.held; if (h !== 'sword' && h !== 'kbstick' && h !== 'pick') S.held = 'sword', renderHotbar(), send({ t: 'sel', it: 'sword' }); primaryDown(); } mouse.l = true; }, function () { S.touchAtk = false; if (mouse.l) primaryUp(); mouse.l = false; });
+    hold('tAtk', function () { if (S.screen !== 'game') { doSwing(); return; } S.touchAtk = true; touchMineTick(); if (S.autoMine < 0) touchAim(); if (S.held === 'bow') primaryDown(); else { var h = S.held; if (h !== 'sword' && h !== 'kbstick' && h !== 'pick') S.held = 'sword', renderHotbar(), send({ t: 'sel', it: 'sword' }); primaryDown(); } mouse.l = true; }, function () { S.touchAtk = false; if (mouse.l) primaryUp(); mouse.l = false; });
     hold('tPlace', function () { S.touchPlace = true; }, function () { S.touchPlace = false; });
     hold('tUse', function () { var it = S.held; if (['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(it) < 0) { var hb = hotbarItems().filter(function (x) { return ['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(x) >= 0; }); if (!hb.length) { toast('No usable item — buy some at the shop!', 1600); return; } it = hb[0]; S.held = it; renderHotbar(); send({ t: 'sel', it: it }); } touchAim(); useHeld(); });
     cv.addEventListener('touchstart', function (e) {
@@ -590,6 +590,31 @@
       if (mt && mt.kind !== 'floor') { S.touchMine = ti; mouse.l = true; } else if (B.canPlace(S.map, ti, [])) tryPlace(true);
     }, { passive: true });
     cv.addEventListener('touchend', function () { if (S.touchMine != null) { S.touchMine = null; mouse.l = false; } }, { passive: true });
+  }
+  // Phones: the attack button mines whatever block/bed you're facing when nobody is in reach.
+  function enemyInMelee() { var hit = false; S.ents.forEach(function (e) { if (!hit && e.team !== S.team && !e.dead && !e.elim && Math.hypot(e.x - P.x, e.y - P.y) < B.MELEE + 30) hit = true; }); return hit; }
+  function autoMineTile() {
+    if (!P || !S.map) return -1;
+    var m = S.map, best = -1, bs = 1e9, px = Math.floor(P.x / T), py = Math.floor(P.y / T);
+    for (var dy = -3; dy <= 3; dy++) for (var dx = -3; dx <= 3; dx++) {
+      var tx = px + dx, ty = py + dy; if (!B.inb(tx, ty)) continue;
+      var i = ty * W + tx, mt = B.mineTarget(m, i); if (!mt) continue;
+      if (mt.kind === 'bed') { var bd = B.bedAt(m, i); if (!bd || bd.team === S.team) continue; }
+      if (mt.kind === 'floor' && (m.fc[i] === S.team || (tx === px && ty === py))) continue; // never your own bridge
+      var cp = tcen(i), d = Math.hypot(cp.x - P.x, cp.y - P.y); if (d > B.REACH - 6) continue;
+      var da = Math.abs(Math.atan2(cp.y - P.y, cp.x - P.x) - P.ang); if (da > Math.PI) da = TAU - da;
+      if (da > 1.1 && d > 46) continue;
+      var score = d + da * 70 + (mt.kind === 'bed' ? -40 : mt.kind === 'floor' ? 60 : 0);
+      if (score < bs) { bs = score; best = i; }
+    }
+    return best;
+  }
+  var atkIcon = '';
+  function touchMineTick() {
+    if (!touch || S.screen !== 'game' || !P) return;
+    S.autoMine = !P.dead && !S.dead && (S.held === 'sword' || S.held === 'kbstick' || S.held === 'pick') && !enemyInMelee() ? autoMineTile() : -1;
+    var ic = S.autoMine >= 0 ? '⛏️' : '⚔️';
+    if (ic !== atkIcon) { atkIcon = ic; $('tAtk').textContent = ic; }
   }
   function touchAim() {
     if (!P) return;
@@ -728,7 +753,7 @@
       var kd = Math.exp(-6.5 * dt); P.vx *= kd; P.vy *= kd; if (Math.hypot(P.vx, P.vy) < 4) P.vx = P.vy = 0;
       P.mv = Math.hypot(P.cvx, P.cvy) > 25;
       // aim
-      if (touch) { if (il > 0.2 && !S.touchAtk) P.ang = Math.atan2(iy, ix); if (S.touchAtk) touchAim(); }
+      if (touch) { if (il > 0.2 && (!S.touchAtk || S.autoMine >= 0)) P.ang = Math.atan2(iy, ix); if (S.touchAtk && S.autoMine < 0) touchAim(); }
       else P.ang = Math.atan2(mouse.wy - (P.y - 16), mouse.wx - P.x);
       // fell?
       if (inGame && !B.groundUnder(S.map, P.x, P.y)) { P.falling = now(); P.fallX = P.x; P.fallY = P.y; SC.sfx('fall'); }
@@ -738,8 +763,8 @@
       if (inGame && mouse.l && canAct()) {
         var it = S.held;
         if (it === 'sword' || it === 'kbstick' || it === 'pick') {
-          var ti = S.touchMine != null ? S.touchMine : cursorTile(), mt = ti >= 0 ? B.mineTarget(S.map, ti) : null;
-          if (mt && mt.kind === 'floor' && it !== 'pick') mt = null;
+          var ti = S.touchMine != null ? S.touchMine : touch ? (S.touchAtk ? S.autoMine : -1) : cursorTile(), mt = ti >= 0 ? B.mineTarget(S.map, ti) : null;
+          if (mt && mt.kind === 'floor' && it !== 'pick' && !(touch && S.touchAtk)) mt = null;
           if (mt && mt.kind === 'bed') { var bd = B.bedAt(S.map, ti); if (bd && bd.team === S.team) mt = null; }
           var cp = ti >= 0 ? tcen(ti) : null;
           if (mt && cp && Math.hypot(cp.x - P.x, cp.y - P.y) <= B.REACH) {
@@ -802,7 +827,7 @@
     if (snow() < S.goAt && snow() < S.goAt - 2600) k2 = 0.004;
     cam.x += (target.x + lead.x - cam.x) * k2; cam.y += (target.y - 20 + lead.y - cam.y) * k2;
     // HUD timers
-    hudTick(); spaceTick();
+    hudTick(); spaceTick(); touchMineTick();
   }
   function spaceTick() {
     if (S.screen !== 'hub' && S.screen !== 'wait') return;
@@ -893,6 +918,7 @@
     for (var ck in S.cracks) { ck = +ck; if (!map.w[ck] && map.f[ck] && map.obj[ck] !== 1) D.cracks(c, (ck % W) * T, ((ck / W) | 0) * T, S.cracks[ck], 0); }
     // target highlight
     if (S.screen === 'game' && P && !P.dead && !touch) drawTarget(t);
+    if (S.screen === 'game' && touch && P && !P.dead && S.autoMine >= 0) { var am = S.autoMine, amk = S.map.w[am] ? 'wall' : 'floor'; D.tileCursor(c, (am % W) * T, ((am / W) | 0) * T, amk, true, t); }
     if (S.screen === 'wait') drawWaitHolo(t);
     // projectiles, slashes, top particles
     S.projs.forEach(function (p) { D.projectile(c, { kind: p.kind, x: p.x, y: p.y, vx: p.vx || 1, vy: p.vy }, t); });
