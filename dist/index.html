@@ -144,6 +144,15 @@ If you want to make the website better, the repository is open source, and my dm
     <link rel="modulepreload" crossorigin href="/assets/geometry-BxsuFby6.js">
     <link rel="modulepreload" crossorigin href="/assets/portfolio-DxV1ALQ1.js">
     <link rel="stylesheet" crossorigin href="/assets/index-Buw0DGLF.css">
+    <script>
+      /* Chat avatars: if a profile picture fails to load, show a plain avatar instead of a broken-image icon. */
+      document.addEventListener('error', function (e) {
+        var t = e.target;
+        if (!t || t.tagName !== 'IMG' || !t.classList || !t.classList.contains('dc-av-img')) return;
+        if (String(t.src).indexOf('data:image/svg+xml') === 0) return;
+        t.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="#4e5a8a"/><circle cx="12" cy="9.5" r="4" fill="#dfe4ff"/><path d="M4.5 22c0-4.2 3.4-7 7.5-7s7.5 2.8 7.5 7z" fill="#dfe4ff"/></svg>');
+      }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>

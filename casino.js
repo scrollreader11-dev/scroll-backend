@@ -34,7 +34,16 @@ const casino = { users: {}, gotd: null, codes: {}, tour: null }; // cid -> profi
 function blankProfile() {
   return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
-function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) casino.users = d.users; if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; } catch (e) {} }
+// Uploaded images live at /ci/<id>.<ext> on every server (shared KV). Old uploads were
+// saved with the full address of whatever link they were uploaded on, which breaks when
+// someone visits on a different link — so always store/serve the relative path.
+export function relImg(u) {
+  const s = String(u || '');
+  const m = s.match(/^(?:https?:)?\/\/[^/]+(\/ci\/[A-Za-z0-9]+\.[A-Za-z0-9]+)(?:[?#].*)?$/);
+  return m ? m[1] : s;
+}
+function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
+function load(raw) { try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -84,14 +93,14 @@ function profileOf(cid) {
 export function getCosmetics(cid) {
   const p = casino.users[cid];
   if (!p) return { tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '' };
-  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', avatar: p.avatar || '' };
+  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', avatar: relImg(p.avatar) };
 }
 // Profile picture / banner image + public-profile meta (set from the account page).
 export function setProfileImage(cid, kind, url) {
   if (!cid) return null;
   const p = profileOf(cid);
-  if (kind === 'avatar') p.avatar = String(url || '');
-  else if (kind === 'banner') p.banner_url = String(url || '');
+  if (kind === 'avatar') p.avatar = relImg(url);
+  else if (kind === 'banner') p.banner_url = relImg(url);
   save(); flush();
   return p;
 }
@@ -106,7 +115,7 @@ export function setProfileMeta(cid, meta) {
 export function getProfileMeta(cid) {
   const p = casino.users[cid];
   if (!p) return { avatar_url: '', banner_url: '', profile_color: '', profile_public: true };
-  return { avatar_url: p.avatar || '', banner_url: p.banner_url || '', profile_color: p.profile_color || '', profile_public: p.profile_public !== false };
+  return { avatar_url: relImg(p.avatar), banner_url: relImg(p.banner_url), profile_color: p.profile_color || '', profile_public: p.profile_public !== false };
 }
 // Admin: add (or remove, if negative) Scrolls for a player by client id.
 export function grantCoins(cid, amount) {

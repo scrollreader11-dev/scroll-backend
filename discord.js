@@ -231,7 +231,14 @@ export async function handleDiscord(url, req, res) {
     if (!canAccessChannel(cid, me.id)) return sendJson(res, 403, { error: 'no-access' });
     const after = +q.get('after') || 0;
     if (after && after === (dc.rev[cid] || 0)) return sendJson(res, 200, { unchanged: true, rev: after });
-    const msgs = (dc.messages[cid] || []).slice(-80);
+    // Show each sender's *current* picture/ring, not the one saved when the message was sent
+    // (old saves can point at a link that no longer works, or a photo they've since changed).
+    const live = {};
+    const msgs = (dc.messages[cid] || []).slice(-80).map((m) => {
+      if (!m || !m.uid) return m;
+      const cc = live[m.uid] || (live[m.uid] = cosFull(m.uid));
+      return { ...m, avatar: cc.avatar, avatarFx: cc.avatarFx };
+    });
     return sendJson(res, 200, { messages: msgs, rev: dc.rev[cid] || 0, names: await namesForMessages(cid, msgs) });
   }
 
