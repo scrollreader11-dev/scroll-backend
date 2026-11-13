@@ -1,6 +1,40 @@
 <!doctype html>
 <html lang="en">
 <head>
+    <script>
+      /* Game thumbnails load from outside image hosts (jsDelivr / wsrv.nl). If those fail or are
+         blocked, retry the image from this server instead of showing the placeholder logo. After a
+         few failures, skip the outside hosts for 30 minutes so pages load straight from here. */
+      (function () {
+        var CDN = /^https:\/\/cdn\.jsdelivr\.net\/gh\/[^\/]+\/[^\/@]+@[^\/]+\/dist(\/.*)$/;
+        var UP = 'https://petezahgames.com', KEY = 'sh_thumb_direct', fails = 0, direct = false;
+        try { direct = +localStorage.getItem(KEY) > Date.now(); } catch (e) {}
+        function local(src) {
+          var m = String(src || '').match(CDN); if (m) return m[1];
+          if (String(src || '').indexOf('https://wsrv.nl/') === 0) {
+            try { var u = new URL(src).searchParams.get('url'); if (!u) return null; return u.indexOf(UP + '/') === 0 ? u.slice(UP.length) : '/imgx/' + u; } catch (e) { return null; }
+          }
+          return null;
+        }
+        function fix(img) { if (!img || img.tagName !== 'IMG') return; var alt = local(img.getAttribute('src')); if (alt) img.setAttribute('src', alt); }
+        document.addEventListener('error', function (e) {
+          var t = e.target; if (!t || t.tagName !== 'IMG') return;
+          var alt = local(t.getAttribute('src')); if (!alt) return;
+          e.stopImmediatePropagation(); // keep the card from swapping in its placeholder logo
+          t.setAttribute('src', alt);
+          if (++fails >= 3 && !direct) { direct = true; try { localStorage.setItem(KEY, String(Date.now() + 30 * 60 * 1000)); } catch (e2) {} document.querySelectorAll('img').forEach(fix); }
+        }, true);
+        new MutationObserver(function (list) {
+          if (!direct) return;
+          for (var i = 0; i < list.length; i++) {
+            var r = list[i];
+            if (r.type === 'attributes') fix(r.target);
+            else for (var j = 0; j < r.addedNodes.length; j++) { var n = r.addedNodes[j]; if (n.nodeType !== 1) continue; if (n.tagName === 'IMG') fix(n); else if (n.querySelectorAll) n.querySelectorAll('img').forEach(fix); }
+          }
+        }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+      })();
+    </script>
+
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>New Games · ScrollHub</title>
