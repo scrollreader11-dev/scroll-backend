@@ -319,6 +319,21 @@
     if (m.f[i]) return { kind: 'floor', block: m.f[i], hard: B.BLOCKS[m.f[i]].hard };
     return null;
   };
+  // Like Minecraft, you can't mine through blocks: trace a line from the player to the
+  // tile and return the first wall/obstacle in the way (-1 if the tile is reachable).
+  B.mineBlocker = function (m, x, y, i) {
+    var tx = i % W, ty = (i / W) | 0, cx = tx * T + T / 2, cy = ty * T + T / 2;
+    var bed = m.obj[i] === 1 ? B.bedAt(m, i) : null;
+    var dx = cx - x, dy = cy - y, d = Math.hypot(dx, dy), n = Math.ceil(d / 3);
+    var self = Math.floor(y / T) * W + Math.floor(x / T);
+    for (var k = 1; k < n; k++) {
+      var px = x + dx * k / n, py = y + dy * k / n, j = Math.floor(py / T) * W + Math.floor(px / T);
+      if (j === i || j === self) continue;
+      if (bed && (j === bed.foot || j === bed.head)) continue;
+      if (m.w[j] || m.g[j] === G.ROCK || m.obj[j]) return j;
+    }
+    return -1;
+  };
   B.bedAt = function (m, i) { for (var k = 0; k < m.beds.length; k++) { var b = m.beds[k]; if (b.alive && (b.foot === i || b.head === i)) return b; } return null; };
   B.mineTime = function (hard, pick, haste) { return Math.max(0.12, hard / (B.PICKS[pick || 0].speed * (1 + 0.3 * (haste || 0)))); };
 

@@ -598,9 +598,12 @@
     var m = S.map, best = -1, bs = 1e9, px = Math.floor(P.x / T), py = Math.floor(P.y / T);
     for (var dy = -3; dy <= 3; dy++) for (var dx = -3; dx <= 3; dx++) {
       var tx = px + dx, ty = py + dy; if (!B.inb(tx, ty)) continue;
-      var i = ty * W + tx, mt = B.mineTarget(m, i); if (!mt) continue;
+      var i = ty * W + tx;
+      var blk = B.mineBlocker(m, P.x, P.y, i); if (blk >= 0) i = blk;
+      var mt = B.mineTarget(m, i); if (!mt) continue;
       if (mt.kind === 'bed') { var bd = B.bedAt(m, i); if (!bd || bd.team === S.team) continue; }
       if (mt.kind === 'floor' && (m.fc[i] === S.team || (tx === px && ty === py))) continue; // never your own bridge
+      tx = i % W; ty = (i / W) | 0;
       var cp = tcen(i), d = Math.hypot(cp.x - P.x, cp.y - P.y); if (d > B.REACH - 6) continue;
       var da = Math.abs(Math.atan2(cp.y - P.y, cp.x - P.x) - P.ang); if (da > Math.PI) da = TAU - da;
       if (da > 1.1 && d > 46) continue;
@@ -763,7 +766,9 @@
       if (inGame && mouse.l && canAct()) {
         var it = S.held;
         if (it === 'sword' || it === 'kbstick' || it === 'pick') {
-          var ti = S.touchMine != null ? S.touchMine : touch ? (S.touchAtk ? S.autoMine : -1) : cursorTile(), mt = ti >= 0 ? B.mineTarget(S.map, ti) : null;
+          var ti = S.touchMine != null ? S.touchMine : touch ? (S.touchAtk ? S.autoMine : -1) : cursorTile();
+          if (ti >= 0) { var blk = B.mineBlocker(S.map, P.x, P.y, ti); if (blk >= 0) ti = blk; }
+          var mt = ti >= 0 ? B.mineTarget(S.map, ti) : null;
           if (mt && mt.kind === 'floor' && it !== 'pick' && !(touch && S.touchAtk)) mt = null;
           if (mt && mt.kind === 'bed') { var bd = B.bedAt(S.map, ti); if (bd && bd.team === S.team) mt = null; }
           var cp = ti >= 0 ? tcen(ti) : null;
@@ -1029,6 +1034,7 @@
       var k = B.canPlace(m, ti, aliveBodies());
       if (k) D.tileCursor(c, x, y, k === 'wall' ? 'wall' : 'floor', inR, t);
     } else if (it === 'sword' || it === 'kbstick' || it === 'pick') {
+      var blk = B.mineBlocker(m, P.x, P.y, ti); if (blk >= 0) { ti = blk; cp = tcen(ti); inR = Math.hypot(cp.x - P.x, cp.y - P.y) <= B.REACH; x = (ti % W) * T; y = ((ti / W) | 0) * T; }
       var mt = B.mineTarget(m, ti);
       if (mt && (mt.kind !== 'floor' || it === 'pick')) {
         if (mt.kind === 'bed') { var bd = B.bedAt(m, ti); if (bd && bd.team === S.team) return; }

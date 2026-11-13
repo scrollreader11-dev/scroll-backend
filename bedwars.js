@@ -245,6 +245,9 @@ function destroyBed(r, bed, by) {
   checkWin(r);
 }
 function mineStep(r, e, i, dt) {
+  // No mining through walls: whatever is in the way gets mined first.
+  const blk = BW.mineBlocker(r.map, e.x, e.y, i);
+  if (blk >= 0) i = blk;
   const tg = BW.mineTarget(r.map, i); if (!tg) { e.mine = null; return 'none'; }
   if (tg.kind === 'bed') { const bed = BW.bedAt(r.map, i); if (!bed || bed.team === e.team) return 'none'; }
   const c = tc(i); if (Math.hypot(c.x - e.x, c.y - e.y) > BW.REACH + 30) return 'far';
