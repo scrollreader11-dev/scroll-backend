@@ -184,7 +184,11 @@
   #loading{position:fixed;inset:0;z-index:79;display:flex;align-items:center;justify-content:center;background:#120e2e;flex-direction:column;gap:14px;font-size:20px;font-weight:600;transition:opacity .4s}
   #loading .spin{width:56px;height:56px;border-radius:50%;border:6px solid #3b2f8f;border-top-color:var(--gold);animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
-  @media (max-width:560px){
+  #vcBtn{width:auto;padding:0 12px;white-space:nowrap;font-size:15px}
+#vcBtn.von{background:#2bd576;color:#05240f}
+#vcBtn.vtalk{box-shadow:0 0 0 3px #120e2e,0 0 0 6px rgba(43,213,118,.6)}
+#vcBtn.vmute{background:#ff5c6c}
+@media (max-width:560px){
     .reel{width:76px;height:76px;font-size:42px}
     .pill{font-size:13px;padding:6px 10px}
     .pill.brand .t{display:none}
@@ -290,6 +294,7 @@
 </div>
 <div class="hud tr">
   <button class="hbtn" id="onlineBtn" title="Who's here">👥 <span id="onlineN" style="margin-left:5px">1</span></button>
+  <button class="hbtn" id="vcBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
   <button class="hbtn" id="qcBtn" title="Quick chat (Q)">💬</button>
   <button class="hbtn" id="emoBtn" title="Emotes (T)">😀</button>
   <button class="hbtn" id="muteBtn" title="Sound">🔊</button>
@@ -533,6 +538,7 @@
 <script src="/casino/games.js?v=2"></script>
 <script src="/casino/scenes.js?v=2"></script>
 <script src="/casino/mp.js?v=2"></script>
-<script src="/casino/world.js?v=3"></script>
+<script src="/arcade/bedwars/voice.js?v=1"></script>
+<script src="/casino/world.js?v=4"></script>
 </body>
 </html>

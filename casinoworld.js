@@ -30,6 +30,22 @@ let dirty = new Set();
 function send(ws, o) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); } catch (e) {} }
 function broadcast(o, except) { const s = JSON.stringify(o); for (const p of players.values()) if (p.ws !== except && p.ws.readyState === 1) { try { p.ws.send(s); } catch (e) {} } }
 function cosOf(cid) { const c = getCosmetics(cid); return { tag: c.tag || '', color: c.color || '', titleFx: c.titleFx || '' }; }
+// ---- proximity voice (same protocol as Bedwars): the server only forwards a speaker's
+// mic frames to players standing near them, so it works on any network.
+const VOICE_R = 440; // px (~9 tiles)
+function voiceFrame(me, buf) {
+  if (!me.voice || buf.length < 2 || buf.length > 1200 || buf[0] !== 1) return;
+  const now = Date.now();
+  me.vtok = Math.min(40, (me.vtok == null ? 40 : me.vtok) + (now - (me.vAt || now)) / 1000 * 32); me.vAt = now;
+  if (me.vtok < 1) return; me.vtok--;
+  let out = null;
+  for (const p of players.values()) {
+    if (p === me || !p.voice || p.ws.readyState !== 1) continue;
+    if (Math.hypot(p.x - me.x, p.y - me.y) > VOICE_R) continue;
+    if (!out) { out = Buffer.allocUnsafe(buf.length + 4); out[0] = 1; out.writeUInt32BE(me.id >>> 0, 1); buf.copy(out, 5, 1); }
+    try { if (p.ws.bufferedAmount < 256 * 1024) p.ws.send(out, { binary: true }); } catch (e) {}
+  }
+}
 function pub(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, mv: p.mv, look: p.look, cos: p.cos, busy: p.busy }; }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -109,11 +125,13 @@ export function handleWorldUpgrade(req, socket, head) {
     broadcast({ t: 'join', p: pub(me) }, ws);
     tablesJoin(me);
 
-    ws.on('message', (buf) => {
+    ws.on('message', (buf, isBinary) => {
       me.alive = true;
+      if (isBinary) { voiceFrame(me, buf); return; }
       let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; }
       if (!m || typeof m.t !== 'string') return;
       const now = Date.now();
+      if (m.t === 'vc') { me.voice = !!m.on; send(ws, { t: 'vcstate', on: me.voice, range: VOICE_R }); return; }
 
       if (m.t === 'mv') {
         me.moveTokens = Math.min(30, me.moveTokens + (now - me.lastMove) / 33);

@@ -269,6 +269,25 @@
   $('qcBtn').onclick = function () { toggleQuick(); };
   $('fsBtn').onclick = function () { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {} };
   $('onlineBtn').onclick = function () { var l = $('onlineList'); l.style.display = l.style.display === 'block' ? 'none' : 'block'; renderOnline(); };
+  // ---- proximity voice button (Off -> On -> Muted -> Off)
+  var voiceWas = false;
+  function voiceSync() {
+    var V = window.BWV, b = $('vcBtn'); if (!b) return;
+    b.textContent = !V || !V.on ? '🎙️ Voice' : V.muted ? '🔇 Muted' : V.talking ? '🎙️ Talking' : '🎙️ On';
+    b.classList.toggle('von', !!(V && V.on && !V.muted)); b.classList.toggle('vmute', !!(V && V.on && V.muted)); b.classList.toggle('vtalk', !!(V && V.on && V.talking));
+  }
+  function sendBin(buf) { try { if (ws && ws.readyState === 1 && ws.bufferedAmount < 64000) ws.send(buf); } catch (e) {} }
+  $('vcBtn').onclick = function () {
+    var V = window.BWV; if (!V) return;
+    if (!V.supported()) { toast('Voice chat isn’t supported in this browser'); return; }
+    if (!V.on) { $('vcBtn').textContent = '🎙️ …'; V.start(sendBin).then(function () { netSend({ t: 'vc', on: true }); voiceSync(); toast('🎙️ Voice on — people near you can hear you. V = mute'); }).catch(function () { voiceSync(); toast('🎙️ Allow microphone access to use voice chat'); }); }
+    else if (!V.muted) { V.setMuted(true); voiceSync(); toast('🔇 Muted — you can still hear people nearby'); }
+    else { V.stop(); netSend({ t: 'vc', on: false }); voiceSync(); toast('Voice chat off'); }
+  };
+  window.addEventListener('keydown', function (e) {
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.key.toLowerCase() === 'v' && window.BWV && BWV.on) { BWV.setMuted(!BWV.muted); voiceSync(); toast(BWV.muted ? '🔇 Mic muted (V to talk)' : '🎙️ Mic on'); }
+  });
   function muteIcon() { $('muteBtn').textContent = SC.sfxMuted && SC.sfxMuted() ? '🔇' : '🔊'; }
   $('muteBtn').onclick = function () { SC.sfxToggle && SC.sfxToggle(); muteIcon(); sfx('click'); }; muteIcon();
   setTimeout(function () { $('hint').style.opacity = '0'; }, 14000);
@@ -319,6 +338,8 @@
   }
   var dustT = 0;
   function update(dt) {
+    if (window.BWV && BWV.on) BWV.tick(me.x, me.y, function (id) { var q = players[id]; return q && !q.leaving ? { x: q.x, y: q.y } : null; });
+    if (window.BWV && BWV.on && BWV.talking !== voiceWas) { voiceWas = BWV.talking; voiceSync(); }
     var ix = 0, iy = 0;
     if (!panelOpen()) {
       if (keys.a || keys.arrowleft) ix -= 1; if (keys.d || keys.arrowright) ix += 1;
@@ -772,6 +793,12 @@
     var L = p.look || {}, tall = { bunny: 10, alien: 6, robot: 6, unicorn: 10, mushroom: 14, knight: 8 }[L.skin] || 0;
     var top = p.y - (L.hat ? 80 : 66) - tall;
     drawNameTag(ctx, p.x, top, p.nick || '…', p.cos, tnow, 1);
+    if (window.BWV && BWV.on && (p === me ? BWV.talking : BWV.isTalking(p.id))) {
+      var vy = top - (p.cos && p.cos.tag ? 40 : 24), pulse = (Math.sin(tnow * 14) + 1) / 2;
+      A.circ(ctx, p.x, vy, 11); ctx.fillStyle = '#2bd576'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.fillStyle = '#05240f'; ctx.fillRect(p.x - 5, vy - 3, 4, 6); ctx.beginPath(); ctx.moveTo(p.x - 1, vy - 3); ctx.lineTo(p.x + 3, vy - 6); ctx.lineTo(p.x + 3, vy + 6); ctx.lineTo(p.x - 1, vy + 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(43,213,118,' + (0.4 + pulse * 0.6) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x + 4, vy, 15, -0.7, 0.7); ctx.stroke();
+    }
     var tagUp = p.cos && p.cos.tag ? 18 : 0;
     if (p.busy && BUSY_ICON[p.busy] && p !== me) {
       A.circ(ctx, p.x + 22, p.y - 44, 11); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 2.5; ctx.stroke();
@@ -874,8 +901,9 @@
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
     try { if (ws) { ws.onclose = null; ws.onmessage = null; ws.close(); } } catch (e) {}
     var sock = ws = new WebSocket(proto + '://' + location.host + '/world-ws');
-    sock.onopen = function () { retry = 800; lastRecv = performance.now(); };
-    sock.onmessage = function (ev) { if (sock !== ws) return; lastRecv = performance.now(); var m; try { m = JSON.parse(ev.data); } catch (e) { return; } onNet(m); };
+    sock.binaryType = 'arraybuffer';
+    sock.onopen = function () { retry = 800; lastRecv = performance.now(); if (window.BWV && BWV.on) netSend({ t: 'vc', on: true }); };
+    sock.onmessage = function (ev) { if (sock !== ws) return; lastRecv = performance.now(); if (typeof ev.data !== 'string') { if (window.BWV) BWV.onFrame(new Uint8Array(ev.data)); return; } var m; try { m = JSON.parse(ev.data); } catch (e) { return; } onNet(m); };
     sock.onclose = function () {
       if (sock !== ws) return;
       wsOk = false; if (fatal) return;
@@ -885,6 +913,7 @@
   }
   function onNet(m) {
     switch (m.t) {
+      case 'vcstate': if (window.BWV && m.range) BWV.range = m.range; return;
       case 'welcome':
         wsOk = true; fatal = false; $('netState').style.display = 'none'; syncClock(m.now);
         me.id = m.you.id; me.cid = m.you.cid; me.nick = m.you.nick;
