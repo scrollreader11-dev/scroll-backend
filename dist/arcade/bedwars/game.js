@@ -146,7 +146,20 @@
   var helloWaiters = [];
   function helloArrived() { var w = helloWaiters; helloWaiters = []; w.forEach(function (f) { f(); }); if (S.screen === 'menu') renderMenu(); }
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  var booted = false;
+  function finishLoading() {
+    if (booted) return; booted = true;
+    clearInterval(tipTimer);
+    $('loading').classList.add('out');
+    setTimeout(function () { $('loading').classList.add('hidden'); }, 700);
+    if (S.screen === 'loading') show('menu');
+  }
+  setTimeout(finishLoading, 14000); // never get stuck on the loading screen
   async function boot() {
+    try { await bootSteps(); } catch (e) { console.error('bedwars boot', e); }
+    finishLoading();
+  }
+  async function bootSteps() {
     $('loadCv').style.display = 'none';
     $('loading').style.background = 'radial-gradient(ellipse at center, rgba(18,12,51,.35), rgba(18,12,51,.92) 70%)';
     ldStep(0.08, 'Waking up the islands…');
@@ -163,10 +176,6 @@
     await Promise.race([new Promise(function (r) { if (S.hello) r(); else helloWaiters.push(r); }), wait(8000)]);
     ldStep(1, S.hello ? 'Ready!' : 'Still connecting…');
     await wait(420);
-    clearInterval(tipTimer);
-    $('loading').classList.add('out');
-    setTimeout(function () { $('loading').classList.add('hidden'); }, 700);
-    if (S.screen === 'loading') show('menu');
   }
 
   // ------------------------------------------------------------------ demo world (menu background)

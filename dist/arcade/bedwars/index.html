@@ -466,8 +466,15 @@
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=3"></script>
-<script src="shared.js?v=1"></script>
-<script src="draw.js?v=1"></script>
-<script src="game.js?v=1"></script>
+<script src="/arcade/bedwars/shared.js?v=2"></script>
+<script src="/arcade/bedwars/draw.js?v=2"></script>
+<script src="/arcade/bedwars/game.js?v=2"></script>
+<script>
+  // Safety net: if the game code failed to load, don't sit on the loading screen forever.
+  setTimeout(function () {
+    if (window.BWG) return;
+    var s = document.getElementById('ldStep'); if (s) s.innerHTML = 'Couldn’t load the game. <a href="" style="color:#ffd166">Tap to retry</a>';
+  }, 12000);
+</script>
 </body>
 </html>
