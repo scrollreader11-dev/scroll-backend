@@ -60,6 +60,7 @@
   // ------------------------------------------------------------------ ground chunks (static, cached)
   var CH = 12, chunks = {};
   D.resetChunks = function () { chunks = {}; };
+  D.dropChunk = function (cx, cy) { delete chunks[cx + ',' + cy]; };
   var padTeam = null;
   function teamOfTile(m, tx, ty) {
     var best = 0, bd = 1e9; for (var t = 0; t < m.bases.length; t++) { var b = m.bases[t], d = Math.abs(b.cx - tx) + Math.abs(b.cy - ty); if (d < bd) { bd = d; best = t; } } return best;

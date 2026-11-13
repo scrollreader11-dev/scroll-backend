@@ -27,7 +27,7 @@ function start(r) {
   const now = Date.now(), GM = MG.GAMES[r.game];
   r.state = 'play';
   r.seed = (rnd() * 1e9) | 0;
-  r.map = MG.genMap(r.game, r.seed);
+  r.map = MG.genMap(r.game, r.seed, r.custom);
   r.ents = new Map();
   r.teams = []; for (let t = 0; t < 8; t++) r.teams.push({ bed: false, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } });
   r.gens = []; r.projs = []; r.tnts = []; r.events = []; r.tl = 0; r.tier = { dia: 0, em: 0 };
@@ -359,7 +359,7 @@ function state(r, e) {
   const o = { game: r.game, seed: r.seed };
   if (r.game === 'ctf') { o.flags = r.flags.map((f) => [f.state, f.carrier, Math.round(f.x), Math.round(f.y)]); o.score = r.score; o.endAt = r.endAt; o.pick = r.pick.map((p) => p.item); }
   if (r.game === 'spleef') {
-    const fresh = MG.genSpleef(r.seed).L, diff = [];
+    const fresh = (r.custom ? MG.buildCustom(r.custom) : MG.genSpleef(r.seed)).L, diff = [];
     for (let z = 0; z < MG.SP_LAYERS; z++) for (let i = 0; i < N; i++) if (fresh[z][i] !== r.map.L[z][i]) diff.push([z, i, r.map.L[z][i]]);
     o.sp = diff; o.sdAt = r.sdAt; o.decay = r.decay;
   }
@@ -463,14 +463,14 @@ function ctfThink(r, e, now) {
   else if (my.state === 2 && (ai.role !== 'atk' || Math.hypot(my.x - e.x, my.y - e.y) < 16 * T)) tp = { x: my.x, y: my.y };
   if (!tp) {
     if (ai.role === 'def') { if (!ai.tp || now > (ai.patrolAt || 0)) { ai.patrolAt = now + 2500 + rnd() * 2500; tp = { x: base.fx + base.inward[0] * (1 + rnd() * 3) * T, y: base.fy + (rnd() - 0.5) * 5 * T }; } else tp = ai.tp; }
-    else if (ai.role === 'mid') { const p = r.pick.find((q) => q.item); tp = p ? { x: p.x, y: p.y } : { x: 36 * T + (rnd() - 0.5) * 120, y: 36 * T + (rnd() - 0.5) * 120 }; if (rnd() < 0.015) ai.role = 'atk'; }
+    else if (ai.role === 'mid') { const p = r.pick.find((q) => q.item); const mb = r.map.bases; tp = p ? { x: p.x, y: p.y } : { x: (mb[0].fx + mb[1].fx) / 2 + (rnd() - 0.5) * 120, y: (mb[0].fy + mb[1].fy) / 2 + (rnd() - 0.5) * 120 }; if (rnd() < 0.015) ai.role = 'atk'; }
     else if (en.state === 1) { const c = r.ents.get(en.carrier); tp = c ? { x: c.x + (rnd() - 0.5) * 60, y: c.y + (rnd() - 0.5) * 60 } : null; } // escort
     else {
       // sneak through a side lane first, then go for the flag
       if (!ai.lane) ai.lane = rnd() < 0.5 ? -1 : 1;
       const wp = { x: 36 * T + T / 2, y: (36 + ai.lane * 15) * T + T / 2 };
       if (!ai.viaDone && Math.hypot(wp.x - e.x, wp.y - e.y) < 2.5 * T) ai.viaDone = true;
-      tp = ai.viaDone ? { x: en.x, y: en.y } : wp;
+      tp = ai.viaDone || r.custom ? { x: en.x, y: en.y } : wp;
     }
   }
   if (!tp) return;
@@ -593,4 +593,10 @@ function seekerThink(r, e, now) {
   if (tgt >= 0) { ai.path = A.pathTo(r, e, tgt, { bridge: false, mine: false }); ai.pi = 0; ai.planAt = now; }
 }
 
-export const MINI = { start, tick, die, respawn, checkEnd, isWinner, reward, endInfo, state, extra, snapExtra, swingBlocked, missProp, onMsg, snowHit, snowLand, adminInfo, kit, skip };
+function lateJoin(r, e) {
+  if (r.game === 'ctf') { e.stats = freshStats({ caps: 0, rets: 0 }); e.carry = -1; kitCTF(r, e); }
+  else if (r.game === 'hide') { e.stats = freshStats({ finds: 0, taunts: 0, survived: 0 }); e.start = 1; setSeeker(r, e, false); }
+  else return false;
+  r.teamsDirty = true; return true;
+}
+export const MINI = { lateJoin, start, tick, die, respawn, checkEnd, isWinner, reward, endInfo, state, extra, snapExtra, swingBlocked, missProp, onMsg, snowHit, snowLand, adminInfo, kit, skip };

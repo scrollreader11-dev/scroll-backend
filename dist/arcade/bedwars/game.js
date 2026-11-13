@@ -59,7 +59,7 @@
     dead: false, elim: false, respawnAt: 0, speedUntil: 0, slowUntil: 0, stats: {},
     teams: [], gens: [], tier: { dia: 0, em: 0 }, tl: 0, projs: new Map(), tnts: new Map(), cracks: {}, placeAnim: {}, slashes: [],
     shake: 0, hurtT: 0, ended: null, qc: [], lastSnap: 0, specId: 0,
-    game: 'bw', flags: [], score: [0, 0], pick: [], endAt: 0, seekAt: 0, sdAt: 0, phase: '', crk: {}, propWob: {}, did: {},
+    game: 'bw', flags: [], score: [0, 0], pickups: [], endAt: 0, seekAt: 0, sdAt: 0, phase: '', crk: {}, propWob: {}, did: {},
   };
   var NN = W * H;
   function isMini() { return S.game !== 'bw'; }
@@ -97,12 +97,15 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.qc = m.qc || []; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; ownerSync(); helloArrived(); return; }
+    if (t === 'hello') { S.hello = m; S.qc = m.qc || []; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
     if (t === 'god') { S.god = !!m.on; return; }
     if (t === 'goat') { S.goAt = m.goAt; lastTimerS = -1; return; }
+    if (t === 'join') { if (S.screen === 'game' && m.ent && !S.ents.has(m.ent.id)) { S.ents.set(m.ent.id, mkEnt(m.ent)); feed('👑 ' + nameHtml(S.ents.get(m.ent.id)) + ' joined the match'); } return; }
+    if (t === 'frozen') { S.frozen = !!m.on; toast(m.on ? '❄️ An owner froze you' : '✅ You can move again', 2000); return; }
+    if (t === 'motd') { S.motd = m.text; if (m.text) banner('📢 ' + esc(m.text), '', '#ffd166'); updateOnline(); return; }
     if (t === 'z') { if (P) { P.z = m.z; P.falling = 0; P.vx = P.vy = 0; if (m.x != null) { P.x = m.x; P.y = m.y; } } var mz = S.ents.get(S.myId); if (mz) mz.z = m.z; D.burst('dust', P.x, P.y, 10); S.shake = Math.max(S.shake, 6); SC.sfx('place'); toast('⬇️ Floor ' + (m.z + 1) + ' of ' + MG.SP_LAYERS + (m.z === MG.SP_LAYERS - 1 ? ' — the LAST one!' : ''), 1500); return; }
     if (t === 'role') { S.team = m.role; var mr = S.ents.get(S.myId); if (mr) { mr.team = m.role; mr.prop = ''; } S.held = 'sword'; renderHotbar(); mgHudInit(); banner('🔍 YOU’RE A SEEKER NOW', 'Find the hiders that are left!', '#ff5c6c'); tutStart(); return; }
     if (t === 'radar') { if (m.none) { toast('No hiders left to find', 1400); return; } S.radar = { x: m.x, y: m.y, d: m.d, t: now() }; SC.sfx('level'); toast('📡 ' + (m.d < 6 * T ? 'HOT! A hider is really close' : m.d < 14 * T ? 'Warm — a hider is nearby' : 'Cold — the nearest hider is far away'), 2200); return; }
@@ -240,7 +243,7 @@
     S.spaceKind = m.kind; S.myId = m.you; S.team = -1; S.ended = null; S.dead = S.elim = false; S.held = 'sword'; S.sword = 1; S.armor = 1;
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; S.gens = []; S.teams = []; trails.length = 0; D.parts.length = 0;
     offset = m.now - Date.now(); bestRtt = 1e9;
-    if (m.lb) S.lb = m.lb; if (m.stats) S.mystats = m.stats; if (m.online) S.online = m.online; if (m.qc) S.qc = m.qc;
+    if (m.lb) S.lb = m.lb; if (m.stats) S.mystats = m.stats; if (m.online) S.online = m.online; if (m.qc) S.qc = m.qc; if (m.motd != null) S.motd = m.motd; if (m.x2 != null) S.x2 = m.x2;
     S.room = m.room; if (S.room) S.room._at = Date.now();
     m.players.forEach(addSpacePlayer);
     P = newBody(m.x, m.y);
@@ -263,7 +266,13 @@
     var x = $('hubCv').getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 96, 96);
     x.save(); x.translate(48, 86); x.scale(1.6, 1.6); A.drawGim(x, 0, 0, (S.hello && S.hello.look) || { skin: 'gim', body: '#3fa9ff' }, { t: 0, dir: 0, shadow: false }); x.restore();
   }
-  function updateOnline() { if (S.screen !== 'hub') return; var o = S.online || {}; $('hubOnline').textContent = S.ents.size + ' in the hub' + (o.playing ? ' · ' + o.playing + ' in games' : ''); }
+  function updateOnline() { if (S.screen !== 'hub') return; var o = S.online || {}; $('hubOnline').textContent = (S.x2 ? '✨ 2× SCROLLS · ' : '') + S.ents.size + ' in the hub' + (o.playing ? ' · ' + o.playing + ' in games' : '') + (S.motd ? ' · 📢 ' + S.motd : ''); }
+  var testUsed = false;
+  function testFromBuilder() {
+    var id = qs.get('test'); if (!id || testUsed) return; testUsed = true;
+    var g = qs.get('g') || 'bw';
+    setTimeout(function () { S.lastQueue = { t: 'practice', game: g, mode: g === 'bw' ? 'solo' : g, diff: 'normal', map: id }; send(S.lastQueue); toast('🗺️ Test-playing your map…', 2000); }, 500);
+  }
   function interactables() { return ((S.map && S.map.objs) || []).filter(function (o) { return o.act; }); }
   function objRange(o) { return (o.kind === 'portal' || o.kind === 'board' || o.kind === 'soon' ? 3.3 : 2.4) * T; }
   function nearObj() { if (!P || (S.screen !== 'hub' && S.screen !== 'wait')) return null; var best = null, bd = 1e9; interactables().forEach(function (o) { var d = Math.hypot(o.x - P.x, o.y - P.y); if (d < objRange(o) && d < bd) { bd = d; best = o; } }); return best; }
@@ -319,6 +328,9 @@
     $('wHost').classList.toggle('hidden', !host);
     if (host) { [].forEach.call($('hMode').children, function (b) { b.classList.toggle('on', b.dataset.v === r.mode); }); [].forEach.call($('hDiff').children, function (b) { b.classList.toggle('on', b.dataset.v === r.diff); }); }
     $('hMode').classList.toggle('hidden', rg !== 'bw');
+    var ms = $('hMap'), maps = r.maps || [];
+    if (ms) { ms.classList.toggle('hidden', !host || !maps.length); if (host && maps.length) { var opts = '<option value="">🎲 Random map</option><option value="default">' + (rg === 'bw' ? 'Classic Bedwars map' : 'Classic ' + md.name + ' map') + '</option>' + maps.map(function (mp) { return '<option value="' + esc(mp.id) + '">🗺️ ' + esc(mp.name) + '</option>'; }).join(''); if (ms.dataset.k !== opts) { ms.innerHTML = opts; ms.dataset.k = opts; } ms.value = r.mapId || ''; } }
+    if (!host && r.mapName) $('wHint').innerHTML += '<br>🗺️ Map: <b>' + esc(r.mapName) + '</b>';
     $('wHint').innerHTML = (rg !== 'bw' ? '<b>' + md.icon + ' ' + esc(md.desc) + '</b><br>' : '') + (r.kind === 'private' && (rg === 'bw' || rg === 'ctf') ? '🟥🟦 Stand on a colored pad to join that team' : r.kind === 'practice' ? '🤖 Bots are getting ready…' : '🤖 Empty slots get filled with bots');
     var html = '';
     if (rg === 'spleef' || rg === 'hide') {
@@ -359,12 +371,15 @@
     S.game = m.game || 'bw';
     ['bw', 'ctf', 'spleef', 'hide'].forEach(function (g) { document.body.classList.toggle('g-' + g, g === S.game); });
     document.body.classList.toggle('mg', isMini());
-    var map = isMini() ? MG.genMap(S.game, m.seed) : B.genMap();
+    if (m.cfg && MG.GAMES[S.game]) Object.assign(MG.GAMES[S.game], m.cfg);
+    S.custom = m.custom || null;
+    var map = m.custom ? MG.buildCustom(m.custom) : isMini() ? MG.genMap(S.game, m.seed) : B.genMap();
     m.blocks.forEach(function (b) { map.f[b[0]] = b[1]; map.fc[b[0]] = b[2]; map.w[b[0]] = b[3]; map.wc[b[0]] = b[4]; });
     m.beds.forEach(function (a, t) { if (!a && map.beds[t]) { map.beds[t].alive = false; map.obj[map.beds[t].foot] = 0; map.obj[map.beds[t].head] = 0; } });
     S.crk = {}; S.propWob = {}; S.radar = null; S.did = {};
+    if (S.custom) setTimeout(function () { toast('🗺️ Map: <b>' + esc(S.custom.name) + '</b>' + (S.custom.author ? ' by ' + esc(S.custom.author) : ''), 2600, true); }, 600);
     if (S.game === 'spleef') { (m.sp || []).forEach(function (q) { map.L[q[0]][q[1]] = q[2]; if (q[2] === 2) S.crk[q[0] * NN + q[1]] = now(); }); S.sdAt = m.sdAt; S.spCv = null; }
-    if (S.game === 'ctf') { S.flags = m.flags; S.score = m.score; S.endAt = m.endAt; S.pick = m.pick || []; }
+    if (S.game === 'ctf') { S.flags = m.flags; S.score = m.score; S.endAt = m.endAt; S.pickups = m.pick || []; }
     if (S.game === 'hide') { S.seekAt = m.seekAt; S.endAt = m.endAt; S.phase = m.phase; }
     S.map = map; D.resetChunks();
     S.myId = m.you; S.team = m.team; S.mode = m.mode; S.kind = m.kind; S.code = m.code;
@@ -777,7 +792,7 @@
     if (!P) return;
     var me = S.ents.get(S.myId);
     var inGame = S.screen === 'game';
-    var locked = (inGame && snow() < S.goAt) || S.screen === 'end' || S.screen === 'loading' || anyModal() || (inGame && S.game === 'hide' && S.team === 1 && snow() < S.seekAt);
+    var locked = S.frozen || (inGame && snow() < S.goAt) || S.screen === 'end' || S.screen === 'loading' || anyModal() || (inGame && S.game === 'hide' && S.team === 1 && snow() < S.seekAt);
     if (me) me.hopT = P.hopT;
     if (!P.dead && !S.dead && !P.falling && !locked) {
       var ix = 0, iy = 0;
@@ -1025,7 +1040,8 @@
     var dead = e.dead || e.elim || (e.id === S.myId && (P.dead || S.dead));
     var falling = e.fallT && tn - e.fallT < 1100 ? (tn - e.fallT) / 1100 : (e.id === S.myId && P && P.falling && !S.dead ? Math.min(1, (tn - P.falling) / 1100) : -1);
     if (S.game === 'spleef' && !dead) { var fu = e.id === S.myId ? (P && P.falling ? Math.min(1, (tn - P.falling) / 420) : -1) : e.spFall ? Math.min(1, (tn - (e.spFallT || tn)) / 420) : -1; falling = -1; if (fu >= 0) { sc = 1 - fu * 0.4; alpha = 1 - fu * 0.55; y += fu * 18; } }
-    if (S.game === 'hide' && e.prop && !dead) { drawDisguised(e, x, y, t); return; }
+    if (S.game === 'hide' && e.prop && !dead) { drawDisguised(e, x, y, t); if (S.reveal && S.owner && e.id !== S.myId) D.tag(c, '👁️ ' + e.nick, x, y - 50, { size: 11, color: '#fff', bg: '#c1121f' }); return; }
+    if ((e.flags || 0) & 1024 && e.id !== S.myId) { if (!S.owner) return; alpha *= 0.35; }
     if (falling >= 0) { if (e.fallX != null && e.id !== S.myId) { x = e.fallX; y = e.fallY; } else if (e.id === S.myId && P.fallX != null) { x = P.fallX; y = P.fallY; } sc = Math.max(0.05, 1 - falling * 0.95); rot = falling * 5; alpha = 1 - falling * 0.6; y += falling * 40; if (Math.random() < 0.4) D.burst('magic', x, y - 10, 1, '#3b2a8a'); }
     else if (dead) return;
     var ang = e.ang || 0, ca = Math.cos(ang), sa = Math.sin(ang);
@@ -1080,6 +1096,7 @@
   }
   function drawTag(e, t) {
     var dead = e.dead || e.elim; if (dead) return;
+    if ((e.flags || 0) & 1024 && e.id !== S.myId && !S.owner) return;
     if (S.game === 'hide' && S.screen === 'game' && e.prop) { if (S.team === 0 && e.id !== S.myId) D.tag(c, e.nick, e.x, e.y - 50, { size: 11, color: 'rgba(181,245,207,.85)' }); if (!(window.BWV && BWV.hearing && BWV.isTalking(e.id))) return; }
     var x = e.x, y = e.y; if (e.id === S.myId && P) { if (P.falling) return; x = P.x; y = P.y; }
     var mine = e.id === S.myId;
@@ -1433,7 +1450,10 @@
 
   // ------------------------------------------------------------------ owner panel
   var admTab = 'matches', admPoll = 0, admArm = null;
-  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner); }); }
+  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner); }); $('hubBuild').classList.toggle('hidden', !S.mapper); }
+  [].forEach.call(document.querySelectorAll('.menuBtn'), function (b) { b.onclick = function () { var box = b.parentElement; box.classList.toggle('open'); b.textContent = box.classList.contains('open') ? '✕' : '☰'; SC.sfx('click'); }; });
+  document.addEventListener('click', function (e) { if (e.target.closest('.menuBtn')) return; [].forEach.call(document.querySelectorAll('.hbtns.open,#hudBtns.open'), function (box) { if (e.target.closest('.hbtn') && box.contains(e.target)) { box.classList.remove('open'); var mb = box.querySelector('.menuBtn'); if (mb) mb.textContent = '☰'; } }); });
+  $('hMap').onchange = function () { send({ t: 'cfg', map: this.value }); SC.sfx('click'); };
   [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.onclick = function () { openAdmin(); }; });
   function openAdmin() {
     if (!S.owner) return;
@@ -1464,6 +1484,14 @@
           if (r.game === 'ctf' || r.game === 'hide') [0, 1].forEach(function (t3) { html += ab('🏆 ' + (r.game === 'hide' ? (t3 ? 'Seekers' : 'Hiders') : B.TEAMS[t3].name), { act: 'end', room: r.id, winner: t3 }, '', true).replace('class="ab ', 'style="background:' + teamCol(t3) + '" class="ab '); });
           for (var t = 0; t < 4; t++) if (r.teams && !r.teams[t].elim) html += ab('🏆 ' + B.TEAMS[t].name, { act: 'end', room: r.id, winner: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ');
         }
+        if (r.state === 'play' && r.id !== d.myRoom) {
+          if (r.game === 'bw') [0, 1, 2, 3].forEach(function (t4) { if (r.teams && r.teams[t4].bed) html += ab('Join ' + B.TEAMS[t4].name, { act: 'joinmatch', room: r.id, team: t4 }).replace('class="ab ', 'style="background:' + teamCol(t4) + '" class="ab '); });
+          else if (r.game === 'ctf') [0, 1].forEach(function (t4) { html += ab('Join ' + B.TEAMS[t4].name, { act: 'joinmatch', room: r.id, team: t4 }).replace('class="ab ', 'style="background:' + teamCol(t4) + '" class="ab '); });
+          else if (r.game === 'hide') html += ab('Join as seeker', { act: 'joinmatch', room: r.id, team: 1 }, 'blue');
+        }
+        if (r.state === 'play' && r.game === 'ctf') html += ab('+1 Red', { act: 'mini', room: r.id, op: 'score', team: 0 }) + ab('+1 Blue', { act: 'mini', room: r.id, op: 'score', team: 1 }) + ab('🏠 Flags home', { act: 'mini', room: r.id, op: 'retflags' });
+        if (r.state === 'play' && r.game === 'spleef') html += ab('💥 Sudden death', { act: 'mini', room: r.id, op: 'sd' }, 'red', true);
+        if (r.state === 'play' && r.game === 'hide') html += ab('🔓 Release seekers', { act: 'mini', room: r.id, op: 'release' }, 'gold') + (r.id === d.myRoom ? '<button class="ab' + (S.reveal ? ' gold' : '') + '" data-local="reveal">' + (S.reveal ? '👁️ Hiders shown' : '👁️ Show hiders (only you)') + '</button>' : '');
         html += ab('✖ Close', { act: 'delete', room: r.id }, 'red', true) + '</div>';
         if (r.state === 'play' && r.teams) {
           html += '<div class="admrow"><span class="lbl">Beds:</span>';
@@ -1487,35 +1515,63 @@
         html += '</div>';
       });
     } else if (admTab === 'players') {
-      html += '<div class="admcard"><div class="admhead">👥 ' + d.conns.length + ' connected to Bedwars</div><table class="admp">';
-      d.conns.forEach(function (x) {
+      var playing = d.rooms.filter(function (r) { return r.state === 'play'; }).length;
+      html += '<div class="admcard"><div class="admhead">👥 ' + d.conns.length + ' connected · ' + playing + ' match(es) running · ' + d.rooms.filter(function (r) { return r.state === 'lobby'; }).length + ' waiting</div>';
+      html += '<div class="admrow"><input class="admin-in" id="admFind" placeholder="🔎 Find a player…" value="' + esc(S.admFind || '') + '" style="min-width:140px"><span class="lbl">Scrolls amount</span><input class="admin-in" id="admAmt" type="number" value="' + esc(S.admAmt || 500) + '" style="max-width:110px;min-width:80px"></div><table class="admp">';
+      d.conns.filter(function (x) { return !S.admFind || x.nick.toLowerCase().indexOf(S.admFind.toLowerCase()) >= 0; }).forEach(function (x) {
         var vc = x.voice ? (x.vmuted ? '<span class="tag2" style="background:#ff5c6c">🔇 muted</span>' : x.talking ? '<span class="tag2" style="background:#2bd576;color:#05240f">🎙️ talking</span>' : '<span class="tag2">🎙️ voice</span>') : '';
-        html += '<tr><td><b>' + esc(x.nick) + '</b>' + (x.owner ? '<span class="tag2" style="background:#ffd166;color:#2a1300">OWNER</span>' : '') + vc + '</td><td style="color:var(--mut)">' + esc(x.where) + '</td><td><div class="acts">' + (x.owner ? '' : ab(x.vmuted ? '🎙️ Unmute' : '🔇 Mute voice', { act: 'vmute', pid: x.pid }, x.vmuted ? 'green' : '') + ab('Kick', { act: 'kick', pid: x.pid }, 'red', true)) + '</div></td></tr>';
+        var acts = ab('📜 Give', { act: 'coins', pid: x.pid, amount: 'amt' }, 'gold') + ab('Take', { act: 'coins', pid: x.pid, amount: '-amt' }, '', true) + ab('TP to', { act: 'tpto', pid: x.pid }) + ab('Bring', { act: 'bringp', pid: x.pid });
+        if (!x.owner) acts += ab(x.frozen ? '🔥 Unfreeze' : '❄️ Freeze', { act: 'freeze', pid: x.pid }, x.frozen ? 'green' : 'blue') + ab('👋 Slap', { act: 'slap', pid: x.pid }) + ab(x.vmuted ? '🎙️ Unmute' : '🔇 Mute', { act: 'vmute', pid: x.pid }, x.vmuted ? 'green' : '') + ab('Kick', { act: 'kick', pid: x.pid }, 'red', true) + ab('Ban 1h', { act: 'ban', pid: x.pid, mins: 60 }, 'red', true) + ab('Ban 1d', { act: 'ban', pid: x.pid, mins: 1440 }, 'red', true) + ab('Ban ∞', { act: 'ban', pid: x.pid, mins: 0 }, 'red', true);
+        html += '<tr><td><b>' + esc(x.nick) + '</b>' + (x.owner ? '<span class="tag2" style="background:#ffd166;color:#2a1300">OWNER</span>' : '') + vc + (x.frozen ? '<span class="tag2" style="background:#3a86ff">❄️ frozen</span>' : '') + '<br><span style="color:var(--mut);font-size:12px">' + esc(x.where) + ' · 📜 ' + (x.coins || 0).toLocaleString() + '</span></td><td><div class="acts">' + acts + '</div></td></tr>';
       });
       html += '</table></div>';
+      if (d.bans && d.bans.length) { html += '<div class="admcard"><div class="admhead">⛔ Banned (' + d.bans.length + ')</div><table class="admp">'; d.bans.forEach(function (b) { html += '<tr><td><b>' + esc(b.nick || '?') + '</b><br><span style="color:var(--mut);font-size:12px">' + (b.until ? 'until ' + new Date(b.until).toLocaleString() : 'forever') + ' · by ' + esc(b.by || '?') + '</span></td><td><div class="acts">' + ab('Unban', { act: 'unban', cid: b.cid }, 'green') + '</div></td></tr>'; }); html += '</table></div>'; }
+    } else if (admTab === 'server') {
+      var st = d.settings || {};
+      var num = function (k, label, unit) { return '<div class="admrow"><span class="lbl" style="min-width:150px">' + label + '</span><input class="admin-in" data-set="' + k + '" type="number" value="' + esc(st[k]) + '" style="max-width:90px;min-width:70px"><span style="color:var(--mut);font-size:12px">' + (unit || '') + '</span></div>'; };
+      html += '<div class="admcard"><div class="admhead">✨ Double Scrolls event ' + (d.x2Left ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON · ' + Math.ceil(d.x2Left / 60000) + ' min left</span>' : '') + '</div><div class="admrow">' + ab('30 min', { act: 'double', mins: 30 }, 'gold') + ab('1 hour', { act: 'double', mins: 60 }, 'gold') + ab('3 hours', { act: 'double', mins: 180 }, 'gold') + (d.x2Left ? ab('Stop', { act: 'double', mins: 0 }, 'red') : '') + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Every game pays 2× Scrolls while it’s on. Everyone gets an announcement.</div></div>';
+      html += '<div class="admcard"><div class="admhead">📢 Hub message (shows at the top of the hub)</div><div class="admrow"><input class="admin-in" id="admMotd" maxlength="120" placeholder="e.g. Tournament at 7pm!" value="' + esc(S.admMotdDraft != null ? S.admMotdDraft : st.motd || '') + '">' + ab('Set', { act: 'setting', k: 'motd' }, 'gold') + ab('Clear', { act: 'setting', k: 'motd', v: '' }) + '</div></div>';
+      html += '<div class="admcard"><div class="admhead">🎮 Game settings <span class="tag2">new matches</span></div>' + num('ctfCaps', '🚩 CTF captures to win', 'captures') + num('ctfMins', '🚩 CTF time limit', 'minutes') + num('hideSec', '🎃 Prop Hunt hiding time', 'seconds') + num('seekSec', '🎃 Prop Hunt seeking time', 'seconds') + num('spleefMins', '❄️ Spleef sudden death after', 'minutes') +
+        '<div class="admrow"><span class="lbl" style="min-width:150px">🤖 Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('💾 Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
+      html += '<div class="admcard"><div class="admhead">⏹️ Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
+    } else if (admTab === 'maps') {
+      var mp = d.maps || [], rot = d.rot || {};
+      html += '<div class="admcard"><div class="admhead">🗺️ Custom maps ' + (d.mapper ? '<a class="ab gold" href="/arcade/builder" style="text-decoration:none">🛠️ Open map builder</a>' : '<span class="tag2">only Scrollreader11 can make or change maps</span>') + '</div>';
+      if (d.mapper) html += '<div class="admrow"><span class="lbl">Built-in maps in rotation:</span>' + ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { var on = rot[g] && rot[g].def; return ab((on ? '✅ ' : '⬜ ') + MG.GAMES[g].icon + ' ' + MG.GAMES[g].name, { act: 'maprot', game: g, id: 'default', on: on ? 0 : 1 }, on ? 'green' : ''); }).join('') + '</div>';
+      html += '<table class="admp">' + (mp.length ? mp.map(function (m) { return '<tr><td>' + MG.GAMES[m.game].icon + ' <b>' + esc(m.name) + '</b><br><span style="color:var(--mut);font-size:12px">by ' + esc(m.author || '?') + ' · ' + new Date(m.at).toLocaleDateString() + (m.ok ? '' : ' · unfinished') + '</span></td><td><div class="acts">' + (m.ok ? ab('▶ Test', { act: 'testmap', id: m.id, game: m.game }, 'green') : '') + (d.mapper && m.ok ? ab(m.rot ? '✅ In rotation' : '⬜ Add to rotation', { act: 'maprot', game: m.game, id: m.id, on: m.rot ? 0 : 1 }, m.rot ? 'green' : '') : '') + (d.mapper ? ab('🗑️', { act: 'mapdel', id: m.id }, 'red', true) : '') + '</div></td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No custom maps yet.</td></tr>') + '</table></div>';
+    } else if (admTab === 'log') {
+      html += '<div class="admcard"><div class="admhead">📜 Recent activity</div><table class="admp">' + (d.logs || []).map(function (l) { return '<tr><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</td><td>' + esc(l.text) + '</td></tr>'; }).join('') + '</table></div>';
     } else {
       html += '<div class="admcard"><div class="admhead">📢 Announcement</div><div class="admrow"><input class="admin-in" id="admAnn" maxlength="140" placeholder="Message everyone in Bedwars…" value="' + esc(S.admDraft || '') + '">' + ab('Send', { act: 'announce' }, 'gold') + '</div></div>';
       html += '<div class="admcard"><div class="admhead">🔒 New matches</div><div class="admrow">' + (d.locked ? '<span class="tag2" style="background:#ff5c6c">Paused</span>' + ab('Open matches again', { act: 'lock', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">Open</span>' + ab('Pause new matches', { act: 'lock', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Pausing stops anyone except owners from starting or joining matches. Games already running keep going.</div></div>';
       html += '<div class="admcard"><div class="admhead">🎙️ Proximity voice chat</div><div class="admrow">' + (d.voiceOff ? '<span class="tag2" style="background:#ff5c6c">Off for everyone</span>' + ab('Turn voice on', { act: 'voiceoff', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">On</span>' + ab('Turn voice off for everyone', { act: 'voiceoff', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Mute one person from the Players tab.</div></div>';
       var inMatch = !!d.myEnt;
       html += '<div class="admcard"><div class="admhead">✨ Your powers ' + (inMatch ? '' : '<span class="tag2">join a match to use these</span>') + '</div><div class="admrow">' +
-        ab(S.god ? '😇 God mode: ON' : '😇 God mode', { act: 'self', op: 'god' }, S.god ? 'gold' : '') + ab('💰 +Resources', { act: 'self', op: 'res' }) + ab('⚔️ Max kit', { act: 'self', op: 'kit' }) +
-        '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">God mode: you take no damage, can’t fall into the void, and can walk on air.</div></div>';
+        ab(S.god ? '😇 God mode: ON' : '😇 God mode', { act: 'self', op: 'god' }, S.god ? 'gold' : '') + ab((d.my && d.my.vanish ? '✅ ' : '') + '👻 Vanish', { act: 'self', op: 'vanish' }, d.my && d.my.vanish ? 'gold' : '') + ab((d.my && d.my.speed ? '✅ ' : '') + '⚡ Speed', { act: 'self', op: 'speed' }, d.my && d.my.speed ? 'gold' : '') + ab((d.my && d.my.onehit ? '✅ ' : '') + '💥 One-hit kills', { act: 'self', op: 'onehit' }, d.my && d.my.onehit ? 'gold' : '') +
+        ab('💰 +Resources', { act: 'self', op: 'res' }) + ab('⚔️ Max kit', { act: 'self', op: 'kit' }) + ab('🧱 Infinite blocks', { act: 'self', op: 'blocks' }) +
+        '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">God: no damage, no void. Vanish: players and bots can’t see you (owners see a ghost). Join any running match from the Matches tab.</div></div>';
     }
-    var focused = document.activeElement && document.activeElement.id === 'admAnn';
+    var focused = document.activeElement && (document.activeElement.tagName === 'INPUT') && $('admBody').contains(document.activeElement);
     if (focused) return; // don't wipe what you're typing
     body.innerHTML = html; body.scrollTop = top;
     if (S.adm.myEnt) [].forEach.call(body.querySelectorAll('[data-op="tpme"],[data-op="bring"]'), function () {});
   }
-  $('admBody').addEventListener('input', function (e) { if (e.target.id === 'admAnn') S.admDraft = e.target.value; });
+  $('admBody').addEventListener('input', function (e) { if (e.target.id === 'admAnn') S.admDraft = e.target.value; if (e.target.id === 'admFind') { S.admFind = e.target.value; } if (e.target.id === 'admAmt') S.admAmt = e.target.value; if (e.target.id === 'admMotd') S.admMotdDraft = e.target.value; });
+  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'admFind') renderAdmin(); });
   $('admBody').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && e.target.id === 'admAnn') { var b = $('admBody').querySelector('[data-act="announce"]'); if (b) b.click(); } });
   $('admBody').addEventListener('click', function (e) {
     var b = e.target.closest('.ab'); if (!b || b.disabled) return;
     var key = b.dataset.key;
     if (b.dataset.confirm && !(admArm && admArm.key === key && now() < admArm.until)) { admArm = { key: key, until: now() + 2600 }; SC.sfx('click'); renderAdmin(); return; }
     admArm = null;
+    if (b.dataset.local === 'reveal') { S.reveal = !S.reveal; renderAdmin(); return; }
+    if (b.dataset.act === 'testmap') { closeModals(); S.lastQueue = { t: 'practice', game: b.dataset.game, mode: b.dataset.game === 'bw' ? 'solo' : b.dataset.game, diff: 'normal', map: b.dataset.id }; send(S.lastQueue); return; }
+    if (b.dataset.act === 'saveset') { [].forEach.call($('admBody').querySelectorAll('[data-set]'), function (inp) { if (String(S.adm.settings[inp.dataset.set]) !== inp.value) send({ t: 'adm', a: 'setting', k: inp.dataset.set, v: inp.value }); }); SC.sfx('click'); return; }
     var m = { t: 'adm', a: b.dataset.act };
-    ['room', 'id', 'op', 'team', 'winner', 'sec', 'pid', 'on'].forEach(function (k) { if (b.dataset[k] != null) m[k] = isNaN(+b.dataset[k]) ? b.dataset[k] : +b.dataset[k]; });
+    ['room', 'id', 'op', 'team', 'winner', 'sec', 'pid', 'on', 'mins', 'k', 'v', 'cid', 'game'].forEach(function (k) { if (b.dataset[k] != null) m[k] = isNaN(+b.dataset[k]) || b.dataset[k] === '' ? b.dataset[k] : +b.dataset[k]; });
+    if (b.dataset.amount) { var amt = Math.round(+($('admAmt') && $('admAmt').value) || 0); m.amount = b.dataset.amount === '-amt' ? -amt : amt; }
+    if (m.a === 'setting' && m.k === 'motd' && b.dataset.v == null) { m.v = ($('admMotd') && $('admMotd').value) || ''; S.admMotdDraft = null; }
+    if (m.a === 'cfgnum') return;
     if (m.a === 'announce') { m.text = ($('admAnn') && $('admAnn').value) || S.admDraft || ''; S.admDraft = ''; if ($('admAnn')) $('admAnn').value = ''; }
     if (m.a === 'lock' || m.a === 'voiceoff') m.on = !!m.on;
     SC.sfx('click'); send(m);
@@ -1587,7 +1643,7 @@
       } });
     });
     (m.pickSpots || []).forEach(function (sp, k) {
-      list.push({ k: 'fn', y: sp.y - 2, fn: function () { D.pad(c, sp.x, sp.y, t); if (S.pick[k]) D.pickup(c, S.pick[k], sp.x, sp.y, t); } });
+      list.push({ k: 'fn', y: sp.y - 2, fn: function () { D.pad(c, sp.x, sp.y, t); if (S.pickups[k]) D.pickup(c, S.pickups[k], sp.x, sp.y, t); } });
     });
   }
   function drawDisguised(e, x, y, t) {
@@ -1851,8 +1907,8 @@
       if (ev[1] === S.myId) { S.did.cap = true; toastBig('+1 CAPTURE!', '#ffd166'); }
       return true;
     }
-    if (k === 'pu') { S.pick[ev[1]] = ev[2]; var sp = (S.map.pickSpots || [])[ev[1]]; if (sp) { D.burst('magic', sp.x, sp.y - 20, 10, '#ffd166'); sfxAt('pop2', sp.x, sp.y); } return true; }
-    if (k === 'put') { S.pick[ev[1]] = ''; if (ev[2] === S.myId) { SC.sfx('buy'); toast('+ ' + (ev[3] === 'arrows' ? '8 Arrows' : ev[3] === 'wool' ? '16 Wool' : B.ITEM_NAMES[ev[3]] || ev[3]), 1400); } return true; }
+    if (k === 'pu') { S.pickups[ev[1]] = ev[2]; var sp = (S.map.pickSpots || [])[ev[1]]; if (sp) { D.burst('magic', sp.x, sp.y - 20, 10, '#ffd166'); sfxAt('pop2', sp.x, sp.y); } return true; }
+    if (k === 'put') { S.pickups[ev[1]] = ''; if (ev[2] === S.myId) { SC.sfx('buy'); toast('+ ' + (ev[3] === 'arrows' ? '8 Arrows' : ev[3] === 'wool' ? '16 Wool' : B.ITEM_NAMES[ev[3]] || ev[3]), 1400); } return true; }
     if (k === 'sp') {
       var z = ev[1], i = ev[2], st = ev[3]; if (!S.map.L) return true;
       var was = S.map.L[z][i]; S.map.L[z][i] = st;

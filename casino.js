@@ -17,14 +17,14 @@ const GOTD_BONUS = 1500; // coin bonus for playing the Game of the Day (once/day
 const KV_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
 const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const kvEnabled = !!(KV_URL && KV_TOKEN);
-async function kvGet(key) {
+export async function kvGet(key) {
   if (!kvEnabled) return null;
   const r = await fetch(KV_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(['GET', key]) });
   if (!r.ok) throw new Error('kv get ' + r.status);
   const j = await r.json();
   return j && typeof j.result === 'string' ? j.result : null;
 }
-async function kvSet(key, value) {
+export async function kvSet(key, value) {
   if (!kvEnabled) return;
   const r = await fetch(KV_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(['SET', key, value]) });
   if (!r.ok) throw new Error('kv set ' + r.status);

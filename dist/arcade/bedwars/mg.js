@@ -185,7 +185,132 @@
   };
   M.propAt = function (m, x, y, rad) { var best = null, bd = rad || 40; if (!m.props) return null; for (var k = 0; k < m.props.length; k++) { var p = m.props[k], d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } } return best; };
 
-  M.genMap = function (game, seed) { return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : B.genMap(); };
+  // ================================================================ CUSTOM MAPS (map builder)
+  // A custom map is plain JSON: ground (run-length), walls, props, spleef floors and
+  // markers (tile indexes). buildCustom() turns it into the same shape the
+  // generators above produce, so every game, bot and renderer just works.
+  M.DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  M.rle = function (arr) { var out = [], v = arr[0], n = 0; for (var i = 0; i < arr.length; i++) { if (arr[i] === v) n++; else { out.push(v.toString(36) + '.' + n.toString(36)); v = arr[i]; n = 1; } } out.push(v.toString(36) + '.' + n.toString(36)); return out.join(','); };
+  M.unrle = function (str) { var a = new Uint8Array(N); if (!str) return a; var k = 0; str.split(',').forEach(function (tok) { var p = tok.split('.'), v = parseInt(p[0], 36) || 0, n = parseInt(p[1], 36) || 0; for (var j = 0; j < n && k < N; j++) a[k++] = v; }); return a; };
+  function ctr(i) { return { x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2 }; }
+  function byTeam(list, t) { if (!list) return null; for (var k = 0; k < list.length; k++) if (list[k][0] === t) return list[k]; return null; }
+  M.buildCustom = function (cm) {
+    var m = blank(), mk = cm.mk || {}, game = cm.game;
+    m.game = game; m.custom = true; m.name = cm.name;
+    m.g = M.unrle(cm.g);
+    (cm.w || []).forEach(function (q) { m.w[q[0]] = q[1]; m.wc[q[0]] = q[2] || 0; });
+    (cm.f || []).forEach(function (q) { m.f[q[0]] = q[1]; m.fc[q[0]] = q[2] || 0; });
+    m.props = [];
+    (cm.props || []).forEach(function (q) { if (!M.PROPS[q[1]]) return; m.obj[q[0]] = 3; var c = ctr(q[0]); m.props.push({ id: m.props.length, kind: q[1], tile: q[0], x: c.x, y: c.y }); });
+    for (var i = 0; i < N; i++) { var tx = i % W, ty = (i / W) | 0; if (tx < 2 || ty < 2 || tx >= W - 2 || ty >= H - 2) m.noBuild[i] = 1; }
+    function noB(i, r) { var tx = i % W, ty = (i / W) | 0; for (var y = -r; y <= r; y++) for (var x = -r; x <= r; x++) if (B.inb(tx + x, ty + y)) m.noBuild[(ty + y) * W + tx + x] = 1; }
+    var mid = { x: W * T / 2, y: H * T / 2 };
+    if (game === 'bw') {
+      for (var t = 0; t < 4; t++) {
+        var bed = byTeam(mk.bed, t), sp = byTeam(mk.sp, t), tg = byTeam(mk.tg, t), sh = byTeam(mk.shop, t), up = byTeam(mk.up, t);
+        var d = M.DIRS[bed ? bed[2] & 3 : 0], foot = bed ? bed[1] : (sp ? sp[1] : 0), fx = foot % W, fy = (foot / W) | 0, hx = fx + d[0], hy = fy + d[1];
+        var spc = sp ? ctr(sp[1]) : { x: (fx - d[0] * 3) * T + T / 2, y: (fy - d[1] * 3) * T + T / 2 };
+        var gc = tg ? ctr(tg[1]) : spc, sx = Math.floor(spc.x / T), sy = Math.floor(spc.y / T);
+        m.bases.push({ team: t, cx: fx - 2 * d[0], cy: fy - 2 * d[1], out: [-d[0], -d[1]], inward: d, right: [-d[1], d[0]], spawn: spc, gen: gc,
+          rect: [Math.min(sx, fx) - 5, Math.min(sy, fy) - 5, Math.max(sx, fx) + 5, Math.max(sy, fy) + 5] });
+        if (bed) { var head = hy * W + hx; m.beds.push({ team: t, foot: foot, head: head, x: (fx + hx + 1) * T / 2, y: (fy + hy + 1) * T / 2, dir: d, alive: true }); m.obj[foot] = 1; m.obj[head] = 1; }
+        else m.beds.push({ team: t, foot: -1, head: -1, x: spc.x, y: spc.y, dir: d, alive: false });
+        var gt = tg ? tg[1] : Math.floor(gc.y / T) * W + Math.floor(gc.x / T);
+        m.gens.push({ kind: 'iron', team: t, x: gc.x - 9, y: gc.y, tile: gt }, { kind: 'gold', team: t, x: gc.x + 9, y: gc.y, tile: gt }, { kind: 'em', team: t, base: true, x: gc.x, y: gc.y - 2, tile: gt });
+        [[sh, 'shop'], [up, 'up']].forEach(function (q) { if (!q[0]) return; var c = ctr(q[0][1]); m.obj[q[0][1]] = 2; m.npcs.push({ kind: q[1], team: t, tile: q[0][1], x: c.x, y: c.y + 10 }); });
+        if (sp) noB(sp[1], 1); noB(gt, 0);
+      }
+      (mk.dia || []).forEach(function (i2) { var c = ctr(i2); m.gens.push({ kind: 'dia', x: c.x, y: c.y, tile: i2 }); m.noBuild[i2] = 1; });
+      (mk.em || []).forEach(function (i2) { var c = ctr(i2); m.gens.push({ kind: 'em', x: c.x, y: c.y, tile: i2 }); m.noBuild[i2] = 1; });
+    } else if (game === 'ctf') {
+      for (t = 0; t < 2; t++) {
+        var s2 = byTeam(mk.sp, t), fl = byTeam(mk.flag, t);
+        var fc = fl ? ctr(fl[1]) : s2 ? ctr(s2[1]) : mid, sc2 = s2 ? ctr(s2[1]) : fc, dir = Math.sign(mid.x - fc.x) || (t ? -1 : 1);
+        m.bases.push({ team: t, cx: Math.floor(sc2.x / T), cy: Math.floor(sc2.y / T), inward: [dir, 0], right: [0, 1], spawn: sc2, flagTile: fl ? fl[1] : -1, fx: fc.x, fy: fc.y,
+          rect: [Math.floor(fc.x / T) - 6, Math.floor(fc.y / T) - 6, Math.floor(fc.x / T) + 6, Math.floor(fc.y / T) + 6] });
+        if (s2) noB(s2[1], 1); if (fl) noB(fl[1], 1);
+      }
+      m.pickSpots = (mk.pick || []).map(ctr);
+    } else if (game === 'spleef') {
+      m.L = [];
+      for (var z = 0; z < M.SP_LAYERS; z++) m.L.push(M.unrle((cm.L || [])[z]));
+      var sps = (mk.sp || []).map(function (q) { return ctr(q[1]); });
+      if (!sps.length) sps = [{ x: 36 * T, y: 36 * T }];
+      m.spawns = []; for (var k2 = 0; k2 < 8; k2++) m.spawns.push(sps[k2 % sps.length]);
+      m.spawns.forEach(function (s3, k) { m.bases.push({ team: k, cx: Math.floor(s3.x / T), cy: Math.floor(s3.y / T), spawn: s3, inward: [0, 0], right: [0, 1], rect: [0, 0, 0, 0] }); });
+    } else if (game === 'hide') {
+      var hs = (mk.hs || []).map(ctr), sk = mk.seek && mk.seek.length ? ctr(mk.seek[0]) : mid;
+      m.hideSpawns = hs.length ? hs : [mid]; m.seekSpawn = sk;
+      var cx2 = Math.floor(sk.x / T), cy2 = Math.floor(sk.y / T);
+      m.cage = [cx2 - 3, cy2 - 3, cx2 + 3, cy2 + 3];
+      m.bases = [{ team: 0, cx: 0, cy: 0, spawn: m.hideSpawns[0], inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] }, { team: 1, cx: cx2, cy: cy2, spawn: sk, inward: [0, 1], right: [1, 0], rect: m.cage }];
+      for (i = 0; i < N; i++) { m.noBuild[i] = 1; m.noMine[i] = 1; }
+    }
+    return m;
+  };
+  // What's missing before a map can be played? -> list of problems (empty = good to go)
+  M.validateCustom = function (cm) {
+    var p = [], mk = cm.mk || {}, g = M.unrle(cm.g), stand = function (i) { return i >= 0 && i < N && (g[i] > 0 && g[i] !== B.G.ROCK); };
+    var tn = function (t) { return (B.TEAMS[t] || {}).name; };
+    if (!cm.name || !String(cm.name).trim()) p.push('Give your map a name');
+    if (cm.game === 'bw') {
+      for (var t = 0; t < 4; t++) {
+        var sp = byTeam(mk.sp, t), bed = byTeam(mk.bed, t);
+        if (!sp) p.push(tn(t) + ' team needs a spawn point'); else if (!stand(sp[1])) p.push(tn(t) + ' spawn must be on solid ground');
+        if (!bed) p.push(tn(t) + ' team needs a bed'); else { var d = M.DIRS[bed[2] & 3], hd = bed[1] + d[1] * W + d[0]; if (!stand(bed[1]) || !stand(hd)) p.push(tn(t) + ' bed must sit on ground (both halves)'); }
+        if (!byTeam(mk.tg, t)) p.push(tn(t) + ' team needs a generator');
+        if (!byTeam(mk.shop, t)) p.push(tn(t) + ' team needs an Item Shop NPC');
+        if (!byTeam(mk.up, t)) p.push(tn(t) + ' team needs an Upgrades NPC');
+      }
+    } else if (cm.game === 'ctf') {
+      for (t = 0; t < 2; t++) { var s2 = byTeam(mk.sp, t), f = byTeam(mk.flag, t); if (!s2) p.push(tn(t) + ' team needs a spawn point'); else if (!stand(s2[1])) p.push(tn(t) + ' spawn must be on solid ground'); if (!f) p.push(tn(t) + ' team needs a flag'); else if (!stand(f[1])) p.push(tn(t) + ' flag must be on solid ground'); }
+    } else if (cm.game === 'spleef') {
+      var L0 = M.unrle((cm.L || [])[0]), cnt = 0; for (var i = 0; i < N; i++) if (L0[i]) cnt++;
+      if (cnt < 40) p.push('Paint at least 40 tiles on floor 1 (the top floor)');
+      var sps = mk.sp || []; if (sps.length < 2) p.push('Place at least 2 spawn points');
+      sps.forEach(function (q, k) { if (!L0[q[1]]) p.push('Spawn #' + (k + 1) + ' must be on a floor-1 tile'); });
+    } else if (cm.game === 'hide') {
+      if (!mk.seek || !mk.seek.length) p.push('Place the seeker spawn (their cage)'); else if (!stand(mk.seek[0])) p.push('Seeker spawn must be on ground');
+      if (!mk.hs || !mk.hs.length) p.push('Place at least one hider spawn');
+      if ((cm.props || []).length < 8) p.push('Place at least 8 props for hiders to copy');
+    } else p.push('Pick a game');
+    return p;
+  };
+  // Turn a built-in map into an editable custom map (builder templates).
+  M.toCustom = function (game, seed) {
+    var m = M.genMap(game, seed || 7), mk = {}, i, cm = { v: 1, game: game, name: '', g: M.rle(m.g), w: [], props: [], mk: mk };
+    for (i = 0; i < N; i++) if (m.w[i]) cm.w.push([i, m.w[i], m.wc[i]]);
+    var ti = function (x, y) { return Math.floor(y / T) * W + Math.floor(x / T); };
+    if (game === 'bw') {
+      mk.sp = []; mk.bed = []; mk.tg = []; mk.shop = []; mk.up = []; mk.dia = []; mk.em = [];
+      m.bases.forEach(function (b, t) { mk.sp.push([t, ti(b.spawn.x, b.spawn.y)]); });
+      m.beds.forEach(function (b) { var dir = 0; M.DIRS.forEach(function (d, k) { if (d[0] === b.dir[0] && d[1] === b.dir[1]) dir = k; }); mk.bed.push([b.team, b.foot, dir]); });
+      m.gens.forEach(function (gn) { if (gn.team != null) { if (gn.kind === 'iron') mk.tg.push([gn.team, gn.tile]); } else mk[gn.kind].push(gn.tile); });
+      m.npcs.forEach(function (n) { mk[n.kind].push([n.team, n.tile]); });
+    } else if (game === 'ctf') {
+      mk.sp = m.bases.map(function (b, t) { return [t, ti(b.spawn.x, b.spawn.y)]; });
+      mk.flag = m.bases.map(function (b, t) { return [t, b.flagTile]; });
+      mk.pick = (m.pickSpots || []).map(function (s) { return ti(s.x, s.y); });
+    } else if (game === 'spleef') {
+      cm.L = m.L.map(function (L) { var a = new Uint8Array(N); for (var k = 0; k < N; k++) a[k] = L[k] ? 1 : 0; return M.rle(a); });
+      mk.sp = m.spawns.map(function (s, k) { return [k, ti(s.x, s.y)]; });
+    } else if (game === 'hide') {
+      cm.props = m.props.map(function (p) { return [p.tile, p.kind]; });
+      mk.hs = m.hideSpawns.map(function (s) { return ti(s.x, s.y); });
+      mk.seek = [ti(m.seekSpawn.x, m.seekSpawn.y)];
+    }
+    return cm;
+  };
+  M.blankCustom = function (game) {
+    var g = new Uint8Array(N), cm = { v: 1, game: game, name: '', w: [], props: [], mk: {} };
+    var r = game === 'spleef' ? 0 : 10;
+    for (var y = -r; y <= r; y++) for (var x = -r; x <= r; x++) g[(36 + y) * W + 36 + x] = B.G.GRASS;
+    cm.g = M.rle(g);
+    if (game === 'spleef') { cm.L = []; for (var z = 0; z < M.SP_LAYERS; z++) { var a = new Uint8Array(N); var R = 12 - z; for (y = -R; y <= R; y++) for (x = -R; x <= R; x++) if (x * x + y * y <= R * R) a[(36 + y) * W + 36 + x] = 1; cm.L.push(M.rle(a)); } }
+    return cm;
+  };
+
+  M.genMap = function (game, seed, custom) { if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : B.genMap(); };
 
   // Hotbar per game.
   M.hotbar = function (game, inv, role) {

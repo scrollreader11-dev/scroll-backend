@@ -1835,6 +1835,10 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/arcade/bedwars/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if (url === '/arcade/builder' || url === '/arcade/builder/' || url.startsWith('/arcade/builder?')) {
+    req.url = '/arcade/bedwars/builder.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
   if (url === '/arcade/bedwars' || url === '/arcade/bedwars/' || url === '/bedwars' || url === '/bedwars/') {
     req.url = '/arcade/bedwars/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });

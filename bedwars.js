@@ -8,7 +8,8 @@ import { WebSocketServer } from 'ws';
 import './dist/arcade/bedwars/shared.js';
 import './dist/arcade/bedwars/mg.js';
 import { MINI, initMini } from './minigames.js';
-import { worldIdentity, worldLook, bwReward, bwStats, bwLeaderboard } from './casino.js';
+import * as GMS from './gamemaps.js';
+import { worldIdentity, worldLook, bwReward, bwStats, bwLeaderboard, grantCoins } from './casino.js';
 
 const BW = globalThis.BW;
 const MG = globalThis.MG;
@@ -93,7 +94,7 @@ function enterSpace(c, sp, x, y) {
   send(c, {
     t: 'space', kind: sp.kind, you: c.pid, x: Math.round(c.sx), y: Math.round(c.sy), now: Date.now(),
     players: [...sp.conns].map((o) => ({ id: o.pid, nick: o.nick, look: o.look, x: Math.round(o.sx), y: Math.round(o.sy), team: spaceTeam(o) })),
-    room: sp.room ? roomInfo(sp.room, c) : null, lb: sp.kind === 'hub' ? bwLeaderboard() : null, online: lobbyList(), stats: bwStats(c.cid), qc: BW_QC,
+    room: sp.room ? roomInfo(sp.room, c) : null, lb: sp.kind === 'hub' ? bwLeaderboard() : null, online: lobbyList(), stats: bwStats(c.cid), qc: BW_QC, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1,
   });
   sp.events.push(['pj', c.pid, c.nick, c.look, Math.round(c.sx), Math.round(c.sy), spaceTeam(c)]);
 }
@@ -135,7 +136,7 @@ function spaceMsg(c, m, now) {
 function newCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c; do { c = ''; for (let i = 0; i < 4; i++) c += A[(rnd() * A.length) | 0]; } while (codes.has(c)); return c; }
 function makeRoom(kind, mode, diff, host, game) {
   game = MG.isMini(game) ? game : 'bw';
-  const r = { id: nextRoom++, game, kind, mode: game !== 'bw' ? game : BW.MODES[mode] ? mode : 'solo', diff: SK[diff] ? diff : 'normal', code: kind === 'private' ? newCode() : '', host: host || '', state: 'lobby', members: [], startAt: 0, created: Date.now() };
+  const r = { id: nextRoom++, mapId: null, game, kind, mode: game !== 'bw' ? game : BW.MODES[mode] ? mode : 'solo', diff: SK[diff] ? diff : 'normal', code: kind === 'private' ? newCode() : '', host: host || '', state: 'lobby', members: [], startAt: 0, created: Date.now() };
   r.space = makeSpace('wait', r);
   rooms.set(r.id, r); if (r.code) codes.set(r.code, r);
   return r;
@@ -153,6 +154,7 @@ function roomInfo(r, c) {
   return {
     t: 'room', id: r.id, game: r.game, kind: r.kind, code: r.code, mode: r.mode, diff: r.diff, state: r.state, host: r.host,
     startIn: r.startAt ? Math.max(0, r.startAt - Date.now()) : 0, per: per(r), teams: nTeams(r), cap: capOf(r), you: c ? c.cid : '',
+    mapId: r.mapId || '', mapName: r.mapId && r.mapId !== 'default' && GMS.getMap(r.mapId) ? GMS.getMap(r.mapId).name : '', maps: r.kind === 'private' ? GMS.publishedMaps(r.game) : null,
     members: r.members.map((m) => ({ cid: m.cid, pid: m.conn ? m.conn.pid : 0, nick: m.nick, team: m.team, look: m.look })),
   };
 }
@@ -208,10 +210,17 @@ function makeEnt(r, o) {
   return e;
 }
 function botLook() { return { skin: pick(BOT_SKINS), body: pick(BOT_BODIES), hat: pick(BOT_HATS), acc: pick(BOT_ACCS), trail: '' }; }
+function resolveMap(r) {
+  if (r.mapId === 'default') return null;
+  if (r.mapId) { const m = GMS.getMap(r.mapId); if (m && (m.ok || r.testMap)) return m; }
+  return GMS.pickMap(r.game);
+}
 function startMatch(r) {
+  r.custom = resolveMap(r);
+  GMS.log('▶️ ' + (r.game === 'bw' ? 'Bedwars ' + r.mode : MG.GAMES[r.game].name) + ' #' + r.id + ' started (' + r.members.length + ' players' + (r.custom ? ', map "' + r.custom.name + '"' : '') + ')');
   if (r.game !== 'bw') return MINI.start(r);
   r.state = 'play';
-  r.map = BW.genMap();
+  r.map = r.custom ? MG.buildCustom(r.custom) : BW.genMap();
   r.ents = new Map();
   r.teams = [0, 1, 2, 3].map(() => ({ bed: true, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } }));
   r.gens = r.map.gens.map((g) => ({ ...g, n: 0, acc: 0, last: 0 }));
@@ -243,6 +252,7 @@ function fullState(r, e) {
   for (let i = 0; i < N; i++) if (m.f[i] || m.w[i]) blocks.push([i, m.f[i], m.fc[i], m.w[i], m.wc[i]]);
   return {
     ...(r.game !== 'bw' ? MINI.state(r, e) : { game: 'bw' }),
+    custom: r.custom || null, cfg: GMS.clientCfg(r.game),
     t: 'game', you: e.id, team: e.team, mode: r.mode, kind: r.kind, code: r.code, diff: r.diff, goAt: r.goAt, now: Date.now(),
     ents: [...r.ents.values()].map(entPub), beds: m.beds.map((b) => (b.alive ? 1 : 0)), gens: r.gens.map((g) => [g.n, g.last]),
     teams: teamsInfo(r), tier: r.tier, tl: r.tl, blocks, tnts: r.tnts.map((x) => [x.id, x.x, x.y, x.at]), qc: BW_QC,
@@ -343,6 +353,7 @@ function swing(r, e, ang, now, jump) {
   const sinceHop = now - (e.hopAt || 0);
   const crit = (jump || e.ctl !== 'human') && sinceHop > 120 && sinceHop < 700;
   let dmg = kbs ? 1 : BW.SWORDS[e.sword].dmg + 1.25 * r.teams[e.team].up.sharp;
+  if (e.onehit) dmg = 100;
   if (crit) dmg *= 1.5;
   const kbPow = kbs ? 820 : 300 + (e.sprint ? 230 : e.mv ? 60 : 0);
   if (hurt(r, best, dmg, e, 'melee', best.x - e.x, best.y - e.y, kbPow, crit) && e.sprint && e.ctl === 'human') e.sprint = false;
@@ -481,13 +492,14 @@ function checkWin(r) {
 function endMatch(r, winner) {
   if (r.state !== 'play') return;
   r.state = 'end'; r.winner = winner; flush(r);
+  GMS.log('🏁 ' + (r.game === 'bw' ? 'Bedwars' : MG.GAMES[r.game].name) + ' #' + r.id + ' ended — ' + (winner >= 0 ? (r.game === 'hide' ? (winner ? 'seekers' : 'hiders') : (BW.TEAMS[winner] || {}).name) + ' won' : 'draw'));
   const stats = [...r.ents.values()].map((e) => ({ id: e.id, nick: e.nick, team: e.team, bot: e.bot, look: e.look, ...e.stats }));
   const mult = r.kind === 'public' ? 1 : 0.5;
   const extra = r.game !== 'bw' ? MINI.endInfo(r) : {};
   for (const e of r.ents.values()) {
     if (e.bot || !e.cid) continue;
     const win = r.game !== 'bw' ? MINI.isWinner(r, e, winner) : e.team === winner;
-    const amount = (r.game !== 'bw' ? MINI.reward(r, e, win) : 15 + (win ? 100 : 0) + e.stats.kills * 3 + e.stats.finals * 8 + e.stats.beds * 25) * mult;
+    const amount = (r.game !== 'bw' ? MINI.reward(r, e, win) : 15 + (win ? 100 : 0) + e.stats.kills * 3 + e.stats.finals * 8 + e.stats.beds * 25) * mult * GMS.rewardMult();
     let rew = null; try { rew = bwReward(e.cid, amount, { win, nick: e.nick, kills: e.stats.kills | 0, finals: e.stats.finals | 0, beds: e.stats.beds | 0, deaths: e.stats.deaths | 0 }); } catch (err) {}
     if (e.conn) send(e.conn, { t: 'end', game: r.game, winner, win, you: e.id, team: e.team, stats, reward: rew, mins: Math.max(0, (Date.now() - r.goAt) / 60000), ...extra });
   }
@@ -575,7 +587,7 @@ function bedRing(r, t) {
 function foeNear(r, e, maxD) {
   let best = null, bd = maxD;
   for (const o of r.ents.values()) {
-    if (o.team === e.team || o.dead || o.elim) continue;
+    if (o.team === e.team || o.dead || o.elim || o.vanish) continue;
     const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < bd) { bd = d; best = o; }
   }
   return best;
@@ -893,7 +905,7 @@ function tickProj(r, now) {
   for (let k = r.tnts.length - 1; k >= 0; k--) { const tn = r.tnts[k]; if (now >= tn.at) { r.tnts.splice(k, 1); explode(r, tn.x, tn.y, 2.6, 9, tn.owner, 'tnt'); } }
 }
 function flags(e, now) {
-  return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0) | (e.god ? 512 : 0);
+  return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0) | (e.god ? 512 : 0) | (e.vanish ? 1024 : 0);
 }
 function flush(r) {
   const now = Date.now();
@@ -938,6 +950,15 @@ export function handleBedwarsUpgrade(req, socket, head) {
     if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Log in to ScrollHub to play Bedwars.' })); ws.close(4000); } catch (e) {} return; }
     const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
     c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
+    c.mapper = !!(req._auth && String(req._auth.username || '').toLowerCase() === GMS.MAPPER);
+    let isBuilder = false; try { isBuilder = new URL(req.url, 'http://x').searchParams.get('builder') === '1'; } catch (e) {}
+    if (isBuilder) { // the map builder page: its own little channel, never a player
+      send(c, { t: 'hello', builder: true, mapper: c.mapper, nick: c.nick });
+      ws.on('message', (buf, bin) => { if (bin) return; let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; } if (!m) return; if (m.t === 'ping') return send(c, { t: 'pong', c: m.c, n: Date.now() }); if (m.t === 'mb') { try { mbMsg(c, m); } catch (err) { send(c, { t: 'mbs', ok: false, msg: 'Error: ' + (err && err.message) }); } } });
+      return;
+    }
+    const banned = GMS.banInfo(cid);
+    if (banned && !c.owner) { try { ws.send(JSON.stringify({ t: 'err', code: 'kicked', msg: 'You’re banned from Games' + (banned.until ? ' until ' + new Date(banned.until).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '') + '.' })); ws.close(4001); } catch (e) {} return; }
     // One session per account: the newest tab wins and takes over the old one's seat.
     for (const o of [...conns]) if (o.cid === cid) {
       try { o.ws.send(JSON.stringify({ t: 'err', code: 'replaced', msg: 'You opened Bedwars in another tab.' })); } catch (e) {}
@@ -947,7 +968,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     }
     conns.add(c);
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1 });
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
       if (r.state === 'play') { const e = [...r.ents.values()].find((x) => x.cid === cid && !x.bot); if (e) { e.conn = c; e.ctl = 'human'; c.room = r; c.ent = e; e.dirty = true; r.ev(['dc', e.id, 0]); send(c, fullState(r, e)); break; } }
@@ -972,6 +993,10 @@ export function handleBedwarsUpgrade(req, socket, head) {
 function onMsg(c, m, now) {
   const r = c.room, t = m.t;
   if (t === 'ping') return send(c, { t: 'pong', c: m.c, n: now });
+  if (c.frozen && (t === 'mv' || t === 'sw' || t === 'hop' || t === 'mine' || t === 'pl' || t === 'use' || t === 'bow' || t === 'dig')) {
+    if (t === 'mv' && now - (c.frzAt || 0) > 700) { c.frzAt = now; const e0 = c.ent; if (e0 && r && r.state === 'play') send(c, { t: 'pos', x: Math.round(e0.x), y: Math.round(e0.y) }); else if (c.space) send(c, { t: 'pos', x: Math.round(c.sx), y: Math.round(c.sy) }); }
+    return;
+  }
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
@@ -981,10 +1006,14 @@ function onMsg(c, m, now) {
     const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
     let room = null;
     for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && x.mode === mode && x.members.length < capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
-    if (!room) room = makeRoom('public', mode, 'normal', '', game);
+    if (!room) room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', game);
     return joinLobby(c, room);
   }
-  if (t === 'practice') { const room = makeRoom('practice', m.mode, m.diff, c.cid, game); return joinLobby(c, room, 0); }
+  if (t === 'practice') {
+    const room = makeRoom('practice', m.mode, m.diff, c.cid, game);
+    if (m.map) { const cm = GMS.getMap(String(m.map)); if (!cm || cm.game !== game) return send(c, { t: 'err', msg: 'That map doesn’t exist any more.' }); if (!cm.ok && !c.mapper) return send(c, { t: 'err', msg: 'That map isn’t finished yet.' }); if (!cm.ok) { const pr = MG.validateCustom(cm); return send(c, { t: 'err', msg: 'Map not ready: ' + pr.slice(0, 2).join(' · ') }); } room.mapId = cm.id; room.testMap = true; }
+    return joinLobby(c, room, 0);
+  }
   if (t === 'create') { const room = makeRoom('private', m.mode, m.diff, c.cid, game); return joinLobby(c, room, 0); }
   if (t === 'join') {
     const room = codes.get(String(m.code || '').toUpperCase().trim());
@@ -1002,6 +1031,7 @@ function onMsg(c, m, now) {
     } else if (t === 'cfg' && r.kind === 'private' && r.host === c.cid) {
       if (r.game === 'bw' && BW.MODES[m.mode]) { r.mode = m.mode; for (const t2 of [0, 1, 2, 3]) { const mm = r.members.filter((x) => x.team === t2); while (mm.length > per(r)) { const x = mm.pop(); x.team = bestTeam(r); } } }
       if (SK[m.diff]) r.diff = m.diff;
+      if (m.map != null) { const id = String(m.map); if (id === '' || id === 'default') r.mapId = id || null; else { const cm = GMS.getMap(id); if (cm && cm.ok && cm.game === r.game) r.mapId = id; } }
       pushRoom(r);
     } else if (t === 'start' && r.kind === 'private' && r.host === c.cid) { r.startAt = now + 3000; pushRoom(r); }
     return;
@@ -1060,12 +1090,29 @@ function roomSummary(r) {
 }
 function now0() { return Date.now(); }
 function adminInfo(c) {
-  const where = (x) => x.room ? (x.room.state === 'play' ? 'match #' + x.room.id : x.room.state === 'lobby' ? 'waiting #' + x.room.id : 'results #' + x.room.id) : x.space ? 'hub' : '—';
+  const where = (x) => x.room ? (x.room.state === 'play' ? (x.room.game === 'bw' ? 'Bedwars' : MG.GAMES[x.room.game].short) + ' #' + x.room.id : x.room.state === 'lobby' ? 'waiting #' + x.room.id : 'results #' + x.room.id) : x.space ? 'hub' : '—';
+  const me = c.ent;
   return {
-    t: 'adminfo', locked: LOCKED, voiceOff: VOICE_OFF, now: Date.now(), myRoom: c.room ? c.room.id : 0, myEnt: c.ent ? c.ent.id : 0,
+    t: 'adminfo', locked: LOCKED, voiceOff: VOICE_OFF, now: Date.now(), myRoom: c.room ? c.room.id : 0, myEnt: c.ent ? c.ent.id : 0, mapper: c.mapper,
+    my: me ? { god: !!me.god, vanish: !!me.vanish, onehit: !!me.onehit, speed: Date.now() < me.speedUntil } : null,
     rooms: [...rooms.values()].filter((r) => r.state !== 'dead').map(roomSummary),
-    conns: [...conns].map((x) => ({ pid: x.pid, nick: x.nick, owner: !!x.owner, where: where(x), voice: !!x.voice, vmuted: !!x.vmuted, talking: now0() - (x.vTalkAt || 0) < 1500 })),
+    conns: [...conns].map((x) => ({ pid: x.pid, nick: x.nick, owner: !!x.owner, where: where(x), voice: !!x.voice, vmuted: !!x.vmuted, frozen: !!x.frozen, coins: bwStats(x.cid) ? bwStats(x.cid).coins : 0, talking: now0() - (x.vTalkAt || 0) < 1500 })),
+    settings: GMS.store.settings, x2Left: Math.max(0, (GMS.store.settings.doubleUntil || 0) - Date.now()),
+    bans: Object.entries(GMS.store.bans).map(([cid, b]) => ({ cid, nick: b.nick, until: b.until, by: b.by })),
+    logs: GMS.store.logs.slice(-60).reverse(),
+    maps: GMS.listMaps(), rot: GMS.store.rot,
   };
+}
+// ---- the map builder's channel (only the map maker's account may use it)
+function mbMsg(c, m) {
+  if (!c.mapper) return send(c, { t: 'mbs', ok: false, msg: 'Only the map maker can do that.' });
+  const a = String(m.a || '');
+  const list = () => send(c, { t: 'mbl', maps: GMS.listMaps(), rot: GMS.store.rot });
+  if (a === 'list') return list();
+  if (a === 'get') { const cm = GMS.getMap(String(m.id)); return send(c, { t: 'mbg', map: cm }); }
+  if (a === 'save') { const res = GMS.saveMap(m.map || {}, c.nick); send(c, { t: 'mbs', ...res }); return list(); }
+  if (a === 'del') { GMS.deleteMap(String(m.id), c.nick); return list(); }
+  if (a === 'rot') { GMS.setRotation(String(m.game), String(m.id), !!m.on); return list(); }
 }
 function adminMsg(c, m, now) {
   const a = String(m.a || '');
@@ -1086,10 +1133,63 @@ function adminMsg(c, m, now) {
     x.vmuted = !x.vmuted; send(x, { t: 'vcstate', on: !!x.voice, off: VOICE_OFF, muted: x.vmuted, range: VOICE_R });
     return ok(x.vmuted ? x.nick + ' can’t talk in voice now.' : x.nick + ' can talk again.');
   }
+  const who = () => [...conns].find((y) => y.pid === Number(m.pid));
+  if (a === 'coins') {
+    const x = who(); if (!x) return no('Player not found.');
+    const amt = clamp(Math.round(Number(m.amount) || 0), -1000000, 1000000); if (!amt) return no('Pick an amount.');
+    const bal = grantCoins(x.cid, amt); send(x, { t: 'ann', text: (amt > 0 ? '🎁 You got ' + amt.toLocaleString() + ' Scrolls!' : amt.toLocaleString() + ' Scrolls taken away.') + ' Balance: ' + (bal || 0).toLocaleString(), from: c.nick });
+    GMS.log('📜 ' + c.nick + ' gave ' + amt + ' Scrolls to ' + x.nick); return ok((amt > 0 ? 'Gave ' : 'Took ') + Math.abs(amt).toLocaleString() + ' Scrolls ' + (amt > 0 ? 'to ' : 'from ') + x.nick + '.');
+  }
+  if (a === 'ban') {
+    const x = who(); if (!x) return no('Player not found.'); if (x.owner) return no('You can’t ban an owner.');
+    const mins = clamp(Math.round(Number(m.mins) || 0), 0, 60 * 24 * 365);
+    GMS.ban(x.cid, x.nick, mins, c.nick); GMS.log('⛔ ' + c.nick + ' banned ' + x.nick + (mins ? ' for ' + mins + ' min' : ' forever'));
+    send(x, { t: 'err', code: 'kicked', msg: 'You were banned from Games' + (mins ? ' for ' + (mins >= 1440 ? Math.round(mins / 1440) + ' day(s)' : mins >= 60 ? Math.round(mins / 60) + ' hour(s)' : mins + ' minutes') : '') + '.' });
+    setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
+    return ok('Banned ' + x.nick + '.');
+  }
+  if (a === 'unban') { GMS.unban(String(m.cid)); GMS.log('✅ ' + c.nick + ' unbanned someone'); return ok('Unbanned.'); }
+  if (a === 'freeze') { const x = who(); if (!x) return no('Player not found.'); if (x.owner && x !== c) return no('You can’t freeze an owner.'); x.frozen = !x.frozen; send(x, { t: 'frozen', on: x.frozen }); return ok(x.frozen ? x.nick + ' is frozen ❄️' : x.nick + ' can move again.'); }
+  if (a === 'slap') {
+    const x = who(); if (!x) return no('Player not found.');
+    const r2 = x.room, e2 = x.ent;
+    if (r2 && r2.state === 'play' && e2 && !e2.dead) { const an = Math.random() * Math.PI * 2; knock(r2, e2, Math.cos(an), Math.sin(an), 1100); r2.ev(['hit', e2.id, 0, 1, 0, 'punch']); }
+    send(x, { t: 'ann', text: '👋 SLAPPED!', from: c.nick }); return ok('Slapped ' + x.nick + ' 👋');
+  }
+  if (a === 'tpto' || a === 'bringp') {
+    const x = who(); if (!x || x === c) return no('Player not found.');
+    const from = a === 'tpto' ? c : x, to = a === 'tpto' ? x : c;
+    if (from.room && to.room === from.room && from.room.state === 'play' && from.ent && to.ent) { from.ent.x = to.ent.x + 30; from.ent.y = to.ent.y; from.ent.kbBudget += 2000; send(from, { t: 'pos', x: Math.round(from.ent.x), y: Math.round(from.ent.y) }); return ok('Teleported.'); }
+    if (from.space && from.space === to.space) { from.sx = to.sx + 30; from.sy = to.sy; send(from, { t: 'pos', x: Math.round(from.sx), y: Math.round(from.sy) }); return ok('Teleported.'); }
+    return no('You need to be in the same place (hub, waiting island or match).');
+  }
+  if (a === 'joinmatch') {
+    const r2 = rooms.get(Number(m.room)); if (!r2 || r2.state !== 'play') return no('That match isn’t running.');
+    if (c.room && c.room.state === 'play') return no('Leave your match first.');
+    if (r2.game === 'spleef') return no('You can’t drop into a Spleef round — wait for the next one.');
+    const tm = r2.game === 'hide' ? 1 : clamp(Number(m.team) || 0, 0, r2.game === 'ctf' ? 1 : 3);
+    if (r2.game === 'bw' && !r2.teams[tm].bed) return no('That team has no bed — pick another.');
+    leaveRoom(c, true); leaveSpace(c);
+    const e = makeEnt(r2, { cid: c.cid, nick: c.nick, look: c.look, team: tm, conn: c });
+    if (r2.game !== 'bw') MINI.lateJoin(r2, e);
+    c.room = r2; c.ent = e; r2.teamsDirty = true;
+    r2.ev(['spawn', e.id, Math.round(e.x), Math.round(e.y)]);
+    for (const x of humans(r2)) if (x !== c) send(x, { t: 'join', ent: entPub(e) });
+    send(c, fullState(r2, e)); GMS.log('👑 ' + c.nick + ' joined match #' + r2.id);
+    return ok('You joined match #' + r2.id + '.');
+  }
+  if (a === 'double') { const mins = clamp(Math.round(Number(m.mins) || 0), 0, 24 * 60); GMS.store.settings.doubleUntil = mins ? Date.now() + mins * 60000 : 0; GMS.save(); GMS.log('✨ ' + c.nick + (mins ? ' started 2× Scrolls for ' + mins + ' min' : ' ended 2× Scrolls')); if (mins) for (const x of conns) send(x, { t: 'ann', text: '✨ DOUBLE SCROLLS for the next ' + mins + ' minutes! Every game pays 2×', from: c.nick }); return ok(mins ? '2× Scrolls on for ' + mins + ' minutes.' : '2× Scrolls ended.'); }
+  if (a === 'setting') { if (!GMS.setSetting(String(m.k), m.v)) return no('Bad value.'); GMS.log('⚙️ ' + c.nick + ' set ' + m.k + ' = ' + m.v); if (m.k === 'motd' && m.v) for (const x of conns) send(x, { t: 'motd', text: GMS.store.settings.motd }); return ok('Saved. New matches use it.'); }
+  if (a === 'endall') { let n = 0; for (const r2 of rooms.values()) if (r2.state === 'play') { endMatch(r2, -1); n++; } GMS.log('⏹️ ' + c.nick + ' ended all matches'); return ok('Ended ' + n + ' match(es).'); }
+  if (a === 'maprot' || a === 'mapdel') {
+    if (!c.mapper) return no('Only the map maker can change maps.');
+    if (a === 'mapdel') return GMS.deleteMap(String(m.id), c.nick) ? ok('Map deleted.') : no('Map not found.');
+    return GMS.setRotation(String(m.game), String(m.id), !!m.on) ? ok('Rotation updated.') : no('Couldn’t change that (is the map finished?).');
+  }
   if (a === 'kick') {
     const x = [...conns].find((y) => y.pid === Number(m.pid)); if (!x) return no('Player not found.');
     if (x.owner) return no('You can’t kick an owner.');
-    send(x, { t: 'err', code: 'kicked', msg: String(m.reason || 'You were removed from Bedwars by an owner.').slice(0, 120) });
+    send(x, { t: 'err', code: 'kicked', msg: String(m.reason || 'You were removed from Games by an owner.').slice(0, 120) }); GMS.log('🚪 ' + c.nick + ' kicked ' + x.nick);
     setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
     return ok('Kicked ' + x.nick + '.');
   }
@@ -1100,6 +1200,10 @@ function adminMsg(c, m, now) {
     if (op === 'god') { e.god = !e.god; if (e.god) { e.hp = BW.MAX_HP; e.dead = false; } e.dirty = true; send(c, { t: 'god', on: e.god }); return ok(e.god ? 'God mode ON — no damage, no void, walk on air.' : 'God mode OFF.'); }
     if (op === 'res') { e.res.iron += 64; e.res.gold += 32; e.res.dia += 16; e.res.em += 16; e.dirty = true; return ok('+64 iron, +32 gold, +16 diamonds, +16 emeralds'); }
     if (op === 'kit' && r.game !== 'bw') { MINI.kit(r, e); return ok('Max kit given.'); }
+    if (op === 'vanish') { e.vanish = !e.vanish; return ok(e.vanish ? '👻 You’re invisible to players and bots.' : 'You’re visible again.'); }
+    if (op === 'speed') { const on = !(Date.now() < e.speedUntil); e.speedUntil = on ? Date.now() + 15 * 60000 : 0; e.dirty = true; return ok(on ? '⚡ Speed boost on (15 min).' : 'Speed boost off.'); }
+    if (op === 'onehit') { e.onehit = !e.onehit; return ok(e.onehit ? '💥 One-hit kills ON.' : 'One-hit kills off.'); }
+    if (op === 'blocks') { e.inv.wool += 999; e.inv.end += 99; e.dirty = true; return ok('+999 wool, +99 end stone.'); }
     if (op === 'kit') { e.sword = 4; e.armor = 4; e.pick = 4; e.inv.wool += 64; e.inv.end += 32; e.inv.fireball += 5; e.inv.tnt += 3; e.inv.pearl += 3; e.inv.gapple += 3; e.inv.bow = 1; e.inv.arrows += 32; e.inv.kbstick = 1; e.dirty = true; r.ev(['gear', e.id, e.sword, e.armor, e.pick]); return ok('Max kit given.'); }
     return no('Unknown power.');
   }
@@ -1114,6 +1218,14 @@ function adminMsg(c, m, now) {
   if (r.state !== 'play') return no('That match isn’t being played right now.');
   if (a === 'end') { const w = Number(m.winner); endMatch(r, w >= 0 && w < 8 ? w : -1); return ok('Match #' + r.id + ' ended.'); }
   if (a === 'time') { const sec = clamp(Number(m.sec) || 0, 0, 1200); if (r.game !== 'bw') { MINI.skip(r, sec * 1000); return ok('Skipped ' + sec + 's ahead.'); } r.goAt -= sec * 1000; roomSend(r, { t: 'goat', goAt: r.goAt }); return ok('Skipped ' + sec + 's ahead.'); }
+  if (a === 'mini') {
+    const op = String(m.op);
+    if (r.game === 'ctf' && op === 'score') { const tm = clamp(Number(m.team) || 0, 0, 1); r.score[tm]++; r.flagsDirty = true; r.ev(['cap', 0, 1 - tm, r.score[0], r.score[1]]); MINI.checkEnd(r, Date.now()); return ok('+1 capture for ' + BW.TEAMS[tm].name + '.'); }
+    if (r.game === 'ctf' && op === 'retflags') { for (const f of r.flags) { f.state = 0; f.carrier = 0; f.x = r.map.bases[f.team].fx; f.y = r.map.bases[f.team].fy; } for (const e of r.ents.values()) e.carry = -1; r.flagsDirty = true; r.ev(['ret', 0, 0]); r.ev(['ret', 0, 1]); return ok('Both flags sent home.'); }
+    if (r.game === 'spleef' && op === 'sd') { r.sdAt = Date.now(); roomSend(r, { t: 'mgt', sdAt: r.sdAt }); return ok('Sudden death started!'); }
+    if (r.game === 'hide' && op === 'release') { if (r.phase !== 'hide') return no('The seekers are already out.'); r.seekAt = Date.now(); roomSend(r, { t: 'mgt', seekAt: r.seekAt, endAt: r.endAt }); return ok('Seekers released!'); }
+    return no('Unknown control.');
+  }
   if (a === 'bed') { const t = Number(m.team); const b = r.map.beds[t]; if (r.game !== 'bw') return no('That match has no beds.'); if (!b || !b.alive) return no('That bed is already gone.'); destroyBed(r, b, null); return ok(BW.TEAMS[t].name + ' bed destroyed.'); }
   if (a === 'ent') {
     const e = ent(r); if (!e) return no('Player not found.');
