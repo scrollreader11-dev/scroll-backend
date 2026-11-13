@@ -20,7 +20,7 @@ import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta } from './casino.js';
 import { handleAuth, resolveSession, accountByName } from './auth.js';
-import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade } from './discord.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -1987,6 +1987,9 @@ const httpServer = createServer(async (req, res) => {
   }
 
   // ScrollHub Servers (Discord-style): data API + uploaded files.
+  // Relay servers for voice/video calls (index.html hands these to every RTCPeerConnection).
+  if (url === '/api/ice') { const ic = await iceServers(); res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ iceServers: ic.list, source: ic.source })); return; }
+  if (url === '/calltest' || url === '/calltest/') { req.url = '/calltest.html'; return serve(req, res, () => { res.writeHead(404); res.end('Not found'); }); }
   if (url.startsWith('/api/dc/')) return handleDiscord(url, req, res);
   if (url.startsWith('/dcf/')) return serveDiscordFile(req, res, url.split('?')[0]);
 

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Call connection test · ScrollHub</title>
+<style>
+  :root{--bg:#0f1117;--card:#181b24;--line:#2a2f3d;--txt:#e9ecf3;--mut:#9aa3b5;--ok:#2bd576;--bad:#ff5c6c;--warn:#ffd166}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:24px 16px}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px} p{color:var(--mut);margin:0 0 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  .big{font-size:20px;font-weight:700;display:flex;gap:10px;align-items:center}
+  .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+  .row:first-child{border-top:0}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  code{color:var(--mut);font-size:12px;word-break:break-all}
+  button{background:#3a86ff;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;font-size:15px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Call connection test</h1>
+  <p>Checks whether voice and video calls can get through from the network you're on right now.</p>
+  <div class="card"><div class="big" id="verdict">⏳ Testing…</div><div id="hint" style="color:var(--mut);margin-top:6px"></div></div>
+  <div class="card" id="rows"></div>
+  <button onclick="location.reload()">Run again</button>
+</div>
+<script>
+(async function () {
+  var rows = document.getElementById('rows');
+  function row(label, html) { var d = document.createElement('div'); d.className = 'row'; d.innerHTML = '<span>' + label + '</span><span>' + html + '</span>'; rows.appendChild(d); return d; }
+  function verdict(ok, text, hint) { var v = document.getElementById('verdict'); v.innerHTML = (ok === true ? '✅ ' : ok === false ? '❌ ' : '⚠️ ') + text; v.className = 'big ' + (ok === true ? 'ok' : ok === false ? 'bad' : 'warn'); document.getElementById('hint').textContent = hint || ''; }
+  var d;
+  try { d = await (await fetch('/api/ice', { cache: 'no-store' })).json(); } catch (e) { verdict(false, 'Couldn’t reach the server'); return; }
+  row('Relay provider', '<b>' + (d.source || '?') + '</b>');
+  var turn = d.iceServers.filter(function (s) { return [].concat(s.urls).some(function (u) { return /^turns?:/.test(u); }); });
+
+  // 1) Can we see our public address (STUN)?
+  var stunOk = await gather({ iceServers: d.iceServers.filter(function (s) { return [].concat(s.urls).every(function (u) { return /^stun:/.test(u); }); }) }, 'srflx', 5000);
+  row('Public address (STUN)', stunOk ? '<span class="ok">✓ found</span>' : '<span class="warn">✗ blocked</span>');
+
+  // 2) Each relay address on its own.
+  var anyRelay = false;
+  for (var i = 0; i < turn.length; i++) {
+    var urls = [].concat(turn[i].urls);
+    for (var k = 0; k < urls.length; k++) {
+      var r = row('<code>' + urls[k] + '</code>', '<span class="warn">…</span>');
+      var ok = await gather({ iceServers: [{ urls: urls[k], username: turn[i].username, credential: turn[i].credential }], iceTransportPolicy: 'relay' }, 'relay', 6000);
+      if (ok) anyRelay = true;
+      r.lastChild.innerHTML = ok ? '<span class="ok">✓ works</span>' : '<span class="bad">✗ no relay</span>';
+    }
+  }
+  // 3) Real end-to-end: two peers talking only through the relay.
+  var r2 = row('Relay-only call (loopback)', '<span class="warn">…</span>');
+  var e2e = anyRelay && await loopback({ iceServers: d.iceServers, iceTransportPolicy: 'relay' });
+  r2.lastChild.innerHTML = e2e ? '<span class="ok">✓ connected</span>' : '<span class="bad">✗ failed</span>';
+
+  if (e2e) verdict(true, 'Calls should work from this network', 'Voice and video can get through, even between different networks.');
+  else if (stunOk) verdict(null, 'Calls may only work on some networks', 'The relay is unreachable here, so calls between strict networks (school, some phone carriers) can fail.');
+  else verdict(false, 'This network blocks calls', 'Voice/video traffic seems to be blocked here.');
+
+  function gather(cfg, type, ms) {
+    return new Promise(function (res) {
+      var pc, done = false;
+      try { pc = new (window.__RTCPC || RTCPeerConnection)(cfg); } catch (e) { return res(false); }
+      function fin(v) { if (done) return; done = true; try { pc.close(); } catch (e) {} res(v); }
+      pc.onicecandidate = function (e) { if (e.candidate && e.candidate.candidate.indexOf(' typ ' + type) > 0) fin(true); if (!e.candidate) fin(false); };
+      pc.createDataChannel('t');
+      pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).catch(function () { fin(false); });
+      setTimeout(function () { fin(false); }, ms);
+    });
+  }
+  function loopback(cfg) {
+    return new Promise(function (res) {
+      var a = new RTCPeerConnection(cfg), b = new RTCPeerConnection(cfg), done = false;
+      function fin(v) { if (done) return; done = true; try { a.close(); b.close(); } catch (e) {} res(v); }
+      a.onicecandidate = function (e) { if (e.candidate) b.addIceCandidate(e.candidate).catch(function () {}); };
+      b.onicecandidate = function (e) { if (e.candidate) a.addIceCandidate(e.candidate).catch(function () {}); };
+      var ch = a.createDataChannel('ping');
+      b.ondatachannel = function (e) { e.channel.onmessage = function (m) { if (m.data === 'ping') fin(true); }; };
+      ch.onopen = function () { ch.send('ping'); };
+      a.createOffer().then(function (o) { return a.setLocalDescription(o); }).then(function () { return b.setRemoteDescription(a.localDescription); })
+        .then(function () { return b.createAnswer(); }).then(function (an) { return b.setLocalDescription(an); }).then(function () { return a.setRemoteDescription(b.localDescription); })
+        .catch(function () { fin(false); });
+      setTimeout(function () { fin(false); }, 12000);
+    });
+  }
+})();
+</script>
+</body>
+</html>

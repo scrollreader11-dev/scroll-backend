@@ -8,6 +8,7 @@
 // - State is kept in memory and mirrored to Upstash (sh:discord) like chat.
 // ============================================================
 import { WebSocketServer } from 'ws';
+import crypto from 'crypto';
 import { resolveSession, accountByName, sessionFromToken } from './auth.js';
 
 let getCosmetics = () => ({ color: '', tag: '' });
@@ -100,6 +101,51 @@ function createGuild(ownerId, name, icon, ownerName) {
   addMember(g, ownerId);
   markDirty();
   return g;
+}
+
+// ---- ICE servers for voice/video calls ----
+// Calls between two different networks (home Wi-Fi, school, phone data) need a TURN relay.
+// The client bundle used to hard-code the old public "openrelayproject" login, which no
+// longer works, so calls connected but nobody could hear anyone. index.html now asks for
+// this list and gives it to every RTCPeerConnection.
+// Configure ONE of these on the host for the most reliable relay (all free tiers):
+//   METERED_API_KEY + METERED_DOMAIN (yourapp.metered.live)      — metered.ca, 20 GB/mo free
+//   CF_TURN_KEY_ID + CF_TURN_API_TOKEN                            — Cloudflare Realtime TURN
+//   TURN_URLS (comma list) + TURN_USERNAME + TURN_CREDENTIAL      — any static TURN server
+//   TURN_URLS + TURN_SECRET                                       — your own coturn (REST auth)
+// Without any of them we fall back to Open Relay's documented shared-secret relay.
+const STUN = { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] };
+let iceCache = { at: 0, list: null, source: '' };
+function restCreds(secret, ttl) {
+  const username = `${Math.floor(Date.now() / 1000) + ttl}:scrollhub`;
+  const credential = crypto.createHmac('sha1', secret).update(username).digest('base64');
+  return { username, credential };
+}
+export async function iceServers() {
+  const now = Date.now();
+  if (iceCache.list && now - iceCache.at < 30 * 60 * 1000) return iceCache;
+  const env = process.env;
+  let list = null, source = '';
+  try {
+    if (env.METERED_API_KEY && env.METERED_DOMAIN) {
+      const r = await fetch(`https://${env.METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${encodeURIComponent(env.METERED_API_KEY)}`, { signal: AbortSignal.timeout(6000) });
+      const j = await r.json(); if (Array.isArray(j) && j.length) { list = j; source = 'metered'; }
+    } else if (env.CF_TURN_KEY_ID && env.CF_TURN_API_TOKEN) {
+      const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.CF_TURN_KEY_ID}/credentials/generate-ice-servers`, { method: 'POST', headers: { authorization: `Bearer ${env.CF_TURN_API_TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ ttl: 86400 }), signal: AbortSignal.timeout(6000) });
+      const j = await r.json(); if (j && j.iceServers) { list = [].concat(j.iceServers); source = 'cloudflare'; }
+    } else if (env.TURN_URLS && (env.TURN_SECRET || env.TURN_USERNAME)) {
+      const urls = env.TURN_URLS.split(',').map((u) => u.trim()).filter(Boolean);
+      const c = env.TURN_SECRET ? restCreds(env.TURN_SECRET, 86400) : { username: env.TURN_USERNAME, credential: env.TURN_CREDENTIAL || '' };
+      list = [{ urls, ...c }]; source = 'custom';
+    }
+  } catch (e) { list = null; }
+  if (!list) {
+    const h = 'staticauth.openrelay.metered.ca';
+    list = [{ urls: [`turn:${h}:80`, `turn:${h}:80?transport=tcp`, `turn:${h}:443`, `turns:${h}:443?transport=tcp`], ...restCreds('openrelayprojectsecret', 86400) }];
+    source = 'openrelay';
+  }
+  iceCache = { at: now, list: [STUN, ...list], source };
+  return iceCache;
 }
 
 // ---- REST ----
