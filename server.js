@@ -1832,7 +1832,7 @@ const httpServer = createServer(async (req, res) => {
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
   if (url === '/arcade' || url === '/arcade/' || url === '/play' || url === '/play/') {
-    req.url = '/arcade/index.html';
+    req.url = '/arcade/bedwars/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
   if (url === '/arcade/bedwars' || url === '/arcade/bedwars/' || url === '/bedwars' || url === '/bedwars/') {

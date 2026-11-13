@@ -515,8 +515,20 @@ function bwOf(p) {
   return p.bw;
 }
 export function bwStats(cid) { const p = casino.users[cid]; if (!p) return null; const b = bwOf(p); const day = new Date().toISOString().slice(0, 10); return { ...b, earnedToday: b.day === day ? b.earned : 0, cap: BW_DAILY_CAP, coins: p.coins }; }
+// Top Bedwars players for the hub leaderboard (cached; it scans every profile).
+let bwLbCache = null, bwLbAt = 0;
+export function bwLeaderboard() {
+  if (bwLbCache && Date.now() - bwLbAt < 30000) return bwLbCache;
+  const rows = [];
+  for (const id in casino.users) { const u = casino.users[id]; if (u && u.bw && (u.bw.wins || u.bw.finals)) rows.push({ nick: u.nick || 'Player', wins: u.bw.wins | 0, finals: u.bw.finals | 0, beds: u.bw.beds | 0 }); }
+  rows.sort((a, b) => b.wins - a.wins || b.finals - a.finals);
+  bwLbCache = rows.slice(0, 10); bwLbAt = Date.now();
+  return bwLbCache;
+}
 export function bwReward(cid, amount, st) {
   const p = profileOf(cid); if (!p) return null;
+  if (st.nick && st.nick !== 'Guest' && !p.nick) p.nick = String(st.nick).slice(0, 40);
+  bwLbAt = 0;
   const b = bwOf(p), day = new Date().toISOString().slice(0, 10);
   if (b.day !== day) { b.day = day; b.earned = 0; }
   b.games++; if (st.win) b.wins++;

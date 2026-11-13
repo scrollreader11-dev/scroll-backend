@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Bedwars 2D · ScrollHub Games</title>
+<title>ScrollHub Games</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -108,6 +108,42 @@
   .qcrow{display:flex;gap:6px;flex-wrap:wrap}
   #lchat{position:fixed;left:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:31;pointer-events:none}
   .lmsg{background:rgba(26,20,64,.92);border:3px solid var(--line);border-radius:12px;padding:6px 12px;font-weight:600;animation:popIn .3s}
+
+  /* ---------- hub / waiting island ---------- */
+  body:not(.mode-game):not(.mode-end) .gonly{display:none!important}
+  body:not(.mode-game) #tPlace, body:not(.mode-game) #tUse{display:none}
+  #hubHud,#waitHud{position:fixed;inset:0;z-index:11;pointer-events:none}
+  #hubHud > *, #waitHud > *{position:absolute;pointer-events:auto}
+  .hcard{left:12px;top:12px;display:flex;align-items:center;gap:8px;background:rgba(22,17,56,.86);border:3px solid var(--line);border-radius:18px;padding:4px 14px 4px 4px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+  .hcard canvas{width:52px;height:52px;background:rgba(255,255,255,.07);border-radius:13px}
+  .hcard .hn{font-weight:700;font-size:17px}
+  .hcard .hs2{display:flex;gap:10px;font-size:13px;color:#d8d3ff} .hcard b{color:var(--gold)}
+  .hchip{left:50%;top:12px;transform:translateX(-50%);background:rgba(22,17,56,.86);border:3px solid var(--line);border-radius:14px;padding:6px 14px;font-weight:700;font-size:14px;box-shadow:0 4px 0 rgba(0,0,0,.35);white-space:nowrap}
+  .hchip:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#2bd576;margin-right:7px;box-shadow:0 0 0 3px rgba(43,213,118,.25)}
+  .hbtns{right:12px;top:12px;display:flex;gap:6px;align-items:center}
+  .hbtns a.hbtn{text-decoration:none}
+  .hhint{left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:12px;flex-wrap:wrap;justify-content:center;background:rgba(22,17,56,.82);border:3px solid var(--line);border-radius:14px;padding:6px 14px;font-size:13px;color:#d8d3ff;pointer-events:none!important}
+  body.touch .hhint{display:none}
+  .wpanel{left:12px;top:12px;width:min(300px,calc(100vw - 24px));background:rgba(22,17,56,.9);border:3px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 5px 0 rgba(0,0,0,.35)}
+  .wtop{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:16px;gap:8px}
+  .wpl{font-size:12px;color:var(--mut);white-space:nowrap}
+  .wcount{font-size:18px;font-weight:700;margin:6px 0 8px} .wcount b{color:var(--gold);font-size:24px}
+  .wroster{display:flex;flex-direction:column;gap:5px}
+  .wt{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .wt i{width:14px;height:14px;border-radius:4px;border:2px solid var(--line);flex:none}
+  .wp{background:rgba(255,255,255,.08);border-radius:8px;padding:1px 7px;font-size:12px;font-weight:600}
+  .wp.you{color:var(--gold);background:rgba(255,209,102,.14)} .wp.bot{opacity:.5}
+  .whint{font-size:12px;color:#cfc8ff;margin-top:8px}
+  .wcode{margin-top:8px;font-size:13px} .wcode b{font-size:20px;letter-spacing:5px;color:var(--gold);margin:0 4px}
+  #wHost{margin-top:10px} #wHost .seg{margin-bottom:6px}
+  .lab{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin:0 0 6px}
+  .lbt{width:100%;border-collapse:collapse;font-weight:600}
+  .lbt td,.lbt th{padding:6px 8px;text-align:left;border-bottom:2px solid rgba(255,255,255,.05)}
+  .lbt th{color:var(--mut);font-size:12px;text-transform:uppercase}
+  #mLb .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  #mLb .stat{background:rgba(0,0,0,.22);border-radius:12px;padding:8px 4px;text-align:center}
+  #mLb .stat b{display:block;font-size:20px;color:var(--gold)} #mLb .stat span{font-size:11px;color:var(--mut);text-transform:uppercase}
+  @media (max-width:640px){ .hchip{top:72px;font-size:12px} .hcard .hs2{font-size:12px} .hcard .hn{font-size:15px} #hubHud .hbtns{flex-direction:column;top:12px} #hubHud .hbtn{height:38px;min-width:38px;font-size:16px} .hhint{display:none} .wpanel{top:60px} #waitHud .hbtns{top:12px} }
 
   /* ---------- HUD ---------- */
   #hud{position:fixed;inset:0;z-index:10;pointer-events:none}
@@ -315,102 +351,107 @@
 <div id="loading" class="screen">
   <canvas id="loadCv"></canvas>
   <div class="ld-center">
-    <div class="logo" aria-label="Bedwars"><span class="l b">B</span><span class="l b" style="animation-delay:.1s">E</span><span class="l b" style="animation-delay:.2s">D</span><span class="l w" style="animation-delay:.3s">W</span><span class="l w" style="animation-delay:.4s">A</span><span class="l w" style="animation-delay:.5s">R</span><span class="l w" style="animation-delay:.6s">S</span></div>
-    <div class="logo-sub">2D · ScrollHub Games</div>
+    <div class="logo" aria-label="Games"><span class="l b">G</span><span class="l w" style="animation-delay:.1s">A</span><span class="l b" style="animation-delay:.2s">M</span><span class="l w" style="animation-delay:.3s">E</span><span class="l b" style="animation-delay:.4s">S</span></div>
+    <div class="logo-sub">ScrollHub · Bedwars &amp; more</div>
     <div class="ldbar"><i id="ldBar"></i></div>
     <div id="ldStep">Loading…</div>
   </div>
   <div class="ld-tip" id="ldTip"></div>
 </div>
 
-<!-- ============ MENU ============ -->
-<div id="menu" class="screen veil hidden">
-  <div class="mtop">
-    <a class="btn sm ghost" href="/arcade">← Games</a>
-    <div class="logo" style="font-size:40px;margin-left:6px"><span class="l b" style="animation:none">BED</span><span class="l w" style="animation:none">WARS</span></div>
-    <div class="grow"></div>
-    <div class="chip"><span>📜</span><span class="coin" id="mCoins">0</span></div>
-    <button class="hbtn" id="mMute" title="Sound">🔊</button>
+<!-- ============ HUB HUD ============ -->
+<div id="hubHud" class="hidden">
+  <div class="hcard">
+    <canvas id="hubCv" width="96" height="96"></canvas>
+    <div><div class="hn" id="hubName">Player</div><div class="hs2"><span>📜 <b id="hubCoins">0</b></span><span>🏆 <b id="hubWins">0</b> wins</span></div></div>
   </div>
-  <div class="mhero">
-    <div class="card me-card">
-      <canvas id="meCv" width="400" height="340"></canvas>
-      <div>
-        <div class="nick" id="mNick">Player</div>
-        <div style="color:var(--mut);font-size:13px;text-align:center">Your casino look is your fighter · <a href="/casino" style="color:#bdb6ee">change it</a></div>
-      </div>
-      <div class="stats">
-        <div class="stat"><b id="sWins">0</b><span>Wins</span></div>
-        <div class="stat"><b id="sFinals">0</b><span>Finals</span></div>
-        <div class="stat"><b id="sBeds">0</b><span>Beds</span></div>
-        <div class="stat"><b id="sKills">0</b><span>Kills</span></div>
-        <div class="stat"><b id="sGames">0</b><span>Games</span></div>
-        <div class="stat"><b id="sToday">0</b><span>📜 today</span></div>
-      </div>
-    </div>
-    <div class="mright">
-      <div class="modes" id="modes"></div>
-      <div class="row2">
-        <div class="card">
-          <h4>🤖 Practice vs Bots</h4>
-          <div class="seg" id="pMode"><button data-v="solo" class="on">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
-          <div class="seg" id="pDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
-          <button class="btn green" style="width:100%" id="pGo">Start practice</button>
-        </div>
-        <div class="card">
-          <h4>👥 Play with friends</h4>
-          <input class="code-in" id="jCode" maxlength="4" placeholder="CODE" autocomplete="off" />
-          <div class="flex"><button class="btn blue" style="flex:1" id="jGo">Join</button><button class="btn gold" style="flex:1" id="cGo">Create room</button></div>
-        </div>
-      </div>
-    </div>
+  <div class="hchip" id="hubOnline">Connecting…</div>
+  <div class="hbtns">
+    <button class="hbtn" id="hubLb" title="Leaderboard">🏆</button>
+    <button class="hbtn" id="hubHow" title="How to play">❓</button>
+    <button class="hbtn" id="hubQc" title="Quick chat (Q)">💬</button>
+    <button class="hbtn muteBtn" title="Sound">🔊</button>
+    <a class="hbtn" href="/casino" title="Back to the casino">🎰</a>
   </div>
-  <div class="mfoot"><button class="btn sm ghost" id="howBtn">❓ How to play</button></div>
+  <div class="hhint"><span><kbd>WASD</kbd> move</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> jump</span><span><kbd>Click</kbd> an NPC to play</span><span><kbd>E</kbd> interact</span><span><kbd>Q</kbd> chat</span></div>
 </div>
 
-<!-- ============ LOBBY ============ -->
-<div id="lobby" class="screen veil hidden">
-  <div class="lhead">
-    <button class="btn sm red" id="lLeave">← Leave</button>
-    <h2 id="lTitle">Quick Play</h2>
-    <span id="lCodeWrap" class="hidden">Code <span class="codebox" id="lCode">----</span> <button class="btn sm ghost" id="lCopy">Copy link</button></span>
-    <div class="count" id="lCount">Waiting…</div>
-  </div>
-  <div class="teams" id="lTeams"></div>
-  <div class="linfo">
-    <div class="card"><h4>🎮 Controls</h4><div class="keys"><span><kbd>WASD</kbd> move</span><span><kbd>🖱 Left</kbd> swing / mine</span><span><kbd>🖱 Right</kbd> place · hold + walk to bridge</span><span><kbd>1-9</kbd> items</span><span><kbd>E</kbd> shop</span><span><kbd>Q</kbd> chat</span><span><kbd>Tab</kbd> scores</span></div></div>
-    <div class="card"><h4>💡 Tip</h4><div id="lTip" style="font-size:15px;line-height:1.4;color:#e6e2ff"></div></div>
-  </div>
-  <div class="lfoot">
-    <div id="lHost" class="flex hidden" style="flex-wrap:wrap">
-      <div class="seg" id="hMode" style="margin:0"><button data-v="solo">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
-      <div class="seg" id="hDiff" style="margin:0"><button data-v="easy">Easy bots</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div>
-      <button class="btn green" id="hStart">▶ Start game</button>
+<!-- ============ WAITING ISLAND HUD ============ -->
+<div id="waitHud" class="hidden">
+  <div class="wpanel">
+    <div class="wtop"><span id="wTitle">Quick Play</span><span class="wpl" id="wPlayers"></span></div>
+    <div class="wcount" id="wCount">Waiting…</div>
+    <div class="wroster" id="wRoster"></div>
+    <div class="whint" id="wHint"></div>
+    <div id="wCodeWrap" class="hidden wcode">Room code <b id="wCode">----</b> <button class="btn sm ghost" id="wCopy">Copy invite</button></div>
+    <div id="wHost" class="hidden">
+      <div class="seg" id="hMode"><button data-v="solo">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
+      <div class="seg" id="hDiff"><button data-v="easy">Easy bots</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div>
+      <button class="btn green" style="width:100%" id="hStart">▶ Start game</button>
     </div>
-    <div style="flex:1"></div>
-    <div class="qcrow" id="lQc"></div>
   </div>
-  <div id="lchat"></div>
+  <div class="hbtns">
+    <button class="hbtn" id="wQc" title="Quick chat (Q)">💬</button>
+    <button class="hbtn muteBtn" title="Sound">🔊</button>
+    <button class="btn sm red" id="wLeave">← Leave</button>
+  </div>
+</div>
+
+<!-- ============ HUB POPUPS ============ -->
+<div id="mPractice" class="modal hidden">
+  <div class="mwrap" style="width:min(460px,100%)">
+    <div class="mh"><div style="font-size:30px">🤖</div><h2>Practice vs Bots</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div style="padding:16px">
+      <div class="lab">Mode</div>
+      <div class="seg" id="pMode"><button data-v="solo" class="on">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
+      <div class="lab">Bot difficulty</div>
+      <div class="seg" id="pDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
+      <button class="btn green" style="width:100%;margin-top:6px" id="pGo">▶ Start practice</button>
+    </div>
+  </div>
+</div>
+<div id="mPrivate" class="modal hidden">
+  <div class="mwrap" style="width:min(460px,100%)">
+    <div class="mh"><div style="font-size:30px">👥</div><h2>Private Room</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div style="padding:16px">
+      <div class="lab">Join a friend</div>
+      <div class="flex"><input class="code-in" id="jCode" maxlength="4" placeholder="CODE" autocomplete="off" style="margin:0" /><button class="btn blue" id="jGo">Join</button></div>
+      <div class="lab" style="margin-top:14px">Or make your own room</div>
+      <div class="seg" id="cMode"><button data-v="solo" class="on">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
+      <div class="seg" id="cDiff"><button data-v="easy">Easy bots</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
+      <button class="btn gold" style="width:100%" id="cGo">＋ Create room</button>
+    </div>
+  </div>
+</div>
+<div id="mLb" class="modal hidden">
+  <div class="mwrap" style="width:min(560px,100%)">
+    <div class="mh"><div style="font-size:30px">🏆</div><h2>Bedwars Leaderboard</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div style="padding:14px 16px;overflow:auto">
+      <table class="lbt" id="lbRows"></table>
+      <div class="lab" style="margin-top:14px">Your stats</div>
+      <div class="stats" id="lbMe"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ============ HUD ============ -->
 <div id="hud" class="hidden">
-  <div id="teamsP" class="hpanel"></div>
-  <div id="timerP" class="hpanel"><div class="tm" id="tmT">0:00</div><div class="nx" id="tmN"></div></div>
+  <div id="teamsP" class="gonly hpanel"></div>
+  <div id="timerP" class="gonly hpanel"><div class="tm" id="tmT">0:00</div><div class="nx" id="tmN"></div></div>
   <div id="topBtns" style="top:auto;bottom:auto"></div>
-  <div id="feed"></div>
-  <div id="resP" class="hpanel"></div>
-  <div id="bottomC">
+  <div id="feed" class="gonly"></div>
+  <div id="resP" class="gonly hpanel"></div>
+  <div id="bottomC" class="gonly">
     <div id="heldName"></div>
     <div id="hpRow"><div id="hearts"></div><div id="armorChip"></div></div>
     <div id="hotbar" class="hpanel"></div>
   </div>
-  <div id="mini" class="hpanel"><canvas id="miniCv" width="300" height="300"></canvas></div>
+  <div id="mini" class="gonly hpanel"><canvas id="miniCv" width="300" height="300"></canvas></div>
   <div id="banner"></div>
   <div id="toast"></div>
   <div id="prompt" class="hidden"></div>
   <div id="vign"></div>
-  <div id="score" class="hpanel hidden"></div>
+  <div id="score" class="gonly hpanel hidden"></div>
   <div id="intro" class="hidden"></div>
   <div id="death" class="hidden"></div>
   <div id="touch" class="hidden">
@@ -421,7 +462,7 @@
   </div>
 </div>
 <div id="hudBtns" class="hidden" style="position:fixed;right:12px;top:118px;z-index:11;display:flex;flex-direction:column;gap:8px">
-  <button class="hbtn" id="gMute" title="Sound">🔊</button>
+  <button class="hbtn muteBtn" title="Sound">🔊</button>
   <button class="hbtn" id="gQc" title="Quick chat (Q)">💬</button>
   <button class="hbtn" id="gScore" title="Scoreboard (Tab)">📋</button>
   <button class="hbtn" id="gLeave" title="Leave match">🚪</button>
@@ -437,13 +478,13 @@
 </div>
 <div id="how" class="modal hidden">
   <div class="mwrap" style="width:min(640px,100%)">
-    <div class="mh"><div style="font-size:30px">❓</div><h2>How to play</h2><div class="grow"></div><button class="xbtn" id="howX">✕</button></div>
+    <div class="mh"><div style="font-size:30px">❓</div><h2>How to play</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
     <div style="padding:14px 18px;overflow:auto;line-height:1.5;font-size:15px">
       <p><b>Goal:</b> protect your team's 🛏 bed and break everyone else's. While your bed stands you respawn. Once it's gone, your next death is <b style="color:#ff5c6c">final</b>.</p>
       <p><b>Resources:</b> stand on your generator for <b>iron</b> and <b>gold</b>. Bridge to the diamond islands for 💎 (team upgrades) and to mid for <b style="color:#2bd576">emeralds</b>. Spend them at the <b>Item Shop</b> and <b>Upgrades</b> NPCs.</p>
       <p><b>The void:</b> walking won't make you fall off. But get <b>knocked back</b>, blown up, or lose the block under your feet and you're gone.</p>
       <p><b>Controls</b><br>
-        WASD / arrows: move &nbsp;·&nbsp; Mouse: aim<br>
+        WASD / arrows: move &nbsp;·&nbsp; Mouse: aim &nbsp;·&nbsp; <b>Shift</b> or double-tap: sprint &nbsp;·&nbsp; <b>Space</b>: jump<br>Hit someone while falling from a jump for a <b style="color:#ffd166">critical hit</b>. Sprint-hits knock people back harder.<br>
         Left click: swing your sword, break blocks and beds (hold to keep mining)<br>
         Right click: place blocks (hold and walk to bridge)<br>
         1–9 / scroll: switch items &nbsp;·&nbsp; E: talk to a shop NPC<br>
@@ -461,14 +502,14 @@
   <canvas id="podium" width="1120" height="380"></canvas>
   <div class="reward" id="eReward"></div>
   <div class="card etable"><table id="eTable"></table></div>
-  <div class="flex" style="margin-top:16px;flex-wrap:wrap;justify-content:center"><button class="btn green" id="eAgain">▶ Play again</button><button class="btn" id="eMenu">Main menu</button></div>
+  <div class="flex" style="margin-top:16px;flex-wrap:wrap;justify-content:center"><button class="btn green" id="eAgain">▶ Play again</button><button class="btn" id="eMenu">🏠 Back to hub</button></div>
 </div>
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=3"></script>
-<script src="/arcade/bedwars/shared.js?v=2"></script>
-<script src="/arcade/bedwars/draw.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=2"></script>
+<script src="/arcade/bedwars/shared.js?v=3"></script>
+<script src="/arcade/bedwars/draw.js?v=3"></script>
+<script src="/arcade/bedwars/game.js?v=3"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

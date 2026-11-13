@@ -187,6 +187,81 @@
     return m;
   };
 
+  // ---- the Games hub: a walkable lobby of floating islands -----------------
+  function blankMap() { var N = W * H; return { W: W, H: H, g: new Uint8Array(N), f: new Uint8Array(N), fc: new Uint8Array(N), w: new Uint8Array(N), wc: new Uint8Array(N), obj: new Uint8Array(N), noBuild: new Uint8Array(N), beds: [], gens: [], npcs: [], bases: [], objs: [] }; }
+  function fill(m, x0, y0, x1, y1, v, round) {
+    for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) {
+      if (round && (x === x0 || x === x1) && (y === y0 || y === y1)) continue;
+      m.g[y * W + x] = v;
+    }
+  }
+  function disc(m, cx, cy, r, v) { for (var y = -r; y <= r; y++) for (var x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * 0.6) m.g[(cy + y) * W + cx + x] = v; }
+  function obj(m, o, solidTiles) {
+    o.x = o.tx * T + T / 2; o.y = o.ty * T + T / 2 + (o.dy || 0);
+    m.objs.push(o);
+    (solidTiles || [[o.tx, o.ty]]).forEach(function (p) { m.obj[p[1] * W + p[0]] = 3; });
+    return o;
+  }
+  B.HUB_SPAWN = { x: 36 * T + T / 2, y: 43 * T + T / 2 };
+  B.genHub = function () {
+    var m = blankMap();
+    // spawn plaza + fountain
+    disc(m, 36, 40, 7, G.MID);
+    obj(m, { kind: 'fountain', tx: 36, ty: 40, dy: 20 }, [[35, 39], [36, 39], [35, 40], [36, 40]]);
+    [[31, 36], [41, 36], [31, 44], [41, 44]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    obj(m, { kind: 'sign', tx: 33, ty: 45, text: 'WELCOME!', lines: ['Walk with WASD', 'Click NPCs to play', 'E = interact'] , dy: 10 }, [[33, 45]]);
+    // Bedwars island (north)
+    fill(m, 27, 18, 45, 29, G.GRASS, true);
+    fill(m, 35, 30, 37, 33, G.PATH);
+    var modes = [['solo', 'SOLO', '4 teams of 1', { skin: 'knight', body: '#ff6b6b' }], ['duos', 'DUOS', '4 teams of 2', { skin: 'fox', body: '#ff922b', hat: 'viking' }], ['squads', 'SQUADS', '4 teams of 4', { skin: 'dino', body: '#3fd27a', hat: 'crown' }], ['practice', 'PRACTICE', 'vs bots', { skin: 'robot', body: 'm:chrome', hat: 'phones' }]];
+    modes.forEach(function (q, k) { obj(m, { kind: 'npc', tx: 30 + k * 4, ty: 22, act: q[0] === 'practice' ? 'practice' : 'quick', mode: q[0], label: q[1], sub: q[2], look: q[3], game: 'bedwars' }); });
+    obj(m, { kind: 'npc', tx: 31, ty: 26, act: 'private', label: 'PRIVATE ROOM', sub: 'play with friends', look: { skin: 'panda', body: '#eef2ff', hat: 'top' }, game: 'bedwars' });
+    obj(m, { kind: 'bedDeco', tx: 36, ty: 26 }, [[36, 25], [36, 26]]);
+    obj(m, { kind: 'npc', tx: 41, ty: 26, act: 'how', label: 'HOW TO PLAY', sub: 'controls & tips', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
+    obj(m, { kind: 'banner', tx: 36, ty: 19, text: 'BEDWARS', dy: 0 }, [[34, 19], [35, 19], [36, 19], [37, 19], [38, 19]]);
+    [[28, 19], [44, 19]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k }); });
+    [[28, 28], [44, 28]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k + 2 }); });
+    // Casino island (east)
+    fill(m, 51, 35, 59, 45, G.STONE, true);
+    fill(m, 44, 39, 50, 41, G.PATH);
+    obj(m, { kind: 'portal', tx: 55, ty: 39, act: 'casino', label: 'SCROLLS CASINO', dy: 18 }, [[54, 39], [55, 39], [56, 39]]);
+    [[52, 43], [58, 43]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    // Leaderboard island (west)
+    fill(m, 12, 35, 22, 45, G.STONE, true);
+    fill(m, 23, 39, 28, 41, G.PATH);
+    obj(m, { kind: 'board', tx: 17, ty: 37, act: 'lb', dy: 20 }, [[15, 37], [16, 37], [17, 37], [18, 37], [19, 37]]);
+    [[13, 43], [21, 43]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    // Coming-soon islands (south)
+    fill(m, 35, 47, 37, 51, G.PATH);
+    fill(m, 26, 52, 46, 53, G.PATH);
+    [[24, 54, 32, 61], [40, 54, 48, 61]].forEach(function (r, k) {
+      fill(m, r[0], r[1], r[2], r[3], G.GRASS, true);
+      obj(m, { kind: 'soon', tx: (r[0] + r[2]) >> 1, ty: r[1] + 3, act: 'soon', label: 'NEW GAME', sub: 'coming soon', dy: 16 }, [[((r[0] + r[2]) >> 1) - 1, r[1] + 3], [(r[0] + r[2]) >> 1, r[1] + 3], [((r[0] + r[2]) >> 1) + 1, r[1] + 3]]);
+    });
+    // trees around the grass islands
+    [[28, 20], [44, 20], [28, 27], [44, 27], [25, 55], [31, 60], [41, 55], [47, 60], [25, 60], [47, 55]].forEach(function (p) { if (m.g[p[1] * W + p[0]]) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
+    return m;
+  };
+  // The island you wait on before a match. Private rooms pick teams by standing on a pad.
+  B.WAIT_SPAWN = { x: 36 * T + T / 2, y: 36 * T + T / 2 };
+  B.genWait = function () {
+    var m = blankMap();
+    fill(m, 26, 30, 46, 42, G.GRASS, true);
+    fill(m, 27, 31, 45, 41, G.GRASS);
+    for (var x = 30; x <= 42; x++) { m.g[36 * W + x] = G.PATH; }
+    for (var y = 32; y <= 40; y++) { m.g[y * W + 36] = G.PATH; }
+    m.pads = [];
+    [[28, 31], [42, 31], [42, 39], [28, 39]].forEach(function (p, t) {
+      fill(m, p[0], p[1], p[0] + 2, p[1] + 1, G.PAD);
+      m.pads.push({ team: t, x0: p[0], y0: p[1], x1: p[0] + 2, y1: p[1] + 1 });
+      m.bases.push({ team: t, cx: p[0] + 1, cy: p[1] });
+      obj(m, { kind: 'flag', tx: p[0] + 1, ty: p[1] + (t < 2 ? -1 : 2), team: t });
+    });
+    [[33, 34], [39, 34], [33, 38], [39, 38]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    return m;
+  };
+  B.padAt = function (m, x, y) { if (!m.pads) return -1; var tx = Math.floor(x / T), ty = Math.floor(y / T); for (var k = 0; k < m.pads.length; k++) { var p = m.pads[k]; if (tx >= p.x0 && tx <= p.x1 && ty >= p.y0 && ty <= p.y1) return p.team; } return -1; };
+
   B.idx = function (tx, ty) { return ty * W + tx; };
   B.inb = function (tx, ty) { return tx >= 0 && ty >= 0 && tx < W && ty < H; };
   B.floorAt = function (m, tx, ty) { if (!B.inb(tx, ty)) return false; var i = ty * W + tx; return m.g[i] > 0 || m.f[i] > 0; };
