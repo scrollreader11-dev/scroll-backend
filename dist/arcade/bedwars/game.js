@@ -68,10 +68,12 @@
   // ------------------------------------------------------------------ net
   var ws = null, wsOpen = false, reconnectT = 0, backoff = 800, pingT = 0, lastRecv = 0;
   function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+  function sendBin(buf) { if (ws && ws.readyState === 1 && ws.bufferedAmount < 64000) ws.send(buf); }
   function connect() {
     try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/bw-ws'); } catch (e) { scheduleReconnect(); return; }
-    ws.onopen = function () { wsOpen = true; backoff = 800; lastRecv = Date.now(); send({ t: 'ping', c: Date.now() }); };
-    ws.onmessage = function (ev) { lastRecv = Date.now(); var m; try { m = JSON.parse(ev.data); } catch (e) { return; } onMsg(m); };
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = function () { wsOpen = true; backoff = 800; lastRecv = Date.now(); send({ t: 'ping', c: Date.now() }); if (window.BWV && BWV.on) send({ t: 'vc', on: true }); };
+    ws.onmessage = function (ev) { lastRecv = Date.now(); if (typeof ev.data !== 'string') { if (window.BWV) BWV.onFrame(new Uint8Array(ev.data)); return; } var m; try { m = JSON.parse(ev.data); } catch (e) { return; } onMsg(m); };
     ws.onclose = function () { wsOpen = false; if (!S.fatal) scheduleReconnect(); };
     ws.onerror = function () {};
   }
@@ -91,20 +93,26 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.qc = m.qc || []; if (m.stats) S.mystats = m.stats; helloArrived(); return; }
+    if (t === 'hello') { S.hello = m; S.qc = m.qc || []; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; ownerSync(); helloArrived(); return; }
+    if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
+    if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
+    if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
+    if (t === 'god') { S.god = !!m.on; return; }
+    if (t === 'goat') { S.goAt = m.goAt; lastTimerS = -1; return; }
+    if (t === 'vcstate') { if (window.BWV) BWV.range = m.range || BWV.range; if (m.off && BWV.on) toast('🔇 Voice chat is turned off right now', 2400); if (m.muted && BWV.on) toast('🔇 An owner muted your voice', 2400); S.vcOff = !!m.off; S.vcMuted = !!m.muted; voiceSync(); return; }
     if (t === 'space') { enterSpace(m); helloArrived(); return; }
     if (t === 'room') { S.room = m; m._at = Date.now(); if (S.screen === 'wait') renderWait(); return; }
     if (t === 'game') { helloArrived(); return startGame(m); }
     if (t === 'end') return onEnd(m);
     if (t === 'err') {
-      if (m.code === 'login' || m.code === 'replaced') { S.fatal = true; fatal(m.msg, m.code); return; }
+      if (m.code === 'login' || m.code === 'replaced' || m.code === 'kicked') { S.fatal = true; fatal(m.msg, m.code); return; }
       toast(m.msg || 'Something went wrong', 2500); SC.sfx('no'); return;
     }
   }
   function fatal(msg, code) {
     var d = document.createElement('div'); d.className = 'modal'; d.style.zIndex = 90;
-    d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + (code === 'login' ? '🔐' : '🪟') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
-      (code === 'login' ? '<a class="btn green" href="/">Go to ScrollHub</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
+    d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + (code === 'login' ? '🔐' : code === 'kicked' ? '🚫' : '🪟') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
+      (code === 'login' ? '<a class="btn green" href="/">Go to ScrollHub</a>' : code === 'kicked' ? '<a class="btn green" href="/casino">Go to the casino</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
     document.body.appendChild(d);
     var ld = $('loading'); ld.classList.add('out');
   }
@@ -187,7 +195,7 @@
   seg('pMode', function (v) { pMode = v; }); seg('pDiff', function (v) { pDiff = v; });
   seg('cMode', function (v) { cMode = v; }); seg('cDiff', function (v) { cDiff = v; });
   seg('hMode', function (v) { send({ t: 'cfg', mode: v }); }); seg('hDiff', function (v) { send({ t: 'cfg', diff: v }); });
-  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how'];
+  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin'];
   function anyModal() { return MODALS.some(function (k) { return !$(k).classList.contains('hidden'); }) || !$('shop').classList.contains('hidden'); }
   function openModal(id) { closeModals(); $(id).classList.remove('hidden'); SC.sfx('open'); mouse.l = mouse.r = false; keys = {}; }
   function closeModals() { MODALS.forEach(function (k) { $(k).classList.add('hidden'); }); }
@@ -217,6 +225,7 @@
     closeShop(); closeModals();
     var hub = m.kind === 'hub';
     S.map = hub ? (S.hubMap || (S.hubMap = B.genHub())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
+    if (window.BWV) BWV.reset();
     S.spaceKind = m.kind; S.myId = m.you; S.team = -1; S.ended = null; S.dead = S.elim = false; S.held = 'sword'; S.sword = 1; S.armor = 1;
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; S.gens = []; S.teams = []; trails.length = 0; D.parts.length = 0;
     offset = m.now - Date.now(); bestRtt = 1e9;
@@ -325,7 +334,7 @@
 
   // ------------------------------------------------------------------ game start
   function startGame(m) {
-    S.ended = null; closeShop(); closeModals();
+    S.ended = null; closeShop(); closeModals(); if (window.BWV) BWV.reset();
     var map = B.genMap();
     m.blocks.forEach(function (b) { map.f[b[0]] = b[1]; map.fc[b[0]] = b[2]; map.w[b[0]] = b[3]; map.wc[b[0]] = b[4]; });
     m.beds.forEach(function (a, t) { if (!a) { map.beds[t].alive = false; map.obj[map.beds[t].foot] = 0; map.obj[map.beds[t].head] = 0; } });
@@ -339,7 +348,7 @@
     m.ents.forEach(function (o) { S.ents.set(o.id, mkEnt(o)); });
     var me = S.ents.get(S.myId);
     P = newBody(me.x, me.y); P.dead = me.dead;
-    S.held = 'sword'; S.inv = {}; S.res = { iron: 0, gold: 0, dia: 0, em: 0 }; S.hp = 20; S.absorb = 0;
+    S.held = 'sword'; S.inv = {}; S.res = { iron: 0, gold: 0, dia: 0, em: 0 }; S.hp = 20; S.absorb = 0; S.god = false;
     S.dead = me.dead; S.elim = me.elim;
     cam.x = 36 * T; cam.y = 36 * T; cam.introFrom = { x: 36 * T, y: 36 * T };
     show('game');
@@ -538,6 +547,7 @@
       if (k === 'e') { var n = nearNpc(); if (n) openShop(n.kind); else closeShop(); }
     } else if (k === 'e') { var o = nearObj(); if (o) useObj(o); }
     if (k === 'q') toggleQc();
+    if (k === 'v' && window.BWV && BWV.on) { BWV.setMuted(!BWV.muted); voiceSync(); toast(BWV.muted ? '🔇 Mic muted (press V to talk again)' : '🎙️ Mic on', 1300); }
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k) >= 0) e.preventDefault();
   });
   addEventListener('keyup', function (e) { var k = e.key.toLowerCase(); keys[k] = false; if (k === 'tab') showScore(false); });
@@ -751,7 +761,7 @@
       var acc = 1 - Math.exp(-(il > 0.1 ? 16 : 22) * dt);
       P.cvx += (ix * sp - P.cvx) * acc; P.cvy += (iy * sp - P.cvy) * acc;
       var kbOn = Math.hypot(P.vx, P.vy) > 60;
-      var res = B.move(S.map, P, P.cvx * dt + P.vx * dt, P.cvy * dt + P.vy * dt, !kbOn);
+      var res = B.move(S.map, P, P.cvx * dt + P.vx * dt, P.cvy * dt + P.vy * dt, !kbOn && !(inGame && S.god));
       if (res.bx) P.cvx = 0; if (res.by) P.cvy = 0;
       var kd = Math.exp(-6.5 * dt); P.vx *= kd; P.vy *= kd; if (Math.hypot(P.vx, P.vy) < 4) P.vx = P.vy = 0;
       P.mv = Math.hypot(P.cvx, P.cvy) > 25;
@@ -759,7 +769,7 @@
       if (touch) { if (il > 0.2 && (!S.touchAtk || S.autoMine >= 0)) P.ang = Math.atan2(iy, ix); if (S.touchAtk && S.autoMine < 0) touchAim(); }
       else P.ang = Math.atan2(mouse.wy - (P.y - 16), mouse.wx - P.x);
       // fell?
-      if (inGame && !B.groundUnder(S.map, P.x, P.y)) { P.falling = now(); P.fallX = P.x; P.fallY = P.y; SC.sfx('fall'); }
+      if (inGame && !S.god && !B.groundUnder(S.map, P.x, P.y)) { P.falling = now(); P.fallX = P.x; P.fallY = P.y; SC.sfx('fall'); }
       // holding the mouse outside a match just keeps swinging (for fun)
       if (!inGame && mouse.l && now() - (S.lastHoldSwing || 0) > 260) doSwing();
       // held actions
@@ -831,6 +841,9 @@
     var k2 = 1 - Math.exp(-(snow() < S.goAt ? 1.6 : 7) * dt);
     if (snow() < S.goAt && snow() < S.goAt - 2600) k2 = 0.004;
     cam.x += (target.x + lead.x - cam.x) * k2; cam.y += (target.y - 20 + lead.y - cam.y) * k2;
+    // proximity voice: volume/pan from where everyone stands
+    if (window.BWV && BWV.on) BWV.tick(listener.x, listener.y, function (id) { var e = S.ents.get(id); if (!e || e.dead || e.id === S.myId) return null; return { x: e.x, y: e.y }; });
+    if (window.BWV && BWV.on && BWV.talking !== S.wasTalking) { S.wasTalking = BWV.talking; voiceSync(); }
     // HUD timers
     hudTick(); spaceTick(); touchMineTick();
   }
@@ -978,6 +991,7 @@
     var bob = e.moving ? -Math.abs(Math.sin(e.walk || 0)) * 3.5 : Math.sin((t + e.id) * 2.2) * 0.8;
     if (inGame || team >= 0) D.armor(c, ee, 0, 0, t, bob);
     if (!behind) D.held(c, ee, 0, 0, t);
+    if (f & 512) { var gp = (Math.sin(t * 5) + 1) / 2; c.strokeStyle = 'rgba(255,209,102,' + (0.5 + gp * 0.4) + ')'; c.lineWidth = 3; A.ell(c, 0, 4, 24, 9); c.stroke(); if (Math.random() < 0.15) D.burst('magic', x, y - 30, 1, '#ffd166'); }
     if (f & 64) { var pu = (Math.sin(t * 8) + 1) / 2; c.strokeStyle = 'rgba(180,230,255,' + (0.4 + pu * 0.4) + ')'; c.lineWidth = 3; A.circ(c, 0, -22, 30); c.stroke(); c.fillStyle = 'rgba(180,230,255,.12)'; c.fill(); }
     if ((f & 16) && Math.random() < 0.08) D.burst('heart', x, y - 40, 1);
     c.restore();
@@ -1007,6 +1021,12 @@
     var dead = e.dead || e.elim; if (dead) return;
     var x = e.x, y = e.y; if (e.id === S.myId && P) { if (P.falling) return; x = P.x; y = P.y; }
     var mine = e.id === S.myId;
+    if (window.BWV && BWV.on && (mine ? BWV.talking : BWV.isTalking(e.id))) {
+      var vy = y - (S.screen === 'hub' || S.screen === 'wait' ? 96 : mine ? 70 : 96), pulse = (Math.sin(t * 14) + 1) / 2;
+      A.circ(c, x, vy, 11); c.fillStyle = '#2bd576'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke();
+      c.fillStyle = '#05240f'; c.fillRect(x - 5, vy - 3, 4, 6); c.beginPath(); c.moveTo(x - 1, vy - 3); c.lineTo(x + 3, vy - 6); c.lineTo(x + 3, vy + 6); c.lineTo(x - 1, vy + 3); c.fill();
+      c.strokeStyle = 'rgba(43,213,118,' + (0.4 + pulse * 0.6) + ')'; c.lineWidth = 2; c.beginPath(); c.arc(x + 4, vy, 15, -0.7, 0.7); c.stroke();
+    }
     if (S.screen === 'hub' || S.screen === 'wait') {
       D.tag(c, e.nick, x, y - 66, { size: 12, color: e.team >= 0 ? teamCol(e.team) : mine ? '#ffd166' : '#fff' });
     } else if (!mine) {
@@ -1318,6 +1338,115 @@
   function playAgain() { $('death').classList.add('hidden'); var q = S.lastQueue || { t: 'quick', mode: S.mode }; send(q); }
   $('eAgain').onclick = playAgain;
   $('eMenu').onclick = function () { send({ t: 'hub' }); };
+
+  // ------------------------------------------------------------------ proximity voice button
+  function voiceSync() {
+    var V = window.BWV, label = !V || !V.on ? '🎙️ Voice' : V.muted ? '🔇 Muted' : V.talking ? '🎙️ Talking' : '🎙️ On';
+    [].forEach.call(document.querySelectorAll('.voiceBtn'), function (b) {
+      b.textContent = label;
+      b.classList.toggle('von', !!(V && V.on && !V.muted)); b.classList.toggle('vmute', !!(V && V.on && V.muted)); b.classList.toggle('vtalk', !!(V && V.on && V.talking));
+    });
+  }
+  [].forEach.call(document.querySelectorAll('.voiceBtn'), function (b) {
+    b.onclick = function () {
+      var V = window.BWV; if (!V) return;
+      if (!V.supported()) { toast('Voice chat isn’t supported in this browser', 2200); return; }
+      if (!V.on) {
+        b.textContent = '🎙️ …';
+        V.start(sendBin).then(function () { send({ t: 'vc', on: true }); voiceSync(); toast('🎙️ Voice on — players near you can hear you. V = mute', 2600); })
+          .catch(function () { voiceSync(); toast('🎙️ Allow microphone access to use voice chat', 2600); SC.sfx('no'); });
+      } else if (!V.muted) { V.setMuted(true); voiceSync(); toast('🔇 Muted — you can still hear people nearby', 1800); }
+      else { V.stop(); send({ t: 'vc', on: false }); voiceSync(); toast('Voice chat off', 1400); }
+    };
+  });
+
+  // ------------------------------------------------------------------ owner panel
+  var admTab = 'matches', admPoll = 0, admArm = null;
+  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner); }); }
+  [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.onclick = function () { openAdmin(); }; });
+  function openAdmin() {
+    if (!S.owner) return;
+    openModal('mAdmin'); send({ t: 'adm', a: 'info' });
+    clearInterval(admPoll); admPoll = setInterval(function () { if ($('mAdmin').classList.contains('hidden')) { clearInterval(admPoll); return; } send({ t: 'adm', a: 'info' }); }, 1500);
+  }
+  $('admTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-at]'); if (!b) return; admTab = b.dataset.at; [].forEach.call($('admTabs').children, function (x) { x.classList.toggle('on', x === b); }); SC.sfx('click'); renderAdmin(); });
+  function ab(label, data, cls, confirm) {
+    var key = JSON.stringify(data), armed = admArm && admArm.key === key && now() < admArm.until;
+    var attrs = Object.keys(data).map(function (k) { return 'data-' + k + '="' + esc(data[k]) + '"'; }).join(' ');
+    return '<button class="ab ' + (cls || '') + (armed ? ' armed' : '') + '" ' + attrs + (confirm ? ' data-confirm="1"' : '') + ' data-key="' + esc(key) + '">' + (armed ? 'Sure?' : label) + '</button>';
+  }
+  function fmtT(sec) { return B.fmtTime(sec); }
+  function renderAdmin() {
+    var d = S.adm, body = $('admBody'); if (!d || !body || $('mAdmin').classList.contains('hidden')) return;
+    var top = body.scrollTop, html = '';
+    if (admTab === 'matches') {
+      if (!d.rooms.length) html = '<div class="admempty">No matches or waiting rooms right now.</div>';
+      d.rooms.forEach(function (r) {
+        var st = r.state === 'play' ? '<span class="st play">▶ Playing ' + fmtT(r.elapsed) + '</span>' : r.state === 'lobby' ? '<span class="st lobby">Waiting' + (r.startIn ? ' · starts in ' + Math.ceil(r.startIn / 1000) + 's' : '') + '</span>' : '<span class="st end">Finished</span>';
+        html += '<div class="admcard"><div class="admhead">#' + r.id + ' · ' + (r.kind === 'private' ? 'Private' : r.kind === 'practice' ? 'Practice' : 'Public') + ' ' + B.MODES[r.mode].name + (r.code ? ' <span class="tag2">' + esc(r.code) + '</span>' : '') + ' ' + st + (r.id === d.myRoom ? ' <span class="tag2" style="background:#ffd166;color:#2a1300">YOU</span>' : '') + '</div>';
+        html += '<div class="admrow">';
+        if (r.state === 'lobby') html += ab('▶ Start now', { act: 'start', room: r.id }, 'green');
+        if (r.state === 'play') {
+          html += ab('+1 min', { act: 'time', room: r.id, sec: 60 }) + ab('+5 min', { act: 'time', room: r.id, sec: 300 });
+          html += '<span class="lbl" style="margin-left:6px">End:</span>' + ab('Draw', { act: 'end', room: r.id, winner: -1 }, '', true);
+          for (var t = 0; t < 4; t++) if (r.teams && !r.teams[t].elim) html += ab('🏆 ' + B.TEAMS[t].name, { act: 'end', room: r.id, winner: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ');
+        }
+        html += ab('✖ Close', { act: 'delete', room: r.id }, 'red', true) + '</div>';
+        if (r.state === 'play' && r.teams) {
+          html += '<div class="admrow"><span class="lbl">Beds:</span>';
+          r.teams.forEach(function (tm, t) { html += tm.bed ? ab('🛏️ Break ' + B.TEAMS[t].name, { act: 'bed', room: r.id, team: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ') : '<span class="tag2" style="opacity:.6">' + B.TEAMS[t].name + (tm.elim ? ' 💀' : ' ❌') + '</span>'; });
+          html += '</div>';
+        }
+        if (r.players && r.players.length) {
+          html += '<table class="admp">';
+          r.players.forEach(function (p) {
+            var status = r.state === 'lobby' ? '' : p.elim ? '💀 out' : p.dead ? '⏳ respawning' : '❤️ ' + p.hp + (p.god ? ' <span class="tag2" style="background:#ffd166;color:#2a1300">GOD</span>' : '');
+            var acts = '';
+            if (r.state === 'play') {
+              acts += ab('Kill', { act: 'ent', room: r.id, id: p.id, op: 'kill' }, 'red') + ab('Heal', { act: 'ent', room: r.id, id: p.id, op: 'heal' }, 'green') + ab('+Res', { act: 'ent', room: r.id, id: p.id, op: 'res' }, 'gold');
+              acts += p.elim || p.dead ? ab('Revive', { act: 'ent', room: r.id, id: p.id, op: 'revive' }, 'blue') : ab('Eliminate', { act: 'ent', room: r.id, id: p.id, op: 'elim' }, 'red', true);
+              if (r.id === d.myRoom && p.id !== d.myEnt) acts += ab('TP to', { act: 'ent', room: r.id, id: p.id, op: 'tpme' }) + ab('Bring', { act: 'ent', room: r.id, id: p.id, op: 'bring' });
+            }
+            html += '<tr><td><b style="color:' + teamCol(p.team) + '">' + (p.bot ? '🤖 ' : '') + esc(p.nick) + '</b>' + (p.human && !p.online ? '<span class="tag2">AFK</span>' : '') + '</td><td>' + status + '</td><td style="color:var(--mut);font-size:12px">' + (p.res ? p.res.iron + '⚪ ' + p.res.gold + '🟡 ' + p.res.dia + '💎 ' + p.res.em + '💚' : '') + '</td><td><div class="acts">' + acts + '</div></td></tr>';
+          });
+          html += '</table>';
+        }
+        html += '</div>';
+      });
+    } else if (admTab === 'players') {
+      html += '<div class="admcard"><div class="admhead">👥 ' + d.conns.length + ' connected to Bedwars</div><table class="admp">';
+      d.conns.forEach(function (x) {
+        var vc = x.voice ? (x.vmuted ? '<span class="tag2" style="background:#ff5c6c">🔇 muted</span>' : x.talking ? '<span class="tag2" style="background:#2bd576;color:#05240f">🎙️ talking</span>' : '<span class="tag2">🎙️ voice</span>') : '';
+        html += '<tr><td><b>' + esc(x.nick) + '</b>' + (x.owner ? '<span class="tag2" style="background:#ffd166;color:#2a1300">OWNER</span>' : '') + vc + '</td><td style="color:var(--mut)">' + esc(x.where) + '</td><td><div class="acts">' + (x.owner ? '' : ab(x.vmuted ? '🎙️ Unmute' : '🔇 Mute voice', { act: 'vmute', pid: x.pid }, x.vmuted ? 'green' : '') + ab('Kick', { act: 'kick', pid: x.pid }, 'red', true)) + '</div></td></tr>';
+      });
+      html += '</table></div>';
+    } else {
+      html += '<div class="admcard"><div class="admhead">📢 Announcement</div><div class="admrow"><input class="admin-in" id="admAnn" maxlength="140" placeholder="Message everyone in Bedwars…" value="' + esc(S.admDraft || '') + '">' + ab('Send', { act: 'announce' }, 'gold') + '</div></div>';
+      html += '<div class="admcard"><div class="admhead">🔒 New matches</div><div class="admrow">' + (d.locked ? '<span class="tag2" style="background:#ff5c6c">Paused</span>' + ab('Open matches again', { act: 'lock', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">Open</span>' + ab('Pause new matches', { act: 'lock', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Pausing stops anyone except owners from starting or joining matches. Games already running keep going.</div></div>';
+      html += '<div class="admcard"><div class="admhead">🎙️ Proximity voice chat</div><div class="admrow">' + (d.voiceOff ? '<span class="tag2" style="background:#ff5c6c">Off for everyone</span>' + ab('Turn voice on', { act: 'voiceoff', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">On</span>' + ab('Turn voice off for everyone', { act: 'voiceoff', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Mute one person from the Players tab.</div></div>';
+      var inMatch = !!d.myEnt;
+      html += '<div class="admcard"><div class="admhead">✨ Your powers ' + (inMatch ? '' : '<span class="tag2">join a match to use these</span>') + '</div><div class="admrow">' +
+        ab(S.god ? '😇 God mode: ON' : '😇 God mode', { act: 'self', op: 'god' }, S.god ? 'gold' : '') + ab('💰 +Resources', { act: 'self', op: 'res' }) + ab('⚔️ Max kit', { act: 'self', op: 'kit' }) +
+        '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">God mode: you take no damage, can’t fall into the void, and can walk on air.</div></div>';
+    }
+    var focused = document.activeElement && document.activeElement.id === 'admAnn';
+    if (focused) return; // don't wipe what you're typing
+    body.innerHTML = html; body.scrollTop = top;
+    if (S.adm.myEnt) [].forEach.call(body.querySelectorAll('[data-op="tpme"],[data-op="bring"]'), function () {});
+  }
+  $('admBody').addEventListener('input', function (e) { if (e.target.id === 'admAnn') S.admDraft = e.target.value; });
+  $('admBody').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && e.target.id === 'admAnn') { var b = $('admBody').querySelector('[data-act="announce"]'); if (b) b.click(); } });
+  $('admBody').addEventListener('click', function (e) {
+    var b = e.target.closest('.ab'); if (!b || b.disabled) return;
+    var key = b.dataset.key;
+    if (b.dataset.confirm && !(admArm && admArm.key === key && now() < admArm.until)) { admArm = { key: key, until: now() + 2600 }; SC.sfx('click'); renderAdmin(); return; }
+    admArm = null;
+    var m = { t: 'adm', a: b.dataset.act };
+    ['room', 'id', 'op', 'team', 'winner', 'sec', 'pid', 'on'].forEach(function (k) { if (b.dataset[k] != null) m[k] = isNaN(+b.dataset[k]) ? b.dataset[k] : +b.dataset[k]; });
+    if (m.a === 'announce') { m.text = ($('admAnn') && $('admAnn').value) || S.admDraft || ''; S.admDraft = ''; if ($('admAnn')) $('admAnn').value = ''; }
+    if (m.a === 'lock' || m.a === 'voiceoff') m.on = !!m.on;
+    SC.sfx('click'); send(m);
+  });
 
   // debug hook for automated tests
   window.BWG = { dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };

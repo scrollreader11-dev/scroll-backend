@@ -145,6 +145,42 @@
   #mLb .stat b{display:block;font-size:20px;color:var(--gold)} #mLb .stat span{font-size:11px;color:var(--mut);text-transform:uppercase}
   @media (max-width:640px){ .hchip{top:72px;font-size:12px} .hcard .hs2{font-size:12px} .hcard .hn{font-size:15px} #hubHud .hbtns{flex-direction:column;top:12px} #hubHud .hbtn{height:38px;min-width:38px;font-size:16px} .hhint{display:none} .wpanel{top:60px} #waitHud .hbtns{top:12px} }
 
+  /* ---------- voice ---------- */
+  .voiceBtn{width:auto!important;padding:0 12px!important;font-size:15px!important;white-space:nowrap}
+  .voiceBtn.von{background:#2bd576!important;color:#05240f!important}
+  .voiceBtn.vtalk{box-shadow:0 0 0 3px #120e2e,0 0 0 6px rgba(43,213,118,.6),0 4px 0 #0c0a22!important}
+  .voiceBtn.vmute{background:#ff5c6c!important}
+  body.touch .voiceBtn{padding:0 8px!important;font-size:13px!important}
+  /* ---------- owner panel ---------- */
+  .ownerBtn{width:auto!important;padding:0 14px!important;font-size:16px!important;white-space:nowrap;background:linear-gradient(180deg,#ffe08a,#ffb938)!important;color:#2a1300!important;gap:6px}
+  .ownerBtn:hover{filter:brightness(1.08)}
+  body.touch .ownerBtn{padding:0 10px!important;font-size:14px!important}
+  .admlive{font-size:12px;font-weight:700;color:#2bd576;background:rgba(43,213,118,.12);border-radius:8px;padding:2px 8px;animation:livep 1.6s infinite}
+  @keyframes livep{50%{opacity:.5}}
+  .admtabs{display:flex;gap:6px;padding:10px 14px 0}
+  .admtabs button{border:3px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;background:rgba(255,255,255,.06);color:#cfc8ff;font-weight:700;font-size:15px;padding:8px 14px}
+  .admtabs button.on{background:#7b5cff;color:#fff}
+  .admbody{border-top:3px solid var(--line);padding:12px 14px 16px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px}
+  .admempty{color:var(--mut);text-align:center;padding:30px 10px}
+  .admcard{background:rgba(0,0,0,.22);border:3px solid var(--line);border-radius:16px;padding:10px 12px}
+  .admhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700}
+  .admhead .st{font-size:12px;border-radius:8px;padding:2px 8px;background:rgba(255,255,255,.1)}
+  .admhead .st.play{background:#2bd576;color:#05240f} .admhead .st.lobby{background:#ffd166;color:#2a1300} .admhead .st.end{background:#6b7280}
+  .admrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+  .admrow .lbl{font-size:12px;color:var(--mut);font-weight:700;text-transform:uppercase;margin-right:2px}
+  .ab{border:2.5px solid var(--line);border-radius:10px;background:#3b2f8f;color:#fff;font-weight:700;font-size:13px;padding:5px 10px;box-shadow:0 2px 0 #0a0820;cursor:pointer}
+  .ab:active{transform:translateY(2px);box-shadow:none}
+  .ab.red{background:#ff5c6c} .ab.green{background:#2bd576;color:#05240f} .ab.gold{background:#ffd166;color:#2a1300} .ab.blue{background:#3a86ff}
+  .ab.armed{background:#fff;color:#c1121f;animation:livep .5s infinite}
+  .ab:disabled{opacity:.4;cursor:default}
+  .admp{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+  .admp td{padding:5px 6px;border-top:2px solid rgba(255,255,255,.05);vertical-align:middle}
+  .admp .acts{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+  .admp .acts .ab{font-size:12px;padding:3px 8px}
+  .tag2{font-size:11px;border-radius:6px;padding:1px 6px;background:rgba(255,255,255,.1);margin-left:4px;font-weight:700}
+  .admin-in{flex:1;min-width:180px;border:3px solid var(--line);border-radius:12px;padding:9px 12px;font-size:15px;background:#16123a;color:#fff}
+  .switch{display:inline-flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
+
   /* ---------- HUD ---------- */
   #hud{position:fixed;inset:0;z-index:10;pointer-events:none}
   #hud > *{position:absolute}
@@ -367,6 +403,8 @@
   </div>
   <div class="hchip" id="hubOnline">Connecting…</div>
   <div class="hbtns">
+    <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
+    <button class="hbtn voiceBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
     <button class="hbtn" id="hubLb" title="Leaderboard">🏆</button>
     <button class="hbtn" id="hubHow" title="How to play">❓</button>
     <button class="hbtn" id="hubQc" title="Quick chat (Q)">💬</button>
@@ -391,6 +429,8 @@
     </div>
   </div>
   <div class="hbtns">
+    <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
+    <button class="hbtn voiceBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
     <button class="hbtn" id="wQc" title="Quick chat (Q)">💬</button>
     <button class="hbtn muteBtn" title="Sound">🔊</button>
     <button class="btn sm red" id="wLeave">← Leave</button>
@@ -421,6 +461,13 @@
       <div class="seg" id="cDiff"><button data-v="easy">Easy bots</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
       <button class="btn gold" style="width:100%" id="cGo">＋ Create room</button>
     </div>
+  </div>
+</div>
+<div id="mAdmin" class="modal hidden">
+  <div class="mwrap" style="width:min(860px,100%)">
+    <div class="mh"><div style="font-size:30px">👑</div><h2>Owner Panel</h2><span class="admlive">● LIVE</span><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="admtabs" id="admTabs"><button data-at="matches" class="on">🎮 Matches</button><button data-at="players">👥 Players</button><button data-at="tools">🛠️ Tools</button></div>
+    <div class="admbody" id="admBody"><div class="admempty">Loading…</div></div>
   </div>
 </div>
 <div id="mLb" class="modal hidden">
@@ -462,6 +509,8 @@
   </div>
 </div>
 <div id="hudBtns" class="hidden" style="position:fixed;right:12px;top:118px;z-index:11;display:flex;flex-direction:column;gap:8px">
+  <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
+  <button class="hbtn voiceBtn" title="Proximity voice chat (V = mute)">🎙️ Voice</button>
   <button class="hbtn muteBtn" title="Sound">🔊</button>
   <button class="hbtn" id="gQc" title="Quick chat (Q)">💬</button>
   <button class="hbtn" id="gScore" title="Scoreboard (Tab)">📋</button>
@@ -490,6 +539,7 @@
         1–9 / scroll: switch items &nbsp;·&nbsp; E: talk to a shop NPC<br>
         Bow: hold left click to charge, release to shoot<br>
         Q: quick chat &nbsp;·&nbsp; Tab: scoreboard</p>
+      <p><b>🎙️ Proximity voice:</b> press the Voice button to talk. You only hear players near you (about 9 blocks), and they get quieter as they walk away. Press <b>V</b> (or the button) to mute your mic. Only people who turn voice on can hear or be heard.</p>
       <p><b>Phone:</b> joystick to move (push it all the way to sprint). ⚔️ attacks — with nobody nearby it turns into ⛏️ and mines the block or bed you’re facing (it’s highlighted). 🧱 places a block in front of you; hold it while walking to bridge. ✨ uses your held item.</p>
     </div>
   </div>
@@ -509,7 +559,8 @@
 <script src="/casino/art.js?v=3"></script>
 <script src="/arcade/bedwars/shared.js?v=4"></script>
 <script src="/arcade/bedwars/draw.js?v=3"></script>
-<script src="/arcade/bedwars/game.js?v=5"></script>
+<script src="/arcade/bedwars/voice.js?v=1"></script>
+<script src="/arcade/bedwars/game.js?v=6"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

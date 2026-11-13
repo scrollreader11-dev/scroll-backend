@@ -18,6 +18,34 @@ const HELD = BW.HOTBAR_ORDER;
 const RES = BW.RES;
 
 const conns = new Set();
+// Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
+const OWNERS = new Set(['pufferfishrcool', 'scrollreader11', 'mai_mei67']);
+let LOCKED = false; // owners can pause new matches
+// ---- proximity voice: mic audio (12 kHz mu-law frames) goes through the server, which only
+// forwards it to players standing near the speaker. Works on any network (no peer-to-peer).
+const VOICE_R = 9.5 * 40;  // hearing range in px (~9 blocks)
+let VOICE_OFF = false;     // owners can switch voice off for everyone
+function voicePos(x) {
+  if (x.room && x.room.state === 'play' && x.ent) return { id: x.ent.id, x: x.ent.x, y: x.ent.y, group: humans(x.room), elim: x.ent.elim };
+  if (x.space) return { id: x.pid, x: x.sx, y: x.sy, group: x.space.conns };
+  return null;
+}
+function voiceFrame(c, buf) {
+  if (VOICE_OFF || !c.voice || c.vmuted || buf.length < 2 || buf.length > 1200 || buf[0] !== 1) return;
+  const now = Date.now();
+  c.vtok = Math.min(40, (c.vtok == null ? 40 : c.vtok) + (now - (c.vAt || now)) / 1000 * 32); c.vAt = now;
+  if (c.vtok < 1) return; c.vtok--;
+  const me = voicePos(c); if (!me || me.elim) return;
+  c.vTalkAt = now;
+  let out = null;
+  for (const r of me.group) {
+    if (r === c || !r.voice) continue;
+    const them = voicePos(r); if (!them) continue;
+    if (Math.hypot(them.x - me.x, them.y - me.y) > VOICE_R) continue;
+    if (!out) { out = Buffer.allocUnsafe(buf.length + 4); out[0] = 1; out.writeUInt32BE(me.id >>> 0, 1); buf.copy(out, 5, 1); }
+    try { if (r.ws.readyState === 1 && r.ws.bufferedAmount < 256 * 1024) r.ws.send(out, { binary: true }); } catch (e) {}
+  }
+}
 const rooms = new Map();
 const codes = new Map();
 let nextRoom = 1, nextEnt = 1, nextProj = 1;
@@ -267,7 +295,7 @@ function knock(r, v, kx, ky, pow) {
   else { v.vx = v.vx * 0.3 + vx; v.vy = v.vy * 0.3 + vy; }
 }
 function hurt(r, v, amount, att, kind, kx, ky, kbPow, crit) {
-  if (v.dead || v.elim) return false;
+  if (v.dead || v.elim || v.god) return false;
   const now = Date.now();
   if (now < v.invulnUntil) return false;
   const red = Math.min(0.8, BW.ARMORS[v.armor].red + 0.06 * r.teams[v.team].up.prot);
@@ -757,7 +785,7 @@ function tickRoom(r, now) {
       if (e.mineReq && now < e.mineReq.until) mineStep(r, e, e.mineReq.i, DT); else if (e.mine) stopMine(r, e);
     }
     // the void
-    if (!BW.groundUnder(m, e.x, e.y)) { e.fall += DT; if (e.fall > (e.ctl === 'human' ? 0.3 : 0.08)) die(r, e, 'void', null); continue; }
+    if (!BW.groundUnder(m, e.x, e.y) && !e.god) { e.fall += DT; if (e.fall > (e.ctl === 'human' ? 0.3 : 0.08)) die(r, e, 'void', null); continue; }
     e.fall = 0;
     // pick up generator drops
     for (let gi = 0; gi < r.gens.length; gi++) {
@@ -825,7 +853,7 @@ function tickRoom(r, now) {
   flush(r);
 }
 function flags(e, now) {
-  return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0);
+  return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0) | (e.god ? 512 : 0);
 }
 function flush(r) {
   const now = Date.now();
@@ -865,6 +893,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     const { cid, nick } = worldIdentity(req);
     if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Log in to ScrollHub to play Bedwars.' })); ws.close(4000); } catch (e) {} return; }
     const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
+    c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
     // One session per account: the newest tab wins and takes over the old one's seat.
     for (const o of [...conns]) if (o.cid === cid) {
       try { o.ws.send(JSON.stringify({ t: 'err', code: 'replaced', msg: 'You opened Bedwars in another tab.' })); } catch (e) {}
@@ -874,7 +903,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     }
     conns.add(c);
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner });
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
       if (r.state === 'play') { const e = [...r.ents.values()].find((x) => x.cid === cid && !x.bot); if (e) { e.conn = c; e.ctl = 'human'; c.room = r; c.ent = e; e.dirty = true; r.ev(['dc', e.id, 0]); send(c, fullState(r, e)); break; } }
@@ -882,8 +911,9 @@ export function handleBedwarsUpgrade(req, socket, head) {
     }
     if (c.room && c.room.state === 'lobby') { enterSpace(c, c.room.space); pushRoom(c.room); }
     else if (!c.room) goHub(c);
-    ws.on('message', (buf) => {
+    ws.on('message', (buf, isBinary) => {
       c.alive = true;
+      if (isBinary) { voiceFrame(c, buf); return; }
       let msg; try { msg = JSON.parse(buf.toString()); } catch (e) { return; }
       if (!msg || typeof msg.t !== 'string') return;
       const now = Date.now();
@@ -898,6 +928,9 @@ export function handleBedwarsUpgrade(req, socket, head) {
 function onMsg(c, m, now) {
   const r = c.room, t = m.t;
   if (t === 'ping') return send(c, { t: 'pong', c: m.c, n: now });
+  if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
+  if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
+  if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
   // ---- menus
   if (t === 'quick') {
     const mode = BW.MODES[m.mode] ? m.mode : 'solo';
@@ -939,7 +972,7 @@ function onMsg(c, m, now) {
     const allow = BW.SPEED * (now < e.speedUntil ? 1.35 : 1) * dt * 1.6 + 26 + e.kbBudget;
     const dx = x - e.x, dy = y - e.y, d = Math.hypot(dx, dy);
     let bad = false;
-    if (d > allow) { x = e.x + dx / d * allow; y = e.y + dy / d * allow; bad = true; }
+    if (d > allow && !e.god) { x = e.x + dx / d * allow; y = e.y + dy / d * allow; bad = true; }
     if (BW.hits(r.map, x, y, false) && !BW.hits(r.map, e.x, e.y, false)) { x = e.x; y = e.y; bad = true; }
     e.x = clamp(x, T, (W - 1) * T); e.y = clamp(y, T, (H - 1) * T);
     if (Number.isFinite(m.a)) e.ang = m.a / 100;
@@ -963,4 +996,95 @@ function onMsg(c, m, now) {
     if (m.kill) { const v = r.ents.get(m.kill); if (v) die(r, v, 'melee', e); }
     if (m.bed != null) destroyBed(r, r.map.beds[m.bed], e);
   }
+}
+
+
+// ============================================================ owner panel
+function roomSummary(r) {
+  const now = Date.now();
+  const o = { id: r.id, kind: r.kind, mode: r.mode, diff: r.diff, code: r.code, state: r.state };
+  if (r.state === 'lobby') { o.players = r.members.map((m) => ({ nick: m.nick, team: m.team, pid: m.conn ? m.conn.pid : 0 })); o.startIn = r.startAt ? Math.max(0, r.startAt - now) : 0; }
+  else if (r.ents) {
+    o.elapsed = Math.max(0, (now - r.goAt) / 1000);
+    o.teams = r.teams.map((t) => ({ bed: t.bed, elim: t.elim }));
+    o.players = [...r.ents.values()].map((e) => ({ id: e.id, nick: e.nick, team: e.team, bot: e.bot, human: !!e.cid && !e.bot, online: !!e.conn, dead: e.dead, elim: e.elim, hp: Math.ceil(e.hp), god: !!e.god, res: e.res, sword: e.sword, armor: e.armor, k: e.stats.kills, f: e.stats.finals }));
+  }
+  return o;
+}
+function now0() { return Date.now(); }
+function adminInfo(c) {
+  const where = (x) => x.room ? (x.room.state === 'play' ? 'match #' + x.room.id : x.room.state === 'lobby' ? 'waiting #' + x.room.id : 'results #' + x.room.id) : x.space ? 'hub' : '—';
+  return {
+    t: 'adminfo', locked: LOCKED, voiceOff: VOICE_OFF, now: Date.now(), myRoom: c.room ? c.room.id : 0, myEnt: c.ent ? c.ent.id : 0,
+    rooms: [...rooms.values()].filter((r) => r.state !== 'dead').map(roomSummary),
+    conns: [...conns].map((x) => ({ pid: x.pid, nick: x.nick, owner: !!x.owner, where: where(x), voice: !!x.voice, vmuted: !!x.vmuted, talking: now0() - (x.vTalkAt || 0) < 1500 })),
+  };
+}
+function adminMsg(c, m, now) {
+  const a = String(m.a || '');
+  const ok = (msg) => send(c, { t: 'admres', ok: true, msg });
+  const no = (msg) => send(c, { t: 'admres', ok: false, msg });
+  const room = () => rooms.get(Number(m.room));
+  const ent = (r) => r && r.ents && r.ents.get(Number(m.id));
+  if (a === 'info') return send(c, adminInfo(c));
+  if (a === 'announce') {
+    const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');
+    for (const x of conns) send(x, { t: 'ann', text, from: c.nick });
+    return ok('Announcement sent to ' + conns.size + ' players.');
+  }
+  if (a === 'lock') { LOCKED = !!m.on; return ok(LOCKED ? 'New matches are paused.' : 'New matches are open again.'); }
+  if (a === 'voiceoff') { VOICE_OFF = !!m.on; for (const x of conns) if (x.voice) send(x, { t: 'vcstate', on: x.voice, off: VOICE_OFF, muted: !!x.vmuted, range: VOICE_R }); return ok(VOICE_OFF ? 'Voice chat is off for everyone.' : 'Voice chat is back on.'); }
+  if (a === 'vmute') {
+    const x = [...conns].find((y) => y.pid === Number(m.pid)); if (!x) return no('Player not found.');
+    x.vmuted = !x.vmuted; send(x, { t: 'vcstate', on: !!x.voice, off: VOICE_OFF, muted: x.vmuted, range: VOICE_R });
+    return ok(x.vmuted ? x.nick + ' can’t talk in voice now.' : x.nick + ' can talk again.');
+  }
+  if (a === 'kick') {
+    const x = [...conns].find((y) => y.pid === Number(m.pid)); if (!x) return no('Player not found.');
+    if (x.owner) return no('You can’t kick an owner.');
+    send(x, { t: 'err', code: 'kicked', msg: String(m.reason || 'You were removed from Bedwars by an owner.').slice(0, 120) });
+    setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
+    return ok('Kicked ' + x.nick + '.');
+  }
+  // ---- your own powers (in a match)
+  if (a === 'self') {
+    const r = c.room, e = c.ent; if (!r || r.state !== 'play' || !e) return no('Join a match first.');
+    const op = String(m.op);
+    if (op === 'god') { e.god = !e.god; if (e.god) { e.hp = BW.MAX_HP; e.dead = false; } e.dirty = true; send(c, { t: 'god', on: e.god }); return ok(e.god ? 'God mode ON — no damage, no void, walk on air.' : 'God mode OFF.'); }
+    if (op === 'res') { e.res.iron += 64; e.res.gold += 32; e.res.dia += 16; e.res.em += 16; e.dirty = true; return ok('+64 iron, +32 gold, +16 diamonds, +16 emeralds'); }
+    if (op === 'kit') { e.sword = 4; e.armor = 4; e.pick = 4; e.inv.wool += 64; e.inv.end += 32; e.inv.fireball += 5; e.inv.tnt += 3; e.inv.pearl += 3; e.inv.gapple += 3; e.inv.bow = 1; e.inv.arrows += 32; e.inv.kbstick = 1; e.dirty = true; r.ev(['gear', e.id, e.sword, e.armor, e.pick]); return ok('Max kit given.'); }
+    return no('Unknown power.');
+  }
+  // ---- room controls
+  const r = room(); if (!r) return no('That match is gone.');
+  if (a === 'start') { if (r.state !== 'lobby') return no('Already started.'); startMatch(r); return ok('Match #' + r.id + ' started.'); }
+  if (a === 'delete') {
+    for (const x of humans(r)) { x.room = null; x.ent = null; send(x, { t: 'ann', text: 'This match was closed by an owner.', from: c.nick }); goHub(x); }
+    if (r.space) for (const x of [...r.space.conns]) { x.room = null; goHub(x); }
+    r.state = 'dead'; killRoom(r); return ok('Match #' + r.id + ' closed.');
+  }
+  if (r.state !== 'play') return no('That match isn’t being played right now.');
+  if (a === 'end') { const w = Number(m.winner); endMatch(r, w >= 0 && w < 4 ? w : -1); return ok('Match #' + r.id + ' ended.'); }
+  if (a === 'time') { const sec = clamp(Number(m.sec) || 0, 0, 1200); r.goAt -= sec * 1000; roomSend(r, { t: 'goat', goAt: r.goAt }); return ok('Skipped ' + sec + 's ahead.'); }
+  if (a === 'bed') { const t = Number(m.team); const b = r.map.beds[t]; if (!b || !b.alive) return no('That bed is already gone.'); destroyBed(r, b, null); return ok(BW.TEAMS[t].name + ' bed destroyed.'); }
+  if (a === 'ent') {
+    const e = ent(r); if (!e) return no('Player not found.');
+    const op = String(m.op);
+    if (op === 'kill') { if (e.dead || e.elim) return no('Already dead.'); e.god = false; die(r, e, 'melee', null); return ok(e.nick + ' killed.'); }
+    if (op === 'elim') { if (e.elim) return no('Already eliminated.'); e.god = false; if (!e.dead) die(r, e, 'melee', null); e.elim = true; e.dead = true; e.dirty = true; r.teamsDirty = true; checkWin(r); return ok(e.nick + ' eliminated.'); }
+    if (op === 'heal') { if (e.dead) return no('They’re dead.'); e.hp = BW.MAX_HP; e.absorb = 4; e.dirty = true; return ok(e.nick + ' healed.'); }
+    if (op === 'res') { e.res.iron += 32; e.res.gold += 16; e.res.dia += 4; e.res.em += 4; e.dirty = true; return ok('Gave ' + e.nick + ' resources.'); }
+    if (op === 'revive') { if (!e.dead && !e.elim) return no('They’re alive.'); e.elim = false; e.dead = true; e.respawnAt = 0; r.teams[e.team].elim = false; r.teamsDirty = true; return ok(e.nick + ' will respawn now.'); }
+    if (op === 'tpme' || op === 'bring') {
+      const me = c.ent; if (!me || c.room !== r) return no('You need to be in that match.');
+      if (e.dead || me.dead) return no('Both of you need to be alive.');
+      const from = op === 'tpme' ? me : e, to = op === 'tpme' ? e : me;
+      from.x = to.x + 30; from.y = to.y; from.vx = from.vy = 0; from.kbBudget += 2000;
+      if (from.conn) send(from.conn, { t: 'pos', x: Math.round(from.x), y: Math.round(from.y) });
+      r.ev(['tp', from.id, Math.round(to.x), Math.round(to.y), Math.round(from.x), Math.round(from.y)]);
+      return ok(op === 'tpme' ? 'Teleported to ' + e.nick + '.' : 'Brought ' + e.nick + ' to you.');
+    }
+    return no('Unknown action.');
+  }
+  return no('Unknown command.');
 }
