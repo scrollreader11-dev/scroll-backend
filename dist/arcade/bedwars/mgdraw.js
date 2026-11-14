@@ -187,6 +187,22 @@
       circ(c, -4, 5, 2); c.fillStyle = '#ff5c6c'; c.fill();
       c.restore(); return;
     }
+    if (id === 'fists') return;
+    if (id === 'knife') {
+      c.save(); c.rotate(0.5); c.scale(s, s);
+      rr(c, -2.2, 2, 4.4, 9, 2); fs(c, '#3a2a18', OL, 2);
+      c.beginPath(); c.moveTo(-3, 2); c.lineTo(3, 2); c.lineTo(2, -14); c.quadraticCurveTo(0, -19, -1.5, -14); c.closePath(); fs(c, '#e8edf5', OL, 2);
+      c.fillStyle = 'rgba(255,255,255,.7)'; c.fillRect(-0.5, -13, 1.4, 12);
+      rr(c, -4.5, 0.4, 9, 2.6, 1.3); fs(c, '#8a93a6', OL, 1.6);
+      c.restore(); return;
+    }
+    if (id === 'goldI') {
+      c.save(); c.scale(s, s);
+      c.beginPath(); c.moveTo(-11, 6); c.lineTo(-7, -4); c.lineTo(7, -4); c.lineTo(11, 6); c.closePath(); fs(c, '#ffd23f', OL, 2.2);
+      c.fillStyle = '#fff3b0'; c.beginPath(); c.moveTo(-7, -4); c.lineTo(7, -4); c.lineTo(5, -1); c.lineTo(-5, -1); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,255,255,.8)'; circ(c, -4, 0, 1.6); c.fill();
+      c.restore(); return;
+    }
     if (id === 'flag') { c.save(); c.scale(s, s); rr(c, -9, -14, 3, 28, 1.5); fs(c, '#d9dce6', OL, 1.8); c.beginPath(); c.moveTo(-6, -13); c.lineTo(12, -8); c.lineTo(-6, -2); c.closePath(); fs(c, teamCol(o.team || 0), OL, 2); c.restore(); return; }
     return oldItem(c, id, s, o);
   };

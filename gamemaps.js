@@ -14,7 +14,7 @@ const GAMES = ['bw', 'ctf', 'spleef', 'hide'];
 export const MAPPER = 'scrollreader11';           // the only account that can make maps
 
 export const DEFAULT_SETTINGS = { ctfCaps: 3, ctfMins: 8, hideSec: 30, seekSec: 180, spleefMins: 4, publicDiff: 'normal', motd: '', doubleUntil: 0 };
-export const store = { maps: {}, rot: {}, settings: { ...DEFAULT_SETTINGS }, bans: {}, logs: [] };
+export const store = { maps: {}, rot: {}, settings: { ...DEFAULT_SETTINGS }, bans: {}, logs: [], elo: {}, gstats: {} };
 GAMES.forEach((g) => { store.rot[g] = { def: true, ids: [] }; });
 
 function load(raw) {
@@ -25,6 +25,8 @@ function load(raw) {
     if (d.settings) store.settings = { ...DEFAULT_SETTINGS, ...d.settings };
     if (d.bans) store.bans = d.bans;
     if (d.logs) store.logs = d.logs.slice(-150);
+    if (d.elo) store.elo = d.elo;
+    if (d.gstats) store.gstats = d.gstats;
   } catch (e) {}
   applySettings();
 }
@@ -117,3 +119,41 @@ export function pickMap(game) {
   return k < pool.length ? store.maps[pool[k]] : null;
 }
 export function publishedMaps(game) { return Object.values(store.maps).filter((m) => m.game === game && m.ok).map((m) => ({ id: m.id, name: m.name, author: m.author })); }
+
+// ---- Duels Elo ranks
+export function eloOf(cid) { const q = store.elo[cid]; return q ? q.r : 1000; }
+// Called once at the end of a public duel. Returns {cidA:{d, r}, ...} keyed by ent id for the client.
+export function duelElo(r, winner) {
+  const ents = [...r.ents.values()];
+  const a = ents.find((e) => e.team === 0), b = ents.find((e) => e.team === 1);
+  if (!a || !b) return null;
+  const out = {};
+  const apply = (e, foe, win, draw) => {
+    if (!e.cid || e.bot) return;
+    const mine = eloOf(e.cid), theirs = foe.bot ? 1000 : eloOf(foe.cid);
+    let d;
+    if (foe.bot) d = draw ? 0 : win ? 8 : -6;
+    else { const exp = 1 / (1 + Math.pow(10, (theirs - mine) / 400)); d = Math.round(32 * ((draw ? 0.5 : win ? 1 : 0) - exp)); }
+    const q = store.elo[e.cid] || (store.elo[e.cid] = { r: 1000, w: 0, l: 0, nick: e.nick });
+    q.r = Math.max(400, q.r + d); q.nick = e.nick; if (!draw) { if (win) q.w++; else q.l++; }
+    out[e.id] = { d, r: q.r };
+  };
+  apply(a, b, winner === 0, winner < 0);
+  apply(b, a, winner === 1, winner < 0);
+  save();
+  return out;
+}
+// ---- per-game records for the leaderboard plaza
+export function recordResult(cid, nick, game, win, st) {
+  if (!cid) return;
+  const g = store.gstats[cid] || (store.gstats[cid] = { nick });
+  g.nick = nick;
+  const q = g[game] || (g[game] = { w: 0, g: 0, x: 0 });
+  q.g++; if (win) q.w++;
+  q.x += game === 'ctf' ? (st.caps | 0) : game === 'hide' ? (st.finds | 0) : game === 'spleef' ? (st.place === 1 ? 1 : 0) : game === 'murder' ? (st.kills | 0) : game === 'build' ? (st.place === 1 ? 1 : 0) : (st.finals | 0);
+  dirty = true;
+}
+export function gameLb(game) {
+  if (game === 'duel') return Object.entries(store.elo).map(([cid, q]) => ({ nick: q.nick, r: q.r, w: q.w, l: q.l })).sort((a, b) => b.r - a.r).slice(0, 10);
+  return Object.entries(store.gstats).map(([cid, g]) => { const q = g[game]; return q ? { nick: g.nick, w: q.w, g: q.g, x: q.x } : null; }).filter(Boolean).sort((a, b) => b.w - a.w || b.x - a.x).slice(0, 10);
+}

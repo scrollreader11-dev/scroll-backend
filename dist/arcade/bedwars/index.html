@@ -449,6 +449,20 @@
   body.touch.mg #tutor{top:100px}
   body.touch.ingame #toast{top:auto;bottom:92px}
   @media (orientation:portrait){ body.touch.mg #mgTop{top:58px} body.touch.mg #tutor{top:100px;width:min(240px,62vw)} }
+  /* build battle */
+  #bbPal{left:50%;bottom:86px;transform:translateX(-50%);display:flex;gap:4px;padding:6px;max-width:min(92vw,760px);overflow-x:auto;pointer-events:auto}
+  #bbPal .bbi{border:3px solid var(--line);border-radius:12px;background:rgba(255,255,255,.07);width:48px;height:48px;min-width:48px;padding:1px;cursor:pointer}
+  #bbPal .bbi.on{background:rgba(255,209,102,.3);border-color:#ffd166}
+  #bbPal .bbi canvas{width:100%;height:100%}
+  body.g-build #hotbar,body.g-build #heldName{display:none}
+  #bbVote{left:50%;top:118px;transform:translateX(-50%);padding:8px 14px;text-align:center;pointer-events:auto}
+  #bbVote .bvt{font-weight:700;font-size:15px}
+  #bbVote .bstars{display:flex;gap:6px;margin-top:6px;justify-content:center}
+  #bbVote .bstars button{border:3px solid var(--line);border-radius:10px;background:#3b2f8f;color:#fff;font-size:13px;padding:5px 8px;cursor:pointer;box-shadow:0 3px 0 #0a0820}
+  #bbVote .bstars button:hover{background:#7b5cff}
+  body.touch #bbPal{bottom:8px;left:8px;right:8px;transform:none;max-width:none}
+  body.touch.g-build #joy{bottom:120px!important}
+  body.touch #bbVote{top:96px}
 </style>
 </head>
 <body>
@@ -564,6 +578,8 @@
   <div id="mgTop" class="gonly hpanel hidden"></div>
   <div id="mgRole" class="gonly hpanel hidden"></div>
   <div id="tutor" class="hpanel hidden"></div>
+  <div id="bbPal" class="hpanel hidden"></div>
+  <div id="bbVote" class="hpanel hidden"></div>
   <div id="timerP" class="gonly hpanel"><div class="tm" id="tmT">0:00</div><div class="nx" id="tmN"></div></div>
   <div id="topBtns" style="top:auto;bottom:auto"></div>
   <div id="feed" class="gonly"></div>
@@ -650,11 +666,11 @@
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=3"></script>
 <script src="/arcade/bedwars/shared.js?v=5"></script>
-<script src="/arcade/bedwars/mg.js?v=2"></script>
+<script src="/arcade/bedwars/mg.js?v=3"></script>
 <script src="/arcade/bedwars/draw.js?v=5"></script>
-<script src="/arcade/bedwars/mgdraw.js?v=1"></script>
+<script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=10"></script>
+<script src="/arcade/bedwars/game.js?v=11"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

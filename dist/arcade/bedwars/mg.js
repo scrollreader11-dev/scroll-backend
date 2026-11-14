@@ -16,8 +16,9 @@
   // new ground types
   G.COBBLE = 7; G.FLOOR = 8; G.SNOW = 9;
   // new hand items (appended so Bedwars' held-item indexes don't change)
-  ['shovel', 'snow', 'mask', 'taunt', 'radar'].forEach(function (k) { if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); });
+  ['shovel', 'snow', 'mask', 'taunt', 'radar', 'fists', 'knife'].forEach(function (k) { if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); });
   B.ITEM_NAMES.shovel = 'Spleef Shovel'; B.ITEM_NAMES.snow = 'Snowball'; B.ITEM_NAMES.mask = 'Disguise'; B.ITEM_NAMES.taunt = 'Taunt'; B.ITEM_NAMES.radar = 'Hider Radar';
+  B.ITEM_NAMES.fists = 'Fists'; B.ITEM_NAMES.knife = 'Knife';
 
   M.GAMES = {
     bw: { key: 'bw', name: 'Bedwars', icon: '🛏️' },
@@ -27,8 +28,21 @@
       desc: 'The floor falls away — be the last one standing', tag: 'Free for all' },
     hide: { key: 'hide', name: 'Prop Hunt', short: 'PROP HUNT', icon: '🎃', teams: 2, per: 8, max: 8, hideSec: 30, seekSec: 180,
       desc: 'Hide as a prop — or hunt the ones who did', tag: 'Hide & seek' },
+    duel: { key: 'duel', name: 'Duels', short: 'DUELS', icon: '⚔️', teams: 2, per: 1, max: 2, wins: 5, mins: 5, respawn: 3,
+      desc: '1v1 sword fight — first to 5 kills', tag: '1v1 ranked' },
+    murder: { key: 'murder', name: 'Murder Mystery', short: 'MYSTERY', icon: '🔪', teams: 8, per: 1, max: 8, mins: 5,
+      desc: 'Someone here is the murderer…', tag: '8-player mystery' },
+    build: { key: 'build', name: 'Build Battle', short: 'BUILD', icon: '🏗️', teams: 8, per: 1, max: 4, buildSec: 150, voteSec: 9,
+      desc: 'Build the theme, then everyone votes', tag: 'Creative' },
   };
-  M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide'; };
+  M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide' || g === 'duel' || g === 'murder' || g === 'build'; };
+  M.RANKS = [
+    { key: 'bronze', name: 'Bronze', at: 0, color: '#c67b4e' },
+    { key: 'silver', name: 'Silver', at: 1100, color: '#c5cfe2' },
+    { key: 'gold', name: 'Gold', at: 1250, color: '#ffd166' },
+    { key: 'diamond', name: 'Diamond', at: 1400, color: '#5ff0e6' },
+  ];
+  M.rankOf = function (elo) { var r = M.RANKS[0]; M.RANKS.forEach(function (q) { if (elo >= q.at) r = q; }); return r; };
 
   // Seeded random (same map on every client).
   function rng(seed) { var s = (seed >>> 0) || 1; return function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
@@ -310,12 +324,67 @@
     return cm;
   };
 
-  M.genMap = function (game, seed, custom) { if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : B.genMap(); };
+  // ================================================================ DUELS
+  // A tight arena over the void: knockback matters.
+  M.genDuel = function (seed) {
+    var m = blank(); m.game = 'duel';
+    var r = rng(seed || 3);
+    fill(m, 27, 30, 45, 42, G.COBBLE, true);
+    fill(m, 28, 29, 44, 43, G.COBBLE, true);
+    disc(m, 36, 36, 3, G.MID);
+    [[31, 33], [41, 33], [31, 39], [41, 39]].forEach(function (p) { m.g[p[1] * W + p[0]] = G.ROCK; });
+    // a couple of random bite marks so arenas differ a little
+    for (var k = 0; k < 3; k++) { var ex = 28 + Math.floor(r() * 17), ey = r() < 0.5 ? 29 : 43; if (Math.abs(ex - 36) > 3) m.g[ey * W + ex] = 0; }
+    fill(m, 28, 35, 29, 37, G.PAD); fill(m, 43, 35, 44, 37, G.PAD);
+    m.bases = [
+      { team: 0, cx: 28, cy: 36, inward: [1, 0], right: [0, 1], spawn: { x: tcx(28) + 10, y: tcx(36) }, rect: [27, 29, 30, 43] },
+      { team: 1, cx: 44, cy: 36, inward: [-1, 0], right: [0, 1], spawn: { x: tcx(44) - 10, y: tcx(36) }, rect: [42, 29, 45, 43] },
+    ];
+    for (var i = 0; i < N; i++) m.noBuild[i] = 1;
+    return m;
+  };
+  // ================================================================ MURDER MYSTERY
+  // The Prop Hunt village, but the props are just furniture: everyone looks innocent.
+  M.genMurder = function (seed) {
+    var m = M.genHide(seed); m.game = 'murder'; m.cage = null;
+    var spots = m.hideSpawns.concat([m.seekSpawn]);
+    m.bases = [];
+    for (var t = 0; t < 8; t++) { var s = spots[t % spots.length]; m.bases.push({ team: t, cx: Math.floor(s.x / T), cy: Math.floor(s.y / T), spawn: s, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] }); }
+    return m;
+  };
+  // ================================================================ BUILD BATTLE
+  M.BB_THEMES = ['Castle', 'Garden', 'Farm', 'Snowy Day', 'Spooky Night', 'Cozy House', 'Market Stall', 'Campsite', 'Pirate Island', 'Birthday Party', 'Zoo', 'Robot'];
+  M.BB_GROUNDS = [G.GRASS, G.STONE, G.PATH, G.COBBLE, G.FLOOR, G.SNOW, G.MID, 0];
+  M.BB_WALLS = [1, 2, 3, 4];
+  M.PLOT = 13;
+  M.genBuild = function () {
+    var m = blank(); m.game = 'build'; m.plots = []; m.props = [];
+    fill(m, 12, 13, 60, 55, G.GRASS, true);
+    fill(m, 13, 12, 59, 56, G.GRASS, true);
+    disc(m, 36, 34, 4, G.MID);
+    var P = M.PLOT;
+    [[16, 16], [43, 16], [16, 39], [43, 39]].forEach(function (q, k) {
+      var x0 = q[0], y0 = q[1], x1 = x0 + P - 1, y1 = y0 + P - 1;
+      fill(m, x0 - 1, y0 - 1, x1 + 1, y1 + 1, G.COBBLE);
+      fill(m, x0, y0, x1, y1, G.FLOOR);
+      m.plots.push({ x0: x0, y0: y0, x1: x1, y1: y1 });
+      m.bases.push({ team: k, cx: (x0 + x1) >> 1, cy: y1 + 2, inward: [0, -1], right: [1, 0], spawn: { x: tcx((x0 + x1) >> 1), y: tcx(y1 + 2) }, rect: [x0, y0, x1, y1] });
+    });
+    for (var t = 4; t < 8; t++) m.bases.push(m.bases[t - 4]);
+    for (var i = 0; i < N; i++) { m.noBuild[i] = 1; m.noMine[i] = 1; }
+    return m;
+  };
+  M.inPlot = function (m, plot, i) { var p = m.plots[plot]; if (!p) return false; var x = i % W, y = (i / W) | 0; return x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1; };
+
+  M.genMap = function (game, seed, custom) { if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : B.genMap(); };
 
   // Hotbar per game.
   M.hotbar = function (game, inv, role) {
     if (game === 'spleef') { var o = ['shovel']; if (inv.snow > 0) o.push('snow'); return o; }
     if (game === 'hide') return role === 1 ? ['sword', 'radar'] : ['mask', 'taunt'];
+    if (game === 'duel') return ['sword'];
+    if (game === 'murder') { var o2 = ['fists']; if (role === 'm') o2.push('knife'); if (inv.bow > 0) o2.push('bow'); return o2; }
+    if (game === 'build') return ['fists'];
     return B.hotbar(inv);
   };
   root.MG = M;

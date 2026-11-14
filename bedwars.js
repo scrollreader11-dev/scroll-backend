@@ -260,7 +260,7 @@ function fullState(r, e) {
 }
 function meMsg(e) {
   const now = Date.now();
-  return { t: 'me', role: e.team, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), stats: e.stats };
+  return { t: 'me', role: e.team, mr: e.mrole || '', gold: e.gold | 0, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), stats: e.stats };
 }
 
 // ============================================================ actions (shared by players & bots)
@@ -496,11 +496,13 @@ function endMatch(r, winner) {
   const stats = [...r.ents.values()].map((e) => ({ id: e.id, nick: e.nick, team: e.team, bot: e.bot, look: e.look, ...e.stats }));
   const mult = r.kind === 'public' ? 1 : 0.5;
   const extra = r.game !== 'bw' ? MINI.endInfo(r) : {};
+  if (r.game === 'duel' && r.kind !== 'practice') extra.elo = GMS.duelElo(r, winner);
   for (const e of r.ents.values()) {
     if (e.bot || !e.cid) continue;
     const win = r.game !== 'bw' ? MINI.isWinner(r, e, winner) : e.team === winner;
     const amount = (r.game !== 'bw' ? MINI.reward(r, e, win) : 15 + (win ? 100 : 0) + e.stats.kills * 3 + e.stats.finals * 8 + e.stats.beds * 25) * mult * GMS.rewardMult();
     let rew = null; try { rew = bwReward(e.cid, amount, { win, nick: e.nick, kills: e.stats.kills | 0, finals: e.stats.finals | 0, beds: e.stats.beds | 0, deaths: e.stats.deaths | 0 }); } catch (err) {}
+    try { if (r.kind === 'public') GMS.recordResult(e.cid, e.nick, r.game, win, e.stats); } catch (err) {}
     if (e.conn) send(e.conn, { t: 'end', game: r.game, winner, win, you: e.id, team: e.team, stats, reward: rew, mins: Math.max(0, (Date.now() - r.goAt) / 60000), ...extra });
   }
   setTimeout(() => killRoom(r), 60000);
@@ -744,7 +746,7 @@ function stepPath(r, e, now) {
       if (now >= ai.placeAt) { ai.placeAt = now + sk.place * (0.8 + rnd() * 0.4); if (!place(r, e, i, key)) { ai.fails = (ai.fails || 0) + 1; if (ai.fails > 4) { ai.fails = 0; ai.path = null; } } else ai.fails = 0; }
       return 'go';
     }
-    if (e.held !== 'sword' && !(ai.goal && ai.goal.type === 'attack') && r.game !== 'hide') e.held = 'sword';
+    if (e.held !== 'sword' && !(ai.goal && ai.goal.type === 'attack') && r.game !== 'hide' && r.game !== 'murder' && r.game !== 'build') e.held = 'sword';
     const d = moveToward(r, e, c.x, c.y, DT);
     if (d < 6) ai.pi++;
     // stuck?
@@ -877,7 +879,7 @@ function tickProj(r, now) {
         if (v.dead || v.elim || v.team === p.team || v.id === p.owner) continue;
         if (r.game === 'spleef' && ((v.z || 0) !== (p.z || 0) || v.fallUntil)) continue;
         if (Math.hypot(v.x - p.x, v.y - 16 - p.y) < 20) {
-          if (p.kind === 'arrow') hurt(r, v, p.dmg, r.ents.get(p.owner), 'arrow', p.vx, p.vy, 220, false);
+          if (p.kind === 'arrow') hurt(r, v, r.game === 'murder' ? 100 : p.dmg, r.ents.get(p.owner), 'arrow', p.vx, p.vy, 220, false);
           else if (p.kind === 'snow') { MINI.snowHit(r, v, p); }
           done = true; break;
         }
@@ -968,7 +970,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     }
     conns.add(c);
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1 });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid) });
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
       if (r.state === 'play') { const e = [...r.ents.values()].find((x) => x.cid === cid && !x.bot); if (e) { e.conn = c; e.ctl = 'human'; c.room = r; c.ent = e; e.dirty = true; r.ev(['dc', e.id, 0]); send(c, fullState(r, e)); break; } }
@@ -1060,7 +1062,7 @@ function onMsg(c, m, now) {
   if (t === 'hop') { if (now - (e.hopAt || 0) < (r.game === 'spleef' ? 900 : 450)) return; e.hopAt = now; r.ev(['hop', e.id]); return; }
   if (t === 'mine') { const i = m.i | 0; e.mineReq = i >= 0 && i < N ? { i, until: now + 260 } : null; return; }
   if (t === 'pl') { const i = m.i | 0; if (!place(r, e, i, String(m.b))) { e.dirty = true; const mm = r.map; send(c, { t: 'fix', i, f: mm.f[i], fc: mm.fc[i], w: mm.w[i], wc: mm.wc[i] }); } return; }
-  if (t === 'sel') { const it = String(m.it); if ((r.game !== 'bw' ? MG.hotbar(r.game, e.inv, e.team) : BW.hotbar({ ...e.inv, pick: e.pick })).includes(it)) e.held = it; return; }
+  if (t === 'sel') { const it = String(m.it); if ((r.game !== 'bw' ? MG.hotbar(r.game, e.inv, r.game === 'murder' ? e.mrole : e.team) : BW.hotbar({ ...e.inv, pick: e.pick })).includes(it)) e.held = it; return; }
   if (t === 'use') { useItem(r, e, String(m.it), Number(m.x) || e.x, Number(m.y) || e.y, now); return; }
   if (t === 'bow') { shootBow(r, e, Number(m.a) / 100 || 0, m.p, now); return; }
   if (t === 'buy') { const res = buy(r, e, String(m.id)); send(c, { t: 'buy', id: m.id, res }); return; }

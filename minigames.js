@@ -68,6 +68,41 @@ function start(r) {
       e.ai.dir = e.ang;
     }
     r.crum = new Map(); r.decay = 1000; r.sdAt = r.goAt + GM.mins * 60000; r.sdAnn = false; r.centerAt = 0; r.center = [];
+  } else if (r.game === 'duel') {
+    for (let t = 0; t < 2; t++) while (count(t) < 1) addBot(t);
+    r.score = [0, 0]; r.endAt = r.goAt + GM.mins * 60000;
+    for (const e of r.ents.values()) {
+      const b = r.map.bases[e.team];
+      e.x = b.spawn.x; e.y = b.spawn.y; e.ang = Math.atan2(0, b.inward[0]);
+      e.sword = 3; e.armor = 2; e.inv = A.emptyInv(); e.held = 'sword';
+      e.stats = freshStats({ streak: 0, best: 0 });
+    }
+  } else if (r.game === 'murder') {
+    while (r.ents.size < GM.max) addBot(r.ents.size);
+    const all = shuffle([...r.ents.values()]);
+    const m2 = r.map, spots2 = shuffle(m2.hideSpawns.concat([m2.seekSpawn]));
+    all.forEach((e, k) => {
+      e.mrole = k === 0 ? 'm' : k === 1 ? 'd' : 'i';
+      const s = spots2[k % spots2.length];
+      e.x = s.x + (rnd() - 0.5) * 40; e.y = s.y + (rnd() - 0.5) * 30;
+      e.sword = 4; e.armor = 1; e.inv = A.emptyInv(); e.held = 'fists'; e.gold = 0;
+      if (e.mrole === 'd') { e.inv.bow = 1; e.inv.arrows = 1; }
+      e.stats = freshStats({ gold: 0, shots: 0, role: e.mrole });
+      e.ai.wanderAt = 0; e.ai.knows = false;
+      if (e.mrole === 'm' && e.bot) e.ai.coolAt = r.goAt + 15000 + rnd() * 15000;   // let everyone spread out first
+    });
+    r.endAt = r.goAt + GM.mins * 60000; r.golds = new Map(); r.goldSeq = 0; r.goldAt = r.goAt + 3000; r.detId = all[1].id;
+  } else if (r.game === 'build') {
+    while (r.ents.size < GM.max) addBot(r.ents.size);
+    r.phase = 'build'; r.theme = pick(MG.BB_THEMES); r.buildEnd = r.goAt + GM.buildSec * 1000;
+    r.votes = r.map.plots.map(() => ({ sum: 0, n: 0, who: new Set() }));
+    r.voteOrder = null; r.voteIdx = -1; r.voteNext = 0; r.results = null;
+    for (const e of r.ents.values()) {
+      const b = r.map.bases[e.team];
+      e.x = b.spawn.x; e.y = b.spawn.y; e.held = 'fists'; e.god = true;
+      e.stats = freshStats({ placed: 0, score: 0, place: 0 });
+      if (e.bot) bbPlanBot(r, e);
+    }
   } else if (r.game === 'hide') {
     while (r.ents.size < GM.max) addBot(0);
     const all = shuffle([...r.ents.values()]);
@@ -103,12 +138,14 @@ function setSeeker(r, e, first) {
 function tick(r, now) {
   const m = r.map, DT = A.DT;
   if (r.game === 'hide') hidePhase(r, now);
+  if (r.game === 'build') { buildTick(r, now); checkEnd(r, now); return; }
   for (const e of r.ents.values()) {
     if (e.dead) { if (!e.elim && e.respawnAt && now >= e.respawnAt) respawn(r, e); continue; }
     if (e.elim) continue;
     if (e.ctl === 'ai') {
       if (r.game !== 'spleef' || !e.fallUntil) A.physics(r, e, DT, r.game === 'spleef');
-      if (r.game === 'ctf') ctfBot(r, e, now); else if (r.game === 'spleef') spleefBot(r, e, now); else hideBot(r, e, now);
+      if (r.game === 'ctf') ctfBot(r, e, now); else if (r.game === 'spleef') spleefBot(r, e, now);
+      else if (r.game === 'duel') duelBot(r, e, now); else if (r.game === 'murder') murderBot(r, e, now); else hideBot(r, e, now);
     } else {
       e.kbBudget *= 0.86;
       if (r.game === 'ctf') { if (e.mineReq && now < e.mineReq.until) A.mineStep(r, e, e.mineReq.i, DT); else if (e.mine) A.stopMine(r, e); }
@@ -118,14 +155,16 @@ function tick(r, now) {
     e.fall = 0;
     // healing
     let heal = 0;
-    if (now - e.lastDmgAt > 5000) heal += r.game === 'hide' ? (e.team === 1 ? 0.8 : 0.3) : 0.5;
+    if (now - e.lastDmgAt > 5000) heal += r.game === 'hide' ? (e.team === 1 ? 0.8 : 0.3) : r.game === 'duel' ? 1.1 : 0.5;
     if (now < e.regenUntil) heal += 2.2;
     if (heal && e.hp < BW.MAX_HP) e.hp = Math.min(BW.MAX_HP, e.hp + heal * DT);
     if (Math.ceil(e.hp) !== e.lastHp) { e.lastHp = Math.ceil(e.hp); e.dirty = true; }
     if (r.game === 'ctf') ctfTouch(r, e, now);
+    if (r.game === 'murder') murderEnt(r, e, now);
   }
   if (r.game === 'ctf') ctfTick(r, now);
   else if (r.game === 'spleef') spleefTick(r, now);
+  else if (r.game === 'murder') murderTick(r, now);
   checkEnd(r, now);
 }
 
@@ -291,6 +330,24 @@ function die(r, v, kind, att) {
     v.stats.place = alive(r).length + 1;
     if (att) att.stats.knocks++;
     r.teamsDirty = true;
+  } else if (r.game === 'duel') {
+    if (att) { att.stats.streak++; att.stats.best = Math.max(att.stats.best, att.stats.streak); r.score[att.team]++; r.ev(['dscore', r.score[0], r.score[1], att.id]); }
+    v.stats.streak = 0;
+    v.respawnAt = now + MG.GAMES.duel.respawn * 1000;
+  } else if (r.game === 'murder') {
+    final = 1; v.elim = true;
+    if (v.mrole === 'm') r.ev(['mdead', v.id, att ? att.id : 0]);
+    else {
+      if (v.inv.bow || v.mrole === 'd') { const g = goldDrop(r, v.x, v.y, true); void g; }
+      // an innocent / detective shot the wrong person: justice is swift
+      if (kind === 'arrow' && att && att.mrole !== 'm' && !att.dead) {
+        r.ev(['justice', att.id, v.id]);
+        setTimeout(() => { try { if (r.state === 'play' && !att.dead) { att.lastHitBy = 0; A.die(r, att, 'justice', null); } } catch (err) {} }, 600);
+      }
+      if (att && att.mrole === 'm') att.stats.kills = (att.stats.kills | 0);
+    }
+    // nearby players witness the kill
+    if (att && att.mrole === 'm') for (const o of r.ents.values()) { if (o !== v && o !== att && !o.dead && o.ai && dist(o, att) < 9 * T) { o.ai.knows = true; o.ai.fleeFrom = att.id; } }
   } else if (r.game === 'hide') {
     if (v.team === 0) {
       if (att) { att.stats.finds++; }
@@ -312,6 +369,8 @@ function respawn(r, e) {
   if (r.game === 'ctf') {
     const b = m.bases[e.team]; e.x = b.spawn.x + (rnd() - 0.5) * 30; e.y = b.spawn.y + (rnd() - 0.5) * 60; kitCTF(r, e);
     if (e.ai) { e.ai.viaDone = false; e.ai.lane = rnd() < 0.5 ? -1 : 1; e.ai.tp = null; }
+  } else if (r.game === 'duel') {
+    const b = m.bases[e.team]; e.x = b.spawn.x; e.y = b.spawn.y; e.vx = e.vy = 0; e.held = 'sword';
   } else if (r.game === 'hide') {
     setSeeker(r, e, false);
     if (e.turned && e.conn) A.send(e.conn, { t: 'role', role: 1 });
@@ -338,19 +397,40 @@ function checkEnd(r, now) {
     const hiders = [...r.ents.values()].filter((e) => e.team === 0 && !e.dead);
     if (!hiders.length) winner = 1;
     else if (now >= r.endAt) { winner = 0; hiders.forEach((e) => { e.stats.survived = 1; }); }
+  } else if (r.game === 'duel') {
+    const need = MG.GAMES.duel.wins;
+    if (r.score[0] >= need) winner = 0; else if (r.score[1] >= need) winner = 1;
+    else if (now >= r.endAt) winner = r.score[0] > r.score[1] ? 0 : r.score[1] > r.score[0] ? 1 : -1;
+  } else if (r.game === 'murder') {
+    if (now < r.goAt) return;
+    const mur = [...r.ents.values()].find((e) => e.mrole === 'm');
+    const inno = [...r.ents.values()].filter((e) => e.mrole !== 'm' && !e.dead);
+    if (!mur || mur.dead) winner = 0;                                   // innocents
+    else if (!inno.length) winner = 1;                                  // the murderer
+    else if (now >= r.endAt) { winner = 0; inno.forEach((e) => { e.stats.survived = 1; }); }
+  } else if (r.game === 'build') {
+    if (r.results && now >= r.podiumAt) winner = r.results[0].team;
   }
   if (winner === null) return;
   ending = true; try { A.endMatch(r, winner); } finally { ending = false; }
 }
-function isWinner(r, e, winner) { return e.team === winner; }
+function isWinner(r, e, winner) {
+  if (r.game === 'murder') return winner === 1 ? e.mrole === 'm' : e.mrole !== 'm' && (!e.dead || e.justiced);
+  return e.team === winner;
+}
 function reward(r, e, win) {
   const s = e.stats;
   if (r.game === 'ctf') return 15 + (win ? 100 : 0) + s.kills * 3 + s.caps * 25 + s.rets * 6;
   if (r.game === 'spleef') return 15 + ([0, 110, 65, 40, 25][s.place] || 0) + Math.min(30, s.digs) + s.knocks * 6;
+  if (r.game === 'duel') return 20 + (win ? 90 : 0) + s.kills * 8;
+  if (r.game === 'murder') return 15 + (win ? 90 : 0) + s.kills * 6 + Math.min(20, s.gold) + (s.role === 'm' ? 15 : 0);
+  if (r.game === 'build') return 20 + ([0, 110, 60, 35, 20][s.place] || 0) + Math.min(40, (s.placed / 4) | 0);
   return 15 + (win ? 100 : 0) + s.finds * 12 + s.taunts * 3 + (s.survived ? 20 : 0);
 }
 function endInfo(r) {
-  if (r.game === 'ctf') return { score: r.score };
+  if (r.game === 'ctf' || r.game === 'duel') return { score: r.score };
+  if (r.game === 'murder') { const mur = [...r.ents.values()].find((e) => e.mrole === 'm'); return { murderer: mur ? mur.id : 0 }; }
+  if (r.game === 'build') return { theme: r.theme, results: r.results };
   return {};
 }
 
@@ -364,9 +444,24 @@ function state(r, e) {
     o.sp = diff; o.sdAt = r.sdAt; o.decay = r.decay;
   }
   if (r.game === 'hide') { o.seekAt = r.seekAt; o.endAt = r.endAt; o.phase = r.phase; }
+  if (r.game === 'duel') { o.score = r.score; o.endAt = r.endAt; }
+  if (r.game === 'murder') {
+    o.endAt = r.endAt; o.det = r.detId; o.mrole = e ? e.mrole : '';
+    o.golds = [...r.golds.entries()].map(([id, g]) => [id, g.i]);
+  }
+  if (r.game === 'build') {
+    o.phase = r.phase; o.theme = r.theme; o.buildEnd = r.buildEnd; o.voteIdx = r.voteIdx; o.votePlot = r.voteOrder ? r.voteOrder[r.voteIdx] : -1;
+    const m2 = r.map, bb = [];
+    for (let i = 0; i < N; i++) { if (m2.f[i]) bb.push([i, 1, m2.f[i], m2.fc[i]]); if (m2.w[i]) bb.push([i, 2, m2.w[i], m2.wc[i]]); }
+    const base = MG.genBuild();
+    for (let i = 0; i < N; i++) if (m2.g[i] !== base.g[i]) bb.push([i, 0, m2.g[i], 0]);
+    (m2.props || []).forEach((p2) => bb.push([p2.tile, 3, MG.PROP_KINDS.indexOf(p2.kind) + 1, 0]));
+    o.bb = bb; o.plotOwners = plotOwners(r);
+  }
   return o;
 }
 function extra(r, e) {
+  if (r.game === 'murder') return e.gold | 0;
   if (r.game === 'spleef') return (e.z | 0) | (e.fallUntil ? 4 : 0);
   if (r.game === 'hide') return e.prop ? MG.PROP_KINDS.indexOf(e.prop) + 1 : 0;
   if (r.game === 'ctf') return e.carry >= 0 ? e.carry + 1 : 0;
@@ -381,6 +476,8 @@ function snapExtra(r, msg, now) {
 function swingBlocked(r, e, now) {
   if (r.game === 'hide') return e.team === 0 || now < r.seekAt;
   if (r.game === 'spleef') return !!e.fallUntil;
+  if (r.game === 'murder') return !(e.mrole === 'm' && (e.held === 'knife' || e.held === 'sword'));
+  if (r.game === 'build') return true;
   return false;
 }
 function onMsg(r, e, m, now) {
@@ -407,20 +504,34 @@ function onMsg(r, e, m, now) {
     }
     if (t === 'mine' || t === 'pl' || t === 'use' || t === 'bow') return true;
   }
+  if (r.game === 'duel') { if (t === 'mine' || t === 'pl' || t === 'use') return true; }
+  if (r.game === 'murder') {
+    if (t === 'mine' || t === 'pl' || t === 'use') return true;
+    if (t === 'bow' && !(e.inv.bow > 0)) return true;
+  }
+  if (r.game === 'build') {
+    if (t === 'bb') { bbMsg(r, e, m, now); return true; }
+    if (t === 'mine' || t === 'pl' || t === 'use' || t === 'bow' || t === 'sw') return true;
+  }
   return false;
 }
 function adminInfo(r) {
-  if (r.game === 'ctf') return 'Score ' + r.score[0] + ' – ' + r.score[1];
+  if (r.game === 'ctf' || r.game === 'duel') return 'Score ' + r.score[0] + ' – ' + r.score[1];
+  if (r.game === 'murder') return [...r.ents.values()].filter((e) => e.mrole !== 'm' && !e.dead).length + ' innocents left';
+  if (r.game === 'build') return r.phase === 'build' ? 'Building: ' + r.theme : r.phase === 'vote' ? 'Voting' : 'Results';
   if (r.game === 'spleef') return alive(r).length + ' still standing';
   if (r.game === 'hide') return (r.phase === 'hide' ? 'Hiding' : 'Seeking') + ' · ' + [...r.ents.values()].filter((e) => e.team === 0 && !e.dead).length + ' hiders left';
   return '';
 }
 function kit(r, e) {
+  if (r.game === 'duel') { e.sword = 4; e.armor = 4; e.dirty = true; r.ev(['gear', e.id, 4, 4, 0]); }
+  if (r.game === 'murder') { e.inv.bow = 1; e.inv.arrows = 3; e.dirty = true; }
   if (r.game === 'ctf') { kitCTF(r, e); e.sword = 4; e.armor = 4; e.inv.fireball += 3; e.inv.pearl += 2; e.inv.gapple += 3; e.inv.arrows += 32; e.dirty = true; r.ev(['gear', e.id, 4, 4, 0]); }
   if (r.game === 'spleef') { e.inv.snow = 16; e.dirty = true; }
 }
 function skip(r, ms) {
-  if (r.game === 'ctf') r.endAt -= ms;
+  if (r.game === 'ctf' || r.game === 'duel' || r.game === 'murder') r.endAt -= ms;
+  if (r.game === 'build') { if (r.phase === 'build') r.buildEnd -= ms; }
   if (r.game === 'spleef') r.sdAt -= ms;
   if (r.game === 'hide') { if (r.phase === 'hide') r.seekAt -= ms; r.endAt -= ms; }
   A.roomSend(r, { t: 'mgt', endAt: r.endAt, seekAt: r.seekAt, sdAt: r.sdAt });
@@ -593,9 +704,247 @@ function seekerThink(r, e, now) {
   if (tgt >= 0) { ai.path = A.pathTo(r, e, tgt, { bridge: false, mine: false }); ai.pi = 0; ai.planAt = now; }
 }
 
+
+// ============================================================ DUELS
+function duelBot(r, e, now) {
+  if (!botCommon(r, e, now)) return;
+  const ai = e.ai;
+  let foe = null; for (const o of r.ents.values()) if (o !== e && !o.dead && !o.elim && !o.vanish) foe = o;
+  if (!foe) { ai.enemy = null; return; }
+  ai.enemy = foe;
+  A.fight(r, e, now);
+  // don't get kited along the edge forever: sidestep toward the middle sometimes
+  if (now >= (ai.sideAt || 0)) { ai.sideAt = now + 900 + rnd() * 900; ai.side = rnd() < 0.5 ? -1 : 1; }
+}
+// ============================================================ MURDER MYSTERY
+function goldDrop(r, x, y, fromDeath) {
+  const i = tileOf(x, y);
+  if (!(i >= 0 && i < N) || !r.map.g[i] || BW.solidAt(r.map, i % W, (i / W) | 0)) return false;
+  const id = ++r.goldSeq;
+  r.golds.set(id, { i, at: Date.now() });
+  r.ev(['gold', id, i, 1]);
+  return true; void fromDeath;
+}
+function murderTick(r, now) {
+  if (now >= r.goldAt && r.golds.size < 14) {
+    r.goldAt = now + 3500 + rnd() * 2500;
+    for (let tries = 0; tries < 40; tries++) {
+      const i = (rnd() * N) | 0;
+      if (r.map.g[i] && !BW.solidAt(r.map, i % W, (i / W) | 0)) { goldDrop(r, (i % W) * T + T / 2, ((i / W) | 0) * T + T / 2); break; }
+    }
+  }
+  // arrows slowly come back to whoever owns a bow
+  for (const e of r.ents.values()) {
+    if (e.dead || !(e.inv.bow > 0)) continue;
+    if (!e.inv.arrows && now >= (e.arrowAt || 0)) {
+      if (!e.arrowAt) { e.arrowAt = now + 9000; continue; }
+      e.inv.arrows = 1; e.arrowAt = 0; e.dirty = true;
+      if (e.conn) A.send(e.conn, { t: 'ann2', text: '🏹 Arrow ready' });
+    }
+  }
+}
+function murderEnt(r, e, now) {
+  // pick up gold
+  for (const [id, g] of r.golds) {
+    const c = tcen(g.i);
+    if (Math.hypot(c.x - e.x, c.y - e.y) > 26) continue;
+    r.golds.delete(id);
+    e.gold = (e.gold | 0) + 1; e.stats.gold++; e.dirty = true;
+    r.ev(['gold', id, g.i, 0, e.id]);
+    if (e.mrole !== 'm' && e.gold >= 10) {
+      e.gold -= 10; e.inv.bow = 1; e.inv.arrows = Math.max(1, e.inv.arrows | 0); e.dirty = true;
+      r.ev(['mbow', e.id]);
+    }
+  }
+  // holding the knife makes every hit lethal
+  if (e.mrole === 'm') e.onehit = e.held === 'knife' || e.held === 'sword';
+}
+function murderBot(r, e, now) {
+  if (!botCommon(r, e, now)) return;
+  const ai = e.ai, m = r.map;
+  if (e.mrole === 'm') {
+    if (now >= ai.thinkAt) {
+      ai.thinkAt = now + 260 + rnd() * 200;
+      let best = null, bd = 1e9, witnesses = 0;
+      for (const o of r.ents.values()) { if (o === e || o.dead || o.vanish) continue; const d = dist(o, e); if (d < bd) { bd = d; best = o; } if (d < 7 * T) witnesses++; }
+      const rampage = now >= r.endAt - 90000;
+      const hunting = now >= (ai.coolAt || 0) && best && (witnesses <= 2 || bd < 2.2 * T || rampage);
+      if (hunting) { e.held = 'knife'; ai.enemy = best; e.sprint = bd > 2 * T; }
+      else { if (e.held === 'knife') e.held = 'fists'; ai.enemy = null; e.sprint = false; }
+      if (ai.lastKillAt && now - ai.lastKillAt < 500) { ai.coolAt = now + (rampage ? 800 : 2500 + rnd() * 4000); e.held = 'fists'; e.sprint = false; ai.enemy = null; }
+    }
+    if (ai.enemy) { if (ai.enemy.dead) { ai.lastKillAt = now; ai.enemy = null; } else { A.fight(r, e, now); return; } }
+    wanderBot(r, e, now); return;
+  }
+  // innocents & the detective
+  if (now >= ai.thinkAt) {
+    ai.thinkAt = now + 300 + rnd() * 240;
+    const mur = [...r.ents.values()].find((o) => o.mrole === 'm');
+    const seesKnife = mur && !mur.dead && (mur.held === 'knife' || mur.held === 'sword') && dist(mur, e) < 8.5 * T && A.clearLine(r, e, mur);
+    if (seesKnife) { ai.knows = true; ai.fleeFrom = mur.id; }
+    if (ai.knows && mur && !mur.dead && e.inv.bow > 0 && e.inv.arrows > 0) {
+      const d = dist(mur, e);
+      if (d < 9.5 * T && d > 1.2 * T && A.clearLine(r, e, mur) && now >= (ai.bowAt || 0)) {
+        ai.bowAt = now + 2400;
+        e.held = 'bow'; e.stats.shots++;
+        A.shootBow(r, e, Math.atan2(mur.y - e.y, mur.x - e.x) + (rnd() - 0.5) * 0.17, 1, now);
+        e.held = 'fists';
+      }
+    }
+    if (ai.fleeFrom) {
+      const f = r.ents.get(ai.fleeFrom);
+      if (f && !f.dead && dist(f, e) < 7 * T) { ai.fleeing = { x: e.x + (e.x - f.x) * 3, y: e.y + (e.y - f.y) * 3 }; e.sprint = true; }
+      else { ai.fleeing = null; e.sprint = false; }
+    }
+    if (!ai.fleeing && !ai.goldTgt) {
+      let bg = null, bd = 8 * T; for (const [, g] of r.golds) { const c = tcen(g.i); const d = Math.hypot(c.x - e.x, c.y - e.y); if (d < bd) { bd = d; bg = c; } }
+      if (bg && rnd() < 0.8) ai.goldTgt = bg;
+    }
+  }
+  if (ai.fleeing) { A.moveToward(r, e, ai.fleeing.x, ai.fleeing.y, A.DT); e.mv = true; return; }
+  if (ai.goldTgt) { const d = Math.hypot(ai.goldTgt.x - e.x, ai.goldTgt.y - e.y); if (d < 20) ai.goldTgt = null; else { A.moveToward(r, e, ai.goldTgt.x, ai.goldTgt.y, A.DT, 0.8); e.mv = true; return; } }
+  wanderBot(r, e, now);
+}
+function wanderBot(r, e, now) {
+  const ai = e.ai;
+  if (ai.path) { const st = A.stepPath(r, e, now); if (st !== 'go') ai.path = null; return; }
+  if (now >= (ai.wanderAt || 0)) {
+    ai.wanderAt = now + 2500 + rnd() * 3500;
+    const m = r.map, props = m.props && m.props.length ? m.props : null;
+    let tgt = -1;
+    if (props) tgt = freeTileNear(r, pick(props));
+    else { const i = (rnd() * N) | 0; if (m.g[i] && !BW.solidAt(m, i % W, (i / W) | 0)) tgt = i; }
+    if (tgt >= 0) { ai.path = A.pathTo(r, e, tgt, { bridge: false, mine: false }); ai.pi = 0; }
+  }
+}
+// ============================================================ BUILD BATTLE
+const BB_PREFABS = {
+  house: { g: [['rect', 2, 4, 10, 11, 8]], w: [['ring', 2, 4, 10, 11, 2], ['gap', 6, 11], ['gap', 5, 11]], p: [[3, 6, 'pot'], [9, 6, 'lamp'], [4, 10, 'stool'], [8, 10, 'crate']] },
+  garden: { g: [['rect', 1, 1, 11, 11, 1], ['rect', 5, 1, 7, 11, 4]], w: [], p: [[2, 3, 'bush'], [10, 3, 'bush'], [2, 9, 'pot'], [10, 9, 'pot'], [3, 6, 'lamp'], [9, 6, 'bush'], [6, 2, 'pot']] },
+  snow: { g: [['rect', 1, 1, 11, 11, 9]], w: [], p: [[6, 6, 'snowman'], [3, 4, 'bush'], [9, 8, 'bush'], [9, 3, 'lamp'], [3, 9, 'crate']] },
+  farm: { g: [['rect', 1, 2, 11, 10, 1], ['rect', 2, 3, 5, 9, 4], ['rect', 7, 3, 10, 9, 4]], w: [['ring', 1, 1, 11, 11, 2], ['gap', 6, 11], ['gap', 6, 1]], p: [[3, 5, 'hay'], [8, 5, 'pumpkin'], [3, 8, 'pumpkin'], [8, 8, 'hay'], [6, 6, 'barrel']] },
+  spooky: { g: [['rect', 1, 1, 11, 11, 7]], w: [['ring', 4, 4, 8, 8, 3], ['gap', 6, 8]], p: [[6, 6, 'pumpkin'], [2, 2, 'pumpkin'], [10, 2, 'lamp'], [2, 10, 'trash'], [10, 10, 'pumpkin']] },
+};
+function bbPlanBot(r, e) {
+  const pf = BB_PREFABS[{ Garden: 'garden', Farm: 'farm', 'Snowy Day': 'snow', 'Spooky Night': 'spooky' }[r.theme] || pick(Object.keys(BB_PREFABS))];
+  const plot = r.map.plots[e.team]; if (!plot) return;
+  const steps = [];
+  const at = (dx, dy) => (plot.y0 + dy) * W + plot.x0 + dx;
+  pf.g.forEach((q) => { if (q[0] === 'rect') for (let y = q[2]; y <= q[4]; y++) for (let x = q[1]; x <= q[3]; x++) steps.push(['g', at(x, y), q[5]]); });
+  pf.w.forEach((q) => {
+    if (q[0] === 'ring') { for (let x = q[1]; x <= q[3]; x++) { steps.push(['w', at(x, q[2]), q[5]]); steps.push(['w', at(x, q[4]), q[5]]); } for (let y = q[2] + 1; y < q[4]; y++) { steps.push(['w', at(q[1], y), q[5]]); steps.push(['w', at(q[3], y), q[5]]); } }
+    if (q[0] === 'gap') steps.push(['w', at(q[1], q[2]), 0]);
+  });
+  pf.p.forEach((q) => steps.push(['p', at(q[0], q[1]), MG.PROP_KINDS.indexOf(q[2]) + 1]));
+  e.ai.bbSteps = steps; e.ai.bbI = 0;
+  e.ai.bbEvery = Math.max(120, (MG.GAMES.build.buildSec * 1000 * 0.75) / Math.max(1, steps.length));
+  e.ai.bbAt = 0;
+}
+function bbApply(r, e, lay, i, v) {
+  const m = r.map;
+  if (!MG.inPlot(m, e.team, i)) return false;
+  if (lay === 'g') { if (MG.BB_GROUNDS.indexOf(v) < 0) return false; m.g[i] = v; if (!v) { m.w[i] = 0; bbProp(m, i, 0); } }
+  else if (lay === 'w') { if (v && (MG.BB_WALLS.indexOf(v) < 0 || !m.g[i])) return false; m.w[i] = v; m.wc[i] = e.team & 7; if (v) bbProp(m, i, 0); }
+  else if (lay === 'p') { if (v && (!m.g[i] || m.w[i] || v < 1 || v > MG.PROP_KINDS.length)) return false; bbProp(m, i, v); }
+  else return false;
+  e.stats.placed++;
+  r.ev(['bb', i, lay === 'g' ? 0 : lay === 'w' ? 2 : 3, v, e.team & 7]);
+  return true;
+}
+function bbProp(m, i, v) {
+  m.props = m.props || [];
+  const k = m.props.findIndex((p) => p.tile === i);
+  if (k >= 0) m.props.splice(k, 1);
+  m.obj[i] = 0;
+  if (v) { const c = tcen(i); m.props.push({ id: i, kind: MG.PROP_KINDS[v - 1], tile: i, x: c.x, y: c.y }); m.obj[i] = 3; }
+}
+function plotOwners(r) {
+  const o = [];
+  for (const e of r.ents.values()) if (e.team < r.map.plots.length) o[e.team] = { id: e.id, nick: e.nick, bot: !!e.bot };
+  return o;
+}
+function buildTick(r, now) {
+  const m = r.map;
+  if (r.phase === 'build') {
+    for (const e of r.ents.values()) {
+      if (e.ctl === 'ai') {
+        const ai = e.ai;
+        if (ai.bbSteps && ai.bbI < ai.bbSteps.length && now >= ai.bbAt && now >= r.goAt) {
+          ai.bbAt = now + ai.bbEvery * (0.6 + rnd() * 0.8);
+          const st = ai.bbSteps[ai.bbI++];
+          bbApply(r, e, st[0], st[1], st[2]);
+          const c = tcen(st[1]); A.moveToward(r, e, c.x, c.y + T, A.DT * 6); e.ang = Math.atan2(c.y - e.y, c.x - e.x); e.mv = true;
+        }
+      } else {
+        // keep humans on their own plot while building
+        const p = m.plots[e.team];
+        if (p) { e.x = clamp(e.x, (p.x0 - 1) * T + 14, (p.x1 + 2) * T - 14); e.y = clamp(e.y, (p.y0 - 1) * T + 14, (p.y1 + 2) * T - 14); }
+      }
+    }
+    if (now >= r.buildEnd) {
+      r.phase = 'vote';
+      r.voteOrder = shuffle(r.map.plots.map((_, k) => k));
+      r.voteIdx = -1; r.voteNext = now + 1200;
+      r.ev(['bbphase', 'vote']);
+    }
+    return;
+  }
+  if (r.phase === 'vote') {
+    if (now >= r.voteNext) {
+      // tally votes bots cast for the plot that's ending
+      if (r.voteIdx >= 0) finishPlotVote(r);
+      r.voteIdx++;
+      if (r.voteIdx >= r.voteOrder.length) { bbResults(r, now); return; }
+      const plot = r.voteOrder[r.voteIdx], p = r.map.plots[plot];
+      r.voteNext = now + MG.GAMES.build.voteSec * 1000;
+      const owner = plotOwners(r)[plot];
+      A.roomSend(r, { t: 'bbv', plot, idx: r.voteIdx, of: r.voteOrder.length, owner: owner ? owner.nick : '?', until: r.voteNext });
+      // walk everyone to the plot being judged
+      for (const e of r.ents.values()) { const tx = ((p.x0 + p.x1) / 2 + (rnd() - 0.5) * 6) * T, ty = (p.y1 + 2.2) * T + (rnd() - 0.5) * 40; e.x = tx; e.y = ty; e.vx = e.vy = 0; if (e.conn) A.send(e.conn, { t: 'pos', x: Math.round(tx), y: Math.round(ty) }); }
+      // bots vote partway through
+      for (const e of r.ents.values()) if (e.ctl === 'ai' && e.team !== plot) { e.ai.voteAt = now + 2000 + rnd() * 4000; e.ai.voted = false; }
+    }
+    const plot = r.voteOrder[r.voteIdx];
+    for (const e of r.ents.values()) if (e.ctl === 'ai' && !e.ai.voted && e.ai.voteAt && now >= e.ai.voteAt && e.team !== plot) { e.ai.voted = true; bbVote(r, e, 2 + ((rnd() * 4) | 0)); }
+  }
+}
+function finishPlotVote(r) {}
+function bbVote(r, e, v) {
+  if (r.phase !== 'vote' || r.voteIdx < 0) return;
+  const plot = r.voteOrder[r.voteIdx];
+  if (e.team === plot) return;
+  const bucket = r.votes[plot];
+  if (bucket.who.has(e.id)) return;
+  bucket.who.add(e.id); bucket.sum += clamp(v | 0, 1, 5); bucket.n++;
+  r.ev(['bbvote', e.id, plot]);
+}
+function bbResults(r, now) {
+  r.phase = 'podium';
+  const owners = plotOwners(r);
+  r.results = r.map.plots.map((_, k) => {
+    const b = r.votes[k], avg = b.n ? b.sum / b.n : 3;
+    const o = owners[k] || {};
+    return { plot: k, team: k, id: o.id || 0, nick: o.nick || '?', avg: Math.round(avg * 10) / 10 };
+  }).sort((a, b) => b.avg - a.avg);
+  r.results.forEach((q, k) => { const e = r.ents.get(q.id); if (e) { e.stats.place = k + 1; e.stats.score = q.avg; } });
+  r.podiumAt = now + 7000;
+  A.roomSend(r, { t: 'bbr', results: r.results, theme: r.theme });
+}
+function bbMsg(r, e, m, now) {
+  if (m.op === 'vote') { bbVote(r, e, m.v | 0); return; }
+  if (r.phase !== 'build' || now < r.goAt) return;
+  if (m.op === 'set') {
+    const i = m.i | 0; if (!(i >= 0 && i < N)) return;
+    const lay = m.lay === 'g' ? 'g' : m.lay === 'w' ? 'w' : m.lay === 'p' ? 'p' : '';
+    if (!lay) return;
+    bbApply(r, e, lay, i, m.v | 0);
+  }
+}
+
 function lateJoin(r, e) {
   if (r.game === 'ctf') { e.stats = freshStats({ caps: 0, rets: 0 }); e.carry = -1; kitCTF(r, e); }
   else if (r.game === 'hide') { e.stats = freshStats({ finds: 0, taunts: 0, survived: 0 }); e.start = 1; setSeeker(r, e, false); }
+  else if (r.game === 'murder') { e.mrole = 'i'; e.gold = 0; e.held = 'fists'; e.stats = freshStats({ gold: 0, shots: 0, role: 'i' }); }
   else return false;
   r.teamsDirty = true; return true;
 }
