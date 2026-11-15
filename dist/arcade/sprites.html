@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Sprite Studio · ScrollHub Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#120e2e;--panel:#211a55;--line:#0d0a26;--txt:#f3f1ff;--mut:#a9a3d6;--gold:#ffd166;--green:#2bd576;--red:#ff5c6c;--acc:#7b5cff;--pink:#ff6ec7}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:radial-gradient(circle at 30% 0%,#2b2170,#120e2e 60%) fixed;color:var(--txt);font-family:Fredoka,system-ui,sans-serif;min-height:100%}
+  button,input,select{font-family:inherit;color:inherit}
+  .hidden{display:none!important}
+  header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:rgba(10,8,30,.55);border-bottom:3px solid var(--line);position:sticky;top:0;z-index:5;backdrop-filter:blur(6px)}
+  header h1{margin:0;font-size:22px;letter-spacing:.01em}
+  header .grow{flex:1}
+  .b{border:3px solid var(--line);border-radius:12px;background:#3b2f8f;color:#fff;font-weight:700;font-size:14px;padding:7px 12px;box-shadow:0 3px 0 #0a0820;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none}
+  .b:active{transform:translateY(2px);box-shadow:0 1px 0 #0a0820}
+  .b.green{background:var(--green);color:#05240f}.b.gold{background:linear-gradient(180deg,#ffe08a,#ffb938);color:#2a1300}.b.red{background:var(--red)}.b.ghost{background:rgba(255,255,255,.08);box-shadow:none}
+  .b.on{background:var(--acc);box-shadow:0 0 0 2px #fff inset,0 3px 0 #0a0820}
+  .b:disabled{opacity:.4;cursor:not-allowed}
+  .seg{display:flex;background:rgba(0,0,0,.3);border-radius:13px;padding:3px;gap:3px}
+  .seg button{border:0;background:transparent;color:#cfc8ff;font-weight:700;border-radius:10px;padding:7px 12px;font-size:14px;cursor:pointer;white-space:nowrap}
+  .seg button.on{background:var(--pink);color:#fff;box-shadow:0 2px 0 #0a0820}
+  main{display:grid;grid-template-columns:minmax(0,auto) minmax(300px,380px);gap:16px;padding:14px;max-width:1100px;margin:0 auto;align-items:start}
+  @media (max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+  .pn{background:var(--panel);border:3px solid var(--line);border-radius:18px;box-shadow:0 5px 0 rgba(0,0,0,.35);padding:12px}
+  .pn h3{margin:0 0 8px;font-size:15px;color:var(--gold);letter-spacing:.03em}
+  #board{display:flex;flex-direction:column;gap:10px;align-items:center}
+  #gridWrap{position:relative;border:4px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.4);touch-action:none;line-height:0}
+  #grid{display:block;touch-action:none;cursor:crosshair;image-rendering:pixelated}
+  .tools{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+  .tools .b{padding:7px 10px;font-size:15px}
+  #pal{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+  #pal button,#recent button{aspect-ratio:1;border:3px solid var(--line);border-radius:8px;cursor:pointer;padding:0;min-width:0}
+  #pal button.on,#recent button.on{box-shadow:0 0 0 3px #fff;transform:scale(1.08)}
+  #recent{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;min-height:10px}
+  #recent button{width:26px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .row label{font-size:13px;color:var(--mut);font-weight:600}
+  input[type=text],input[type=number],select{border:3px solid var(--line);border-radius:10px;background:#16123a;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;min-width:0}
+  input[type=color]{width:46px;height:38px;border:3px solid var(--line);border-radius:10px;background:#16123a;padding:2px;cursor:pointer}
+  .chk{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;cursor:pointer}
+  .chk input{width:18px;height:18px;accent-color:var(--pink)}
+  #prev{width:100%;height:auto;aspect-ratio:300/230;display:block;border-radius:12px;background:radial-gradient(circle at 50% 75%,#3a2f86,#16123a);border:3px solid var(--line)}
+  #mine{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;max-height:320px;overflow:auto}
+  .mi{background:#16123a;border:3px solid var(--line);border-radius:12px;padding:4px;cursor:pointer;text-align:center;font-size:12px;font-weight:700;line-height:1.15}
+  .mi.on{border-color:var(--pink)}
+  .mi canvas{width:100%;height:auto;aspect-ratio:1;display:block;image-rendering:pixelated}
+  .mi small{display:block;color:var(--mut);font-weight:600}
+  #lock{background:#ffd166;color:#2a1300;border-radius:12px;padding:8px 12px;font-weight:700;font-size:14px;margin:12px auto 0;max-width:1100px;width:calc(100% - 28px)}
+  #msg{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1e1f3b;border:3px solid var(--acc);border-radius:14px;padding:10px 16px;font-weight:700;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+  #msg.show{opacity:1}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.35}
+  .side{display:flex;flex-direction:column;gap:14px}
+</style>
+</head>
+<body>
+<header>
+  <a class="b ghost" href="/arcade">⬅ Hub</a>
+  <h1>🎨 Sprite Studio</h1>
+  <div class="seg" id="types"><button data-t="skin" class="on">🐾 Gim</button><button data-t="hat">🎩 Hat</button><button data-t="acc">✨ Accessory</button></div>
+  <div class="grow"></div>
+  <div class="seg" id="frames"><button data-f="front" class="on">Front</button><button data-f="back">Back</button></div>
+</header>
+<div id="lock" class="hidden">🔒 Only Scrollreader11 can save creations. You can still doodle here!</div>
+<main>
+  <section id="board">
+    <div class="tools" id="tools">
+      <button class="b on" data-tool="pen" title="Pencil (P)">✏️</button>
+      <button class="b" data-tool="erase" title="Eraser (E)">🧽</button>
+      <button class="b" data-tool="fill" title="Fill (F)">🪣</button>
+      <button class="b" data-tool="pick" title="Color picker (I)">💧</button>
+      <button class="b" data-tool="line" title="Line (L)">📏</button>
+      <button class="b" data-tool="rect" title="Box (R)">⬛</button>
+      <button class="b" id="mirror" title="Mirror drawing (M)">🪞 Mirror</button>
+      <button class="b" id="bsize" title="Brush size">● 1</button>
+    </div>
+    <div id="gridWrap"><canvas id="grid"></canvas></div>
+    <div class="tools">
+      <button class="b ghost" id="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+      <button class="b ghost" id="redo" title="Redo (Ctrl+Y)">↷ Redo</button>
+      <button class="b ghost" data-shift="0,-1">⬆</button><button class="b ghost" data-shift="0,1">⬇</button><button class="b ghost" data-shift="-1,0">⬅</button><button class="b ghost" data-shift="1,0">➡</button>
+      <button class="b ghost" id="flip" title="Flip left/right">⇋ Flip</button>
+      <button class="b ghost" id="guideBtn" title="Show where the gim's body is">👻 Guide</button>
+      <button class="b ghost" id="copyBack">📋 Front → Back</button>
+      <button class="b red" id="clear">🗑 Clear</button>
+    </div>
+    <div class="tools" id="tpl"></div>
+  </section>
+  <aside class="side">
+    <div class="pn">
+      <h3>COLORS</h3>
+      <div id="pal"></div>
+      <div class="row"><label>Custom</label><input type="color" id="cpick" value="#ff6ec7"><span class="hint" style="margin:0">Colors you use show up here ↓</span></div>
+      <div id="recent"></div>
+    </div>
+    <div class="pn">
+      <h3>PREVIEW</h3>
+      <canvas id="prev" width="600" height="460"></canvas>
+      <div class="row" id="skinOpts">
+        <label class="chk"><input type="checkbox" id="optEyes"> Animated gim eyes</label>
+        <label class="chk"><input type="checkbox" id="optFeet" checked> Feet</label>
+      </div>
+      <div class="row"><label>Spin</label><div class="seg" id="pdir"><button data-d="auto" class="on">Auto</button><button data-d="0">⬇</button><button data-d="2">➡</button><button data-d="3">⬆</button><button data-d="1">⬅</button></div></div>
+    </div>
+    <div class="pn">
+      <h3>SAVE TO THE SHOP</h3>
+      <div class="row"><input type="text" id="name" maxlength="28" placeholder="Name it (e.g. Dragon Gim)" style="flex:1"></div>
+      <div class="row"><label>Price 📜</label><input type="number" id="price" min="0" max="1000000" value="5000" style="width:110px">
+        <select id="rarity"><option>common</option><option>uncommon</option><option selected>rare</option><option>epic</option><option>legendary</option><option>mythic</option></select></div>
+      <div class="row">
+        <button class="b green" id="saveNew">💾 Save as new</button>
+        <button class="b gold hidden" id="saveUpd">✅ Update</button>
+        <button class="b red hidden" id="del">Delete</button>
+        <button class="b ghost" id="newBtn">✨ New</button>
+      </div>
+      <div class="hint">Saved items appear in the Skin Shop (games hub) and the casino store right away. Price 0 = free for everyone. In School Mode paid items cost 100 like everything else.</div>
+    </div>
+    <div class="pn">
+      <h3>YOUR CREATIONS</h3>
+      <div id="mine"><div class="hint">Nothing yet — draw something and save it!</div></div>
+    </div>
+  </aside>
+</main>
+<div id="msg"></div>
+<script src="/casino/art.js?v=7"></script>
+<script>
+(function () {
+  var A = window.SC.art, N = 32, CH = '0123456789abcdefghijklmnopqrstuv';
+  var $ = function (id) { return document.getElementById(id); };
+  var PRESET = ['#1b1636', '#ffffff', '#9aa3b5', '#4a4f6a', '#ff4b5c', '#ff8a3d', '#ffd166', '#fff27a', '#2bd576', '#0f9d58', '#5cf2ff', '#3fa9ff', '#3a56d4', '#9b6bff', '#ff6ec7', '#ffb7d5',
+    '#8b5a2b', '#c68642', '#f1c27d', '#ffe0bd', '#7a4a28', '#b5f5cf', '#c8b6ff', '#000000'];
+  var S = { type: 'skin', frame: 'front', tool: 'pen', color: '#3fa9ff', mirror: true, size: 1, guide: true, eyes: true, feet: true, editId: null, editType: null,
+    data: { front: blank(), back: blank() }, undo: [], redo: [], recent: [], canEdit: false, items: [], sprites: {}, pdir: 'auto' };
+  function blank() { return new Array(N * N).fill(''); }
+  function cur() { return S.data[S.frame]; }
+  function msg(t) { var m = $('msg'); m.textContent = t; m.classList.add('show'); clearTimeout(msg.t); msg.t = setTimeout(function () { m.classList.remove('show'); }, 2400); }
+
+  // ------------------------------------------------------------ grid canvas
+  var gc = $('grid'), gx = gc.getContext('2d'), cell = 16;
+  function layout() {
+    var avail = Math.min(window.innerWidth - 40, 620); if (window.innerWidth > 820) avail = Math.min(avail, window.innerWidth - 460, 620);
+    cell = Math.max(8, Math.floor(avail / N)); var px = cell * N, dpr = Math.min(2, window.devicePixelRatio || 1);
+    gc.style.width = px + 'px'; gc.style.height = px + 'px'; gc.width = px * dpr; gc.height = px * dpr; gx.setTransform(dpr, 0, 0, dpr, 0, 0); drawGrid();
+  }
+  window.addEventListener('resize', layout);
+  var hover = -1, shape = null;
+  function drawGrid() {
+    var d = cur(), px = cell * N;
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) { gx.fillStyle = (x + y) & 1 ? '#2a2460' : '#221d52'; gx.fillRect(x * cell, y * cell, cell, cell); }
+    // guide: where the gim's body / head is
+    if (S.guide) {
+      gx.save(); gx.globalAlpha = 0.22; gx.fillStyle = '#c8b6ff';
+      if (S.type === 'skin' || S.type === 'acc') { rrect(gx, 2 * cell, (S.type === 'acc' ? 3 : 2) * cell, 28 * cell, 29 * cell, 6 * cell); gx.fill();
+        gx.globalAlpha = 0.35; gx.fillStyle = '#ffffff'; [[11, 13], [21, 13]].forEach(function (e) { if (S.type === 'acc' || !S.eyes) { gx.beginPath(); gx.ellipse((e[0] - 0.5) * cell, (e[1] + (S.type === 'acc' ? 1 : 0)) * cell, 3.6 * cell, 4.4 * cell, 0, 0, Math.PI * 2); gx.fill(); } }); }
+      if (S.type === 'hat') { rrect(gx, 3 * cell, 27 * cell, 26 * cell, 10 * cell, 6 * cell); gx.fill(); gx.globalAlpha = 0.7; gx.fillStyle = '#fff'; gx.font = '700 ' + Math.max(10, cell * 0.9) + 'px Fredoka'; gx.textAlign = 'center'; gx.fillText('head goes here ↓', px / 2, 26 * cell); }
+      gx.restore();
+    }
+    for (var i = 0; i < N * N; i++) if (d[i]) { gx.fillStyle = d[i]; gx.fillRect((i % N) * cell, ((i / N) | 0) * cell, cell, cell); }
+    if (S.guide && S.type === 'skin' && S.eyes && S.frame === 'front') { gx.save(); gx.globalAlpha = 0.55; gx.fillStyle = '#fff'; gx.strokeStyle = '#1b1636'; gx.lineWidth = 2; [-7, 7].forEach(function (dx) { gx.beginPath(); gx.ellipse(px / 2 + dx * cell / 1.375, topRow() * cell + 13 * cell / 1.375, 5 * cell / 1.375, 6 * cell / 1.375, 0, 0, Math.PI * 2); gx.fill(); gx.stroke(); }); gx.restore(); }
+    if (shape) { gx.globalAlpha = 0.6; shapeCells(shape).forEach(function (i) { gx.fillStyle = S.tool === 'erase' ? '#ff5c6c' : S.color; gx.fillRect((i % N) * cell, ((i / N) | 0) * cell, cell, cell); }); gx.globalAlpha = 1; }
+    if (cell >= 10) { gx.strokeStyle = 'rgba(255,255,255,.06)'; gx.lineWidth = 1; gx.beginPath(); for (var k = 1; k < N; k++) { gx.moveTo(k * cell + 0.5, 0); gx.lineTo(k * cell + 0.5, px); gx.moveTo(0, k * cell + 0.5); gx.lineTo(px, k * cell + 0.5); } gx.stroke(); }
+    if (S.mirror) { gx.strokeStyle = 'rgba(255,110,199,.55)'; gx.setLineDash([4, 4]); gx.beginPath(); gx.moveTo(px / 2, 0); gx.lineTo(px / 2, px); gx.stroke(); gx.setLineDash([]); }
+    if (hover >= 0) { gx.strokeStyle = '#fff'; gx.lineWidth = 2; var hs = S.size; gx.strokeRect((hover % N) * cell + 1, ((hover / N) | 0) * cell + 1, cell * hs - 2, cell * hs - 2); }
+  }
+  function topRow() { var d = S.data.front; for (var i = 0; i < d.length; i++) if (d[i]) return (i / N) | 0; return 2; }
+  function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+
+  // ------------------------------------------------------------ editing
+  function snap() { S.undo.push({ f: S.frame, d: cur().slice() }); if (S.undo.length > 80) S.undo.shift(); S.redo = []; }
+  function changed() { drawGrid(); updatePreview(); }
+  function setPx(i, col) {
+    var x = i % N, y = (i / N) | 0, d = cur();
+    for (var dy = 0; dy < S.size; dy++) for (var dx = 0; dx < S.size; dx++) {
+      var xx = x + dx, yy = y + dy; if (xx >= N || yy >= N) continue;
+      d[yy * N + xx] = col; if (S.mirror) d[yy * N + (N - 1 - xx)] = col;
+    }
+  }
+  function fill(i, col) {
+    var d = cur(), from = d[i]; if (from === col) return;
+    var st = [i], seen = {};
+    while (st.length) { var j = st.pop(); if (seen[j] || d[j] !== from) continue; seen[j] = 1; d[j] = col; var x = j % N, y = (j / N) | 0;
+      if (x > 0) st.push(j - 1); if (x < N - 1) st.push(j + 1); if (y > 0) st.push(j - N); if (y < N - 1) st.push(j + N); }
+    if (S.mirror) { for (var k in seen) { var kk = +k; d[((kk / N) | 0) * N + (N - 1 - kk % N)] = col; } }
+  }
+  function lineCells(a, b) {
+    var x0 = a % N, y0 = (a / N) | 0, x1 = b % N, y1 = (b / N) | 0, out = [], dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, er = dx + dy;
+    for (var n = 0; n < 200; n++) { out.push(y0 * N + x0); if (x0 === x1 && y0 === y1) break; var e2 = 2 * er; if (e2 >= dy) { er += dy; x0 += sx; } if (e2 <= dx) { er += dx; y0 += sy; } }
+    return out;
+  }
+  function shapeCells(sh) {
+    if (sh.kind === 'line') return lineCells(sh.a, sh.b);
+    var x0 = Math.min(sh.a % N, sh.b % N), x1 = Math.max(sh.a % N, sh.b % N), y0 = Math.min((sh.a / N) | 0, (sh.b / N) | 0), y1 = Math.max((sh.a / N) | 0, (sh.b / N) | 0), out = [];
+    for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) if (sh.solid || x === x0 || x === x1 || y === y0 || y === y1) out.push(y * N + x);
+    return out;
+  }
+  function cellAt(e) { var r = gc.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / (r.width / N)), y = Math.floor((e.clientY - r.top) / (r.height / N)); return x < 0 || y < 0 || x >= N || y >= N ? -1 : y * N + x; }
+  var down = false, last = -1;
+  gc.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); var i = cellAt(e); if (i < 0) return; gc.setPointerCapture(e.pointerId);
+    var col = S.tool === 'erase' || e.button === 2 ? '' : S.color;
+    if (S.tool === 'pick') { var pc = cur()[i]; if (pc) { setColor(pc); setTool('pen'); } return; }
+    snap();
+    if (S.tool === 'fill') { fill(i, col); useColor(col); changed(); return; }
+    if (S.tool === 'line' || S.tool === 'rect') { shape = { kind: S.tool, a: i, b: i, solid: e.shiftKey, col: col }; down = true; drawGrid(); return; }
+    down = true; last = i; setPx(i, col); useColor(col); changed();
+  });
+  gc.addEventListener('pointermove', function (e) {
+    var i = cellAt(e); if (i !== hover) { hover = i; if (!down) drawGrid(); }
+    if (!down || i < 0) return;
+    if (shape) { shape.b = i; drawGrid(); return; }
+    var col = S.tool === 'erase' || (e.buttons & 2) ? '' : S.color;
+    lineCells(last, i).forEach(function (j) { setPx(j, col); }); last = i; changed();
+  });
+  function up() { if (shape) { var col = shape.col; shapeCells(shape).forEach(function (j) { setPx(j, col); }); useColor(col); shape = null; changed(); } down = false; last = -1; }
+  gc.addEventListener('pointerup', up); gc.addEventListener('pointercancel', up);
+  gc.addEventListener('pointerleave', function () { hover = -1; if (!down) drawGrid(); });
+  gc.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  // ------------------------------------------------------------ tools & palette
+  function setTool(t) { S.tool = t; [].forEach.call(document.querySelectorAll('[data-tool]'), function (b) { b.classList.toggle('on', b.dataset.tool === t); }); }
+  $('tools').addEventListener('click', function (e) { var b = e.target.closest('[data-tool]'); if (b) setTool(b.dataset.tool); });
+  $('mirror').onclick = function () { S.mirror = !S.mirror; this.classList.toggle('on', S.mirror); drawGrid(); };
+  $('mirror').classList.toggle('on', S.mirror);
+  $('bsize').onclick = function () { S.size = S.size === 1 ? 2 : S.size === 2 ? 3 : 1; this.textContent = '● ' + S.size; };
+  $('guideBtn').onclick = function () { S.guide = !S.guide; this.classList.toggle('on', S.guide); drawGrid(); };
+  $('guideBtn').classList.toggle('on', S.guide);
+  function setColor(c) { S.color = c.toLowerCase(); $('cpick').value = S.color; renderPal(); if (S.tool === 'erase' || S.tool === 'pick') setTool('pen'); }
+  function useColor(c) { if (!c) return; var i = S.recent.indexOf(c); if (i >= 0) S.recent.splice(i, 1); S.recent.unshift(c); S.recent = S.recent.slice(0, 16); renderPal(); }
+  function renderPal() {
+    $('pal').innerHTML = PRESET.map(function (c) { return '<button data-c="' + c + '" style="background:' + c + '"' + (c === S.color ? ' class="on"' : '') + ' title="' + c + '"></button>'; }).join('');
+    $('recent').innerHTML = S.recent.filter(function (c) { return PRESET.indexOf(c) < 0; }).map(function (c) { return '<button data-c="' + c + '" style="background:' + c + '"' + (c === S.color ? ' class="on"' : '') + '></button>'; }).join('');
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-c]'); if (b) setColor(b.dataset.c); });
+  $('cpick').addEventListener('input', function () { setColor(this.value); });
+  $('undo').onclick = function () { var u = S.undo.pop(); if (!u) return; S.redo.push({ f: u.f, d: S.data[u.f].slice() }); S.data[u.f] = u.d; if (u.f !== S.frame) setFrame(u.f); changed(); };
+  $('redo').onclick = function () { var r = S.redo.pop(); if (!r) return; S.undo.push({ f: r.f, d: S.data[r.f].slice() }); S.data[r.f] = r.d; if (r.f !== S.frame) setFrame(r.f); changed(); };
+  [].forEach.call(document.querySelectorAll('[data-shift]'), function (b) { b.onclick = function () {
+    var v = b.dataset.shift.split(',').map(Number), d = cur(), nd = blank(); snap();
+    for (var i = 0; i < N * N; i++) { if (!d[i]) continue; var x = i % N + v[0], y = ((i / N) | 0) + v[1]; if (x >= 0 && y >= 0 && x < N && y < N) nd[y * N + x] = d[i]; }
+    S.data[S.frame] = nd; changed(); }; });
+  $('flip').onclick = function () { var d = cur(), nd = blank(); snap(); for (var i = 0; i < N * N; i++) nd[((i / N) | 0) * N + (N - 1 - i % N)] = d[i]; S.data[S.frame] = nd; changed(); };
+  $('clear').onclick = function () { if (!confirm('Clear the ' + S.frame + ' drawing?')) return; snap(); S.data[S.frame] = blank(); changed(); };
+  $('copyBack').onclick = function () { S.undo.push({ f: 'back', d: S.data.back.slice() }); S.data.back = S.data.front.slice(); setFrame('back'); changed(); msg('Copied the front to the back — now paint the back of its head!'); };
+  addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    var k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).onclick(); return; }
+    if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); $('redo').onclick(); return; }
+    var map = { p: 'pen', b: 'pen', e: 'erase', f: 'fill', g: 'fill', i: 'pick', l: 'line', r: 'rect' }; if (map[k]) setTool(map[k]);
+    if (k === 'm') $('mirror').onclick.call($('mirror'));
+  });
+
+  // ------------------------------------------------------------ templates
+  function tplBody(col, round) {
+    snap(); var d = blank(), OL = '#1b1636', x0 = 2, y0 = 2, w = 28, h = 29, r = round ? 13 : 6;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var cx = Math.max(r - x - 0.5, 0, x - (w - r) + 0.5), cy = Math.max(r - y - 0.5, 0, y - (h - r) + 0.5), dd = Math.hypot(cx, cy);
+      if (dd > r) continue; d[(y0 + y) * N + x0 + x] = dd > r - 1.3 ? OL : y > h * 0.7 ? shadeHex(col, -0.15) : col;
+    }
+    for (var gy = 5; gy < 8; gy++) for (var gxx = 6; gxx < 10; gxx++) if (d[gy * N + gxx] === col) d[gy * N + gxx] = shadeHex(col, 0.35);
+    S.data[S.frame] = d; changed();
+  }
+  function shadeHex(h, a) { var n = parseInt(h.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = function (v) { return Math.round(a < 0 ? v * (1 + a) : v + (255 - v) * a); }; return '#' + [f(r), f(g), f(b)].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }
+  function renderTpl() {
+    var t = S.type === 'skin' ? [['🟦 Gim body', function () { tplBody(S.color, false); }], ['⚪ Round body', function () { tplBody(S.color, true); }]]
+      : S.type === 'hat' ? [['🎩 Hat brim', function () { snap(); var d = cur(); for (var x = 4; x < 28; x++) { d[29 * N + x] = '#1b1636'; d[28 * N + x] = S.color; d[30 * N + x] = '#1b1636'; } changed(); }]]
+      : [['😎 Glasses', function () { snap(); var d = cur(), OL = '#1b1636'; [[7, 12], [17, 12]].forEach(function (p) { for (var y = 0; y < 6; y++) for (var x = 0; x < 8; x++) d[(p[1] + y) * N + p[0] + x] = (x === 0 || y === 0 || x === 7 || y === 5) ? OL : S.color; }); for (var x = 15; x < 17; x++) d[13 * N + x] = OL; changed(); }]];
+    $('tpl').innerHTML = t.map(function (x, i) { return '<button class="b ghost" data-tpl="' + i + '">' + x[0] + '</button>'; }).join('') + '<span class="hint" style="margin:0;align-self:center">uses your selected color</span>';
+    [].forEach.call(document.querySelectorAll('[data-tpl]'), function (b) { b.onclick = t[+b.dataset.tpl][1]; });
+  }
+
+  // ------------------------------------------------------------ types / frames
+  function setType(t) {
+    S.type = t; [].forEach.call(document.querySelectorAll('#types button'), function (b) { b.classList.toggle('on', b.dataset.t === t); });
+    $('skinOpts').classList.toggle('hidden', t !== 'skin');
+    $('frames').classList.toggle('hidden', t === 'acc'); $('copyBack').classList.toggle('hidden', t === 'acc');
+    if (t === 'acc') setFrame('front');
+    renderTpl(); changed();
+  }
+  function setFrame(f) { S.frame = f; [].forEach.call(document.querySelectorAll('#frames button'), function (b) { b.classList.toggle('on', b.dataset.f === f); }); drawGrid(); }
+  $('types').addEventListener('click', function (e) { var b = e.target.closest('[data-t]'); if (!b || b.dataset.t === S.type) return; if (S.editId && b.dataset.t !== S.editType) { S.editId = null; syncEditBtns(); } setType(b.dataset.t); });
+  $('frames').addEventListener('click', function (e) { var b = e.target.closest('[data-f]'); if (b) setFrame(b.dataset.f); });
+  $('optEyes').checked = S.eyes; $('optEyes').onchange = function () { S.eyes = this.checked; changed(); };
+  $('optFeet').onchange = function () { S.feet = this.checked; updatePreview(); };
+  $('pdir').addEventListener('click', function (e) { var b = e.target.closest('[data-d]'); if (!b) return; S.pdir = b.dataset.d; [].forEach.call(this.querySelectorAll('button'), function (x) { x.classList.toggle('on', x === b); }); });
+
+  // ------------------------------------------------------------ encode / decode
+  function encode() {
+    var pal = [], err = null;
+    function enc(d) { var s = ''; for (var i = 0; i < d.length; i++) { if (!d[i]) { s += '0'; continue; } var k = pal.indexOf(d[i]); if (k < 0) { if (pal.length >= 31) { err = 'Too many colors (max 31) — use fewer shades.'; k = 0; } else { pal.push(d[i]); k = pal.length - 1; } } s += CH.charAt(k + 1); } return s; }
+    var px = enc(S.data.front), hasBack = S.type !== 'acc' && S.data.back.some(function (v) { return v; }), back = hasBack ? enc(S.data.back) : '';
+    return { err: err, sprite: { w: N, h: N, pal: pal, px: px, back: back, eyes: S.type === 'skin' && S.eyes, feet: S.feet } };
+  }
+  function decode(sp) { function dec(px) { var d = blank(); if (!px) return d; for (var i = 0; i < N * N; i++) { var k = CH.indexOf(px.charAt(i)); if (k > 0) d[i] = sp.pal[k - 1]; } return d; } return { front: dec(sp.px), back: dec(sp.back) }; }
+
+  // ------------------------------------------------------------ live preview
+  var pv = $('prev'), px2 = pv.getContext('2d');
+  function updatePreview() { var e = encode(); A.CUSTOM['c:__prev'] = e.sprite; A.custInvalidate('c:__prev'); }
+  function previewLoop(ts) {
+    var t = ts / 1000, w = pv.width, h = pv.height; px2.setTransform(1, 0, 0, 1, 0, 0); px2.clearRect(0, 0, w, h);
+    var dirs = [0, 2, 3, 1], dir = S.pdir === 'auto' ? dirs[Math.floor(t / 1.6) % 4] : +S.pdir, moving = S.pdir === 'auto' ? Math.floor(t / 0.8) % 2 === 1 : false;
+    var look = S.type === 'skin' ? { skin: 'c:__prev', body: '#3fa9ff' } : S.type === 'hat' ? { skin: 'gim', body: '#3fa9ff', hat: 'c:__prev' } : { skin: 'gim', body: '#3fa9ff', acc: 'c:__prev' };
+    // ground
+    px2.fillStyle = 'rgba(255,255,255,.06)'; px2.beginPath(); px2.ellipse(w / 2, h * 0.86, 170, 34, 0, 0, Math.PI * 2); px2.fill();
+    try { A.drawGim(px2, w / 2, h * 0.86, look, { t: t, scale: 4.2, dir: dir, moving: moving, walk: t * 9, noSeason: true, side: dir === 1 ? -1 : dir === 2 ? 1 : null }); } catch (er) {}
+    // small one at real size
+    try { A.drawGim(px2, w - 60, h - 22, look, { t: t + 1, scale: 1, dir: 0, noSeason: true }); } catch (er) {}
+    px2.fillStyle = 'rgba(255,255,255,.5)'; px2.font = '600 18px Fredoka'; px2.textAlign = 'right'; px2.fillText('real size', w - 18, h - 80 + 4);
+    requestAnimationFrame(previewLoop);
+  }
+
+  // ------------------------------------------------------------ server
+  function api(path, body) { return fetch('/api/casino/sprites' + path, { method: body ? 'POST' : 'GET', credentials: 'include', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json(); }); }
+  function load() {
+    return api('').then(function (d) {
+      S.canEdit = !!d.canEdit; S.items = d.items || []; S.sprites = d.sprites || {};
+      for (var k in S.sprites) { A.CUSTOM[k] = S.sprites[k]; A.custInvalidate(k); }
+      $('lock').classList.toggle('hidden', S.canEdit); ['saveNew', 'saveUpd', 'del'].forEach(function (id) { $(id).disabled = !S.canEdit; });
+      renderMine();
+    }).catch(function () { msg('Could not reach the server'); });
+  }
+  function renderMine() {
+    if (!S.items.length) { $('mine').innerHTML = '<div class="hint">Nothing yet — draw something and save it!</div>'; return; }
+    var icon = { skin: '🐾', hat: '🎩', acc: '✨' };
+    $('mine').innerHTML = S.items.slice().reverse().map(function (it) { return '<div class="mi' + (it.id === S.editId ? ' on' : '') + '" data-id="' + it.id + '"><canvas width="32" height="32" data-v="' + it.value + '"></canvas>' + icon[it.type] + ' ' + esc(it.label) + '<small>' + (it.price ? it.price.toLocaleString() + ' 📜' : 'Free') + '</small></div>'; }).join('');
+    [].forEach.call(document.querySelectorAll('#mine canvas'), function (cv) { var f = A.custFrame(cv.dataset.v, false); if (f) cv.getContext('2d').drawImage(f.cv, 0, 0); });
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  $('mine').addEventListener('click', function (e) {
+    var b = e.target.closest('.mi'); if (!b) return; var it = S.items.find(function (x) { return x.id === b.dataset.id; }), sp = it && S.sprites[it.value]; if (!sp) return;
+    S.data = decode(sp); S.undo = []; S.redo = []; S.editId = it.id; S.editType = it.type; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
+    $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity;
+    sp.pal.forEach(useColor); setFrame('front'); setType(it.type); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  function syncEditBtns() { $('saveUpd').classList.toggle('hidden', !S.editId); $('del').classList.toggle('hidden', !S.editId); }
+  function save(asNew) {
+    if (!S.canEdit) return msg('🔒 Only Scrollreader11 can save');
+    var e = encode(); if (e.err) return msg(e.err);
+    if (!/[1-9a-v]/.test(e.sprite.px)) return msg('Draw the front first!');
+    var body = { type: S.type, label: $('name').value.trim() || 'My creation', price: +$('price').value || 0, rarity: $('rarity').value, sprite: e.sprite };
+    if (!asNew && S.editId) body.id = S.editId;
+    api('/save', body).then(function (d) {
+      if (d.error) return msg('⚠️ ' + d.error);
+      S.editId = d.item.id; S.editType = S.type; syncEditBtns(); msg(asNew ? '✅ Saved! It’s in the shop now.' : '✅ Updated!'); load();
+    }).catch(function () { msg('Save failed — check your connection'); });
+  }
+  $('saveNew').onclick = function () { save(true); };
+  $('saveUpd').onclick = function () { save(false); };
+  $('del').onclick = function () { if (!S.editId || !confirm('Delete this creation? Anyone wearing it goes back to the default.')) return; api('/delete', { id: S.editId }).then(function (d) { if (d.error) return msg('⚠️ ' + d.error); msg('Deleted'); newDrawing(); load(); }); };
+  function newDrawing() { S.data = { front: blank(), back: blank() }; S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
+  $('newBtn').onclick = function () { if (cur().some(function (v) { return v; }) && !confirm('Start a new drawing? Unsaved changes will be lost.')) return; newDrawing(); };
+
+  renderPal(); setColor(S.color); setType('skin'); layout(); load(); requestAnimationFrame(previewLoop);
+  window.STUDIO = S;
+})();
+</script>
+</body>
+</html>

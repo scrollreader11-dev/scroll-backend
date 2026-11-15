@@ -261,6 +261,7 @@
     [[55, 45], [63, 45]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
     // ---- map builder hut (south-east)
     fill(m, 52, 52, 58, 56, G2.FLOOR);
+    obj(m, { kind: 'npc', tx: 55, ty: 56, act: 'sprites', game: 'bw', mode: 'bw', label: 'SPRITE STUDIO', sub: 'draw gims & hats', look: { skin: 'gim', body: '#ffd166', hat: 'wizard' } });
     obj(m, { kind: 'board', tx: 55, ty: 53, act: 'builder', title: '🛠️ MAP BUILDER', lines: ['Make your own maps!', 'Owner: Scrollreader11'], dy: 14 }, [[53, 53], [54, 53], [55, 53], [56, 53], [57, 53]]);
     // ---- park (south-west): crystal pond + goodies
     disc(m, 22, 55, 4, G2.MID);

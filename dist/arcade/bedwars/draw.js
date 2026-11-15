@@ -712,7 +712,7 @@
   };
   D.hubNpc = function (c, o, t, near, count) {
     var x = o.x, y = o.y + 10;
-    var col = o.act === 'quick' ? '#ff4b5c' : o.act === 'practice' ? '#7b5cff' : o.act === 'private' ? '#3a86ff' : o.act === 'skinshop' ? '#ff6ec7' : '#2bd576';
+    var col = o.act === 'quick' ? '#ff4b5c' : o.act === 'practice' ? '#7b5cff' : o.act === 'private' ? '#3a86ff' : o.act === 'skinshop' ? '#ff6ec7' : o.act === 'sprites' ? '#ffb938' : '#2bd576';
     c.fillStyle = 'rgba(10,6,30,.3)'; ell(c, x, y + 6, 30, 10); c.fill();
     ell(c, x, y + 2, 28, 11); fs(c, col, OL, 3);
     ell(c, x, y, 20, 7); c.fillStyle = 'rgba(255,255,255,.25)'; c.fill();

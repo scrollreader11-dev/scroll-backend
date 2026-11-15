@@ -216,8 +216,77 @@
   };
   A.SKINS = Object.keys(SKIN);
 
+
+  // ---------------------------------------------------------------- CUSTOM SPRITES (made in the Sprite Studio)
+  // A.CUSTOM['c:<id>'] = { w, h, pal: ['#rrggbb', ...], px: 'string of palette chars (0 = empty)', back: '' | px, eyes: bool, feet: bool }
+  var CUST_CH = '0123456789abcdefghijklmnopqrstuv';
+  A.CUSTOM = A.CUSTOM || {};
+  var custCache = {}, custLast = 0, custBusy = false;
+  A.loadCustom = function (force) {
+    if (custBusy || (!force && Date.now() - custLast < 8000)) return; custBusy = true; custLast = Date.now();
+    try {
+      var base = ''; try { base = (localStorage.getItem('sh_api') || '').replace(/\/+$/, ''); } catch (e) {}
+      fetch(base + '/api/casino/sprites', { credentials: 'include' }).then(function (r) { return r.json(); }).then(function (d) {
+        custBusy = false; if (!d || !d.sprites) return;
+        for (var k in d.sprites) { A.CUSTOM[k] = d.sprites[k]; delete custCache[k + '|f']; delete custCache[k + '|b']; }
+      }).catch(function () { custBusy = false; });
+    } catch (e) { custBusy = false; }
+  };
+  A.custInvalidate = function (k) { delete custCache[k + '|f']; delete custCache[k + '|b']; };
+  function custSprite(k) { var s = A.CUSTOM[k]; if (!s) { if (k && k.charAt(1) === ':') A.loadCustom(); return null; } return s; }
+  // Builds (and caches) a canvas for one frame, plus the first/last rows that have pixels.
+  function custFrame(k, back) {
+    var key = k + (back ? '|b' : '|f'); if (custCache[key]) return custCache[key];
+    var s = A.CUSTOM[k]; if (!s) return null; var px = back && s.back ? s.back : s.px; if (!px) return null;
+    var w = s.w || 32, h = s.h || 32, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    var cnt = {}, main = 1, mainN = 0;
+    var x = cv.getContext('2d'), img = x.createImageData(w, h), top = h, bot = -1;
+    for (var i = 0; i < w * h; i++) {
+      var ci = CUST_CH.indexOf(px.charAt(i)); if (ci <= 0) continue; cnt[ci] = (cnt[ci] || 0) + 1; if (cnt[ci] > mainN && (s.pal[ci - 1] || '').toLowerCase() !== '#1b1636') { mainN = cnt[ci]; main = ci; }
+      var col = s.pal[ci - 1] || '#ff00ff', n = parseInt(col.slice(1), 16), yy = (i / w) | 0;
+      img.data[i * 4] = (n >> 16) & 255; img.data[i * 4 + 1] = (n >> 8) & 255; img.data[i * 4 + 2] = n & 255; img.data[i * 4 + 3] = 255;
+      if (yy < top) top = yy; if (yy > bot) bot = yy;
+    }
+    x.putImageData(img, 0, 0);
+    return (custCache[key] = { cv: cv, w: w, h: h, top: top, bot: bot, main: s.pal[main - 1] || '#3fa9ff' });
+  }
+  A.custFrame = custFrame;
+  function custDraw(c, f, x, y, size, flip) {
+    c.save(); c.imageSmoothingEnabled = false; c.translate(x, y); if (flip) { c.translate(size, 0); c.scale(-1, 1); }
+    c.drawImage(f.cv, 0, 0, size, size * f.h / f.w); c.restore();
+  }
+  setTimeout(function () { A.loadCustom(true); }, 0);
+  A.isCustom = function (k) { return typeof k === 'string' && k.charAt(0) === 'c' && k.charAt(1) === ':'; };
+  function drawCustomGim(c, g, cs, k, look, o, dir, t, bob) {
+    var back = dir === 3, f = custFrame(k, back && !!cs.back) || custFrame(k, false); if (!f) return;
+    var size = 44, x0 = -size / 2, y0 = g.by + g.H - size + 2, cell = size / f.w, flip = !back && g.side < -0.3;
+    if (look.acc === 'wings') wings(c, g, '#ffffff', 22, 3);
+    if (look.acc === 'butterfly' || look.acc === 'firewings' || look.acc === 'aura' || look.acc === 'orbs') A.fxBack(c, g, look.acc, t);
+    if (cs.feet !== false) {
+      var ph = o.moving ? Math.sin(o.walk || 0) : o.dance ? Math.sin(t * 7) : 0, fc = shade(f.main || '#3fa9ff', -0.4);
+      ell(c, -8, -3 - Math.max(0, ph) * 3, 7, 4.5); fs(c, fc, OL, 2.5); ell(c, 8, -3 - Math.max(0, -ph) * 3, 7, 4.5); fs(c, fc, OL, 2.5);
+    }
+    if (back && !cs.back) { c.save(); c.filter = 'brightness(0.78)'; custDraw(c, f, x0, y0, size, true); c.restore(); }
+    else custDraw(c, f, x0, y0, size, flip);
+    var headY = y0 + f.top * cell; // where the hat goes
+    if (!back && cs.eyes) {
+      var eyeY = headY + 13, ex = g.side * 4, lx = g.side * 2.2, ly = dir === 0 ? 1 : 0;
+      [-1, 1].forEach(function (kk) {
+        var cx = kk * 7 + ex;
+        if (g.blink) { c.strokeStyle = OL; c.lineWidth = 2.5; c.lineCap = 'round'; c.beginPath(); c.moveTo(cx - 4, eyeY + 1); c.lineTo(cx + 4, eyeY + 1); c.stroke(); return; }
+        ell(c, cx, eyeY, 5, 6); fs(c, '#fff', OL, 2); circ(c, cx + lx, eyeY + ly + 0.5, 2.8); c.fillStyle = '#16122b'; c.fill();
+        circ(c, cx + lx + 1, eyeY + ly - 0.8, 1); c.fillStyle = '#fff'; c.fill();
+      });
+    }
+    if (!back) A.drawAcc(c, look.acc, headY, g.side * 5, dir, t, '#3fa9ff');
+    else if (look.acc === 'scarf' || look.acc === 'chain' || look.acc === 'medal') A.drawAcc(c, look.acc, headY, 0, 3, t, '#3fa9ff');
+    if (look.acc === 'orbs' || look.acc === 'pet') A.fxFront(c, g, look.acc, t);
+    var hat = (look.hat && look.hat !== 'none') ? look.hat : (A.season === 'xmas' && !o.noSeason ? 'santa' : '');
+    A.drawHat(c, hat, headY, g.side, dir, t);
+  }
   A.drawGim = function (c, x, y, look, o) {
     o = o || {}; look = look || {};
+    var custK = A.isCustom(look.skin) ? look.skin : null, custS = custK ? custSprite(custK) : null;
     var skin = SKIN[look.skin] ? look.skin : 'gim', S = SKIN[skin], body = look.body || '#3fa9ff', t = o.t || 0, dir = o.dir || 0;
     var s = o.scale || 1;
     c.save(); c.translate(x, y); c.scale(s, s);
@@ -250,6 +319,7 @@
     if (side0 != null && (dir === 0 || dir === 3)) g.side = side0 * 0.85;
     if (o.blink == null && idle !== null) { var bk = ((t * 0.29) + (t * 0.071 % 1) * 0.0) % 1; g.blink = bk < 0.03; }
     g.ex = g.side * 5;
+    if (custS) { drawCustomGim(c, g, custS, custK, look, o, dir, t, bob); c.restore(); return; }
 
     // --- behind body
     if (look.acc === 'cape' && dir !== 3) { c.beginPath(); c.moveTo(-15, g.by + 22); c.lineTo(15, g.by + 22); c.lineTo(21 - g.side * 4, -2 + bob * 0.3); c.lineTo(-21 - g.side * 4, -2 + bob * 0.3); c.closePath(); fs(c, '#c1121f', OL, 3); }
@@ -334,6 +404,7 @@
   // ---------------------------------------------------------------- ACCESSORIES
   A.drawAcc = function (c, k, by, ex, dir, t, base) {
     if (!k) return;
+    if (A.isCustom(k)) { if (dir === 3) return; var as = custSprite(k), af = as && custFrame(k, false); if (!af) return; custDraw(c, af, ex * 0.5 - 22, by - 4, 44, false); return; }
     var eyeY = by + 15;
     c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
     if (k === 'shades') {
@@ -453,6 +524,7 @@
   A.drawHat = function (c, k, by, side, dir, t) {
     if (!k) return;
     var hx = side * 3, y = by;
+    if (A.isCustom(k)) { var hs = custSprite(k), hf = hs && custFrame(k, dir === 3 && !!hs.back); if (!hf || hf.bot < 0) return; var hsz = 44, hc = hsz / hf.w; c.save(); if (dir === 3 && !hs.back) c.globalAlpha *= 0.95; custDraw(c, hf, hx - hsz / 2, y + 7 - (hf.bot + 1) * hc, hsz, side < -0.3 && dir !== 3); c.restore(); return; }
     c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
     if (k === 'cap') {
       c.beginPath(); c.ellipse(hx, y + 6, 17, 12, 0, Math.PI, 0); c.closePath(); fs(c, '#e63946', OL, 3);

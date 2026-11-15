@@ -459,13 +459,14 @@
   $('gmPractice').onclick = function () { closeModals(); openPractice(S.gmGame); };
   $('gmPrivate').onclick = function () { closeModals(); openPrivate(S.gmGame); };
   $('gmHow').onclick = function () { closeModals(); openHelp(S.gmGame); };
-  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
+  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'sprites' ? 'Sprite Studio' : o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
     if (o.act === 'casino' && S.school) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
     var g = objGame(o);
     if (o.act === 'gmenu' && schoolLocked()) { toast('🔒 Portals are locked in School Mode — wait for your teacher’s vote!', 2400); return; }
     if (o.act === 'gmenu') { openGameMenu(g); }
+    else if (o.act === 'sprites') { if (S.mapper) location.href = '/arcade/sprites'; else toast('🎨 Only Scrollreader11 can draw new gims & hats — his creations show up in the Skin Shop!', 2800); }
     else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('🔒 Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
     else if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
     else if (o.act === 'practice') openPractice(g);
