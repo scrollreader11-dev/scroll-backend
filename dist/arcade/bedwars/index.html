@@ -727,12 +727,12 @@
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=4"></script>
-<script src="/arcade/bedwars/shared.js?v=6"></script>
+<script src="/arcade/bedwars/shared.js?v=7"></script>
 <script src="/arcade/bedwars/mg.js?v=3"></script>
 <script src="/arcade/bedwars/draw.js?v=6"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=13"></script>
+<script src="/arcade/bedwars/game.js?v=14"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {
@@ -740,5 +740,6 @@
     var s = document.getElementById('ldStep'); if (s) s.innerHTML = 'Couldn’t load the game. <a href="" style="color:#ffd166">Tap to retry</a>';
   }, 12000);
 </script>
+<script src="/dc-notify.js?v=1" defer></script>
 </body>
 </html>

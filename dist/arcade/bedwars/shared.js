@@ -226,23 +226,27 @@
     [[32, 46], [40, 46]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k + 2 }); });
     obj(m, { kind: 'sign', tx: 33, ty: 44, text: 'WELCOME!', lines: ['All games: north ⬆', 'Leaderboards: west', 'Casino: east'], dy: 10 }, [[33, 44]]);
     obj(m, { kind: 'npc', tx: 39, ty: 44, act: 'how', game: 'bw', mode: 'bw', label: 'GAME GUIDE', sub: 'how to play everything', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
-    // ---- the GAMES row: 7 portals, banner signs BEHIND each one
+    // ---- the PORTAL HALL: all 7 game portals side by side in one plaza.
+    // Walk straight into a portal to play; the name banner stands BEHIND each one.
+    fill(m, 12, 15, 60, 26, G2.COBBLE);
+    fill(m, 13, 16, 59, 25, G2.MID);
+    fill(m, 35, 26, 37, 32, G2.PATH);
     var ports = [
-      { g: 'ctf', tx: 14, ty: 18 }, { g: 'bw', tx: 36, ty: 17 }, { g: 'duel', tx: 58, ty: 18 },
-      { g: 'spleef', tx: 10, ty: 28 }, { g: 'hide', tx: 25, ty: 27 }, { g: 'murder', tx: 47, ty: 27 }, { g: 'build', tx: 62, ty: 28 },
+      { g: 'spleef', tx: 18, ty: 21 }, { g: 'ctf', tx: 24, ty: 21 }, { g: 'hide', tx: 30, ty: 21 }, { g: 'bw', tx: 36, ty: 21 },
+      { g: 'murder', tx: 42, ty: 21 }, { g: 'duel', tx: 48, ty: 21 }, { g: 'build', tx: 54, ty: 21 },
     ];
     B.HUB_PORTS = ports;
     ports.forEach(function (q) {
-      var names = { bw: 'BEDWARS', ctf: 'CAPTURE THE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER MYSTERY', build: 'BUILD BATTLE' };
-      fill(m, q.tx - 3, q.ty - 4, q.tx + 3, q.ty + 2, G2.GRASS);
-      fill(m, q.tx - 2, q.ty + 1, q.tx + 2, q.ty + 1, G2.COBBLE);
-      fill(m, q.tx, q.ty + 2, q.tx, Math.min(31, q.ty + 14), G2.PATH);
-      // the name sign stands BEHIND the portal
-      obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 2, text: names[q.g], game: q.g }, [[q.tx - 2, q.ty - 2], [q.tx - 1, q.ty - 2], [q.tx, q.ty - 2], [q.tx + 1, q.ty - 2], [q.tx + 2, q.ty - 2]]);
-      obj(m, { kind: 'gport', tx: q.tx, ty: q.ty, game: q.g, act: 'gmenu' }, [[q.tx - 1, q.ty], [q.tx, q.ty], [q.tx + 1, q.ty]]);
+      var names = { bw: 'BEDWARS', ctf: 'CAPTURE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER', build: 'BUILD BATTLE' };
+      fill(m, q.tx - 1, q.ty, q.tx + 1, q.ty + 1, G2.PAD);
+      // the name banner stands BEHIND (north of) the portal
+      obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 3, text: names[q.g], game: q.g }, [[q.tx - 2, q.ty - 3], [q.tx - 1, q.ty - 3], [q.tx, q.ty - 3], [q.tx + 1, q.ty - 3], [q.tx + 2, q.ty - 3]]);
+      // portals are NOT solid: you walk into them
+      obj(m, { kind: 'gport', tx: q.tx, ty: q.ty, game: q.g, act: 'gmenu', walk: true }, []);
     });
-    obj(m, { kind: 'bedDeco', tx: 31, ty: 21 }, [[31, 20], [31, 21]]);
-    [[19, 22], [53, 22], [31, 28], [41, 28]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    [[13, 16], [59, 16], [13, 25], [59, 25], [21, 25], [27, 25], [33, 25], [39, 25], [45, 25], [51, 25]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    obj(m, { kind: 'sign', tx: 33, ty: 28, text: 'PORTAL HALL', lines: ['Walk into a portal', 'to start playing!', 'E = more options'], dy: 10 }, [[33, 28]]);
+    obj(m, { kind: 'bedDeco', tx: 40, ty: 28 }, [[40, 27], [40, 28]]);
     // ---- leaderboard plaza (west)
     disc(m, 13, 41, 6, G2.COBBLE);
     fill(m, 12, 43, 14, 43, G2.PAD);

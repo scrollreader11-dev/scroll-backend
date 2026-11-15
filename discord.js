@@ -307,6 +307,14 @@ export async function handleDiscord(url, req, res) {
     bumpRev(cid);
     markDirty();
     wsBroadcastChannel(cid, { t: 'msg', channel: cid, message: msg });
+    try { // notifications: every other member's live sockets (the notifier script shows them)
+      let ids = [], where = '';
+      if (cid.startsWith('dm:')) { ids = (dc.dms[cid] || {}).userIds || []; where = 'DM'; }
+      else { const ix = dc.channelIndex[cid]; const g = ix && dc.guilds[ix.guildId]; if (g) { ids = g.memberIds; const ch = (g.channels || []).find((x) => x.id === cid); where = g.name + (ch ? ' · #' + ch.name : ''); } }
+      const set = new Set(ids.filter((u) => u !== me.id));
+      const out = JSON.stringify({ t: 'notify', channel: cid, from: me.username, where, text: content.slice(0, 140) || '📎 sent a file', dm: cid.startsWith('dm:'), ts: msg.ts });
+      if (set.size) for (const c of conns) if (set.has(c.uid) && c.readyState === 1) { try { c.send(out); } catch {} }
+    } catch {}
     return sendJson(res, 200, { ok: true, message: msg });
   }
 

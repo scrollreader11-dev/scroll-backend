@@ -1088,8 +1088,26 @@
     // HUD timers
     hudTick(); spaceTick(); touchMineTick();
   }
+
+  // Walk straight into a hub portal to start that game.
+  function portalWalk() {
+    if (!P || !S.map || !S.map.objs || anyModal()) return;
+    var hit = null;
+    S.map.objs.forEach(function (o) { if (o.kind === 'gport' && o.walk && Math.abs(P.x - o.x) < T * 1.25 && P.y > o.y - T * 0.9 && P.y < o.y + T * 1.1) hit = o; });
+    if (!hit) { S.portLock = null; S.portIn = 0; return; }
+    if (S.portLock === hit) return;
+    if (!S.portIn) { S.portIn = now(); SC.sfx('open'); D.burst('magic', P.x, P.y - 20, 14, D.GCOL[hit.game] || '#9b6bff'); toast('🌀 Entering ' + gname(objGame(hit)) + '…', 1200); }
+    if (now() - S.portIn < 650) return;
+    S.portLock = hit; S.portIn = 0;
+    var g = objGame(hit), mode = g;
+    if (g === 'bw') { var n = S.party && S.party.members ? S.party.members.length : 1; mode = n >= 3 ? 'squads' : n === 2 ? 'duos' : 'solo'; }
+    S.lastQueue = { t: 'quick', game: g, mode: mode }; send(S.lastQueue);
+    D.burst('magic', P.x, P.y - 20, 30, D.GCOL[g] || '#9b6bff'); SC.sfx('go');
+    toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[mode].name : gname(g)) + '…' + (g === 'bw' ? ' (press E at a portal for other modes)' : ''), 2200);
+  }
   function spaceTick() {
     if (S.screen !== 'hub' && S.screen !== 'wait') return;
+    if (S.screen === 'hub') portalWalk();
     var o = nearObj(), pr = $('prompt');
     if (o && !anyModal()) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap · ' : 'E · ') + objLabel(o); } else pr.classList.add('hidden');
     if (S.screen === 'wait' && now() - (S.wcAt || 0) > 250) { S.wcAt = now(); updateWaitCount(); }

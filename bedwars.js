@@ -23,7 +23,7 @@ const RES = BW.RES;
 
 const conns = new Set();
 // Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
-const OWNERS = new Set(['pufferfishrcool', 'scrollreader11', 'mai_mei67']);
+const OWNERS = new Set(['scrollreader11']); // only Scrollreader11 gets the owner panel
 let LOCKED = false; // owners can pause new matches
 // ---- proximity voice: mic audio (12 kHz mu-law frames) goes through the server, which only
 // forwards it to players standing near the speaker. Works on any network (no peer-to-peer).
