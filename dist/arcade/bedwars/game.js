@@ -129,6 +129,7 @@
     if (t === 'mgt') { if (m.endAt) S.endAt = m.endAt; if (m.seekAt) S.seekAt = m.seekAt; if (m.sdAt) S.sdAt = m.sdAt; return; }
     if (t === 'ann2') { toast(esc(m.text), 1600); return; }
     if (t === 'disco') {
+      if (window.SHMusic) SHMusic.disco(m.ms || 30000);
       document.body.classList.add('disco');
       clearTimeout(S.discoT); S.discoT = setTimeout(function () { document.body.classList.remove('disco'); clearInterval(S.discoI); }, m.ms || 30000);
       clearInterval(S.discoI);
@@ -262,6 +263,9 @@
   function muteSync() { var m = SC.sfxMuted(); [].forEach.call(document.querySelectorAll('.muteBtn'), function (b) { b.textContent = m ? '🔇' : '🔊'; }); }
   [].forEach.call(document.querySelectorAll('.muteBtn'), function (b) { b.onclick = function () { SC.sfxToggle(); muteSync(); }; });
   muteSync();
+  function musicSync() { var o = window.SHMusic && SHMusic.isOff(); [].forEach.call(document.querySelectorAll('.musicBtn'), function (b) { b.style.opacity = o ? '.45' : '1'; b.title = o ? 'Music: off' : 'Music: on'; }); }
+  [].forEach.call(document.querySelectorAll('.musicBtn'), function (b) { b.onclick = function () { if (!window.SHMusic) return; toast(SHMusic.toggle() ? '🎵 Music off' : '🎵 Music on', 1200); musicSync(); }; });
+  musicSync();
   var qs = new URLSearchParams(location.search); if (qs.get('room')) $('jCode').value = qs.get('room').toUpperCase().slice(0, 4);
   var roomLinkUsed = false;
   helloWaiters.push(function () { if (qs.get('room') && !roomLinkUsed) { roomLinkUsed = true; setTimeout(function () { send({ t: 'join', code: qs.get('room') }); }, 300); } });
@@ -998,6 +1002,7 @@
   // ------------------------------------------------------------------ local update
   var trails = [];
   function update(dt, t) {
+    if (window.SHMusic) SHMusic.want(S.screen === 'hub' || S.screen === 'wait' ? 'lobby' : null);
     screenToWorld();
     if (!P) return;
     var me = S.ents.get(S.myId);

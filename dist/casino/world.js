@@ -288,7 +288,8 @@
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
     if (e.key.toLowerCase() === 'v' && window.BWV && BWV.on) { BWV.setMuted(!BWV.muted); voiceSync(); toast(BWV.muted ? '🔇 Mic muted (V to talk)' : '🎙️ Mic on'); }
   });
-  function muteIcon() { $('muteBtn').textContent = SC.sfxMuted && SC.sfxMuted() ? '🔇' : '🔊'; }
+  function muteIcon() { $('muteBtn').textContent = SC.sfxMuted && SC.sfxMuted() ? '🔇' : '🔊'; if ($('musicBtn')) $('musicBtn').style.opacity = window.SHMusic && SHMusic.isOff() ? '.45' : '1'; }
+  if ($('musicBtn')) $('musicBtn').onclick = function () { if (window.SHMusic) { toast(SHMusic.toggle() ? '🎵 Music off' : '🎵 Music on'); muteIcon(); } };
   $('muteBtn').onclick = function () { SC.sfxToggle && SC.sfxToggle(); muteIcon(); sfx('click'); }; muteIcon();
   setTimeout(function () { $('hint').style.opacity = '0'; }, 14000);
 
@@ -367,6 +368,7 @@
       if ((dustT += dt) > 0.22) { dustT = 0; parts.push({ kind: 'dust', x: me.x + (Math.random() - 0.5) * 10, y: me.y - 2, vx: -ix * 20, vy: -8, life: 0, max: 0.45, rot: 0 }); }
     } else me.idle += dt;
     me.dance = !me.mv && me.idle > 0.4 && onDance(me.x, me.y);
+    if (window.SHMusic) SHMusic.want(onDance(me.x, me.y) ? 'disco' : 'casino');
     // remote interpolation
     for (var id in players) {
       var p = players[id], f = Math.min(1, dt * 12);
@@ -1011,7 +1013,7 @@
         hideLoading(); $('gateTitle').textContent = d.error === 'network' ? "Can't reach the casino" : 'Log in to play';
         $('gateMsg').textContent = d.error === 'network' ? 'Check your connection and reload.' : 'Log in to ScrollHub to walk into the casino with your friends.'; $('gate').style.display = 'flex'; return;
       }
-      state.store = d.store || []; A.season = d.season == null ? 'xmas' : d.season; state.season = A.season; state.cases = d.cases || {}; state.dailyMs = d.dailyMs; state.nick = d.nick;
+      state.store = d.store || []; A.season = d.season == null ? 'xmas' : d.season; if (window.SHMusic) SHMusic.season(A.season); state.season = A.season; state.cases = d.cases || {}; state.dailyMs = d.dailyMs; state.nick = d.nick;
       state.store.forEach(function (it) { storeById[it.id] = it; });
       me.nick = d.nick || 'You';
       SC.setProfile(d.profile);
