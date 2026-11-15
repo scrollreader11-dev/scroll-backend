@@ -1241,7 +1241,7 @@ export function bwOnline() { return lobbyList(); }
 export function handleBedwarsUpgrade(req, socket, head) {
   wss.handleUpgrade(req, socket, head, (ws) => {
     const { cid, nick } = worldIdentity(req);
-    if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Log in or create an account to play' })); ws.close(4000); } catch (e) {} return; }
+    if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Pick a nickname to play' })); ws.close(4000); } catch (e) {} return; }
     const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
     c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
     c.mapper = !!(req._auth && String(req._auth.username || '').toLowerCase() === GMS.MAPPER);

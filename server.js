@@ -1836,6 +1836,19 @@ const httpServer = createServer(async (req, res) => {
   }
   if (url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) { if (await handleSocial(url, req, res)) return; }
   // Games hub (/arcade): who's playing + your Bedwars stats.
+  // Games hub nickname box: no account needed — gives this browser a guest identity with the chosen name.
+  if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
+    const body = await readBody(req);
+    let nick = String(body.nick || '').replace(/[^\w .-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+    if (nick.length < 2) return sendJson(res, 400, { error: 'Pick a nickname with at least 2 letters.' });
+    if (nick.toLowerCase().replace(/[^a-z0-9]/g, '') === 'scrollreader11') return sendJson(res, 400, { error: 'That name is taken — pick another.' });
+    const clean = cleanNick(nick); if (clean !== nick) return sendJson(res, 400, { error: 'Pick a different nickname.' });
+    const ck = parseCookies(req);
+    const cid = /^g-[a-z0-9]{10,}$/.test(ck.sh_cid || '') ? ck.sh_cid : 'g-' + randomBytes(8).toString('hex');
+    const secure = String(req.headers['x-forwarded-proto'] || '').startsWith('https') ? ';Secure' : '';
+    res.writeHead(200, { 'Content-Type': 'application/json', 'cache-control': 'no-store', 'Set-Cookie': ['sh_cid=' + cid + ';Path=/;Max-Age=15552000;SameSite=Lax' + secure, 'sh_nick=' + encodeURIComponent(nick) + ';Path=/;Max-Age=15552000;SameSite=Lax' + secure] });
+    return res.end(JSON.stringify({ ok: true, nick }));
+  }
   if (url.split('?')[0] === '/api/arcade/info') {
     const id = worldIdentity(req);
     return sendJson(res, 200, { online: bwOnline(), casino: worldOnline(), me: id.cid ? { nick: id.nick, bw: bwStats(id.cid) } : null });

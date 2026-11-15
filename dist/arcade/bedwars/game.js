@@ -147,20 +147,18 @@
   }
   function fatal(msg, code) {
     var d = document.createElement('div'); d.className = 'modal'; d.style.zIndex = 90;
-    d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + (code === 'login' ? '🔐' : code === 'kicked' ? '🚫' : '🪟') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
-      (code === 'login' ? '<div class="lgform" style="display:flex;flex-direction:column;gap:8px;text-align:left"><input id="lgU" class="admin-in" placeholder="Username" maxlength="20" autocomplete="username" style="font-size:17px;padding:10px"><input id="lgP" class="admin-in" type="password" placeholder="Password" autocomplete="current-password" style="font-size:17px;padding:10px"><div style="display:flex;gap:8px"><button class="btn green" id="lgIn" style="flex:1">Log in</button><button class="btn" id="lgUp" style="flex:1">Create account</button></div><div id="lgMsg" style="color:#ff8a95;font-weight:700;min-height:20px;text-align:center"></div></div>' : code === 'kicked' ? '<a class="btn green" href="/casino">Go to the casino</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
+    d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + (code === 'login' ? '🎮' : code === 'kicked' ? '🚫' : '🪟') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
+      (code === 'login' ? '<div class="lgform" style="display:flex;flex-direction:column;gap:10px"><input id="lgU" class="admin-in" placeholder="Your nickname" maxlength="16" autocomplete="nickname" style="font-size:20px;padding:12px;text-align:center;font-weight:700"><button class="btn green" id="lgIn" style="font-size:19px;padding:12px">Play ▶</button><div id="lgMsg" style="color:#ff8a95;font-weight:700;min-height:20px;text-align:center"></div></div>' : code === 'kicked' ? '<a class="btn green" href="/casino">Go to the casino</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
     document.body.appendChild(d);
     if (code === 'login') {
-      var go = function (kind) {
-        var u = $('lgU').value.trim(), pw = $('lgP').value; if (!u || !pw) { $('lgMsg').textContent = 'Type a username and password.'; return; }
-        $('lgMsg').style.color = '#cfc8ff'; $('lgMsg').textContent = kind === 'signup' ? 'Creating your account…' : 'Logging in…';
-        fetch('/api/auth/' + kind, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: u, password: pw }) }).then(function (r) { return r.json(); }).then(function (r) {
-          if (r && (r.ok || r.user || r.token)) { try { if (r.token) localStorage.setItem('sh_token', r.token); } catch (e) {} location.reload(); }
-          else { $('lgMsg').style.color = '#ff8a95'; $('lgMsg').textContent = (r && (r.message || r.error)) || 'That didn’t work — try again.'; }
+      var go = function () {
+        var u = $('lgU').value.trim(); if (u.length < 2) { $('lgMsg').textContent = 'Type a nickname (at least 2 letters).'; return; }
+        $('lgMsg').style.color = '#cfc8ff'; $('lgMsg').textContent = 'Joining…';
+        fetch('/api/arcade/nick', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nick: u }) }).then(function (r) { return r.json(); }).then(function (r) {
+          if (r && r.ok) location.reload(); else { $('lgMsg').style.color = '#ff8a95'; $('lgMsg').textContent = (r && r.error) || 'That didn’t work — try again.'; }
         }).catch(function () { $('lgMsg').textContent = 'Couldn’t reach the server.'; });
       };
-      $('lgIn').onclick = function () { go('login'); }; $('lgUp').onclick = function () { go('signup'); };
-      $('lgP').onkeydown = function (e) { e.stopPropagation(); if (e.key === 'Enter') go('login'); }; $('lgU').onkeydown = function (e) { e.stopPropagation(); };
+      $('lgIn').onclick = go; $('lgU').onkeydown = function (e) { e.stopPropagation(); if (e.key === 'Enter') go(); };
       setTimeout(function () { try { $('lgU').focus(); } catch (e) {} }, 100);
     }
     var ld = $('loading'); ld.classList.add('out');
