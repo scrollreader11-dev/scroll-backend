@@ -582,12 +582,28 @@
   };
   D.banner = function (c, o, t) { // big game title arch over the island
     var x = o.x, y = o.y + 8;
+    if (o.small) { // portal-hall sign: words stacked on two lines so nothing is ever clipped
+      var words = String(o.text || '').split(' '), L1 = words[0], L2 = words.slice(1).join(' ');
+      var colS = { ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b' }[o.game] || (D.GCOL && D.GCOL[o.game]) || '#ff4b5c';
+      var hw = 96, top = y - 104, hgt = L2 ? 78 : 50;
+      [-hw + 18, hw - 18].forEach(function (dx) { rr(c, x + dx - 5, top + hgt - 6, 10, y - (top + hgt) + 4, 3); fs(c, '#5a331b', OL, 3); });
+      rr(c, x - hw, top, hw * 2, hgt, 14); fs(c, '#1a0f3d', OL, 4);
+      c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+      var fit = function (txt, max) { c.font = '700 ' + max + 'px Fredoka, sans-serif'; var w = c.measureText(txt).width; return Math.min(max, max * 168 / Math.max(1, w)); };
+      var gl2 = 0.7 + Math.sin(t * 3) * 0.3;
+      var f1 = fit(L1, 32); c.font = '700 ' + f1 + 'px Fredoka, sans-serif'; c.lineWidth = 6; c.strokeStyle = OL; c.strokeText(L1, x, top + (L2 ? 24 : hgt / 2)); c.shadowColor = colS; c.shadowBlur = 14 * gl2; c.fillStyle = colS; c.fillText(L1, x, top + (L2 ? 24 : hgt / 2));
+      if (L2) { c.shadowBlur = 0; var f2 = fit(L2, 28); c.font = '700 ' + f2 + 'px Fredoka, sans-serif'; c.strokeText(L2, x, top + 56); c.fillStyle = '#fff'; c.fillText(L2, x, top + 56); }
+      c.restore();
+      for (var kk = 0; kk <= 7; kk++) { circ(c, x - hw + 16 + kk * ((hw * 2 - 32) / 7), top - 3, 3.2); c.fillStyle = (Math.floor(t * 4) + kk) % 2 ? '#ffd166' : '#ff6ec7'; c.fill(); }
+      return;
+    }
     var txt = o.text || 'BEDWARS', sp = txt.indexOf(' ');
     var A1 = txt === 'BEDWARS' ? 'BED' : sp > 0 ? txt.slice(0, sp + 1) : txt, A2 = txt === 'BEDWARS' ? 'WARS' : sp > 0 ? txt.slice(sp + 1) : '';
-    var col = { ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b' }[o.game] || '#ff4b5c';
-    c.save(); c.font = '700 38px Fredoka, sans-serif';
-    var fsz = Math.min(38, 38 * 260 / Math.max(1, c.measureText(txt).width)); c.restore();
-    var half = Math.max(120, Math.min(170, (fsz * txt.length * 0.32) + 40));
+    var col = { ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b' }[o.game] || (D.GCOL && D.GCOL[o.game]) || '#ff4b5c';
+    var maxW = o.small ? 176 : 260, big = o.small ? 30 : 38;
+    c.save(); c.font = '700 ' + big + 'px Fredoka, sans-serif';
+    var fsz = Math.min(big, big * maxW / Math.max(1, c.measureText(txt).width)); c.restore();
+    var half = o.small ? 106 : Math.max(120, Math.min(170, (fsz * txt.length * 0.32) + 40));
     [-half + 16, half - 16].forEach(function (dx) { rr(c, x + dx - 6, y - 96, 12, 100, 3); fs(c, '#5a331b', OL, 3); });
     rr(c, x - half, y - 118, half * 2, 54, 14); fs(c, '#1a0f3d', OL, 4);
     c.save(); c.font = '700 ' + fsz + 'px Fredoka, sans-serif'; c.textBaseline = 'middle'; c.lineJoin = 'round';

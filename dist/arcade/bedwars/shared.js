@@ -240,7 +240,7 @@
       var names = { bw: 'BEDWARS', ctf: 'CAPTURE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER', build: 'BUILD BATTLE' };
       fill(m, q.tx - 1, q.ty, q.tx + 1, q.ty + 1, G2.PAD);
       // the name banner stands BEHIND (north of) the portal
-      obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 3, text: names[q.g], game: q.g }, [[q.tx - 2, q.ty - 3], [q.tx - 1, q.ty - 3], [q.tx, q.ty - 3], [q.tx + 1, q.ty - 3], [q.tx + 2, q.ty - 3]]);
+      obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 2, text: names[q.g], game: q.g, small: true }, [[q.tx - 2, q.ty - 2], [q.tx + 2, q.ty - 2]]);
       // portals are NOT solid: you walk into them
       obj(m, { kind: 'gport', tx: q.tx, ty: q.ty, game: q.g, act: 'gmenu', walk: true }, []);
     });
