@@ -225,7 +225,7 @@
     [[32, 34], [40, 34]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k }); });
     [[32, 46], [40, 46]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k + 2 }); });
     obj(m, { kind: 'sign', tx: 33, ty: 44, text: 'WELCOME!', lines: ['All games: north ⬆', 'Leaderboards: west', 'Casino: east'], dy: 10 }, [[33, 44]]);
-    obj(m, { kind: 'npc', tx: 30, ty: 48, act: 'skinshop', game: 'bw', mode: 'bw', label: 'SKIN SHOP', sub: 'new looks & cosmetics', look: { skin: 'fox', body: '#ff6ec7', hat: 'crown', acc: 'orbs' } });
+    obj(m, { kind: 'npc', tx: 36, ty: 44, act: 'skinshop', game: 'bw', mode: 'bw', label: 'SKIN SHOP', sub: 'skins & more', look: { skin: 'fox', body: '#ff6ec7', hat: 'crown', acc: 'orbs' } });
     obj(m, { kind: 'npc', tx: 39, ty: 44, act: 'how', game: 'bw', mode: 'bw', label: 'GAME GUIDE', sub: 'how to play everything', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
     // ---- the PORTAL HALL: all 7 game portals side by side in one plaza.
     // Walk straight into a portal to play; the name banner stands BEHIND each one.
