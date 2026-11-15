@@ -1861,6 +1861,7 @@ const httpServer = createServer(async (req, res) => {
   }
 
   // Teacher link: /teacher/<key> marks this browser as the teacher (class tools in the games hub).
+  if (url === '/teacher/leave' || url === '/teacher/leave/') { res.writeHead(302, { Location: '/arcade', 'cache-control': 'no-store', 'Set-Cookie': 'sh_teacher=;Path=/;Max-Age=0;SameSite=Lax;HttpOnly' }); res.end(); return; }
   if (url.startsWith('/teacher/')) {
     const key = decodeURIComponent(url.split('?')[0].slice(9)).replace(/\/+$/, '');
     const good = key && key === teacherKey();
