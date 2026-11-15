@@ -492,10 +492,12 @@ function classAnswer(c, m) {
 const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'];
 function voteCounts() { const n = {}; VOTE_GAMES.forEach((g) => { n[g] = 0; }); if (CLASS.vote) for (const g of CLASS.vote.votes.values()) n[g]++; return n; }
 function voteTargets() { return [...conns].filter((c) => !(c.room && c.room.state === 'play')); }
-function voteBroadcast() { if (!CLASS.vote) return; const msg = { t: 'vote', endAt: CLASS.vote.endAt, left: Math.max(0, CLASS.vote.endAt - Date.now()), counts: voteCounts(), games: CLASS.vote.games }; for (const c of voteTargets()) send(c, msg); }
+function voteVoters() { const out = {}; if (!CLASS.vote) return out; for (const c of conns) { const g = c.cid && CLASS.vote.votes.get(c.cid); if (!g) continue; (out[g] || (out[g] = [])).length < 12 && out[g].push({ n: c.nick, l: c.look }); } return out; }
+function voteBroadcast() { if (!CLASS.vote) return; const msg = { t: 'vote', endAt: CLASS.vote.endAt, left: Math.max(0, CLASS.vote.endAt - Date.now()), total: Math.max(1, CLASS.vote.total || 0), counts: voteCounts(), voters: voteVoters(), games: CLASS.vote.games }; for (const c of voteTargets()) send(c, msg); }
 function startVote(by, secs, games) {
   const list = (Array.isArray(games) && games.length ? games : VOTE_GAMES).filter((g) => VOTE_GAMES.includes(g));
   CLASS.vote = { endAt: Date.now() + (secs || 20) * 1000, votes: new Map(), games: list.length >= 2 ? list : VOTE_GAMES, by: by.nick };
+  CLASS.vote.total = voteTargets().length;
   voteBroadcast(); GMS.log('🗳️ ' + by.nick + ' started a game vote');
   clearTimeout(CLASS.voteT); CLASS.voteT = setTimeout(endVote, (secs || 20) * 1000 + 200);
 }

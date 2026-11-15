@@ -521,15 +521,41 @@
   @keyframes qshake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
   @media (max-width:640px){#qGrid{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr)}#qHud{left:auto;right:8px;top:200px;bottom:auto;transform:none;flex-direction:column;gap:6px;padding:8px;border-radius:14px}#qHud .qbw{width:84px;height:12px}#qSt{display:none}#qOpen{padding:9px 10px;font-size:14px}}
 
-  #voteBox{position:fixed;inset:0;z-index:58;background:radial-gradient(circle at 50% 0%,#3b2a99,#120e2e 70%);display:flex;flex-direction:column;align-items:center;padding:18px 14px;overflow:auto}
-  #voteTitle{font-family:Fredoka,sans-serif;font-weight:700;font-size:clamp(26px,5vw,48px);color:#fff;text-align:center;text-shadow:0 4px 0 #0b0920}
-  #voteTime{color:#ffd166;font-weight:800;margin:4px 0 16px;font-size:18px}
-  #voteGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;width:min(1100px,100%)}
-  .vopt{background:#1d1748;border:4px solid var(--c);border-radius:18px;color:#fff;padding:14px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:0 6px 0 #0b0920;transition:transform .1s}
-  .vopt:hover{transform:translateY(-3px)}.vopt.mine{background:var(--c);box-shadow:0 0 0 4px #fff,0 6px 0 #0b0920}
-  .vopt .vi{font-size:44px}.vopt .vn{font-weight:800;font-size:20px}.vopt .vd{font-size:12px;opacity:.8;text-align:center;min-height:30px}
-  .vopt .vbar{width:100%;height:10px;background:#0b0920;border-radius:6px;overflow:hidden}.vopt .vbar i{display:block;height:100%;background:#ffd166;transition:width .3s}
-  .vopt .vc{font-weight:800;font-size:15px}
+  #voteBox{position:fixed;inset:0;z-index:58;background:rgba(9,6,28,.66);backdrop-filter:blur(7px) saturate(1.2);-webkit-backdrop-filter:blur(7px) saturate(1.2);display:flex;flex-direction:column;align-items:center;padding:clamp(12px,3vh,28px) 14px 18px;overflow:auto}
+  .vhead{display:flex;align-items:center;gap:18px;margin-bottom:clamp(10px,2.4vh,22px)}
+  .vsign{position:relative;background:#1a0f3d;border:4px solid #0b0920;border-radius:18px;padding:10px 26px 12px;box-shadow:0 8px 0 #0b0920,inset 0 -6px 0 rgba(0,0,0,.25)}
+  .vsign .bulbs{position:absolute;left:14px;right:14px;top:-7px;display:flex;justify-content:space-between}
+  .vsign .bulbs i{width:9px;height:9px;border-radius:50%;background:#ffd166;box-shadow:0 0 8px #ffd166;animation:vbulb .8s steps(1) infinite}
+  .vsign .bulbs i:nth-child(2n){background:#ff6ec7;box-shadow:0 0 8px #ff6ec7;animation-delay:.4s}
+  @keyframes vbulb{50%{opacity:.35}}
+  #voteTitle{font-family:Fredoka,sans-serif;font-weight:700;font-size:clamp(26px,4.6vw,50px);line-height:1;color:#fff;letter-spacing:.02em;-webkit-text-stroke:2px #0b0920;paint-order:stroke fill;text-shadow:0 0 18px rgba(155,107,255,.8),0 4px 0 #0b0920}
+  #voteTitle b{color:#ffd166;text-shadow:0 0 18px rgba(255,209,102,.9),0 4px 0 #0b0920}
+  .vclock{position:relative;width:74px;height:74px;flex:none}
+  .vclock svg{transform:rotate(-90deg)}
+  .vclock .n{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Fredoka,sans-serif;font-weight:700;font-size:28px;color:#fff;-webkit-text-stroke:1.5px #0b0920;paint-order:stroke fill}
+  .vclock.hurry .n{color:#ff5c6c;animation:vpulse .5s infinite alternate}
+  @keyframes vpulse{to{transform:scale(1.15)}}
+  #voteTime{color:#cfc8ff;font-weight:700;margin:-6px 0 14px;font-size:15px;text-align:center}
+  #voteGrid{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;width:min(1180px,100%)}
+  #voteGrid .vopt{flex:0 1 270px;min-width:min(100%,230px)}
+  #voteBox.done .vclock{visibility:hidden}
+  .vopt{position:relative;background:#1d1748;border:4px solid #0b0920;border-radius:20px;color:#fff;padding:0 0 12px;cursor:pointer;display:flex;flex-direction:column;align-items:stretch;overflow:visible;box-shadow:0 8px 0 #0b0920;transition:transform .15s cubic-bezier(.3,1.6,.6,1),box-shadow .15s,opacity .3s,filter .3s;font-family:Fredoka,sans-serif}
+  .vopt:hover{transform:translateY(-4px) rotate(-.6deg)}
+  .vopt canvas{width:100%;height:150px;display:block;border-radius:16px 16px 0 0}
+  .vopt .vn{font-weight:700;font-size:23px;letter-spacing:.03em;text-transform:uppercase;margin:8px 12px 0;color:#fff;-webkit-text-stroke:1.5px #0b0920;paint-order:stroke fill;text-shadow:0 3px 0 #0b0920}
+  .vopt .vn em{font-style:normal;color:var(--c)}
+  .vopt .vrow{display:flex;align-items:center;gap:8px;margin:6px 12px 0}
+  .vopt .vbar{flex:1;height:14px;background:#0b0920;border-radius:8px;overflow:hidden;box-shadow:inset 0 2px 0 rgba(0,0,0,.4)}
+  .vopt .vbar i{display:block;height:100%;background:linear-gradient(180deg,#fff6 0 30%,transparent 30%),var(--c);border-radius:8px;transition:width .35s cubic-bezier(.3,1.4,.6,1)}
+  .vopt .vc{font-weight:700;font-size:22px;min-width:30px;text-align:right;-webkit-text-stroke:1px #0b0920;paint-order:stroke fill}
+  .vopt.mine{border-color:#fff;transform:translateY(-6px);box-shadow:0 0 0 4px var(--c),0 14px 0 #0b0920,0 0 34px var(--c)}
+  .vopt .sticker{position:absolute;top:10px;left:-10px;background:#ffd166;color:#2a1300;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px;transform:rotate(-8deg);box-shadow:0 3px 0 #b07d00;display:none;z-index:2}
+  .vopt.mine .sticker{display:block}
+  .vopt .crown{position:absolute;top:-22px;right:12px;font-size:34px;filter:drop-shadow(0 3px 0 #0b0920);display:none;animation:vbob 1s ease-in-out infinite alternate;z-index:2}
+  .vopt.lead .crown{display:block}
+  @keyframes vbob{to{transform:translateY(-5px) rotate(8deg)}}
+  #voteBox.done .vopt{opacity:.25;filter:grayscale(.8);transform:scale(.96)}
+  #voteBox.done .vopt.win{opacity:1;filter:none;transform:scale(1.08);box-shadow:0 0 0 5px #ffd166,0 14px 0 #0b0920,0 0 60px #ffd166;z-index:3}
 </style>
 </head>
 <body>
@@ -632,7 +658,7 @@
 </div>
 <div id="schoolTag" class="hidden">🏫 SCHOOL MODE — answer questions to power up!</div>
 <div id="qHud" class="hidden"><span id="qEn">⚡ 0</span><div class="qbw"><div id="qBar"></div></div><span id="qSt" style="font-size:13px;opacity:.9">✅ 0</span><button id="qOpen">📝 Answer (G)</button></div>
-<div id="voteBox" class="hidden"><div id="voteTitle">🗳️ Vote for the next game!</div><div id="voteTime"></div><div id="voteGrid"></div></div>
+<div id="voteBox" class="hidden"><div class="vhead"><div class="vsign"><div class="bulbs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div id="voteTitle">PICK THE <b>NEXT GAME</b></div></div><div class="vclock" id="vClock"><svg width="74" height="74"><circle cx="37" cy="37" r="31" fill="#1a0f3d" stroke="#0b0920" stroke-width="10"/><circle id="vRing" cx="37" cy="37" r="31" fill="none" stroke="#ffd166" stroke-width="6" stroke-linecap="round" stroke-dasharray="194.8" stroke-dashoffset="0"/></svg><div class="n" id="vNum">20</div></div></div><div id="voteTime"></div><div id="voteGrid"></div></div>
 <div id="quiz" class="hidden">
   <div class="qtop"><span>📝</span><div class="grow" id="qSet"></div><button id="qClose">Back to game ✕</button></div>
   <div id="qQ"></div>
@@ -776,7 +802,7 @@
 <script src="/arcade/bedwars/draw.js?v=7"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=20"></script>
+<script src="/arcade/bedwars/game.js?v=21"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

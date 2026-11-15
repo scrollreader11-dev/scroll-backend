@@ -1752,27 +1752,82 @@
     S.qCur.id = m.id; SC.sfx('level');
     clearTimeout(S.cqT); S.cqT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, (m.secs || 45) * 1000);
   }
-  // ---- class game vote
+  // ---- class game vote (cards are little live scenes: each game's portal, with everyone who voted for it lined up in front)
+  var VNAME = { bw: ['BED', 'WARS'], ctf: ['CAPTURE', 'FLAG'], spleef: ['TNT', 'SPLEEF'], hide: ['PROP', 'HUNT'], murder: ['MURDER', 'MYSTERY'], build: ['BUILD', 'BATTLE'], duel: ['', 'DUELS'] };
+  var VGROUND = { bw: ['#5ccf62', '#52c45a'], ctf: ['#5ccf62', '#52c45a'], spleef: ['#cfe9ff', '#bfe0fb'], hide: ['#8fd16a', '#84c661'], murder: ['#b48a5a', '#a87f50'], build: ['#c8a46a', '#bd9a61'], duel: ['#9aa3b5', '#8e97aa'] };
   function onVote(m) {
     var box = $('voteBox');
     if (m.done) {
       clearInterval(S.voteIv);
-      if (m.cancel) { box.classList.add('hidden'); toast('🗳️ The vote was cancelled', 1800); return; }
-      $('voteTitle').textContent = '🎉 ' + (m.winner === 'bw' ? 'Bedwars' : MG.GAMES[m.winner].name) + ' wins!';
-      $('voteTime').textContent = 'Everyone’s heading in…'; S.myVote = null; SC.sfx('bigwin');
-      setTimeout(function () { box.classList.add('hidden'); }, 2200); return;
+      if (m.cancel) { box.classList.add('hidden'); S.voteOn = false; toast('🗳️ The vote was cancelled', 1800); return; }
+      box.classList.add('done');
+      [].forEach.call($('voteGrid').children, function (x) { x.classList.toggle('win', x.dataset.vg === m.winner); });
+      $('voteTitle').innerHTML = '<b>' + (m.winner === 'bw' ? 'BEDWARS' : MG.GAMES[m.winner].name.toUpperCase()) + '</b> WINS!';
+      $('voteTime').textContent = 'Get ready — everyone’s heading in…'; S.myVote = null; SC.sfx('bigwin');
+      try { screenFx({ kind: 'confetti' }); } catch (e) {}
+      setTimeout(function () { box.classList.add('hidden'); box.classList.remove('done'); S.voteOn = false; }, 2600); return;
     }
-    if (box.classList.contains('hidden')) { box.classList.remove('hidden'); S.myVote = null; SC.sfx('open'); closeModals(); }
-    S.voteEnd = now() + (m.left || 0);
-    var games = m.games || ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'], tot = 0; games.forEach(function (g) { tot += m.counts[g] || 0; });
-    $('voteTitle').textContent = '🗳️ Vote for the next game!';
-    $('voteGrid').innerHTML = games.map(function (g) {
-      var n = m.counts[g] || 0, gm = g === 'bw' ? { icon: '🛏️', name: 'Bedwars', desc: 'Protect your bed, break theirs' } : MG.GAMES[g];
-      return '<button class="vopt' + (S.myVote === g ? ' mine' : '') + '" data-vg="' + g + '" style="--c:' + (D.GCOL[g] || '#6c4dff') + '"><div class="vi">' + gm.icon + '</div><div class="vn">' + esc(gm.name) + '</div><div class="vd">' + esc(gm.desc || '') + '</div><div class="vbar"><i style="width:' + (tot ? Math.round(n / tot * 100) : 0) + '%"></i></div><div class="vc">' + n + ' vote' + (n === 1 ? '' : 's') + '</div></button>';
-    }).join('');
-    clearInterval(S.voteIv); S.voteIv = setInterval(function () { var l = Math.max(0, Math.ceil((S.voteEnd - now()) / 1000)); $('voteTime').textContent = l + 's left · tap a game to vote'; }, 250);
+    if (box.classList.contains('hidden')) {
+      box.classList.remove('hidden'); box.classList.remove('done'); S.myVote = null; SC.sfx('open'); closeModals(); closeQuiz(true);
+      S.voteDur = Math.max(1000, m.left || 20000); S.voteOn = true; S.voteCards = null;
+      $('voteTitle').innerHTML = 'PICK THE <b>NEXT GAME</b>';
+      requestAnimationFrame(voteDraw);
+    }
+    S.voteEnd = now() + (m.left || 0); S.vote = m;
+    var games = m.games || ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'], top = 0;
+    games.forEach(function (g) { top = Math.max(top, m.counts[g] || 0); });
+    if (!S.voteCards || S.voteCards.join() !== games.join()) {
+      S.voteCards = games.slice();
+      $('voteGrid').innerHTML = games.map(function (g) {
+        var nm = VNAME[g] || ['', g];
+        return '<button class="vopt" data-vg="' + g + '" style="--c:' + (D.GCOL[g] || '#6c4dff') + '"><span class="sticker">YOUR VOTE ✓</span><span class="crown">👑</span><canvas width="460" height="300"></canvas><div class="vn">' + (nm[0] ? '<em>' + nm[0] + '</em> ' : '') + nm[1] + '</div><div class="vrow"><div class="vbar"><i style="width:0%"></i></div><div class="vc">0</div></div></button>';
+      }).join('');
+    }
+    var total = Math.max(1, m.total || 1);
+    [].forEach.call($('voteGrid').children, function (el) {
+      var g = el.dataset.vg, n = m.counts[g] || 0;
+      el.querySelector('.vbar i').style.width = Math.min(100, Math.round(n / total * 100)) + '%';
+      var vc = el.querySelector('.vc'); if (vc.textContent !== String(n)) { vc.textContent = n; if (n) { vc.animate([{ transform: 'scale(1.5)' }, { transform: 'scale(1)' }], { duration: 300 }); } }
+      el.classList.toggle('lead', top > 0 && n === top);
+      el.classList.toggle('mine', S.myVote === g);
+    });
+    clearInterval(S.voteIv); S.voteIv = setInterval(voteClock, 200); voteClock();
   }
-  $('voteGrid').addEventListener('click', function (e) { var b = e.target.closest('[data-vg]'); if (!b) return; S.myVote = b.dataset.vg; send({ t: 'vote', g: S.myVote }); SC.sfx('pop'); [].forEach.call($('voteGrid').children, function (x) { x.classList.toggle('mine', x === b); }); });
+  function voteClock() {
+    var ms = Math.max(0, S.voteEnd - now()), l = Math.ceil(ms / 1000);
+    $('vNum').textContent = l; $('vRing').setAttribute('stroke-dashoffset', String(194.8 * (1 - ms / (S.voteDur || 20000))));
+    $('vRing').setAttribute('stroke', l <= 5 ? '#ff5c6c' : '#ffd166'); $('vClock').classList.toggle('hurry', l <= 5);
+    var mv = S.myVote; $('voteTime').textContent = mv ? 'You voted ' + (mv === 'bw' ? 'Bedwars' : MG.GAMES[mv].name) + ' — tap another to switch' : 'Tap a game to vote!';
+    if (l <= 3 && l > 0 && l !== S.voteTick) { S.voteTick = l; SC.sfx('click'); }
+  }
+  function voteDraw(ts) {
+    if (!S.voteOn) return;
+    var t = ts / 1000, m = S.vote || { voters: {} }, spawn0 = D.spawn; D.spawn = function () {};
+    [].forEach.call($('voteGrid').children, function (el) {
+      var cv = el.querySelector('canvas'); if (!cv) return;
+      var c = cv.getContext('2d'), g = el.dataset.vg, W2 = cv.width, H2 = cv.height, gr = VGROUND[g] || VGROUND.bw, col = D.GCOL[g] || '#6c4dff';
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W2, H2);
+      // sky glow + floor tiles like the hub
+      var sky = c.createLinearGradient(0, 0, 0, H2 * 0.55); sky.addColorStop(0, '#120c33'); sky.addColorStop(1, col); c.fillStyle = sky; c.fillRect(0, 0, W2, H2);
+      var ts2 = 46, oy = H2 * 0.48;
+      for (var y = oy; y < H2; y += ts2) for (var x = -((t * 6) % ts2) - ts2; x < W2 + ts2; x += ts2) { c.fillStyle = ((Math.round(x / ts2) + Math.round(y / ts2)) & 1) ? gr[0] : gr[1]; c.fillRect(x, y, ts2 + 1, ts2 + 1); }
+      c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(0, oy, W2, 6);
+      // the portal itself (same art as the hub)
+      c.save(); c.translate(W2 / 2, 0); c.scale(1.55, 1.55); try { D.gport(c, { x: 0, y: 128, game: g }, t); } catch (e) {} c.restore();
+      // everyone who voted for it, queueing in front of the portal
+      var vs = (m.voters && m.voters[g]) || [];
+      vs.forEach(function (v, k) {
+        var row = k < 6 ? 0 : 1, col2 = row ? k - 6 : k, n = Math.min(6, row ? vs.length - 6 : vs.length);
+        var px = W2 / 2 + (col2 - (n - 1) / 2) * 70 + (row ? 35 : 0), py = H2 - 10 - (1 - row) * 0 - row * 44 + Math.sin(t * 6 + k) * 3;
+        if (row) py = H2 - 58 + Math.sin(t * 6 + k) * 3;
+        c.save(); c.translate(px, py); c.scale(1.55, 1.55); try { A.drawGim(c, 0, 0, v.l || { skin: 'gim', body: '#3fa9ff' }, { t: t + k, dir: 0, walk: 0 }); } catch (e) {} c.restore();
+      });
+      var extra = (m.counts && m.counts[g] || 0) - vs.length; if (extra > 0) { c.font = '700 30px Fredoka, sans-serif'; c.lineWidth = 6; c.strokeStyle = '#0b0920'; c.fillStyle = '#fff'; c.textAlign = 'right'; c.strokeText('+' + extra, W2 - 14, H2 - 14); c.fillText('+' + extra, W2 - 14, H2 - 14); }
+    });
+    D.spawn = spawn0;
+    requestAnimationFrame(voteDraw);
+  }
+  $('voteGrid').addEventListener('click', function (e) { var b = e.target.closest('[data-vg]'); if (!b) return; if ($('voteBox').classList.contains('done')) return; S.myVote = b.dataset.vg; send({ t: 'vote', g: S.myVote }); SC.sfx('pop'); [].forEach.call($('voteGrid').children, function (x) { x.classList.toggle('mine', x === b); }); voteClock(); });
   // owner "power" screen effects
   function screenFx(m) {
     var cv = $('cv'), k = m.kind, ms = m.ms || 10000;
