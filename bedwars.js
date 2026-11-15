@@ -322,7 +322,7 @@ function socialMsg(c, m, now) {
     send(c, { t: 'toast', msg: '👥 You joined the party! The leader picks the games — you’ll always be on their team. Party voice works anywhere on the map.' });
     pushParty(p);
     // jump into the leader's lobby if they are waiting in one
-    const l = connByCid(p.leader); if (l && l.room && l.room.state === 'lobby' && l.room.kind !== 'practice' && !(c.room && c.room.state === 'play')) joinLobby(c, l.room, (l.room.members.find((x) => x.conn === l) || {}).team);
+    const l = connByCid(p.leader); if (!schoolCfg() && l && l.room && l.room.state === 'lobby' && l.room.kind !== 'practice' && !(c.room && c.room.state === 'play')) joinLobby(c, l.room, (l.room.members.find((x) => x.conn === l) || {}).team);
     return true;
   }
   if (t === 'pleave') { partyLeave(c); return true; }
@@ -345,6 +345,7 @@ function socialMsg(c, m, now) {
       if (c.space === HUB) { c.sx = o.sx; c.sy = o.sy; send(c, { t: 'pos', x: Math.round(o.sx), y: Math.round(o.sy) }); }
       send(c, { t: 'toast', msg: '🏠 ' + o.nick + ' is in the hub — teleported you next to them!' }); return true;
     }
+    if (r.state === 'lobby' && t === 'fjoin' && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: '🔒 Games are locked in School Mode — wait for your teacher’s vote.' }), true;
     if (r.state === 'lobby' && t === 'fjoin') {
       if (r.kind === 'practice') return send(c, { t: 'err', msg: o.nick + ' is in a solo practice match.' }), true;
       if (r.members.length >= capOf(r)) return send(c, { t: 'err', msg: 'Their lobby is full.' }), true;

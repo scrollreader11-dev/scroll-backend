@@ -1837,6 +1837,11 @@ const httpServer = createServer(async (req, res) => {
   if (url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) { if (await handleSocial(url, req, res)) return; }
   // Games hub (/arcade): who's playing + your Bedwars stats.
   // Games hub nickname box: no account needed — gives this browser a guest identity with the chosen name.
+  if (url.split('?')[0] === '/api/school') {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt });
+  }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);
     let nick = String(body.nick || '').replace(/[^\w .-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);

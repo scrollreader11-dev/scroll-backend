@@ -1122,7 +1122,7 @@
 
 
   // School Mode: portals get chained shut with a padlock (the teacher starts games with a vote)
-  function schoolLocked() { return S.school && !S.owner; }
+  function schoolLocked() { return !!S.school; }
   function drawLock(c, o, t) {
     var px = o.x, py = o.y + 14 - 62;
     c.save();
