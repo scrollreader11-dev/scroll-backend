@@ -627,11 +627,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
             <div class="label">Games link for students (Bedwars + all games)</div>
             <div class="row"><input id="lnkGames" type="text" readonly style="flex:1"/><button id="lnkGamesBtn">Copy</button></div>
           </div>
-          <div class="field">
-            <div class="label">Teacher link — opens the games with Teacher Tools (start votes, class questions, scores, timer). Keep it private.</div>
-            <div class="row"><input id="lnkTeacher" type="text" readonly style="flex:1"/><button id="lnkTeacherBtn">Copy</button><button id="lnkTeacherNew" title="Old teacher link stops working">New link</button></div>
-            <div class="label" style="margin-top:6px;opacity:.75">The teacher opens it once on her computer and types a nickname. After that the 🏫 Teacher button stays in her games hub.</div>
-          </div>
+          <div class="label" style="opacity:.75">The teacher link is only in your 👑 Owner panel in the games hub (Class tab).</div>
         </div>
 
         <div class="card" style="border:2px solid #ffd166">
@@ -1060,7 +1056,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     $('sBanned').textContent = bans.length;
     $('sMaint').textContent = s.maintenance ? 'On' : 'Off';
     $('maintSw').className = 'sw' + (s.maintenance ? ' on2' : '');
-    $('schoolSw').className = 'sw' + (s.schoolMode ? ' on2' : ''); $('lnkGames').value = location.origin + '/arcade'; if (s.teacherKey) $('lnkTeacher').value = location.origin + '/teacher/' + s.teacherKey; else if (!window.__tkAsked) { window.__tkAsked = 1; api('newTeacherKey', {}).then(function () { tick(); }); } $('schoolLeft').textContent = s.schoolMode && s.schoolUntil ? '⏱ ' + Math.max(0, Math.ceil((s.schoolUntil - Date.now()) / 60000)) + ' min left' : ''; $('schoolTxt').textContent = s.schoolMode ? 'ON' : 'Off'; if (document.activeElement !== $('schoolSet')) $('schoolSet').value = s.schoolSet || 'blooket';
+    $('schoolSw').className = 'sw' + (s.schoolMode ? ' on2' : ''); $('lnkGames').value = location.origin + '/arcade'; $('schoolLeft').textContent = s.schoolMode && s.schoolUntil ? '⏱ ' + Math.max(0, Math.ceil((s.schoolUntil - Date.now()) / 60000)) + ' min left' : ''; $('schoolTxt').textContent = s.schoolMode ? 'ON' : 'Off'; if (document.activeElement !== $('schoolSet')) $('schoolSet').value = s.schoolSet || 'blooket';
     if (!redirFocused) $('redir').value = s.redirect || '';
     if (!annFocused) $('ann').value = s.announcement || '';
     try { var toEl = $('toActive'); if (toEl) toEl.textContent = (s.takeover && s.takeover.mode) ? (TO_NAMES[s.takeover.mode] || s.takeover.mode) : 'Off'; } catch (e) {}
@@ -1239,8 +1235,6 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
   function copyBox(id) { var el = $(id); el.select(); try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); } flash('Copied!'); }
   $('lnkGamesBtn').onclick = function () { copyBox('lnkGames'); };
-  $('lnkTeacherBtn').onclick = function () { copyBox('lnkTeacher'); };
-  $('lnkTeacherNew').onclick = function () { if (!confirm('Make a new teacher link? The old one will stop working.')) return; api('newTeacherKey', {}).then(function () { flash('New teacher link made.'); tick(); }); };
   $('schoolSw').onclick = function () {
     var on = $('schoolSw').className.indexOf('on2') === -1;
     api('settings', { settings: { schoolMode: on, schoolSet: $('schoolSet').value } }).then(function () { flash(on ? '🏫 School mode ON' : 'School mode OFF'); tick(); });

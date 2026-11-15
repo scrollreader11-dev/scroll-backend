@@ -1529,7 +1529,8 @@ function adminMsg(c, m, now) {
   const ent = (r) => r && r.ents && r.ents.get(Number(m.id));
   if (a === 'info') return send(c, adminInfo(c));
   if (a === 'x') { const res = megaRun(c, m); return send(c, { t: 'admres', ok: res.ok, msg: res.msg }); }
-  if (a === 'class') { return send(c, { t: 'cls', d: classInfo() }); }
+  if (a === 'class') { const d = classInfo(); if (c.owner && globalThis.SH_TEACHER_KEY) d.tkey = globalThis.SH_TEACHER_KEY(); return send(c, { t: 'cls', d }); }
+  if (a === 'newteacher' && c.owner) { if (globalThis.SH_NEW_TEACHER_KEY) globalThis.SH_NEW_TEACHER_KEY(); return ok('New teacher link made — the old one stopped working.'); }
   if (a === 'skick' || a === 'sban' || a === 'srename' || a === 'swatch' || a === 'sunban') {
     if (a === 'sunban') { const n = String(m.name || '').toLowerCase(); GMS.store.nameBans = (GMS.store.nameBans || []).filter((x) => x !== n); for (const [cid, b] of Object.entries(GMS.store.bans)) if ((b.nick || '').toLowerCase() === n) GMS.unban(cid); GMS.save(); return ok('Unbanned ' + (m.name || '')); }
     if (a === 'swatch') { const r = rooms.get(Number(m.room)); if (!r || r.state !== 'play') return no('That match isn’t running.'); startWatch(c, r); return ok('👀 Watching match #' + r.id); }

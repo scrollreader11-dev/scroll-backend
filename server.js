@@ -423,6 +423,7 @@ function schoolBlocked(url) {
 }
 function teacherKey() { if (!admin.settings.teacherKey) { admin.settings.teacherKey = randomBytes(9).toString('base64url'); saveState().catch(() => {}); } return admin.settings.teacherKey; }
 globalThis.SH_TEACHER_KEY = () => teacherKey();
+globalThis.SH_NEW_TEACHER_KEY = () => { admin.settings.teacherKey = randomBytes(9).toString('base64url'); saveState().catch(() => {}); return admin.settings.teacherKey; };
 globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0 } : null);
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 async function handleAdmin(req, res) {
@@ -450,7 +451,7 @@ async function handleAdmin(req, res) {
     if (online > stats.peakOnline) { stats.peakOnline = online; stats.peakAt = Date.now(); }
     const topGames = Object.entries(stats.gamePlays).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, plays]) => ({ name, plays }));
     return sendJson(res, 200, {
-      settings: admin.settings, players: list, bans, count: list.length,
+      settings: { ...admin.settings, teacherKey: undefined }, players: list, bans, count: list.length,
       stats: { peakOnline: stats.peakOnline, peakAt: stats.peakAt, hourly: stats.hourly, topGames, totalSessions: stats.totalSessions },
       events: events.slice(-60).reverse(),
       customGames: admin.customGames,
