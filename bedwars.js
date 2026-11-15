@@ -931,7 +931,7 @@ function choose(r, e, now, el) {
   if (tm.bed && !ai.built && ai.role === 'def' && bl >= 10) return { type: 'build' };
   if (botWish(r, e)) return { type: 'shop' };
   if (upWish(r, e)) return { type: 'upgrade' };
-  if (ai.role === 'def' && el > 70 && e.res.dia < 4 && bl >= 26 && rnd() < 0.35) {
+  if (!r.school && ai.role === 'def' && el > 70 && e.res.dia < 4 && bl >= 26 && rnd() < 0.35) {
     let best = null, bd = 1e9; for (let gi = 0; gi < r.gens.length; gi++) { const g = r.gens[gi]; if (g.kind !== 'dia') continue; const d = Math.hypot(g.x - e.x, g.y - e.y); if (d < bd) { bd = d; best = gi; } }
     if (best != null) return { type: 'collect', gi: best, dia: true, until: now + 40000 };
   }
@@ -983,6 +983,14 @@ function moveToward(r, e, x, y, dt, slow) {
   return d;
 }
 function aiTick(r, e, now) {
+  if (r.school && r.game === 'bw' && !e.dead) { // School Mode: generators are off, so bots "answer questions" like a student would
+    const ai0 = e.ai; if (!ai0.qAt) ai0.qAt = now + 2000 + rnd() * 3000;
+    if (now >= ai0.qAt && now >= r.goAt) {
+      ai0.qAt = now + 4500 + rnd() * 4000;
+      if (rnd() < 0.75) { e.qz.streak++; e.qz.right++; const st = e.qz.streak; e.res.iron += 6; e.res.gold += 2; if (st % 3 === 0) e.res.dia += 1; if (st % 5 === 0) e.res.em += 1; }
+      else { e.qz.streak = 0; e.qz.wrong++; }
+    }
+  }
   const ai = e.ai;
   e.mv = false;
   if (e.dead || e.elim || now < r.goAt) return;
