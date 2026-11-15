@@ -627,7 +627,11 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
             <div class="label">Games link for students (Bedwars + all games)</div>
             <div class="row"><input id="lnkGames" type="text" readonly style="flex:1"/><button id="lnkGamesBtn">Copy</button></div>
           </div>
-          <div class="label" style="opacity:.75">The teacher link is only in your 👑 Owner panel in the games hub (Class tab).</div>
+          <div class="field">
+            <div class="label">🏫 Teacher link — opens Teacher Tools (votes, class questions, scores, kick/rename). Send it to the teacher privately.</div>
+            <div class="row"><input id="lnkTeacher" type="text" readonly style="flex:1" placeholder="Loading…"/><button id="lnkTeacherBtn">Copy</button><button id="lnkTeacherNew" title="The old teacher link stops working">New link</button></div>
+            <div class="label" style="margin-top:6px;opacity:.75">She opens it once and types a nickname — then a 🏫 Teacher button stays in her games hub. "New link" removes teacher access from every browser that had the old one.</div>
+          </div>
         </div>
 
         <div class="card" style="border:2px solid #ffd166">
@@ -1235,6 +1239,10 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
   function copyBox(id) { var el = $(id); el.select(); try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); } flash('Copied!'); }
   $('lnkGamesBtn').onclick = function () { copyBox('lnkGames'); };
+  function loadTeacher() { api('teacherKey', {}).then(function (r) { var k = r && r.data && r.data.teacherKey; if (k) $('lnkTeacher').value = location.origin + '/teacher/' + k; }).catch(function () {}); }
+  $('lnkTeacherBtn').onclick = function () { copyBox('lnkTeacher'); };
+  $('lnkTeacherNew').onclick = function () { if (!confirm('Make a new teacher link? The old one stops working and anyone who opened it loses Teacher Tools.')) return; api('newTeacherKey', {}).then(function () { flash('New teacher link made.'); loadTeacher(); }); };
+  setTimeout(loadTeacher, 600); setInterval(function () { if (!$('lnkTeacher').value) loadTeacher(); }, 4000);
   $('schoolSw').onclick = function () {
     var on = $('schoolSw').className.indexOf('on2') === -1;
     api('settings', { settings: { schoolMode: on, schoolSet: $('schoolSet').value } }).then(function () { flash(on ? '🏫 School mode ON' : 'School mode OFF'); tick(); });

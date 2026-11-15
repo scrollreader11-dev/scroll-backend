@@ -458,6 +458,7 @@ async function handleAdmin(req, res) {
       announcements: chat.announcements.slice(-20),
     });
   }
+  if (action === 'teacherKey') return sendJson(res, 200, { ok: true, teacherKey: teacherKey() });
   if (action === 'newTeacherKey') { admin.settings.teacherKey = randomBytes(9).toString('base64url'); await saveState(); return sendJson(res, 200, { ok: true, teacherKey: admin.settings.teacherKey }); }
   if (action === 'settings') {
     const s = body.settings || {};
