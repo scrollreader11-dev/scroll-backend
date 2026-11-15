@@ -420,9 +420,8 @@ function quizReward(r, e) {
     e.res.iron += 6; e.res.gold += 2; out.iron = 6; out.gold = 2;
     if (st > 0 && st % 3 === 0) { e.res.dia += 1; out.dia = 1; }
     if (st > 0 && st % 5 === 0) { e.res.em += 1; out.em = 1; }
-  } else if (r.game === 'murder' && !e.elim) {
-    e.gold = (e.gold | 0) + 1; out.gold = 1;
-    if (e.mrole !== 'm' && e.gold >= 10) { e.gold -= 10; e.inv.bow = 1; e.inv.arrows = Math.max(1, e.inv.arrows | 0); r.ev(['mbow', e.id]); }
+  } else if (r.game === 'murder') {
+    // Murder Mystery: answers only give energy (gold still comes from picking it up on the map)
   } else if (st > 0 && st % 4 === 0 && !e.dead) { e.speedUntil = Date.now() + 8000; out.speed = 1; }
   e.dirty = true;
   return out;
