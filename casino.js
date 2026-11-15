@@ -6,6 +6,7 @@
 // ============================================================
 import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
+import './dist/arcade/bannergen.js'; // sets globalThis.SHBanner (custom banners from the Sprite Studio)
 
 const CASINO_FILE = '/tmp/scrollhub-casino.json';
 const START_COINS = 1000;
@@ -93,7 +94,7 @@ function profileOf(cid) {
 export function getCosmetics(cid) {
   const p = casino.users[cid];
   if (!p) return { tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '' };
-  return { tag: p.tag || '', color: p.color || '', banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', avatar: relImg(p.avatar) };
+  return { tag: p.tag || '', color: p.color || '', banner: banOut(p.banner), avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', avatar: relImg(p.avatar) };
 }
 // Profile picture / banner image + public-profile meta (set from the account page).
 export function setProfileImage(cid, kind, url) {
@@ -198,7 +199,7 @@ export function publicUserCard(cid) {
       wagered: p.stats.wagered || 0, peak: p.stats.peak || p.coins,
       crashBest: p.stats.crashBest || 0, casesOpened: p.stats.casesOpened || 0, tipped: p.stats.tipped || 0,
     },
-    cosmetics: { color: p.color || '', title: p.tag || '', titleFx: p.titleFx || '', banner: p.banner || '', avatarFx: p.avatarFx || '' },
+    cosmetics: { color: p.color || '', title: p.tag || '', titleFx: p.titleFx || '', banner: banOut(p.banner), avatarFx: p.avatarFx || '' },
     weekNet: p.weekKey === cur ? (p.weekNet || 0) : 0,
   };
 }
@@ -478,9 +479,11 @@ function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
 // ---- Sprite Studio: custom gims / hats / accessories drawn by the owner ----
 const SPRITE_OWNER = 'scrollreader11';
 const SPR_CH = '0123456789abcdefghijklmnopqrstuv';
+const SPR_FX = ['none', 'bounce', 'wiggle', 'spin', 'pulse', 'float', 'rainbow', 'glow', 'sparkle', 'shake'];
+const TAG_FX = ['', 'pulse', 'gold', 'shimmer', 'rainbow'];
 function syncCustomStore() {
   for (let i = STORE.length - 1; i >= 0; i--) if (STORE[i].custom) STORE.splice(i, 1);
-  for (const it of casino.custom) STORE.push({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, custom: true });
+  for (const it of casino.custom) STORE.push({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, custom: true, ...(it.fx ? { fx: it.fx } : {}), ...(it.ref ? { ref: it.ref } : {}) });
 }
 function cleanSprite(sp) {
   if (!sp || typeof sp !== 'object') return null;
@@ -488,27 +491,40 @@ function cleanSprite(sp) {
   const pal = Array.isArray(sp.pal) ? sp.pal.slice(0, 31).map((c) => String(c)).filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)) : [];
   const okPx = (px) => typeof px === 'string' && px.length === w * h && [...px].every((ch) => { const i = SPR_CH.indexOf(ch); return i >= 0 && i <= pal.length; });
   if (!pal.length || !okPx(sp.px) || !/[1-9a-v]/.test(sp.px)) return null;
-  return { w, h, pal, px: sp.px, back: okPx(sp.back) && /[1-9a-v]/.test(sp.back) ? sp.back : '', eyes: !!sp.eyes, feet: sp.feet !== false };
+  const frames = Array.isArray(sp.frames) ? sp.frames.slice(0, 7).filter((f) => okPx(f) && /[1-9a-v]/.test(f)) : [];
+  const fps = Math.max(1, Math.min(15, Math.round(Number(sp.fps) || 6)));
+  const fx = SPR_FX.includes(sp.fx) ? sp.fx : 'none';
+  return { w, h, pal, px: sp.px, back: okPx(sp.back) && /[1-9a-v]/.test(sp.back) ? sp.back : '', eyes: !!sp.eyes, feet: sp.feet !== false, frames, fps, fx };
 }
-function spriteMap() { const out = {}; for (const it of casino.custom) out[it.value] = it.sprite; return out; }
+// Custom banners are stored on profiles as a short 'cb:<key>' reference and expanded when sent out.
+function banOut(v) { if (typeof v === 'string' && v.startsWith('cb:')) { const it = casino.custom.find((x) => x.ref === v); return it ? it.value : ''; } return v || ''; }
+function spriteMap() { const out = {}; for (const it of casino.custom) if (it.sprite) out[it.value] = it.sprite; return out; }
 function isSpriteOwner(req) { const a = req._auth; const n = a && (a.username || (a.account && a.account.username) || a.name); return String(n || '').toLowerCase() === SPRITE_OWNER; }
 async function handleSprites(path, req, res) {
-  if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at })), canEdit: isSpriteOwner(req) }); return true; }
+  if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at, params: it.params, fx: it.fx || '' })), canEdit: isSpriteOwner(req) }); return true; }
   if (path === '/api/casino/sprites/save' && req.method === 'POST') {
     if (!isSpriteOwner(req)) return (sendJson(res, 403, { error: 'Only Scrollreader11 can save sprites.' }), true);
     const b = await readBody(req);
-    const type = ['skin', 'hat', 'acc'].includes(b.type) ? b.type : null;
-    const sprite = cleanSprite(b.sprite);
-    if (!type || !sprite) return (sendJson(res, 400, { error: 'Draw something first (and pick gim, hat or accessory).' }), true);
-    const label = String(b.label || '').replace(/[<>]/g, '').trim().slice(0, 28) || 'My creation';
+    const type = ['skin', 'hat', 'acc', 'banner', 'tag'].includes(b.type) ? b.type : null;
+    if (!type) return (sendJson(res, 400, { error: 'Pick what you are making first.' }), true);
+    let sprite = null, params = null, value = null, fx = '';
+    let label = String(b.label || '').replace(/[<>]/g, '').trim().slice(0, 28) || 'My creation';
+    if (type === 'banner') { params = globalThis.SHBanner.clean(b.banner); value = globalThis.SHBanner.css(params); }
+    else if (type === 'tag') {
+      label = Array.from(String((b.tag && b.tag.text) || '').replace(/[\u0000-\u001f<>&"`\\]/g, '')).slice(0, 18).join('').trim();
+      if (!label) return (sendJson(res, 400, { error: 'Type the name tag text first.' }), true);
+      fx = TAG_FX.includes(b.tag && b.tag.fx) ? b.tag.fx : '';
+    } else { sprite = cleanSprite(b.sprite); if (!sprite) return (sendJson(res, 400, { error: 'Draw something first!' }), true); }
     const price = Math.max(0, Math.min(1000000, Math.floor(Number(b.price) || 0)));
     const rarity = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(b.rarity) ? b.rarity : 'rare';
     let it = b.id ? casino.custom.find((x) => x.id === b.id) : null;
-    if (it) { if (it.type !== type) return (sendJson(res, 400, { error: 'You can’t change the type of a saved item — save it as new instead.' }), true); Object.assign(it, { label, price, rarity, sprite, at: Date.now() }); }
-    else {
+    if (it) {
+      if (it.type !== type) return (sendJson(res, 400, { error: 'You can’t change the type of a saved item — save it as new instead.' }), true);
+      Object.assign(it, { label, price, rarity, sprite, params, fx, at: Date.now() }); if (value) it.value = value;
+    } else {
       if (casino.custom.length >= 300) return (sendJson(res, 400, { error: 'That’s a lot of creations! Delete some first.' }), true);
       const key = Math.random().toString(36).slice(2, 9);
-      it = { id: 'cu_' + type + '_' + key, type, label, value: 'c:' + key, price, rarity, sprite, at: Date.now() };
+      it = { id: 'cu_' + type + '_' + key, type, label, value: value || (type === 'tag' ? label : 'c:' + key), price, rarity, sprite, params, fx, at: Date.now(), ...(type === 'banner' ? { ref: 'cb:' + key } : {}) };
       casino.custom.push(it);
     }
     syncCustomStore(); save(); flush();
@@ -519,7 +535,7 @@ async function handleSprites(path, req, res) {
     const b = await readBody(req); const i = casino.custom.findIndex((x) => x.id === b.id);
     if (i < 0) return (sendJson(res, 404, { error: 'Not found' }), true);
     const it = casino.custom[i]; casino.custom.splice(i, 1);
-    for (const cid in casino.users) { const u = casino.users[cid]; if (u.look && u.look[it.type] === it.id) u.look[it.type] = it.type === 'skin' ? 'skin_gim' : ''; }
+    for (const cid in casino.users) { const u = casino.users[cid]; if (u.look && u.look[it.type] === it.id) u.look[it.type] = it.type === 'skin' ? 'skin_gim' : ''; if (it.type === 'banner' && (u.banner === it.value || u.banner === it.ref)) u.banner = ''; if (it.type === 'tag' && u.tag === it.label) u.tag = ''; }
     syncCustomStore(); save(); flush();
     sendJson(res, 200, { ok: true }); return true;
   }
@@ -641,7 +657,7 @@ function readBody(req) {
 function clampBet(bet, coins) { bet = Math.floor(Number(bet) || 0); return bet; }
 function publicProfile(cid) {
   const p = profileOf(cid);
-  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: p.banner || '', avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', look: { ...ensureLook(p) }, lookValues: lookValues(p), stats: p.stats };
+  return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: banOut(p.banner), avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', look: { ...ensureLook(p) }, lookValues: lookValues(p), stats: p.stats };
 }
 function recordPlay(p, bet, payout) {
   p.stats.plays++; p.stats.wagered += bet;
@@ -856,8 +872,8 @@ export async function handleCasino(url, req, res) {
     if (!it || !ownsItem(p, it)) return (sendJson(res, 200, { error: 'not-owned' }), true);
     if (it.type === 'emote') return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); // emotes are used, not equipped
     if (LOOK_SLOTS.includes(it.type)) ensureLook(p)[it.type] = it.id;
-    else if (it.type === 'tag') p.tag = it.label;
-    else if (it.type === 'banner') p.banner = it.value;
+    else if (it.type === 'tag') { p.tag = it.label; if (it.custom) p.titleFx = it.fx || ''; }
+    else if (it.type === 'banner') p.banner = it.ref || it.value;
     else if (it.type === 'avatar') p.avatarFx = it.value;
     else if (it.type === 'titlefx') p.titleFx = it.value;
     else p.color = it.value;
@@ -1040,7 +1056,7 @@ export async function handleCasino(url, req, res) {
     p.inventory = p.inventory.filter((x) => x !== itemId);
     if (p.tag === it.label) p.tag = '';
     if (p.color === it.value) p.color = '';
-    if (p.banner === it.value) p.banner = '';
+    if (p.banner === it.value || (it.ref && p.banner === it.ref)) p.banner = '';
     if (p.avatarFx === it.value) p.avatarFx = '';
     if (LOOK_SLOTS.includes(it.type) && ensureLook(p)[it.type] === it.id) p.look[it.type] = LOOK_DEFAULT[it.type];
     rp.inventory.push(itemId);

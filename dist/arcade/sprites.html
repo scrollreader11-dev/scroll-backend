@@ -55,13 +55,39 @@
   #msg.show{opacity:1}
   .hint{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.35}
   .side{display:flex;flex-direction:column;gap:14px}
+  #fstrip{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .fr{width:52px;height:52px;border:3px solid var(--line);border-radius:10px;background:#16123a;padding:2px;cursor:pointer;position:relative}
+  .fr canvas{width:100%;height:100%;image-rendering:pixelated;display:block}
+  .fr.on{border-color:var(--pink);box-shadow:0 0 0 2px var(--pink)}
+  .fr b{position:absolute;left:3px;top:1px;font-size:10px;color:#fff;text-shadow:0 1px 0 #000}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips button{border:3px solid var(--line);border-radius:999px;background:#16123a;color:#cfc8ff;font-weight:700;font-size:13px;padding:5px 10px;cursor:pointer}
+  .chips button.on{background:var(--pink);color:#fff}
+  input[type=range]{accent-color:var(--pink);flex:1;min-width:90px}
+  .design{display:flex;flex-direction:column;gap:12px;width:100%}
+  #banPrev{height:150px;border-radius:16px;border:4px solid var(--line);box-shadow:0 6px 0 rgba(0,0,0,.4);position:relative;overflow:hidden}
+  .pcard{background:#1d1748;border:4px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.4)}
+  .pcard .pav{width:72px;height:72px;border-radius:50%;background:#3fa9ff;border:4px solid #1d1748;margin:-38px 0 0 16px;display:flex;align-items:center;justify-content:center;font-size:34px}
+  .pcard .pnm{padding:4px 16px 14px;font-weight:700;font-size:20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ttag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:14px;font-weight:800;background:rgba(255,255,255,.12)}
+  .ttag.fx-pulse{animation:tgP 1.4s ease-in-out infinite}
+  .ttag.fx-gold{background:linear-gradient(90deg,#b8860b,#ffd166,#fff3c4,#ffd166,#b8860b);background-size:200% 100%;color:#2a1300;animation:tgS 2s linear infinite}
+  .ttag.fx-shimmer{background:linear-gradient(110deg,rgba(255,255,255,.1) 30%,rgba(255,255,255,.55) 50%,rgba(255,255,255,.1) 70%);background-size:250% 100%;animation:tgS 1.8s linear infinite}
+  .ttag.fx-rainbow{animation:tgR 3s linear infinite;background:rgba(255,255,255,.14)}
+  @keyframes tgP{50%{transform:scale(1.08);box-shadow:0 0 14px rgba(124,140,255,.8)}}
+  @keyframes tgS{to{background-position:-200% 0}}
+  @keyframes tgR{0%{color:#ff4b5c}20%{color:#ffd166}40%{color:#2bd576}60%{color:#3fa9ff}80%{color:#b185ff}100%{color:#ff4b5c}}
+  .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .cgrid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut);font-weight:600}
+  .mi .bthumb{height:44px;border-radius:8px;margin-bottom:4px}
+  .mi .tthumb{height:44px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}
 </style>
 </head>
 <body>
 <header>
   <a class="b ghost" href="/arcade">⬅ Hub</a>
   <h1>🎨 Sprite Studio</h1>
-  <div class="seg" id="types"><button data-t="skin" class="on">🐾 Gim</button><button data-t="hat">🎩 Hat</button><button data-t="acc">✨ Accessory</button></div>
+  <div class="seg" id="types"><button data-t="skin" class="on">🐾 Gim</button><button data-t="hat">🎩 Hat</button><button data-t="acc">✨ Accessory</button><button data-t="banner">🏳️ Banner</button><button data-t="tag">🏷️ Name Tag</button></div>
   <div class="grow"></div>
   <div class="seg" id="frames"><button data-f="front" class="on">Front</button><button data-f="back">Back</button></div>
 </header>
@@ -90,6 +116,31 @@
     </div>
     <div class="tools" id="tpl"></div>
   </section>
+  <section id="banBoard" class="design hidden">
+    <div class="pcard"><div id="banPrev"></div><div class="pav">🙂</div><div class="pnm" id="banName">Your name <span class="ttag">🔥 Tag</span></div></div>
+    <div class="pn">
+      <h3>COLORS</h3>
+      <div class="cgrid"><label>Color 1<input type="color" id="bc1" value="#ff6ec7"></label><label>Color 2<input type="color" id="bc2" value="#7b5cff"></label><label>Color 3<input type="color" id="bc3" value="#3fa9ff"></label></div>
+      <div class="row"><label>Direction</label><div class="chips" id="bAngle"></div></div>
+      <div class="row"><button class="b ghost" id="bRandom">🎲 Random colors</button></div>
+    </div>
+    <div class="pn"><h3>PATTERN</h3><div class="chips" id="bStyle"></div>
+      <div class="row"><label>Emoji pattern</label><input type="text" id="bEmoji" maxlength="6" placeholder="e.g. 🌸" style="width:110px"><div class="chips" id="bEmojiQuick"></div></div>
+      <div class="row"><label>Big text</label><input type="text" id="bText" maxlength="18" placeholder="optional" style="flex:1"><input type="color" id="bTextCol" value="#ffffff"></div>
+    </div>
+    <div class="pn"><h3>✨ EASY ANIMATION</h3><div class="chips" id="bAnim"></div>
+      <div class="row"><label>Speed</label><div class="chips" id="bSpeed"></div></div>
+      <div class="hint">Banners show behind your profile card in chat and on your profile.</div>
+    </div>
+  </section>
+  <section id="tagBoard" class="design hidden">
+    <div class="pcard"><div style="height:90px;background:linear-gradient(135deg,#3a2f86,#1d1748)"></div><div class="pav">🙂</div><div class="pnm">Your name <span class="ttag" id="tagPrev">✨ Tag</span></div></div>
+    <div class="pn"><h3>NAME TAG TEXT</h3>
+      <div class="row"><input type="text" id="tText" maxlength="18" placeholder="e.g. 🐉 Dragon Lord" style="flex:1"></div>
+      <div class="row"><label>Add an emoji</label><div class="chips" id="tEmoji"></div></div>
+    </div>
+    <div class="pn"><h3>✨ EASY ANIMATION</h3><div class="chips" id="tFx"></div><div class="hint">The animation turns on when someone wears the tag (it uses the title-effect slot).</div></div>
+  </section>
   <aside class="side">
     <div class="pn">
       <h3>COLORS</h3>
@@ -106,6 +157,14 @@
       </div>
       <div class="row"><label>Spin</label><div class="seg" id="pdir"><button data-d="auto" class="on">Auto</button><button data-d="0">⬇</button><button data-d="2">➡</button><button data-d="3">⬆</button><button data-d="1">⬅</button></div></div>
     </div>
+    <div class="pn" id="animPn">
+      <h3>🎞️ ANIMATE</h3>
+      <div id="fstrip"></div>
+      <div class="row"><button class="b ghost" id="fAdd" title="Copy this frame into a new one">➕ Frame</button><button class="b ghost" id="fDel">🗑 Frame</button><label class="chk"><input type="checkbox" id="onion" checked> Ghost of last frame</label></div>
+      <div class="row"><label>Speed</label><input type="range" id="fps" min="1" max="15" value="6"><span id="fpsTxt" style="font-weight:700;font-size:13px;width:48px">6 fps</span></div>
+      <h3 style="margin-top:12px">✨ EASY ANIMATION <span style="color:var(--mut);font-weight:600;font-size:12px">— no drawing needed</span></h3>
+      <div class="chips" id="fxChips"></div>
+    </div>
     <div class="pn">
       <h3>SAVE TO THE SHOP</h3>
       <div class="row"><input type="text" id="name" maxlength="28" placeholder="Name it (e.g. Dragon Gim)" style="flex:1"></div>
@@ -117,7 +176,7 @@
         <button class="b red hidden" id="del">Delete</button>
         <button class="b ghost" id="newBtn">✨ New</button>
       </div>
-      <div class="hint">Saved items appear in the Skin Shop (games hub) and the casino store right away. Price 0 = free for everyone. In School Mode paid items cost 100 like everything else.</div>
+      <div class="hint"><span id="whereHint">Saved items appear in the Skin Shop (games hub) and the casino store right away.</span> Price 0 = free for everyone. In School Mode paid items cost 100 like everything else.</div>
     </div>
     <div class="pn">
       <h3>YOUR CREATIONS</h3>
@@ -126,7 +185,8 @@
   </aside>
 </main>
 <div id="msg"></div>
-<script src="/casino/art.js?v=7"></script>
+<script src="/casino/art.js?v=8"></script>
+<script src="/arcade/bannergen.js?v=1"></script>
 <script>
 (function () {
   var A = window.SC.art, N = 32, CH = '0123456789abcdefghijklmnopqrstuv';
@@ -134,9 +194,14 @@
   var PRESET = ['#1b1636', '#ffffff', '#9aa3b5', '#4a4f6a', '#ff4b5c', '#ff8a3d', '#ffd166', '#fff27a', '#2bd576', '#0f9d58', '#5cf2ff', '#3fa9ff', '#3a56d4', '#9b6bff', '#ff6ec7', '#ffb7d5',
     '#8b5a2b', '#c68642', '#f1c27d', '#ffe0bd', '#7a4a28', '#b5f5cf', '#c8b6ff', '#000000'];
   var S = { type: 'skin', frame: 'front', tool: 'pen', color: '#3fa9ff', mirror: true, size: 1, guide: true, eyes: true, feet: true, editId: null, editType: null,
-    data: { front: blank(), back: blank() }, undo: [], redo: [], recent: [], canEdit: false, items: [], sprites: {}, pdir: 'auto' };
+    data: { front: [blank()], back: blank() }, fi: 0, fps: 6, fx: 'none', onion: true, undo: [], redo: [], recent: [], canEdit: false, items: [], sprites: {}, pdir: 'auto',
+    ban: { c1: '#ff6ec7', c2: '#7b5cff', c3: '#3fa9ff', angle: 135, style: 'stars', anim: 'shimmer', speed: 2, emoji: '', text: '', textColor: '#ffffff' }, tag: { text: '', fx: 'rainbow' } };
+  function isPix() { return S.type === 'skin' || S.type === 'hat' || S.type === 'acc'; }
   function blank() { return new Array(N * N).fill(''); }
-  function cur() { return S.data[S.frame]; }
+  function layer(f, fi) { return f === 'back' ? S.data.back : S.data.front[fi || 0]; }
+  function setLayer(f, fi, d) { if (f === 'back') S.data.back = d; else if (S.data.front[fi || 0]) S.data.front[fi || 0] = d; }
+  function cur() { return layer(S.frame, S.fi); }
+  function setCur(d) { setLayer(S.frame, S.fi, d); }
   function msg(t) { var m = $('msg'); m.textContent = t; m.classList.add('show'); clearTimeout(msg.t); msg.t = setTimeout(function () { m.classList.remove('show'); }, 2400); }
 
   // ------------------------------------------------------------ grid canvas
@@ -159,6 +224,7 @@
       if (S.type === 'hat') { rrect(gx, 3 * cell, 27 * cell, 26 * cell, 10 * cell, 6 * cell); gx.fill(); gx.globalAlpha = 0.7; gx.fillStyle = '#fff'; gx.font = '700 ' + Math.max(10, cell * 0.9) + 'px Fredoka'; gx.textAlign = 'center'; gx.fillText('head goes here ↓', px / 2, 26 * cell); }
       gx.restore();
     }
+    if (S.onion && S.frame === 'front' && S.fi > 0) { var od = S.data.front[S.fi - 1]; gx.globalAlpha = 0.28; for (var oi = 0; oi < N * N; oi++) if (od[oi]) { gx.fillStyle = od[oi]; gx.fillRect((oi % N) * cell, ((oi / N) | 0) * cell, cell, cell); } gx.globalAlpha = 1; }
     for (var i = 0; i < N * N; i++) if (d[i]) { gx.fillStyle = d[i]; gx.fillRect((i % N) * cell, ((i / N) | 0) * cell, cell, cell); }
     if (S.guide && S.type === 'skin' && S.eyes && S.frame === 'front') { gx.save(); gx.globalAlpha = 0.55; gx.fillStyle = '#fff'; gx.strokeStyle = '#1b1636'; gx.lineWidth = 2; [-7, 7].forEach(function (dx) { gx.beginPath(); gx.ellipse(px / 2 + dx * cell / 1.375, topRow() * cell + 13 * cell / 1.375, 5 * cell / 1.375, 6 * cell / 1.375, 0, 0, Math.PI * 2); gx.fill(); gx.stroke(); }); gx.restore(); }
     if (shape) { gx.globalAlpha = 0.6; shapeCells(shape).forEach(function (i) { gx.fillStyle = S.tool === 'erase' ? '#ff5c6c' : S.color; gx.fillRect((i % N) * cell, ((i / N) | 0) * cell, cell, cell); }); gx.globalAlpha = 1; }
@@ -166,12 +232,12 @@
     if (S.mirror) { gx.strokeStyle = 'rgba(255,110,199,.55)'; gx.setLineDash([4, 4]); gx.beginPath(); gx.moveTo(px / 2, 0); gx.lineTo(px / 2, px); gx.stroke(); gx.setLineDash([]); }
     if (hover >= 0) { gx.strokeStyle = '#fff'; gx.lineWidth = 2; var hs = S.size; gx.strokeRect((hover % N) * cell + 1, ((hover / N) | 0) * cell + 1, cell * hs - 2, cell * hs - 2); }
   }
-  function topRow() { var d = S.data.front; for (var i = 0; i < d.length; i++) if (d[i]) return (i / N) | 0; return 2; }
+  function topRow() { var d = S.data.front[0]; for (var i = 0; i < d.length; i++) if (d[i]) return (i / N) | 0; return 2; }
   function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 
   // ------------------------------------------------------------ editing
-  function snap() { S.undo.push({ f: S.frame, d: cur().slice() }); if (S.undo.length > 80) S.undo.shift(); S.redo = []; }
-  function changed() { drawGrid(); updatePreview(); }
+  function snap() { S.undo.push({ f: S.frame, fi: S.fi, d: cur().slice() }); if (S.undo.length > 80) S.undo.shift(); S.redo = []; }
+  function changed() { drawGrid(); updatePreview(); renderFrames(); }
   function setPx(i, col) {
     var x = i % N, y = (i / N) | 0, d = cur();
     for (var dy = 0; dy < S.size; dy++) for (var dx = 0; dx < S.size; dx++) {
@@ -236,15 +302,16 @@
   }
   document.addEventListener('click', function (e) { var b = e.target.closest('[data-c]'); if (b) setColor(b.dataset.c); });
   $('cpick').addEventListener('input', function () { setColor(this.value); });
-  $('undo').onclick = function () { var u = S.undo.pop(); if (!u) return; S.redo.push({ f: u.f, d: S.data[u.f].slice() }); S.data[u.f] = u.d; if (u.f !== S.frame) setFrame(u.f); changed(); };
-  $('redo').onclick = function () { var r = S.redo.pop(); if (!r) return; S.undo.push({ f: r.f, d: S.data[r.f].slice() }); S.data[r.f] = r.d; if (r.f !== S.frame) setFrame(r.f); changed(); };
+  function hist(from, to) { var u = from.pop(); if (!u) return; if (u.f === 'front' && !S.data.front[u.fi]) return; to.push({ f: u.f, fi: u.fi, d: layer(u.f, u.fi).slice() }); setLayer(u.f, u.fi, u.d); if (u.f === 'front') S.fi = u.fi; if (u.f !== S.frame) setFrame(u.f); changed(); }
+  $('undo').onclick = function () { hist(S.undo, S.redo); };
+  $('redo').onclick = function () { hist(S.redo, S.undo); };
   [].forEach.call(document.querySelectorAll('[data-shift]'), function (b) { b.onclick = function () {
     var v = b.dataset.shift.split(',').map(Number), d = cur(), nd = blank(); snap();
     for (var i = 0; i < N * N; i++) { if (!d[i]) continue; var x = i % N + v[0], y = ((i / N) | 0) + v[1]; if (x >= 0 && y >= 0 && x < N && y < N) nd[y * N + x] = d[i]; }
-    S.data[S.frame] = nd; changed(); }; });
-  $('flip').onclick = function () { var d = cur(), nd = blank(); snap(); for (var i = 0; i < N * N; i++) nd[((i / N) | 0) * N + (N - 1 - i % N)] = d[i]; S.data[S.frame] = nd; changed(); };
-  $('clear').onclick = function () { if (!confirm('Clear the ' + S.frame + ' drawing?')) return; snap(); S.data[S.frame] = blank(); changed(); };
-  $('copyBack').onclick = function () { S.undo.push({ f: 'back', d: S.data.back.slice() }); S.data.back = S.data.front.slice(); setFrame('back'); changed(); msg('Copied the front to the back — now paint the back of its head!'); };
+    setCur(nd); changed(); }; });
+  $('flip').onclick = function () { var d = cur(), nd = blank(); snap(); for (var i = 0; i < N * N; i++) nd[((i / N) | 0) * N + (N - 1 - i % N)] = d[i]; setCur(nd); changed(); };
+  $('clear').onclick = function () { if (!confirm('Clear the ' + S.frame + ' drawing?')) return; snap(); setCur(blank()); changed(); };
+  $('copyBack').onclick = function () { S.undo.push({ f: 'back', fi: 0, d: S.data.back.slice() }); S.data.back = S.data.front[S.fi].slice(); setFrame('back'); changed(); msg('Copied the front to the back — now paint the back of its head!'); };
   addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     var k = e.key.toLowerCase();
@@ -262,7 +329,7 @@
       if (dd > r) continue; d[(y0 + y) * N + x0 + x] = dd > r - 1.3 ? OL : y > h * 0.7 ? shadeHex(col, -0.15) : col;
     }
     for (var gy = 5; gy < 8; gy++) for (var gxx = 6; gxx < 10; gxx++) if (d[gy * N + gxx] === col) d[gy * N + gxx] = shadeHex(col, 0.35);
-    S.data[S.frame] = d; changed();
+    setCur(d); changed();
   }
   function shadeHex(h, a) { var n = parseInt(h.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = function (v) { return Math.round(a < 0 ? v * (1 + a) : v + (255 - v) * a); }; return '#' + [f(r), f(g), f(b)].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }
   function renderTpl() {
@@ -276,12 +343,17 @@
   // ------------------------------------------------------------ types / frames
   function setType(t) {
     S.type = t; [].forEach.call(document.querySelectorAll('#types button'), function (b) { b.classList.toggle('on', b.dataset.t === t); });
+    var pix = isPix(); $('board').classList.toggle('hidden', !pix); $('banBoard').classList.toggle('hidden', t !== 'banner'); $('tagBoard').classList.toggle('hidden', t !== 'tag');
+    [].forEach.call(document.querySelectorAll('.side > .pn'), function (el, i) { if (i < 3) el.classList.toggle('hidden', !pix); });
+    $('name').parentNode.classList.toggle('hidden', t === 'tag');
+    if (t === 'banner') renderBanner(); if (t === 'tag') renderTag();
+    $('whereHint').textContent = pix ? 'Saved items appear in the Skin Shop (games hub) and the casino store right away.' : 'Saved ' + (t === 'banner' ? 'banners' : 'name tags') + ' appear in the casino store (' + (t === 'banner' ? 'Profile FX' : 'Name Tags') + ' tab) right away, and show next to your name in chat.';
     $('skinOpts').classList.toggle('hidden', t !== 'skin');
-    $('frames').classList.toggle('hidden', t === 'acc'); $('copyBack').classList.toggle('hidden', t === 'acc');
+    $('frames').classList.toggle('hidden', t === 'acc' || !pix); $('copyBack').classList.toggle('hidden', t === 'acc');
     if (t === 'acc') setFrame('front');
     renderTpl(); changed();
   }
-  function setFrame(f) { S.frame = f; [].forEach.call(document.querySelectorAll('#frames button'), function (b) { b.classList.toggle('on', b.dataset.f === f); }); drawGrid(); }
+  function setFrame(f) { S.frame = f; if (f === 'back') { $('animPn').style.opacity = '.5'; } else $('animPn').style.opacity = '1'; [].forEach.call(document.querySelectorAll('#frames button'), function (b) { b.classList.toggle('on', b.dataset.f === f); }); drawGrid(); }
   $('types').addEventListener('click', function (e) { var b = e.target.closest('[data-t]'); if (!b || b.dataset.t === S.type) return; if (S.editId && b.dataset.t !== S.editType) { S.editId = null; syncEditBtns(); } setType(b.dataset.t); });
   $('frames').addEventListener('click', function (e) { var b = e.target.closest('[data-f]'); if (b) setFrame(b.dataset.f); });
   $('optEyes').checked = S.eyes; $('optEyes').onchange = function () { S.eyes = this.checked; changed(); };
@@ -292,10 +364,11 @@
   function encode() {
     var pal = [], err = null;
     function enc(d) { var s = ''; for (var i = 0; i < d.length; i++) { if (!d[i]) { s += '0'; continue; } var k = pal.indexOf(d[i]); if (k < 0) { if (pal.length >= 31) { err = 'Too many colors (max 31) — use fewer shades.'; k = 0; } else { pal.push(d[i]); k = pal.length - 1; } } s += CH.charAt(k + 1); } return s; }
-    var px = enc(S.data.front), hasBack = S.type !== 'acc' && S.data.back.some(function (v) { return v; }), back = hasBack ? enc(S.data.back) : '';
-    return { err: err, sprite: { w: N, h: N, pal: pal, px: px, back: back, eyes: S.type === 'skin' && S.eyes, feet: S.feet } };
+    var px = enc(S.data.front[0]), hasBack = S.type !== 'acc' && S.data.back.some(function (v) { return v; }), back = hasBack ? enc(S.data.back) : '';
+    var frames = S.data.front.slice(1).filter(function (f) { return f.some(function (v) { return v; }); }).map(enc);
+    return { err: err, sprite: { w: N, h: N, pal: pal, px: px, back: back, eyes: S.type === 'skin' && S.eyes, feet: S.feet, frames: frames, fps: S.fps, fx: S.fx } };
   }
-  function decode(sp) { function dec(px) { var d = blank(); if (!px) return d; for (var i = 0; i < N * N; i++) { var k = CH.indexOf(px.charAt(i)); if (k > 0) d[i] = sp.pal[k - 1]; } return d; } return { front: dec(sp.px), back: dec(sp.back) }; }
+  function decode(sp) { function dec(px) { var d = blank(); if (!px) return d; for (var i = 0; i < N * N; i++) { var k = CH.indexOf(px.charAt(i)); if (k > 0) d[i] = sp.pal[k - 1]; } return d; } return { front: [dec(sp.px)].concat((sp.frames || []).map(dec)), back: dec(sp.back) }; }
 
   // ------------------------------------------------------------ live preview
   var pv = $('prev'), px2 = pv.getContext('2d');
@@ -326,22 +399,31 @@
   function renderMine() {
     if (!S.items.length) { $('mine').innerHTML = '<div class="hint">Nothing yet — draw something and save it!</div>'; return; }
     var icon = { skin: '🐾', hat: '🎩', acc: '✨' };
-    $('mine').innerHTML = S.items.slice().reverse().map(function (it) { return '<div class="mi' + (it.id === S.editId ? ' on' : '') + '" data-id="' + it.id + '"><canvas width="32" height="32" data-v="' + it.value + '"></canvas>' + icon[it.type] + ' ' + esc(it.label) + '<small>' + (it.price ? it.price.toLocaleString() + ' 📜' : 'Free') + '</small></div>'; }).join('');
+    icon.banner = '🏳️'; icon.tag = '🏷️';
+    $('mine').innerHTML = S.items.slice().reverse().map(function (it) { var th = it.type === 'banner' ? '<div class="bthumb" data-ban="' + it.id + '"></div>' : it.type === 'tag' ? '<div class="tthumb"><span class="ttag fx-' + (it.fx || 'none') + '">' + esc(it.label) + '</span></div>' : '<canvas width="32" height="32" data-v="' + it.value + '"></canvas>';
+      return '<div class="mi' + (it.id === S.editId ? ' on' : '') + '" data-id="' + it.id + '">' + th + icon[it.type] + ' ' + (it.type === 'tag' ? 'Name tag' : esc(it.label)) + '<small>' + (it.price ? it.price.toLocaleString() + ' 📜' : 'Free') + '</small></div>'; }).join('');
+    [].forEach.call(document.querySelectorAll('#mine [data-ban]'), function (el) { var it = S.items.find(function (x) { return x.id === el.dataset.ban; }); if (it && it.params) el.style.background = SHBanner.css(it.params); });
     [].forEach.call(document.querySelectorAll('#mine canvas'), function (cv) { var f = A.custFrame(cv.dataset.v, false); if (f) cv.getContext('2d').drawImage(f.cv, 0, 0); });
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   $('mine').addEventListener('click', function (e) {
-    var b = e.target.closest('.mi'); if (!b) return; var it = S.items.find(function (x) { return x.id === b.dataset.id; }), sp = it && S.sprites[it.value]; if (!sp) return;
-    S.data = decode(sp); S.undo = []; S.redo = []; S.editId = it.id; S.editType = it.type; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
+    var b = e.target.closest('.mi'); if (!b) return; var it = S.items.find(function (x) { return x.id === b.dataset.id; }); if (!it) return;
+    if (it.type === 'banner' || it.type === 'tag') {
+      if (it.type === 'banner' && it.params) S.ban = Object.assign({}, it.params); if (it.type === 'tag') S.tag = { text: it.label, fx: it.fx || '' };
+      S.editId = it.id; S.editType = it.type; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity; setType(it.type); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+    }
+    var sp = S.sprites[it.value]; if (!sp) return;
+    S.data = decode(sp); S.fi = 0; S.fps = sp.fps || 6; S.fx = sp.fx || 'none'; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; renderFx(); S.undo = []; S.redo = []; S.editId = it.id; S.editType = it.type; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
     $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity;
     sp.pal.forEach(useColor); setFrame('front'); setType(it.type); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   function syncEditBtns() { $('saveUpd').classList.toggle('hidden', !S.editId); $('del').classList.toggle('hidden', !S.editId); }
   function save(asNew) {
     if (!S.canEdit) return msg('🔒 Only Scrollreader11 can save');
-    var e = encode(); if (e.err) return msg(e.err);
-    if (!/[1-9a-v]/.test(e.sprite.px)) return msg('Draw the front first!');
-    var body = { type: S.type, label: $('name').value.trim() || 'My creation', price: +$('price').value || 0, rarity: $('rarity').value, sprite: e.sprite };
+    var body = { type: S.type, label: $('name').value.trim() || 'My creation', price: +$('price').value || 0, rarity: $('rarity').value };
+    if (S.type === 'banner') { body.banner = S.ban; if (!$('name').value.trim()) body.label = (S.ban.emoji ? S.ban.emoji + ' ' : '') + 'Custom Banner'; }
+    else if (S.type === 'tag') { if (!S.tag.text.trim()) return msg('Type the name tag text first!'); body.tag = S.tag; }
+    else { var e = encode(); if (e.err) return msg(e.err); if (!/[1-9a-v]/.test(e.sprite.px)) return msg('Draw the front first!'); body.sprite = e.sprite; }
     if (!asNew && S.editId) body.id = S.editId;
     api('/save', body).then(function (d) {
       if (d.error) return msg('⚠️ ' + d.error);
@@ -351,10 +433,58 @@
   $('saveNew').onclick = function () { save(true); };
   $('saveUpd').onclick = function () { save(false); };
   $('del').onclick = function () { if (!S.editId || !confirm('Delete this creation? Anyone wearing it goes back to the default.')) return; api('/delete', { id: S.editId }).then(function (d) { if (d.error) return msg('⚠️ ' + d.error); msg('Deleted'); newDrawing(); load(); }); };
-  function newDrawing() { S.data = { front: blank(), back: blank() }; S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
+  function newDrawing() { S.data = { front: [blank()], back: blank() }; S.fi = 0; S.fx = 'none'; renderFx(); S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
   $('newBtn').onclick = function () { if (cur().some(function (v) { return v; }) && !confirm('Start a new drawing? Unsaved changes will be lost.')) return; newDrawing(); };
 
-  renderPal(); setColor(S.color); setType('skin'); layout(); load(); requestAnimationFrame(previewLoop);
+  // ------------------------------------------------------------ animation frames + easy effects
+  var FX = [['none', '⏹ None'], ['bounce', '🏀 Bounce'], ['float', '🎈 Float'], ['wiggle', '〰️ Wiggle'], ['spin', '🪙 Spin'], ['pulse', '💓 Pulse'], ['shake', '🫨 Shake'], ['glow', '🌟 Glow'], ['sparkle', '✨ Sparkle'], ['rainbow', '🌈 Rainbow']];
+  function renderFx() { $('fxChips').innerHTML = FX.map(function (f) { return '<button data-fx="' + f[0] + '"' + (S.fx === f[0] ? ' class="on"' : '') + '>' + f[1] + '</button>'; }).join(''); }
+  $('fxChips').addEventListener('click', function (e) { var b = e.target.closest('[data-fx]'); if (!b) return; S.fx = b.dataset.fx; renderFx(); updatePreview(); });
+  function renderFrames() {
+    var fr = S.data.front; $('fDel').disabled = fr.length < 2; $('fAdd').disabled = fr.length >= 8;
+    $('fstrip').innerHTML = fr.map(function (d, i) { return '<div class="fr' + (S.frame === 'front' && i === S.fi ? ' on' : '') + '" data-fi="' + i + '"><b>' + (i + 1) + '</b><canvas width="32" height="32"></canvas></div>'; }).join('');
+    [].forEach.call(document.querySelectorAll('#fstrip canvas'), function (cv, i) { var x = cv.getContext('2d'), d = fr[i]; for (var k = 0; k < N * N; k++) if (d[k]) { x.fillStyle = d[k]; x.fillRect(k % N, (k / N) | 0, 1, 1); } });
+  }
+  $('fstrip').addEventListener('click', function (e) { var b = e.target.closest('[data-fi]'); if (!b) return; S.fi = +b.dataset.fi; setFrame('front'); renderFrames(); });
+  $('fAdd').onclick = function () { if (S.data.front.length >= 8) return; S.data.front.splice(S.fi + 1, 0, S.data.front[S.fi].slice()); S.fi++; setFrame('front'); changed(); msg('Frame ' + (S.fi + 1) + ' added — change something so it moves!'); };
+  $('fDel').onclick = function () { if (S.data.front.length < 2) return; S.data.front.splice(S.fi, 1); S.fi = Math.max(0, S.fi - 1); S.undo = S.undo.filter(function (u) { return u.f !== 'front'; }); S.redo = []; changed(); };
+  $('fps').oninput = function () { S.fps = +this.value; $('fpsTxt').textContent = S.fps + ' fps'; updatePreview(); };
+  $('onion').onchange = function () { S.onion = this.checked; drawGrid(); };
+
+  // ------------------------------------------------------------ banner designer
+  function chips(id, list, val, key) { $(id).innerHTML = list.map(function (o) { return '<button data-' + key + '="' + o[0] + '"' + (String(val) === String(o[0]) ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join(''); }
+  function renderBanner() {
+    var b = S.ban; $('bc1').value = b.c1; $('bc2').value = b.c2; $('bc3').value = b.c3; $('bEmoji').value = b.emoji; $('bText').value = b.text; $('bTextCol').value = b.textColor;
+    chips('bAngle', [[0, '➡'], [45, '↘'], [90, '⬇'], [135, '↙'], [180, '⬅'], [270, '⬆']], b.angle, 'ang');
+    chips('bStyle', [['gradient', '🎨 Plain'], ['stripes', '🦓 Stripes'], ['dots', '⚪ Dots'], ['waves', '🌊 Waves'], ['checker', '🏁 Checker'], ['stars', '⭐ Stars'], ['hearts', '💖 Hearts']], b.style, 'sty');
+    chips('bAnim', [['none', '⏹ Still'], ['shift', '🌀 Color slide'], ['rainbow', '🌈 Rainbow'], ['shimmer', '✨ Shimmer'], ['sparkle', '💫 Sparkles'], ['twinkle', '🌟 Twinkle'], ['pulse', '💓 Pulse'], ['scroll', '🏃 Scroll pattern']], b.anim, 'ban');
+    chips('bSpeed', [[1, '🐢 Slow'], [2, '🚶 Normal'], [3, '🚀 Fast']], b.speed, 'spd');
+    chips('bEmojiQuick', ['🌸', '🔥', '⭐', '💎', '🎮', '❄️', '🎄', '👑', '🐉', '💜'].map(function (e) { return [e, e]; }), b.emoji, 'emo');
+    $('banPrev').style.background = SHBanner.css(b);
+    $('banName').innerHTML = esc($('name').value.trim() || 'Your name') + ' <span class="ttag">🔥 Tag</span>';
+  }
+  ['bc1', 'bc2', 'bc3', 'bTextCol'].forEach(function (id) { $(id).addEventListener('input', function () { var k = { bc1: 'c1', bc2: 'c2', bc3: 'c3', bTextCol: 'textColor' }[id]; S.ban[k] = this.value; renderBanner(); }); });
+  $('bEmoji').addEventListener('input', function () { S.ban.emoji = this.value; $('banPrev').style.background = SHBanner.css(S.ban); });
+  $('bText').addEventListener('input', function () { S.ban.text = this.value; $('banPrev').style.background = SHBanner.css(S.ban); });
+  $('banBoard').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return; var d = b.dataset;
+    if (d.ang != null) S.ban.angle = +d.ang; else if (d.sty) S.ban.style = d.sty; else if (d.ban) S.ban.anim = d.ban; else if (d.spd) S.ban.speed = +d.spd; else if (d.emo) S.ban.emoji = S.ban.emoji === d.emo ? '' : d.emo; else return;
+    renderBanner();
+  });
+  $('bRandom').onclick = function () { var h = Math.random() * 360, f = function (o, l) { return hsl2hex((h + o) % 360, 0.75, l); }; S.ban.c1 = f(0, 0.62); S.ban.c2 = f(40 + Math.random() * 60, 0.5); S.ban.c3 = f(160 + Math.random() * 80, 0.45); renderBanner(); };
+  function hsl2hex(h, s, l) { var a = s * Math.min(l, 1 - l), f = function (n) { var k = (n + h / 30) % 12, c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return ('0' + Math.round(c * 255).toString(16)).slice(-2); }; return '#' + f(0) + f(8) + f(4); }
+  $('name').addEventListener('input', function () { if (S.type === 'banner') renderBanner(); });
+
+  // ------------------------------------------------------------ name tag designer
+  function renderTag() {
+    $('tText').value = S.tag.text; var el = $('tagPrev'); el.textContent = S.tag.text || '✨ Your tag'; el.className = 'ttag fx-' + (S.tag.fx || 'none');
+    chips('tFx', [['', '⏹ Still'], ['pulse', '💠 Pulse'], ['gold', '🥇 Gold shine'], ['shimmer', '✨ Shimmer'], ['rainbow', '🌈 Rainbow']], S.tag.fx, 'tfx');
+    chips('tEmoji', ['🔥', '⭐', '👑', '🐉', '💎', '🎮', '⚡', '🎄', '😎', '🦈', '👻', '🚀'].map(function (e) { return [e, e]; }), '', 'temo');
+  }
+  $('tText').addEventListener('input', function () { S.tag.text = this.value; var el = $('tagPrev'); el.textContent = S.tag.text || '✨ Your tag'; });
+  $('tagBoard').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.tfx != null) S.tag.fx = b.dataset.tfx; else if (b.dataset.temo) S.tag.text = (b.dataset.temo + ' ' + S.tag.text.replace(/^\S+\s/, function (m) { return /[a-z0-9]/i.test(m) ? m : ''; })).slice(0, 18); else return; renderTag(); });
+
+  renderFx(); renderPal(); setColor(S.color); setType('skin'); layout(); load(); requestAnimationFrame(previewLoop);
   window.STUDIO = S;
 })();
 </script>

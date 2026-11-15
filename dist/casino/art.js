@@ -228,16 +228,18 @@
       var base = ''; try { base = (localStorage.getItem('sh_api') || '').replace(/\/+$/, ''); } catch (e) {}
       fetch(base + '/api/casino/sprites', { credentials: 'include' }).then(function (r) { return r.json(); }).then(function (d) {
         custBusy = false; if (!d || !d.sprites) return;
-        for (var k in d.sprites) { A.CUSTOM[k] = d.sprites[k]; delete custCache[k + '|f']; delete custCache[k + '|b']; }
+        for (var k in d.sprites) { A.CUSTOM[k] = d.sprites[k]; A.custInvalidate(k); }
       }).catch(function () { custBusy = false; });
     } catch (e) { custBusy = false; }
   };
-  A.custInvalidate = function (k) { delete custCache[k + '|f']; delete custCache[k + '|b']; };
+  A.custInvalidate = function (k) { for (var ck in custCache) if (ck.indexOf(k + '|') === 0) delete custCache[ck]; };
   function custSprite(k) { var s = A.CUSTOM[k]; if (!s) { if (k && k.charAt(1) === ':') A.loadCustom(); return null; } return s; }
   // Builds (and caches) a canvas for one frame, plus the first/last rows that have pixels.
-  function custFrame(k, back) {
-    var key = k + (back ? '|b' : '|f'); if (custCache[key]) return custCache[key];
-    var s = A.CUSTOM[k]; if (!s) return null; var px = back && s.back ? s.back : s.px; if (!px) return null;
+  function custFi(s, t) { var n = 1 + (s.frames ? s.frames.length : 0); return n > 1 ? Math.floor((t || 0) * (s.fps || 6)) % n : 0; }
+  A.custFi = custFi;
+  function custFrame(k, back, fi) {
+    fi = fi || 0; var key = k + (back ? '|b' : '|f' + fi); if (custCache[key]) return custCache[key];
+    var s = A.CUSTOM[k]; if (!s) return null; var px = back && s.back ? s.back : fi > 0 && s.frames && s.frames[fi - 1] ? s.frames[fi - 1] : s.px; if (!px) return null;
     var w = s.w || 32, h = s.h || 32, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     var cnt = {}, main = 1, mainN = 0;
     var x = cv.getContext('2d'), img = x.createImageData(w, h), top = h, bot = -1;
@@ -251,14 +253,36 @@
     return (custCache[key] = { cv: cv, w: w, h: h, top: top, bot: bot, main: s.pal[main - 1] || '#3fa9ff' });
   }
   A.custFrame = custFrame;
-  function custDraw(c, f, x, y, size, flip) {
-    c.save(); c.imageSmoothingEnabled = false; c.translate(x, y); if (flip) { c.translate(size, 0); c.scale(-1, 1); }
-    c.drawImage(f.cv, 0, 0, size, size * f.h / f.w); c.restore();
+  // Easy animation effects (no extra drawing needed): applied around the sprite's center.
+  function custDraw(c, f, x, y, size, flip, s, t) {
+    var fx = s && s.fx, h = size * f.h / f.w, cx = x + size / 2, cy = y + h / 2; t = t || 0;
+    c.save(); c.imageSmoothingEnabled = false;
+    if (fx && fx !== 'none') {
+      if (fx === 'bounce') c.translate(0, -Math.abs(Math.sin(t * 6)) * 4);
+      else if (fx === 'float') c.translate(0, Math.sin(t * 2.4) * 3.5);
+      else if (fx === 'shake') c.translate(Math.sin(t * 40) * 1.2, Math.cos(t * 33) * 0.8);
+      else if (fx === 'wiggle') { c.translate(cx, cy + h / 2); c.rotate(Math.sin(t * 7) * 0.13); c.translate(-cx, -cy - h / 2); }
+      else if (fx === 'spin') { c.translate(cx, 0); c.scale(Math.cos(t * 3) || 0.01, 1); c.translate(-cx, 0); }
+      else if (fx === 'pulse') { var ps = 1 + Math.sin(t * 5) * 0.07; c.translate(cx, cy); c.scale(ps, ps); c.translate(-cx, -cy); }
+      else if (fx === 'rainbow') { try { c.filter = 'hue-rotate(' + Math.round((t * 120) % 360) + 'deg) saturate(1.3)'; } catch (e) {} }
+      else if (fx === 'glow') { c.shadowColor = f.main || '#fff'; c.shadowBlur = 10 + Math.sin(t * 4) * 6; }
+    }
+    c.translate(x, y); if (flip) { c.translate(size, 0); c.scale(-1, 1); }
+    c.drawImage(f.cv, 0, 0, size, h);
+    if (fx === 'glow') c.drawImage(f.cv, 0, 0, size, h);
+    c.restore();
+    if (fx === 'sparkle') {
+      c.save(); c.fillStyle = '#fff'; c.shadowColor = '#fff'; c.shadowBlur = 6;
+      for (var i = 0; i < 4; i++) { var ph = (t * 0.9 + i * 0.27) % 1, sa = Math.sin(ph * Math.PI); if (sa < 0.05) continue;
+        var sx = x + ((Math.sin(i * 7.3 + Math.floor(t * 0.9 + i * 0.27) * 3.1) + 1) / 2) * size, sy = y + ((Math.cos(i * 4.1 + Math.floor(t * 0.9 + i * 0.27) * 2.3) + 1) / 2) * h, r = 3.5 * sa;
+        c.beginPath(); c.moveTo(sx, sy - r); c.lineTo(sx + r / 3.5, sy - r / 3.5); c.lineTo(sx + r, sy); c.lineTo(sx + r / 3.5, sy + r / 3.5); c.lineTo(sx, sy + r); c.lineTo(sx - r / 3.5, sy + r / 3.5); c.lineTo(sx - r, sy); c.lineTo(sx - r / 3.5, sy - r / 3.5); c.closePath(); c.fill(); }
+      c.restore();
+    }
   }
   setTimeout(function () { A.loadCustom(true); }, 0);
   A.isCustom = function (k) { return typeof k === 'string' && k.charAt(0) === 'c' && k.charAt(1) === ':'; };
   function drawCustomGim(c, g, cs, k, look, o, dir, t, bob) {
-    var back = dir === 3, f = custFrame(k, back && !!cs.back) || custFrame(k, false); if (!f) return;
+    var back = dir === 3, fi0 = back ? 0 : custFi(cs, t), f = (back && cs.back ? custFrame(k, true) : custFrame(k, false, fi0)) || custFrame(k, false); if (!f) return;
     var size = 44, x0 = -size / 2, y0 = g.by + g.H - size + 2, cell = size / f.w, flip = !back && g.side < -0.3;
     if (look.acc === 'wings') wings(c, g, '#ffffff', 22, 3);
     if (look.acc === 'butterfly' || look.acc === 'firewings' || look.acc === 'aura' || look.acc === 'orbs') A.fxBack(c, g, look.acc, t);
@@ -266,9 +290,11 @@
       var ph = o.moving ? Math.sin(o.walk || 0) : o.dance ? Math.sin(t * 7) : 0, fc = shade(f.main || '#3fa9ff', -0.4);
       ell(c, -8, -3 - Math.max(0, ph) * 3, 7, 4.5); fs(c, fc, OL, 2.5); ell(c, 8, -3 - Math.max(0, -ph) * 3, 7, 4.5); fs(c, fc, OL, 2.5);
     }
-    if (back && !cs.back) { c.save(); c.filter = 'brightness(0.78)'; custDraw(c, f, x0, y0, size, true); c.restore(); }
-    else custDraw(c, f, x0, y0, size, flip);
-    var headY = y0 + f.top * cell; // where the hat goes
+    var mfx = cs.fx === 'bounce' || cs.fx === 'float' || cs.fx === 'shake', dsp = mfx ? { fx: 'none' } : cs;
+    c.save(); if (cs.fx === 'bounce') c.translate(0, -Math.abs(Math.sin(t * 6)) * 4); else if (cs.fx === 'float') c.translate(0, Math.sin(t * 2.4) * 3.5); else if (cs.fx === 'shake') c.translate(Math.sin(t * 40) * 1.2, Math.cos(t * 33) * 0.8);
+    if (back && !cs.back) { c.save(); try { c.filter = 'brightness(0.78)'; } catch (e) {} custDraw(c, f, x0, y0, size, true, dsp, t); c.restore(); }
+    else custDraw(c, f, x0, y0, size, flip, dsp, t);
+    var f0 = custFrame(k, false) || f, headY = y0 + f0.top * cell; // where the hat goes (from frame 1 so it doesn't jump)
     if (!back && cs.eyes) {
       var eyeY = headY + 13, ex = g.side * 4, lx = g.side * 2.2, ly = dir === 0 ? 1 : 0;
       [-1, 1].forEach(function (kk) {
@@ -283,6 +309,7 @@
     if (look.acc === 'orbs' || look.acc === 'pet') A.fxFront(c, g, look.acc, t);
     var hat = (look.hat && look.hat !== 'none') ? look.hat : (A.season === 'xmas' && !o.noSeason ? 'santa' : '');
     A.drawHat(c, hat, headY, g.side, dir, t);
+    c.restore();
   }
   A.drawGim = function (c, x, y, look, o) {
     o = o || {}; look = look || {};
@@ -404,7 +431,7 @@
   // ---------------------------------------------------------------- ACCESSORIES
   A.drawAcc = function (c, k, by, ex, dir, t, base) {
     if (!k) return;
-    if (A.isCustom(k)) { if (dir === 3) return; var as = custSprite(k), af = as && custFrame(k, false); if (!af) return; custDraw(c, af, ex * 0.5 - 22, by - 4, 44, false); return; }
+    if (A.isCustom(k)) { if (dir === 3) return; var as = custSprite(k), af = as && custFrame(k, false, custFi(as, t)); if (!af) return; custDraw(c, af, ex * 0.5 - 22, by - 4, 44, false, as, t); return; }
     var eyeY = by + 15;
     c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
     if (k === 'shades') {
@@ -524,7 +551,7 @@
   A.drawHat = function (c, k, by, side, dir, t) {
     if (!k) return;
     var hx = side * 3, y = by;
-    if (A.isCustom(k)) { var hs = custSprite(k), hf = hs && custFrame(k, dir === 3 && !!hs.back); if (!hf || hf.bot < 0) return; var hsz = 44, hc = hsz / hf.w; c.save(); if (dir === 3 && !hs.back) c.globalAlpha *= 0.95; custDraw(c, hf, hx - hsz / 2, y + 7 - (hf.bot + 1) * hc, hsz, side < -0.3 && dir !== 3); c.restore(); return; }
+    if (A.isCustom(k)) { var hs = custSprite(k), hf = hs && (dir === 3 && hs.back ? custFrame(k, true) : custFrame(k, false, custFi(hs, t))); if (!hf || hf.bot < 0) return; var hsz = 44, hc = hsz / hf.w; c.save(); if (dir === 3 && !hs.back) c.globalAlpha *= 0.95; var hf0 = custFrame(k, false) || hf; custDraw(c, hf, hx - hsz / 2, y + 7 - (hf0.bot + 1) * hc, hsz, side < -0.3 && dir !== 3, hs, t); c.restore(); return; }
     c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
     if (k === 'cap') {
       c.beginPath(); c.ellipse(hx, y + 6, 17, 12, 0, Math.PI, 0); c.closePath(); fs(c, '#e63946', OL, 3);
