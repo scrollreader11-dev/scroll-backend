@@ -2637,7 +2637,7 @@
   }
   var BB_ITEMS = [];
   (function () {
-    [[B.G.GRASS, 'Grass'], [B.G.STONE, 'Stone'], [B.G.PATH, 'Planks'], [B.G.COBBLE, 'Cobble'], [B.G.FLOOR, 'Wood'], [B.G.SNOW, 'Snow'], [B.G.MID, 'Crystal'], [0, 'Pit']].forEach(function (q) { BB_ITEMS.push({ lay: 'g', v: q[0], name: q[1] }); });
+    [[B.G.GRASS, 'Grass'], [B.G.STONE, 'Stone'], [B.G.PATH, 'Planks'], [B.G.COBBLE, 'Cobble'], [B.G.FLOOR, 'Wood'], [B.G.SNOW, 'Snow'], [B.G.MID, 'Crystal'], [B.G.ICE, 'Ice'], [B.G.CANDY, 'Candy'], [B.G.SAND, 'Sand'], [B.G.BRICK, 'Brick'], [0, 'Pit']].forEach(function (q) { BB_ITEMS.push({ lay: 'g', v: q[0], name: q[1] }); });
     [[1, 'Wool'], [2, 'Plank wall'], [3, 'End stone'], [4, 'Obsidian']].forEach(function (q) { BB_ITEMS.push({ lay: 'w', v: q[0], name: q[1] }); });
     MG.PROP_KINDS.forEach(function (k, j) { BB_ITEMS.push({ lay: 'p', v: j + 1, name: MG.PROPS[k].name, prop: k }); });
     BB_ITEMS.push({ lay: 'x', v: 0, name: 'Eraser' });

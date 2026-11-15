@@ -112,7 +112,7 @@ function start(r) {
       e.stats = freshStats({ finds: 0, taunts: 0, survived: 0 });
       e.dig = 0; e.start = k < nSeek ? 1 : 0;
       if (k < nSeek) { e.team = 1; setSeeker(r, e, true); }
-      else { e.team = 0; const s = spots[k % spots.length]; e.x = s.x + (rnd() - 0.5) * 30; e.y = s.y + (rnd() - 0.5) * 20; e.prop = pick(MG.PROP_KINDS); e.held = 'mask'; e.sword = 1; e.armor = 1; }
+      else { e.team = 0; const s = spots[k % spots.length]; e.x = s.x + (rnd() - 0.5) * 30; e.y = s.y + (rnd() - 0.5) * 20; e.prop = pick(MG.CLASSIC_PROPS || MG.PROP_KINDS); e.held = 'mask'; e.sword = 1; e.armor = 1; }
     });
     r.phase = 'hide'; r.seekAt = r.goAt + GM.hideSec * 1000; r.endAt = r.seekAt + GM.seekSec * 1000; r.nextTaunt = r.seekAt + 30000;
   }

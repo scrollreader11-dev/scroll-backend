@@ -14,7 +14,7 @@
     { key: 'pink', name: 'Pink', color: '#ff6ec7', dark: '#b42d82', light: '#ffc9ea' },
     { key: 'cyan', name: 'Cyan', color: '#2ee6d6', dark: '#11968b', light: '#b5fff8' });
   // new ground types
-  G.COBBLE = 7; G.FLOOR = 8; G.SNOW = 9;
+  G.COBBLE = 7; G.FLOOR = 8; G.SNOW = 9; G.ICE = 10; G.CANDY = 11; G.SAND = 12; G.BRICK = 13;
   // new hand items (appended so Bedwars' held-item indexes don't change)
   ['shovel', 'snow', 'mask', 'taunt', 'radar', 'fists', 'knife'].forEach(function (k) { if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); });
   B.ITEM_NAMES.shovel = 'Spleef Shovel'; B.ITEM_NAMES.snow = 'Snowball'; B.ITEM_NAMES.mask = 'Disguise'; B.ITEM_NAMES.taunt = 'Taunt'; B.ITEM_NAMES.radar = 'Hider Radar';
@@ -141,7 +141,13 @@
     barrel: { name: 'Barrel', r: 14 }, crate: { name: 'Crate', r: 15 }, bush: { name: 'Bush', r: 15 }, pot: { name: 'Flower Pot', r: 11 },
     hay: { name: 'Hay Bale', r: 16 }, pumpkin: { name: 'Pumpkin', r: 13 }, trash: { name: 'Trash Can', r: 12 }, mailbox: { name: 'Mailbox', r: 10 },
     stool: { name: 'Stool', r: 11 }, lamp: { name: 'Street Lamp', r: 9 },
+    xtree: { name: 'Christmas Tree', r: 18 }, present: { name: 'Present', r: 12 }, presents: { name: 'Gift Pile', r: 17 }, snowman: { name: 'Snowman', r: 13 },
+    candycane: { name: 'Candy Cane', r: 8 }, gingerbread: { name: 'Gingerbread Man', r: 11 }, reindeer: { name: 'Reindeer', r: 17 }, sleigh: { name: 'Sleigh', r: 22 },
+    ornament: { name: 'Giant Ornament', r: 13 }, toysoldier: { name: 'Toy Soldier', r: 9 }, wreath: { name: 'Wreath Post', r: 10 }, snowpile: { name: 'Snow Pile', r: 16 },
+    bannerred: { name: 'Red Banner', r: 9 }, bannerblue: { name: 'Blue Banner', r: 9 }, bannergold: { name: 'Gold Banner', r: 9 }, lanternpost: { name: 'Light String Post', r: 9 },
+    icecrystal: { name: 'Ice Crystal', r: 11 },
   };
+  M.CLASSIC_PROPS = ['barrel', 'crate', 'bush', 'pot', 'hay', 'pumpkin', 'trash', 'mailbox', 'stool', 'lamp'];
   M.PROP_KINDS = Object.keys(M.PROPS);
   M.HIDE_HP = 20;
   // A little village: houses with doors, a market, a farm and a park.
@@ -354,7 +360,7 @@
   };
   // ================================================================ BUILD BATTLE
   M.BB_THEMES = ['Castle', 'Garden', 'Farm', 'Snowy Day', 'Spooky Night', 'Cozy House', 'Market Stall', 'Campsite', 'Pirate Island', 'Birthday Party', 'Zoo', 'Robot'];
-  M.BB_GROUNDS = [G.GRASS, G.STONE, G.PATH, G.COBBLE, G.FLOOR, G.SNOW, G.MID, 0];
+  M.BB_GROUNDS = [G.GRASS, G.STONE, G.PATH, G.COBBLE, G.FLOOR, G.SNOW, G.MID, G.ICE, G.CANDY, G.SAND, G.BRICK, 0];
   M.BB_WALLS = [1, 2, 3, 4];
   M.PLOT = 13;
   M.genBuild = function () {

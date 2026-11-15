@@ -75,6 +75,10 @@
     7: { top: '#a7a2b8', alt: '#9d98ae', rim: '#d0cce0', cliff: ['#7d879b', '#58617a', '#2e3346'], band: '#4a5266' },
     8: { top: '#b07b4f', alt: '#a87348', rim: '#d4a272', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
     9: { top: '#eef6ff', alt: '#e2eefc', rim: '#ffffff', cliff: ['#9fb8d8', '#6f89b0', '#3a4d73'], band: '#5a6f98' },
+    10: { top: '#bfe6ff', alt: '#b2dffb', rim: '#ecf8ff', cliff: ['#8fc3e8', '#5e93c4', '#2f5788'], band: '#4b78a8' },
+    11: { top: '#fff4f4', alt: '#ffecec', rim: '#ffffff', cliff: ['#e07a8a', '#b5475b', '#6e2333'], band: '#b5475b' },
+    12: { top: '#f3d891', alt: '#ecd086', rim: '#fff0bf', cliff: ['#d6a85a', '#a8783a', '#5e3f1b'], band: '#a8783a' },
+    13: { top: '#c45a4a', alt: '#bb5343', rim: '#e88a78', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
   };
   function gAt(m, x, y) { return x < 0 || y < 0 || x >= W || y >= H ? 0 : m.g[y * W + x]; }
   function drawGroundTile(c, m, tx, ty, x, y) {
@@ -102,6 +106,19 @@
       c.fillRect(x + ((ty & 1) ? 10 : 28), y, 2, 8); c.fillRect(x + ((ty & 1) ? 24 : 6), y + 16, 2, 8); c.fillRect(x + ((ty & 1) ? 16 : 32), y + 32, 2, 8);
     } else if (g === 9) {
       c.fillStyle = 'rgba(160,200,255,.35)'; for (var k2 = 0; k2 < 3; k2++) { circ(c, x + 6 + hash(i * 5 + k2) * 28, y + 6 + hash(i * 9 + k2) * 28, 2 + hash(i + k2) * 2); c.fill(); }
+    } else if (g === 10) { // ice: shiny streaks
+      c.strokeStyle = 'rgba(255,255,255,.65)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + 6 + h * 8, y + 30); c.lineTo(x + 20 + h * 8, y + 10); c.moveTo(x + 16 + h * 6, y + 34); c.lineTo(x + 26 + h * 6, y + 20); c.stroke();
+      c.strokeStyle = 'rgba(70,130,190,.25)'; c.beginPath(); c.moveTo(x, y + 20 + h * 8); c.lineTo(x + T, y + 14 + h * 10); c.stroke();
+    } else if (g === 11) { // candy-cane stripes
+      c.save(); c.beginPath(); c.rect(x, y, T, T); c.clip(); c.fillStyle = '#ff4b5c';
+      for (var cs = -T; cs < T * 2; cs += 16) { c.beginPath(); c.moveTo(x + cs, y); c.lineTo(x + cs + 7, y); c.lineTo(x + cs + 7 - T, y + T); c.lineTo(x + cs - T, y + T); c.closePath(); c.fill(); }
+      c.restore();
+    } else if (g === 12) { // sand: little ripples and pebbles
+      c.strokeStyle = 'rgba(170,120,50,.3)'; c.lineWidth = 1.6; for (var sr2 = 0; sr2 < 2; sr2++) { c.beginPath(); c.moveTo(x + 4, y + 12 + sr2 * 14 + h * 4); c.quadraticCurveTo(x + 20, y + 6 + sr2 * 14 + h * 4, x + 36, y + 12 + sr2 * 14 + h * 4); c.stroke(); }
+      if (h > 0.7) { c.fillStyle = 'rgba(140,110,80,.6)'; circ(c, x + 10 + h * 18, y + 30, 2); c.fill(); }
+    } else if (g === 13) { // red brick
+      c.strokeStyle = 'rgba(80,25,20,.45)'; c.lineWidth = 2;
+      for (var br2 = 0; br2 < 4; br2++) { var by3 = y + br2 * 10; c.beginPath(); c.moveTo(x, by3); c.lineTo(x + T, by3); c.stroke(); var off = (br2 + ty) & 1 ? 0 : 10; for (var bx3 = off; bx3 < T; bx3 += 20) { c.beginPath(); c.moveTo(x + bx3, by3); c.lineTo(x + bx3, by3 + 10); c.stroke(); } }
     } else if (g === 6) {
       var tc = teamCol(teamOfTile(m, tx, ty));
       c.strokeStyle = 'rgba(80,90,110,.45)'; c.lineWidth = 2; c.strokeRect(x + 2, y + 2, T - 4, T - 4);

@@ -48,7 +48,7 @@
   // ------------------------------------------------------------------ palette
   var GROUND = [
     { id: 'g0', v: 0, name: 'Void (erase)', ic: 'void' }, { id: 'g1', v: G.GRASS, name: 'Grass' }, { id: 'g2', v: G.STONE, name: 'Stone' }, { id: 'g3', v: G.MID, name: 'Crystal' },
-    { id: 'g4', v: G.PATH, name: 'Planks' }, { id: 'g7', v: G.COBBLE, name: 'Cobble' }, { id: 'g8', v: G.FLOOR, name: 'Wood floor' }, { id: 'g9', v: G.SNOW, name: 'Snow' },
+    { id: 'g4', v: G.PATH, name: 'Planks' }, { id: 'g7', v: G.COBBLE, name: 'Cobble' }, { id: 'g8', v: G.FLOOR, name: 'Wood floor' }, { id: 'g9', v: G.SNOW, name: 'Snow' }, { id: 'g10', v: G.ICE, name: 'Ice' }, { id: 'g11', v: G.CANDY, name: 'Candy stripes' }, { id: 'g12', v: G.SAND, name: 'Sand' }, { id: 'g13', v: G.BRICK, name: 'Red brick' },
     { id: 'g6', v: G.PAD, name: 'Team pad' }, { id: 'g5', v: G.ROCK, name: 'Rock pillar' }];
   var BLOCKS = [
     { id: 'w1', b: 1, mode: 'w', name: 'Wool wall', team: true }, { id: 'w2', b: 2, mode: 'w', name: 'Plank wall' }, { id: 'w3', b: 3, mode: 'w', name: 'End stone wall' }, { id: 'w4', b: 4, mode: 'w', name: 'Obsidian wall' },
