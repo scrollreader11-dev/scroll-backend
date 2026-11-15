@@ -90,6 +90,10 @@
 
   function onMsg(m) {
     var t = m.t;
+    if (t === 'soc') { S.soc = m; if (m.party !== undefined) S.party = m.party; renderSoc(); renderPartyBar(); return; }
+    if (t === 'party') { S.party = m.id ? m : null; renderPartyBar(); if (!$('mSoc').classList.contains('hidden')) renderSoc(); return; }
+    if (t === 'pinvite') { showInvite(m); return; }
+    if (t === 'toast') { toast(m.msg, 3200); return; }
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
     if (t === 'me') return onMe(m);
@@ -98,7 +102,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -220,7 +224,7 @@
   seg('pMode', function (v) { pMode = v; }); seg('pDiff', function (v) { pDiff = v; });
   seg('cMode', function (v) { cMode = v; }); seg('cDiff', function (v) { cDiff = v; });
   seg('hMode', function (v) { send({ t: 'cfg', mode: v }); }); seg('hDiff', function (v) { send({ t: 'cfg', diff: v }); });
-  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp', 'mGame'];
+  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp', 'mGame', 'mSoc'];
   function anyModal() { return MODALS.some(function (k) { return !$(k).classList.contains('hidden'); }) || !$('shop').classList.contains('hidden'); }
   function openModal(id) { closeModals(); $(id).classList.remove('hidden'); SC.sfx('open'); mouse.l = mouse.r = false; keys = {}; }
   function closeModals() { MODALS.forEach(function (k) { $(k).classList.add('hidden'); }); }
@@ -253,6 +257,7 @@
     var hub = m.kind === 'hub';
     S.map = hub ? (S.hubMap || (S.hubMap = B.genHub())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
     if (window.BWV) BWV.reset();
+    S.watching = false; $('watchBar').classList.add('hidden'); document.body.classList.remove('watching');
     S.spaceKind = m.kind; S.myId = m.you; S.team = -1; S.ended = null; S.dead = S.elim = false; S.held = 'sword'; S.sword = 1; S.armor = 1;
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; S.gens = []; S.teams = []; trails.length = 0; D.parts.length = 0;
     offset = m.now - Date.now(); bestRtt = 1e9;
@@ -275,6 +280,112 @@
     $('hubCv') && drawHubAvatar();
     updateOnline();
   }
+
+  // ------------------------------------------------------------------ friends, party & spectating
+  S.socTab = 'party';
+  function openSoc(tab) { if (tab) S.socTab = tab; openModal('mSoc'); renderSoc(); send({ t: 'soc' }); }
+  [].forEach.call(document.querySelectorAll('.socBtn'), function (b) { b.onclick = function () { openSoc(); }; });
+  [].forEach.call(document.querySelectorAll('.socTabs button'), function (b) { b.onclick = function () { S.socTab = b.dataset.st; renderSoc(); send({ t: 'soc' }); SC.sfx('click'); }; });
+  setInterval(function () { if (!$('mSoc').classList.contains('hidden')) send({ t: 'soc' }); }, 3000);
+  function avCv(look) { var c = document.createElement('canvas'); c.width = 84; c.height = 84; var x = c.getContext('2d'); x.save(); x.translate(42, 76); x.scale(1.35, 1.35); try { A.drawGim(x, 0, 0, look || { skin: 'gim', body: '#4a4f6a' }, { t: 0, dir: 0, shadow: false }); } catch (e) {} x.restore(); return c; }
+  function sbtn(txt, cls, fn) { var b = document.createElement('button'); b.className = 'btn sm ' + (cls || ''); b.innerHTML = txt; b.onclick = function (ev) { ev.stopPropagation(); fn(); SC.sfx('click'); }; return b; }
+  function srow(look, name, sub, dot, btns) {
+    var r = document.createElement('div'); r.className = 'srow';
+    r.appendChild(avCv(look));
+    var g = document.createElement('div'); g.className = 'grow'; g.innerHTML = '<div class="sn">' + (dot ? '<span class="sdot ' + dot + '"></span>' : '') + esc(name) + '</div><div class="sw">' + sub + '</div>'; r.appendChild(g);
+    (btns || []).forEach(function (b) { if (b) r.appendChild(b); });
+    return r;
+  }
+  function sInput(ph, label, fn) {
+    var w = document.createElement('div'); w.className = 'sinp';
+    var i = document.createElement('input'); i.placeholder = ph; i.maxLength = 30;
+    var b = sbtn(label, 'green', function () { var v = i.value.trim(); if (v) { fn(v); i.value = ''; } });
+    i.onkeydown = function (e) { e.stopPropagation(); if (e.key === 'Enter') b.onclick(e); };
+    w.appendChild(i); w.appendChild(b); return w;
+  }
+  function slab(t) { var d = document.createElement('div'); d.className = 'slab'; d.textContent = t; return d; }
+  function renderSoc() {
+    var body = $('socBody'); if (!body) return;
+    [].forEach.call(document.querySelectorAll('.socTabs button'), function (b) { b.classList.toggle('on', b.dataset.st === S.socTab); });
+    var so = S.soc || {}, p = S.party, me = S.hello && S.hello.you;
+    body.innerHTML = '';
+    var myCid = S.myCid;
+    if (S.socTab === 'party') {
+      (so.invites || []).forEach(function (iv) {
+        body.appendChild(srow(null, '📨 ' + iv.from + ' invited you', 'Join their party to queue together', '', [sbtn('✓ Join', 'green', function () { send({ t: 'pacc', id: iv.id }); setTimeout(function () { send({ t: 'soc' }); }, 300); }), sbtn('✕', 'red', function () { send({ t: 'pdec', id: iv.id }); so.invites = so.invites.filter(function (x) { return x !== iv; }); renderSoc(); })]));
+      });
+      if (!p) {
+        var e1 = document.createElement('div'); e1.className = 'sempty'; e1.innerHTML = '🎉 You’re not in a party.<br>Invite friends — you’ll queue together, <b>always land on the same team</b>, and hear each other on <b>party voice</b> anywhere on the map.'; body.appendChild(e1);
+      } else {
+        var lead = p.leader === myCid;
+        body.appendChild(slab('Your party · ' + p.members.length + '/4' + (lead ? ' · you’re the leader' : '')));
+        p.members.forEach(function (mb) {
+          var w = mb.where || {}, isMe = mb.cid === myCid;
+          var btns = [];
+          if (!isMe && lead) { btns.push(sbtn('👑', '', function () { send({ t: 'plead', cid: mb.cid }); })); btns.push(sbtn('Kick', 'red', function () { send({ t: 'pkick', cid: mb.cid }); })); }
+          if (!isMe && w.s === 'play') btns.push(sbtn('👀 Watch', '', function () { send({ t: 'fwatch', cid: mb.cid }); closeModals(); }));
+          if (!isMe && w.s === 'lobby' && w.join) btns.push(sbtn('▶ Join', 'green', function () { send({ t: 'fjoin', cid: mb.cid }); closeModals(); }));
+          body.appendChild(srow(mb.look, (p.leader === mb.cid ? '👑 ' : '') + mb.nick + (isMe ? ' (you)' : '') + (mb.talk ? ' 🎙️' : ''), mb.on ? esc(w.txt || '') : 'Offline', mb.on ? 'on' : '', btns));
+        });
+        var tip = document.createElement('div'); tip.className = 'sw'; tip.style.cssText = 'color:var(--mut);font-size:13px;font-weight:600;text-align:center';
+        tip.innerHTML = lead ? 'Pick any game from a portal — your whole party comes with you, on your team. 🎙️ Turn on Talk to use party voice.' : 'The leader picks the games. 🎙️ Turn on Talk to hear your party anywhere on the map.';
+        body.appendChild(tip);
+        body.appendChild(sbtn('🚪 Leave party', 'red', function () { send({ t: 'pleave' }); }));
+      }
+      body.appendChild(slab('Invite a player by name'));
+      body.appendChild(sInput('Username…', '📨 Invite', function (v) { send({ t: 'pinv', name: v }); setTimeout(function () { send({ t: 'soc' }); }, 400); }));
+      var on = (so.friends || []).filter(function (f) { return f.arcade && !f.inParty; });
+      if (on.length) { body.appendChild(slab('Friends in Games')); on.forEach(function (f) { body.appendChild(srow(f.look, f.nick, esc((f.where || {}).txt || ''), 'on', [sbtn('📨 Invite', 'green', function () { send({ t: 'pinv', cid: f.cid }); })])); }); }
+    } else {
+      (so.incoming || []).forEach(function (rq) {
+        body.appendChild(srow(null, rq.nick + ' wants to be friends', 'Friend request', '', [sbtn('✓ Accept', 'green', function () { api('/api/friends/accept', { id: rq.id }); }), sbtn('✕', 'red', function () { api('/api/friends/decline', { id: rq.id }); })]));
+      });
+      var fr = so.friends || [];
+      body.appendChild(slab('Friends · ' + fr.filter(function (f) { return f.arcade; }).length + ' in Games'));
+      if (!fr.length) { var e2 = document.createElement('div'); e2.className = 'sempty'; e2.textContent = 'No friends yet — add someone by their ScrollHub username below!'; body.appendChild(e2); }
+      fr.forEach(function (f) {
+        var w = f.where || {}, btns = [];
+        if (f.arcade) {
+          if (w.s === 'lobby' && w.join) btns.push(sbtn('▶ Join', 'green', function () { send({ t: 'fjoin', cid: f.cid }); closeModals(); }));
+          if (w.s === 'play') { btns.push(sbtn('👀 Spectate', '', function () { send({ t: 'fwatch', cid: f.cid }); closeModals(); })); }
+          if (w.s === 'hub') btns.push(sbtn('📍 Go to', '', function () { send({ t: 'fjoin', cid: f.cid }); closeModals(); }));
+          if (!f.inParty) btns.push(sbtn('📨', '', function () { send({ t: 'pinv', cid: f.cid }); }));
+        }
+        body.appendChild(srow(f.look, f.nick + (f.inParty ? ' 🎉' : ''), f.arcade ? esc(w.txt || '') : f.site ? 'On ScrollHub (not in Games)' : 'Offline', f.arcade ? 'on' : f.site ? 'site' : '', btns));
+      });
+      body.appendChild(slab('Add a friend'));
+      body.appendChild(sInput('ScrollHub username…', '➕ Add', function (v) { api('/api/friends/add', { username: v }, function (r) { toast(r.accepted ? '🤝 You’re now friends with ' + v + '!' : r.sent ? '📨 Friend request sent to ' + v : (r.message || 'Couldn’t add them'), 2600); }); }));
+    }
+    var dots = (so.invites || []).length + (so.incoming || []).length;
+    [].forEach.call(document.querySelectorAll('.socDot'), function (d) { d.classList.toggle('hidden', !dots); d.textContent = dots; });
+  }
+  function api(path, body, cb) {
+    fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); }).then(function (r) { if (cb) cb(r); else if (r.error) toast(r.message || r.error, 2200); setTimeout(function () { send({ t: 'soc' }); }, 250); })
+      .catch(function () { toast('Couldn’t reach ScrollHub', 2000); });
+  }
+  function renderPartyBar() {
+    var bar = $('partyBar'), p = S.party;
+    if (!p || !p.members || p.members.length < 2) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    var h = '<div class="ph">🎉 PARTY' + (window.BWV && BWV.on ? ' · 🎙️ voice on' : '') + '</div>';
+    p.members.forEach(function (mb) { var w = mb.where || {}; h += '<div class="pb' + (mb.talk ? ' talk' : '') + '"><span class="sdot ' + (mb.on ? 'on' : '') + '"></span><div style="min-width:0"><div>' + (p.leader === mb.cid ? '👑 ' : '') + esc(mb.nick) + '</div><div class="pw">' + (mb.on ? esc(w.txt || '') : 'Offline') + '</div></div></div>'; });
+    bar.innerHTML = h;
+  }
+  function showInvite(m) {
+    var d = $('pInvite'); d.classList.remove('hidden'); SC.sfx('level');
+    d.innerHTML = '<div>📨 <b>' + esc(m.from) + '</b> invited you to their party!</div><div style="display:flex;gap:8px"></div>';
+    var row = d.lastChild;
+    row.appendChild(sbtn('✓ Join party', 'green', function () { send({ t: 'pacc', id: m.id }); d.classList.add('hidden'); }));
+    row.appendChild(sbtn('No thanks', 'red', function () { send({ t: 'pdec', id: m.id }); d.classList.add('hidden'); }));
+    clearTimeout(S.invT); S.invT = setTimeout(function () { d.classList.add('hidden'); }, 30000);
+  }
+  function watchTxt() { var e = S.ents && S.ents.get(S.specId); $('watchTxt').textContent = '👀 Spectating ' + (MG.GAMES[S.game] ? MG.GAMES[S.game].name : 'Bedwars') + (e ? ' · ' + e.nick : ''); }
+  $('watchLeave').onclick = function () { send({ t: 'leave' }); };
+  $('watchNext').onclick = function () {
+    var list = []; S.ents.forEach(function (e) { if (!e.dead && !e.elim) list.push(e.id); });
+    if (!list.length) return; var i = list.indexOf(S.specId); S.specId = list[(i + 1) % list.length]; watchTxt(); SC.sfx('click');
+  };
   function drawHubAvatar() {
     var x = $('hubCv').getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 96, 96);
     x.save(); x.translate(48, 86); x.scale(1.6, 1.6); A.drawGim(x, 0, 0, (S.hello && S.hello.look) || { skin: 'gim', body: '#3fa9ff' }, { t: 0, dir: 0, shadow: false }); x.restore();
@@ -447,7 +558,10 @@
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; D.parts.length = 0; trails.length = 0;
     (m.tnts || []).forEach(function (x) { S.tnts.set(x[0], { x: x[1], y: x[2], at: x[3] }); });
     m.ents.forEach(function (o) { S.ents.set(o.id, mkEnt(o)); });
+    S.watching = !!m.watch;
     var me = S.ents.get(S.myId);
+    if (S.watching) { var fst = null; S.ents.forEach(function (e) { if (!fst && !e.dead && !e.elim) fst = e; }); fst = fst || S.ents.values().next().value; S.specId = fst ? fst.id : 0; me = { x: fst ? fst.x : 36 * T, y: fst ? fst.y : 36 * T, dead: true, elim: true, z: 0 }; }
+    $('watchBar').classList.toggle('hidden', !S.watching); watchTxt(); document.body.classList.toggle('watching', S.watching);
     P = newBody(me.x, me.y); P.dead = me.dead; P.z = me.z || 0;
     S.held = 'sword'; S.inv = {}; S.res = { iron: 0, gold: 0, dia: 0, em: 0 }; S.hp = 20; S.absorb = 0; S.god = false;
     S.dead = me.dead; S.elim = me.elim;
@@ -457,7 +571,7 @@
     $('death').classList.add('hidden');
     if (snow() < S.goAt) intro(); else { cam.x = P.x; cam.y = P.y; }
     miniBase = null;
-    if (me.elim) showDeath(null, true);
+    if (me.elim && !S.watching) showDeath(null, true);
     mgHudInit(); tutStart();
   }
   function intro() {
@@ -658,6 +772,7 @@
       if (k === 'e') { var n = nearNpc(); if (n) openShop(n.kind); else closeShop(); }
     } else if (k === 'e') { var o = nearObj(); if (o) useObj(o); }
     if (k === 'q') toggleQc();
+    if (k === 'p') openSoc();
     if (k === 'v' && window.BWV && BWV.on) { BWV.setMuted(!BWV.muted); voiceSync(); toast(BWV.muted ? '🔇 Mic muted (press V to talk again)' : '🎙️ Mic on', 1300); }
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k) >= 0) e.preventDefault();
   });
@@ -968,7 +1083,7 @@
     if (snow() < S.goAt && snow() < S.goAt - 2600) k2 = 0.004;
     cam.x += (target.x + lead.x - cam.x) * k2; cam.y += (target.y - 20 + lead.y - cam.y) * k2;
     // proximity voice: volume/pan from where everyone stands
-    if (window.BWV && BWV.hearing) BWV.tick(listener.x, listener.y, function (id) { var e = S.ents.get(id); if (!e || e.dead || e.id === S.myId) return null; return { x: e.x, y: e.y }; });
+    if (window.BWV && BWV.hearing) BWV.tick(listener.x, listener.y, function (id) { if (id >= 2000000000) return { x: listener.x, y: listener.y }; var e = S.ents.get(id); if (!e || e.dead || e.id === S.myId) return null; return { x: e.x, y: e.y }; });
     if (window.BWV && BWV.on && BWV.talking !== S.wasTalking) { S.wasTalking = BWV.talking; voiceSync(); }
     // HUD timers
     hudTick(); spaceTick(); touchMineTick();
@@ -1449,6 +1564,7 @@
   var podium = null;
   function onEnd(m) {
     S.ended = m; mouse.l = mouse.r = false; closeShop();
+    if (m.watch) { $('watchBar').classList.add('hidden'); var wn = m.winner >= 0 ? (S.game === 'murder' ? (m.winner ? 'The murderer' : 'The innocents') : S.game === 'hide' ? (m.winner ? 'Seekers' : 'Hiders') : tname(m.winner) + ' team') + ' won!' : 'It’s a draw!'; banner('🏁 MATCH OVER', wn + ' Heading back to the hub…', '#9b6bff'); return; }
     var win = m.win != null ? m.win : m.winner === m.team;
     $('eTitle').textContent = win ? 'VICTORY!' : m.winner < 0 ? 'DRAW' : 'GAME OVER';
     $('eTitle').style.color = win ? '#ffd166' : '#ff5c6c';
@@ -2266,7 +2382,7 @@
     { d: 'When time runs out everyone tours the plots and votes ⭐ — best build wins!', wait: 7000 }];
   function tutDone(key) { try { return !!JSON.parse(localStorage.getItem('sh_tut') || '{}')[key]; } catch (e) { return false; } }
   function tutMark(key, v) { try { var o = JSON.parse(localStorage.getItem('sh_tut') || '{}'); if (v) o[key] = 1; else delete o[key]; localStorage.setItem('sh_tut', JSON.stringify(o)); } catch (e) {} }
-  function tutStart() {
+  function tutStart() { if (S.watching) return;
     var key = S.game === 'hide' ? (S.team === 1 ? 'seek' : 'hide') : S.game === 'murder' ? (S.mrole === 'm' ? 'murd_m' : 'murder') : S.game;
     S.tut = null; $('tutor').classList.add('hidden');
     if (tutDone(key) || !TUT[key]) return;

@@ -1367,6 +1367,7 @@ function friendBrief(x) {
   return { id: x.id, username: x.name, online: isOnline(x.id), activity: isOnline(x.id) ? (p.activity || '') : '', color: cos.color || '', title: cos.tag || '', titleFx: cos.titleFx || '' };
 }
 function hasId(list, id) { return list.some((x) => x.id === id); }
+globalThis.SH_SOCIAL = { friends: (id) => fentry(id).friends.slice(), incoming: (id) => fentry(id).incoming.slice(), online: (id) => isOnline(id) };
 
 async function handleSocial(url, req, res) {
   const a = req._auth;

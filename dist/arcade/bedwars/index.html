@@ -380,9 +380,9 @@
   /* ---------- phones: fewer, smaller buttons ---------- */
   .menuBtn{display:none!important}
   body.touch .menuBtn{display:grid!important}
-  body.touch #hudBtns:not(.open) .hbtn:not(.voiceBtn):not(.menuBtn),
-  body.touch #hubHud .hbtns:not(.open) .hbtn:not(.voiceBtn):not(.menuBtn),
-  body.touch #waitHud .hbtns:not(.open) .hbtn:not(.voiceBtn):not(.menuBtn):not(.wkeep){display:none!important}
+  body.touch #hudBtns:not(.open) .hbtn:not(.voiceBtn):not(.menuBtn):not(.socBtn),
+  body.touch #hubHud .hbtns:not(.open) .hbtn:not(.voiceBtn):not(.menuBtn):not(.socBtn),
+  body.touch #waitHud .hbtns:not(.open) .hbtn:not(.voiceBtn):not(.menuBtn):not(.socBtn):not(.wkeep){display:none!important}
   body.touch .hbtns.open,body.touch #hudBtns.open{background:rgba(22,17,56,.9);border:3px solid var(--line);border-radius:16px;padding:5px;flex-wrap:wrap;max-width:min(330px,92vw)}
   body.touch .hbtn{height:36px;min-width:36px;font-size:15px;border-radius:12px;padding:0 8px;box-shadow:0 3px 0 #0c0a22}
   body.touch .hcard{padding:2px 10px 2px 2px;border-radius:14px} body.touch .hcard canvas{width:38px;height:38px} body.touch .hcard .hn{font-size:13px} body.touch .hcard .hs2{font-size:11px;gap:6px}
@@ -466,6 +466,35 @@
   /* disco mode */
   body.disco canvas#c, body.disco #cv{animation:discoHue 2.4s linear infinite}
   @keyframes discoHue{0%{filter:hue-rotate(0) saturate(1.5)}50%{filter:hue-rotate(180deg) saturate(2)}100%{filter:hue-rotate(360deg) saturate(1.5)}}
+
+  body.watching #bottomC,body.watching #resP,body.watching #tutor,body.watching #bbPal{display:none!important}
+  .socBtn{position:relative}
+  .socDot{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:#ff5c6c;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 0 0 2px #120e2e}
+  .socDot.hidden{display:none}
+  #mSoc .mwrap{width:min(600px,100%)}
+  .socTabs{display:flex;gap:6px;padding:10px 16px 0}
+  .socTabs button{flex:1;border:3px solid var(--line);border-radius:12px;background:#1d1748;color:#cfc8ff;font-weight:700;padding:8px;font-size:15px}
+  .socTabs button.on{background:#6c4dff;color:#fff}
+  .socBody{padding:12px 16px 16px;overflow:auto;display:flex;flex-direction:column;gap:8px;max-height:min(62vh,560px)}
+  .srow{display:flex;align-items:center;gap:10px;background:#1a1544;border:3px solid var(--line);border-radius:14px;padding:8px 10px}
+  .srow canvas{width:42px;height:42px;flex:none}
+  .srow .sn{font-weight:800;font-size:16px;line-height:1.1}
+  .srow .sw{color:var(--mut);font-size:13px;font-weight:600}
+  .srow .grow{flex:1;min-width:0}
+  .srow .btn{padding:6px 10px;font-size:13px;border-radius:10px;box-shadow:0 3px 0 #0a0820}
+  .sdot{width:10px;height:10px;border-radius:50%;background:#4a4f6a;display:inline-block;margin-right:5px}
+  .sdot.on{background:#2bd576}.sdot.site{background:#ffd166}
+  .sinp{display:flex;gap:8px}
+  .sinp input{flex:1;min-width:0;border:3px solid var(--line);border-radius:12px;background:#16123a;color:#fff;font-weight:700;padding:8px 10px;font-size:15px}
+  .slab{color:var(--mut);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-top:6px}
+  .sempty{color:var(--mut);text-align:center;padding:14px;font-weight:600}
+  #partyBar{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:9;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+  #partyBar .pb{display:flex;align-items:center;gap:6px;background:rgba(18,14,46,.82);border:2px solid var(--line);border-radius:12px;padding:4px 9px 4px 6px;font-weight:700;font-size:13px;color:#fff;max-width:190px}
+  #partyBar .pb.talk{border-color:#2bd576;box-shadow:0 0 10px rgba(43,213,118,.6)}
+  #partyBar .pb .pw{color:var(--mut);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #partyBar .ph{font-size:11px;color:#ffd166;font-weight:800;padding-left:4px}
+  #watchBar{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:12;background:rgba(18,14,46,.9);border:3px solid #9b6bff;border-radius:14px;padding:6px 8px 6px 14px;display:flex;gap:10px;align-items:center;font-weight:800;color:#fff}
+  #pInvite{position:fixed;right:14px;bottom:14px;z-index:40;background:#1d1748;border:3px solid #6c4dff;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-weight:700;color:#fff;max-width:300px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -495,6 +524,7 @@
     <button class="hbtn menuBtn" title="Menu">☰</button>
     <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
     <button class="hbtn voiceBtn" title="Talk to players near you (V = mute)">🎙️ Talk</button>
+    <button class="hbtn socBtn" title="Friends &amp; party (P)">👥<span class="socDot hidden"></span></button>
     <a class="hbtn hidden" id="hubBuild" href="/arcade/builder" title="Map builder" style="text-decoration:none;width:auto;padding:0 12px">🛠️ Builder</a>
     <button class="hbtn" id="hubLb" title="Leaderboard">🏆</button>
     <button class="hbtn" id="hubHow" title="How to play">❓</button>
@@ -524,6 +554,7 @@
     <button class="hbtn menuBtn" title="Menu">☰</button>
     <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
     <button class="hbtn voiceBtn" title="Talk to players near you (V = mute)">🎙️ Talk</button>
+    <button class="hbtn socBtn" title="Friends &amp; party (P)">👥<span class="socDot hidden"></span></button>
     <button class="hbtn" id="wQc" title="Quick chat (Q)">💬</button>
     <button class="hbtn muteBtn" title="Sound">🔊</button>
     <button class="btn sm red wkeep" id="wLeave">← Leave</button>
@@ -564,6 +595,16 @@
     <div class="admbody" id="admBody"><div class="admempty">Loading…</div></div>
   </div>
 </div>
+<div id="mSoc" class="modal hidden">
+  <div class="mwrap">
+    <div class="mh"><div style="font-size:30px">👥</div><h2>Friends &amp; party</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="socTabs"><button data-st="party" class="on">🎉 Party</button><button data-st="friends">🤝 Friends</button></div>
+    <div class="socBody" id="socBody"></div>
+  </div>
+</div>
+<div id="partyBar" class="hidden"></div>
+<div id="watchBar" class="hidden"><span id="watchTxt">👀 Spectating</span><button class="btn sm" id="watchNext">Next player ▸</button><button class="btn sm red" id="watchLeave">Leave</button></div>
+<div id="pInvite" class="hidden"></div>
 <div id="mLb" class="modal hidden">
   <div class="mwrap" style="width:min(560px,100%)">
     <div class="mh"><div style="font-size:30px">🏆</div><h2>Leaderboards</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
@@ -613,6 +654,7 @@
   <button class="hbtn menuBtn" title="Menu">☰</button>
   <button class="hbtn ownerBtn hidden" title="Owner panel">👑 Owner</button>
   <button class="hbtn voiceBtn" title="Talk to players near you (V = mute)">🎙️ Talk</button>
+    <button class="hbtn socBtn" title="Friends &amp; party (P)">👥<span class="socDot hidden"></span></button>
   <button class="hbtn muteBtn" title="Sound">🔊</button>
   <button class="hbtn" id="gQc" title="Quick chat (Q)">💬</button>
   <button class="hbtn" id="gScore" title="Scoreboard (Tab)">📋</button>
@@ -690,7 +732,7 @@
 <script src="/arcade/bedwars/draw.js?v=6"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=12"></script>
+<script src="/arcade/bedwars/game.js?v=13"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

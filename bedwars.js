@@ -41,9 +41,13 @@ function voiceFrame(c, buf) {
   if (c.vtok < 1) return; c.vtok--;
   const me = voicePos(c); if (!me || me.elim) return;
   c.vTalkAt = now;
-  let out = null;
+  let out = null, pout = null;
+  const p = partyOf(c), mates = p ? new Set() : null;
+  if (p) for (const cid of p.members) { if (cid === c.cid) continue; const r = connByCid(cid); if (!r || !r.voice || r.ws.readyState !== 1) continue; mates.add(r);
+    if (!pout) { pout = Buffer.allocUnsafe(buf.length + 4); pout[0] = 1; pout.writeUInt32BE((2000000000 + c.pid) >>> 0, 1); buf.copy(pout, 5, 1); }
+    try { if (r.ws.bufferedAmount < 256 * 1024) r.ws.send(pout, { binary: true }); } catch (e) {} }
   for (const r of me.group) {
-    if (r === c || !r.voice) continue;
+    if (r === c || !r.voice || (mates && mates.has(r))) continue;
     const them = voicePos(r); if (!them) continue;
     if (Math.hypot(them.x - me.x, them.y - me.y) > VOICE_R) continue;
     if (!out) { out = Buffer.allocUnsafe(buf.length + 4); out[0] = 1; out.writeUInt32BE(me.id >>> 0, 1); buf.copy(out, 5, 1); }
@@ -166,6 +170,7 @@ function roomInfo(r, c) {
 }
 function pushRoom(r) { for (const m of r.members) if (m.conn) send(m.conn, roomInfo(r, m.conn)); }
 function joinLobby(c, r, team) {
+  if (c.watch) stopWatch(c, true);
   leaveRoom(c, true);
   const t = r.game !== 'hide' && team != null && team >= 0 && team < nTeams(r) && r.members.filter((m) => m.team === team).length < per(r) ? team : bestTeam(r);
   if (t < 0) return send(c, { t: 'err', msg: 'That room is full.' });
@@ -196,7 +201,160 @@ function leaveRoom(c, quiet) {
   }
   if (!quiet) goHub(c); else leaveSpace(c);
 }
-function killRoom(r) { rooms.delete(r.id); if (r.code) codes.delete(r.code); }
+function killRoom(r) { rooms.delete(r.id); if (r.code) codes.delete(r.code); if (r.watchers) for (const w of [...r.watchers]) stopWatch(w); }
+
+// ============================================================ parties, friends & spectating
+const parties = new Map(); let nextParty = 1;
+const invites = new Map(); // target cid -> [{ id, from, at }]
+const PARTY_MAX = 4;
+function connByCid(cid) { for (const o of conns) if (o.cid === cid) return o; return null; }
+function partyOf(c) { return c && c.party ? parties.get(c.party) || null : null; }
+function gameName(g) { return g === 'bw' ? 'Bedwars' : (MG.GAMES[g] || {}).name || g; }
+function whereOf(o) {
+  if (!o) return { s: 'off' };
+  if (o.watch) return { s: 'watch', game: o.watch.game, room: o.watch.id, txt: '👀 Watching ' + gameName(o.watch.game) };
+  const r = o.room;
+  if (r) {
+    const full = r.members.length >= capOf(r);
+    if (r.state === 'lobby') return { s: 'lobby', game: r.game, room: r.id, kind: r.kind, join: r.kind !== 'practice' && !full, txt: (r.kind === 'practice' ? '🤖 Practice ' : '⏳ Waiting for ') + gameName(r.game) };
+    if (r.state === 'play') return { s: 'play', game: r.game, room: r.id, kind: r.kind, watch: true, txt: '🎮 Playing ' + gameName(r.game) + (r.kind === 'practice' ? ' (practice)' : '') };
+    return { s: 'end', game: r.game, txt: '🏁 Finishing ' + gameName(r.game) };
+  }
+  return { s: 'hub', txt: '🏠 In the hub' };
+}
+function partyInfo(p) {
+  return { t: 'party', id: p.id, leader: p.leader, members: p.members.map((cid) => { const o = connByCid(cid); return { cid, nick: p.nicks[cid] || '?', look: o ? o.look : null, on: !!o, where: whereOf(o), talk: !!(o && o.voice && Date.now() - (o.vTalkAt || 0) < 400) }; }) };
+}
+function pushParty(p) { const s = JSON.stringify(partyInfo(p)); for (const cid of p.members) { const o = connByCid(cid); if (o) send(o, s); } }
+function partyLeave(c, why) {
+  const p = partyOf(c); c.party = 0; send(c, { t: 'party', id: 0 });
+  if (!p) return;
+  p.members = p.members.filter((x) => x !== c.cid);
+  if (p.members.length <= 1) {
+    for (const cid of p.members) { const o = connByCid(cid); if (o) { o.party = 0; send(o, { t: 'party', id: 0 }); send(o, { t: 'toast', msg: '👥 Your party closed — ' + c.nick + ' ' + (why || 'left') + '.' }); } }
+    parties.delete(p.id); return;
+  }
+  if (p.leader === c.cid) p.leader = p.members[0];
+  for (const cid of p.members) { const o = connByCid(cid); if (o) send(o, { t: 'toast', msg: '👥 ' + c.nick + ' ' + (why || 'left') + ' the party.' }); }
+  pushParty(p);
+}
+function partyMates(c) { // members the leader brings along (not stuck mid-match)
+  const p = partyOf(c); if (!p || p.leader !== c.cid) return [];
+  return p.members.filter((x) => x !== c.cid).map(connByCid).filter((o) => o && !(o.room && o.room.state === 'play'));
+}
+function joinWithParty(c, room, team) {
+  const mates = partyMates(c);
+  let t = team;
+  if (mates.length && room.game !== 'hide' && nTeams(room) > 1) { // the team with the most free seats, so you all fit
+    const cnt = [0, 0, 0, 0, 0, 0, 0, 0]; for (const m of room.members) cnt[m.team]++;
+    let best = -1; for (let k = 0; k < nTeams(room); k++) { const free = per(room) - cnt[k]; if (free > 0 && (best < 0 || free > per(room) - cnt[best])) best = k; }
+    if (best >= 0) t = best;
+  }
+  joinLobby(c, room, t);
+  if (c.room !== room) return;
+  const mine = (room.members.find((m) => m.conn === c) || {}).team;
+  for (const o of mates) {
+    if (o.watch) stopWatch(o, true);
+    joinLobby(o, room, mine);
+    if (o.room === room) send(o, { t: 'toast', msg: '👥 ' + c.nick + ' brought the party into ' + gameName(room.game) + '!' });
+  }
+  const p = partyOf(c); if (p) pushParty(p);
+}
+function startWatch(c, r) {
+  if (!r || r.state !== 'play' || !r.ents) return send(c, { t: 'err', msg: 'That match isn’t running any more.' });
+  if (c.room) leaveRoom(c, true); else leaveSpace(c);
+  if (c.watch) stopWatch(c, true);
+  c.watch = r; (r.watchers || (r.watchers = new Set())).add(c);
+  const dummy = { id: -1, team: -1, mrole: '', elim: true };
+  const st = fullState(r, dummy); st.watch = true; st.you = -1; st.team = -1;
+  send(c, st);
+}
+function stopWatch(c, quiet) {
+  const r = c.watch; if (!r) return; c.watch = null; if (r.watchers) r.watchers.delete(c);
+  if (!quiet && conns.has(c)) goHub(c);
+}
+function socialMsg(c, m, now) {
+  const t = m.t;
+  if (t === 'soc') { // friends + party snapshot
+    const S0 = globalThis.SH_SOCIAL;
+    const fr = S0 ? S0.friends(c.cid) : [], inc = S0 ? S0.incoming(c.cid) : [];
+    const p = partyOf(c);
+    send(c, {
+      t: 'soc', party: p ? partyInfo(p) : null, invites: (invites.get(c.cid) || []).filter((x) => now - x.at < 120000 && parties.has(x.id)),
+      friends: fr.map((f) => { const o = connByCid(f.id); return { cid: f.id, nick: f.name, look: o ? o.look : null, arcade: !!o, site: !!(S0 && S0.online(f.id)), where: whereOf(o), inParty: !!(p && p.members.includes(f.id)) }; })
+        .sort((a, b) => (b.arcade - a.arcade) || (b.site - a.site) || a.nick.localeCompare(b.nick)),
+      incoming: inc.map((x) => ({ id: x.id, nick: x.name })),
+    });
+    return true;
+  }
+  if (t === 'pinv') {
+    let o = m.cid ? connByCid(String(m.cid)) : null;
+    if (!o && m.name) { const n = String(m.name).toLowerCase().trim(); for (const x of conns) if (x.nick.toLowerCase() === n) { o = x; break; } }
+    if (!o) return send(c, { t: 'err', msg: 'They’re not in Games right now — they need to open the arcade first.' }), true;
+    if (o === c) return send(c, { t: 'err', msg: 'You can’t invite yourself 🙂' }), true;
+    let p = partyOf(c);
+    if (!p) { p = { id: nextParty++, leader: c.cid, members: [c.cid], nicks: { [c.cid]: c.nick } }; parties.set(p.id, p); c.party = p.id; }
+    if (p.members.includes(o.cid)) return send(c, { t: 'err', msg: o.nick + ' is already in your party.' }), true;
+    if (p.members.length >= PARTY_MAX) return send(c, { t: 'err', msg: 'Parties can have up to ' + PARTY_MAX + ' players.' }), true;
+    const list = (invites.get(o.cid) || []).filter((x) => now - x.at < 120000 && x.id !== p.id);
+    list.push({ id: p.id, from: c.nick, at: now }); invites.set(o.cid, list);
+    send(o, { t: 'pinvite', id: p.id, from: c.nick });
+    send(c, { t: 'toast', msg: '📨 Party invite sent to ' + o.nick });
+    pushParty(p); return true;
+  }
+  if (t === 'pacc' || t === 'pdec') {
+    const id = m.id | 0, list = invites.get(c.cid) || [], inv = list.find((x) => x.id === id);
+    invites.set(c.cid, list.filter((x) => x.id !== id));
+    const p = parties.get(id);
+    if (t === 'pdec') { if (p) { const l = connByCid(p.leader); if (l) send(l, { t: 'toast', msg: '👥 ' + c.nick + ' declined your party invite.' }); } return true; }
+    if (!inv || !p) return send(c, { t: 'err', msg: 'That invite expired.' }), true;
+    if (p.members.length >= PARTY_MAX) return send(c, { t: 'err', msg: 'That party is full.' }), true;
+    if (c.party && c.party !== p.id) partyLeave(c);
+    p.members.push(c.cid); p.nicks[c.cid] = c.nick; c.party = p.id;
+    for (const cid of p.members) { const o = connByCid(cid); if (o && o !== c) send(o, { t: 'toast', msg: '👥 ' + c.nick + ' joined the party!' }); }
+    send(c, { t: 'toast', msg: '👥 You joined the party! The leader picks the games — you’ll always be on their team. Party voice works anywhere on the map.' });
+    pushParty(p);
+    // jump into the leader's lobby if they are waiting in one
+    const l = connByCid(p.leader); if (l && l.room && l.room.state === 'lobby' && l.room.kind !== 'practice' && !(c.room && c.room.state === 'play')) joinLobby(c, l.room, (l.room.members.find((x) => x.conn === l) || {}).team);
+    return true;
+  }
+  if (t === 'pleave') { partyLeave(c); return true; }
+  if (t === 'pkick' || t === 'plead') {
+    const p = partyOf(c); if (!p || p.leader !== c.cid) return true;
+    const cid = String(m.cid || ''); if (!p.members.includes(cid) || cid === c.cid) return true;
+    if (t === 'plead') { p.leader = cid; pushParty(p); return true; }
+    const o = connByCid(cid);
+    if (o) { partyLeave(o, 'was removed from'); } else { p.members = p.members.filter((x) => x !== cid); pushParty(p); }
+    return true;
+  }
+  if (t === 'fjoin' || t === 'fwatch') { // jump into / watch a friend's (or party mate's) match
+    const cid = String(m.cid || ''), S0 = globalThis.SH_SOCIAL, p = partyOf(c);
+    const ok = (S0 && S0.friends(c.cid).some((f) => f.id === cid)) || (p && p.members.includes(cid)) || c.owner;
+    if (!ok) return send(c, { t: 'err', msg: 'You can only join friends and party members.' }), true;
+    const o = connByCid(cid); if (!o) return send(c, { t: 'err', msg: 'They’re not in Games right now.' }), true;
+    const r = o.room || o.watch;
+    if (!r) { // they're in the hub — walk over to them
+      if (c.room) leaveRoom(c); else if (c.watch) stopWatch(c); 
+      if (c.space === HUB) { c.sx = o.sx; c.sy = o.sy; send(c, { t: 'pos', x: Math.round(o.sx), y: Math.round(o.sy) }); }
+      send(c, { t: 'toast', msg: '🏠 ' + o.nick + ' is in the hub — teleported you next to them!' }); return true;
+    }
+    if (r.state === 'lobby' && t === 'fjoin') {
+      if (r.kind === 'practice') return send(c, { t: 'err', msg: o.nick + ' is in a solo practice match.' }), true;
+      if (r.members.length >= capOf(r)) return send(c, { t: 'err', msg: 'Their lobby is full.' }), true;
+      if (c.watch) stopWatch(c, true);
+      joinWithParty(c, r, (r.members.find((x) => x.conn === o) || {}).team); return true;
+    }
+    if (r.state === 'play') { if (c.room === r) return true; if (c.room && c.room.state === 'play') return send(c, { t: 'err', msg: 'Finish (or leave) your own match first.' }), true; startWatch(c, r); send(c, { t: 'toast', msg: '👀 Spectating ' + o.nick + ' — press Leave to go back.' }); return true; }
+    return send(c, { t: 'err', msg: 'Their match is just finishing — try again in a moment.' }), true;
+  }
+  return false;
+}
+setInterval(() => { // tidy parties where nobody is online, and refresh who's talking/where
+  for (const p of parties.values()) {
+    if (!p.members.some((cid) => connByCid(cid))) { parties.delete(p.id); continue; }
+    pushParty(p);
+  }
+}, 4000);
 
 // ============================================================ match setup
 function emptyInv() { return { kbstick: 0, wool: 0, wood: 0, end: 0, obby: 0, bow: 0, arrows: 0, fireball: 0, tnt: 0, gapple: 0, pearl: 0, egg: 0, speed: 0 }; }
@@ -511,6 +669,8 @@ function endMatch(r, winner) {
     try { if (r.kind === 'public') GMS.recordResult(e.cid, e.nick, r.game, win, e.stats); } catch (err) {}
     if (e.conn) send(e.conn, { t: 'end', game: r.game, winner, win, you: e.id, team: e.team, stats, reward: rew, mins: Math.max(0, (Date.now() - r.goAt) / 60000), ...extra });
   }
+  if (r.watchers) for (const w of r.watchers) { send(w, { t: 'end', game: r.game, winner, win: false, watch: true, you: -1, team: -1, stats, reward: null, mins: Math.max(0, (Date.now() - r.goAt) / 60000), ...extra }); }
+  setTimeout(() => { if (r.watchers) for (const w of [...r.watchers]) stopWatch(w); }, 9000);
   setTimeout(() => killRoom(r), 60000);
 }
 
@@ -926,6 +1086,7 @@ function flush(r) {
   if (r.teamsDirty) { r.teamsDirty = false; msg.teams = teamsInfo(r); }
   if (r.game !== 'bw') MINI.snapExtra(r, msg, now);
   const s = JSON.stringify(msg);
+  if (r.watchers) for (const w of r.watchers) send(w, s);
   for (const e of r.ents.values()) if (e.conn) {
     send(e.conn, s);
     if (e.dirty) { e.dirty = false; send(e.conn, meMsg(e)); }
@@ -976,8 +1137,10 @@ export function handleBedwarsUpgrade(req, socket, head) {
       try { o.ws.terminate(); } catch (e) {}
     }
     conns.add(c);
+    for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid) });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid });
+    setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
       if (r.state === 'play') { const e = [...r.ents.values()].find((x) => x.cid === cid && !x.bot); if (e) { e.conn = c; e.ctl = 'human'; c.room = r; c.ent = e; e.dirty = true; r.ev(['dc', e.id, 0]); send(c, fullState(r, e)); break; } }
@@ -995,7 +1158,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
       if (c.tok < 1) return; c.tok--;
       try { onMsg(c, msg, now); } catch (err) { console.error('bedwars msg', err && err.stack); }
     });
-    const bye = () => { if (!conns.has(c)) return; conns.delete(c); if (c.room) leaveRoom(c, true); leaveSpace(c); };
+    const bye = () => { if (!conns.has(c)) return; conns.delete(c); if (c.watch) stopWatch(c, true); if (c.room) leaveRoom(c, true); leaveSpace(c); };
     ws.on('close', bye); ws.on('error', bye);
   });
 }
@@ -1009,25 +1172,31 @@ function onMsg(c, m, now) {
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
+  if (t === 'soc' || t === 'pinv' || t === 'pacc' || t === 'pdec' || t === 'pleave' || t === 'pkick' || t === 'plead' || t === 'fjoin' || t === 'fwatch') { socialMsg(c, m, now); return; }
+  if (c.watch && (t === 'leave' || t === 'hub' || t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) stopWatch(c, t !== 'leave' && t !== 'hub');
+  if (c.watch) return;
   // ---- menus
   const game = MG.isMini(m.game) ? m.game : 'bw';
   if (t === 'quick') {
     const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
     let room = null;
-    for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && x.mode === mode && x.members.length < capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
+    const pp = partyOf(c);
+    if (pp && pp.leader !== c.cid && pp.members.length > 1) return send(c, { t: 'err', msg: '👥 Your party leader (' + (pp.nicks[pp.leader] || '?') + ') picks the game. Leave the party to queue alone.' });
+    const size = 1 + partyMates(c).length;
+    for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && x.mode === mode && x.members.length + size <= capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
     if (!room) room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', game);
-    return joinLobby(c, room);
+    return joinWithParty(c, room);
   }
   if (t === 'practice') {
     const room = makeRoom('practice', m.mode, m.diff, c.cid, game);
     if (m.map) { const cm = GMS.getMap(String(m.map)); if (!cm || cm.game !== game) return send(c, { t: 'err', msg: 'That map doesn’t exist any more.' }); if (!cm.ok && !c.mapper) return send(c, { t: 'err', msg: 'That map isn’t finished yet.' }); if (!cm.ok) { const pr = MG.validateCustom(cm); return send(c, { t: 'err', msg: 'Map not ready: ' + pr.slice(0, 2).join(' · ') }); } room.mapId = cm.id; room.testMap = true; }
-    return joinLobby(c, room, 0);
+    return joinWithParty(c, room, 0);
   }
-  if (t === 'create') { const room = makeRoom('private', m.mode, m.diff, c.cid, game); return joinLobby(c, room, 0); }
+  if (t === 'create') { const room = makeRoom('private', m.mode, m.diff, c.cid, game); return joinWithParty(c, room, 0); }
   if (t === 'join') {
     const room = codes.get(String(m.code || '').toUpperCase().trim());
     if (!room || room.state !== 'lobby') return send(c, { t: 'err', msg: 'No open room with that code.' });
-    return joinLobby(c, room);
+    return joinWithParty(c, room);
   }
   if (t === 'leave' || t === 'hub') { if (c.room) leaveRoom(c); else goHub(c); return; }
   if (t === 'look') { c.look = worldLook(c.cid); return; }
