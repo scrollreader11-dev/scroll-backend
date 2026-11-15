@@ -606,6 +606,7 @@
     <div id="wCodeWrap" class="hidden wcode">Room code <b id="wCode">----</b> <button class="btn sm ghost" id="wCopy">Copy invite</button></div>
     <div id="wHost" class="hidden">
       <div class="seg" id="hMode"><button data-v="solo">Solo</button><button data-v="duos">Duos</button><button data-v="squads">Squads</button></div>
+      <button class="btn" id="hBots" style="width:100%;margin-bottom:6px">🤖 Bots: ON</button>
       <div class="seg" id="hDiff"><button data-v="easy">Easy bots</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div>
       <select id="hMap" class="hidden" style="width:100%;margin-bottom:6px;border:3px solid var(--line);border-radius:12px;background:#16123a;color:#fff;font-weight:700;padding:7px 9px;font-size:14px"></select>
       <button class="btn green" style="width:100%" id="hStart">▶ Start game</button>
@@ -802,7 +803,7 @@
 <script src="/arcade/bedwars/draw.js?v=7"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=30"></script>
+<script src="/arcade/bedwars/game.js?v=31"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

@@ -156,16 +156,24 @@ function makeRoom(kind, mode, diff, host, game) {
 }
 // ---- School mode (set from the site admin panel): up to 30 players per game + quiz power-ups
 function schoolCfg() { try { return globalThis.SH_SCHOOL ? globalThis.SH_SCHOOL() : null; } catch (e) { return null; } }
-const SCHOOL_CAP = { bw: [4, 8, 30], ctf: [2, 15, 30], hide: [2, 30, 30], spleef: [30, 1, 30], murder: [30, 1, 30], build: [4, 8, 30] }; // [teams, per team, max]
-function basePer(r) { return r.game !== 'bw' ? MG.GAMES[r.game].per : BW.MODES[r.mode].per; }
-function per(r) { return r.school && SCHOOL_CAP[r.game] ? SCHOOL_CAP[r.game][1] : basePer(r); }
-function nTeams(r) { return r.school && SCHOOL_CAP[r.game] ? SCHOOL_CAP[r.game][0] : r.game !== 'bw' ? MG.GAMES[r.game].teams : 4; }
-function capOf(r) { return r.school && SCHOOL_CAP[r.game] ? SCHOOL_CAP[r.game][2] : r.game !== 'bw' ? MG.GAMES[r.game].max : 4 * per(r); }
+const SCHOOL_CAP = { bw: [4, 25, 100], ctf: [2, 50, 100], hide: [2, 100, 100], spleef: [100, 1, 100], murder: [100, 1, 100], build: [4, 25, 100] }; // [teams, per team, max] — lobbies hold (practically) everyone
+function autoPer(n, biggest) { const p = n <= 4 ? 1 : n <= 8 ? 2 : n <= 16 ? 4 : Math.ceil(n / 4); return Math.max(p, biggest || 0); }
+function autoModeName(p) { return p === 1 ? 'Solo' : p === 2 ? 'Duos' : p === 4 ? 'Squads' : 'Teams of ' + p; }
+function basePer(r) { return r.game !== 'bw' ? MG.GAMES[r.game].per : r.autoPer || BW.MODES[r.mode].per; }
+function per(r) { return SCHOOL_CAP[r.game] && r.kind !== 'practice' ? SCHOOL_CAP[r.game][1] : basePer(r); }
+function nTeams(r) { return SCHOOL_CAP[r.game] && r.kind !== 'practice' ? SCHOOL_CAP[r.game][0] : r.game !== 'bw' ? MG.GAMES[r.game].teams : 4; }
+function capOf(r) { return SCHOOL_CAP[r.game] && r.kind !== 'practice' ? SCHOOL_CAP[r.game][2] : r.game !== 'bw' ? MG.GAMES[r.game].max : 4 * per(r); }
 function bestTeam(r) {
   if (r.game === 'hide') return r.members.length < capOf(r) ? 0 : -1;
-  const cnt = new Array(32).fill(0); for (const m of r.members) cnt[m.team]++;
+  const cnt = new Array(128).fill(0); for (const m of r.members) cnt[m.team]++;
   let best = -1; for (let t = 0; t < nTeams(r); t++) if (cnt[t] < per(r) && (best < 0 || cnt[t] < cnt[best])) best = t;
   return best;
+}
+function lobbyAutoPer(r) { const cnt = new Array(4).fill(0); for (const m of r.members) if (m.team < 4) cnt[m.team]++; return autoPer(r.members.length, Math.max(...cnt)); }
+function lobbySlots(r) { // how many places to draw per team (team games) or in total (free-for-all), counting bots that will fill in
+  if (r.game === 'bw') return lobbyAutoPer(r);
+  if (r.game === 'ctf') { const cnt = [0, 0]; for (const m of r.members) if (m.team < 2) cnt[m.team]++; return Math.max(r.noBots ? 1 : MG.GAMES.ctf.per, cnt[0], cnt[1]); }
+  return Math.max(r.members.length, r.noBots ? Math.min(2, MG.GAMES[r.game].max) : MG.GAMES[r.game].max);
 }
 function roomInfo(r, c) {
   return {
@@ -173,6 +181,7 @@ function roomInfo(r, c) {
     startIn: r.startAt ? Math.max(0, r.startAt - Date.now()) : 0, per: per(r), teams: nTeams(r), cap: capOf(r), you: c ? c.cid : '',
     mapId: r.mapId || '', mapName: r.mapId && r.mapId !== 'default' && GMS.getMap(r.mapId) ? GMS.getMap(r.mapId).name : '', maps: r.kind === 'private' ? GMS.publishedMaps(r.game) : null,
     members: r.members.map((m) => ({ cid: m.cid, pid: m.conn ? m.conn.pid : 0, nick: m.nick, team: m.team, look: m.look })),
+    bots: !r.noBots, slots: lobbySlots(r), autoMode: r.game === 'bw' ? autoModeName(lobbyAutoPer(r)) : '',
   };
 }
 function pushRoom(r) { for (const m of r.members) if (m.conn) send(m.conn, roomInfo(r, m.conn)); }
@@ -253,7 +262,7 @@ function joinWithParty(c, room, team) {
   const mates = partyMates(c);
   let t = team;
   if (mates.length && room.game !== 'hide' && nTeams(room) > 1) { // the team with the most free seats, so you all fit
-    const cnt = new Array(32).fill(0); for (const m of room.members) cnt[m.team]++;
+    const cnt = new Array(128).fill(0); for (const m of room.members) cnt[m.team]++;
     let best = -1; for (let k = 0; k < nTeams(room); k++) { const free = per(room) - cnt[k]; if (free > 0 && (best < 0 || free > per(room) - cnt[best])) best = k; }
     if (best >= 0) t = best;
   }
@@ -402,9 +411,23 @@ function startMatch(r) {
   r.ev = (a) => r.events.push(a);
   const used = new Set();
   for (const m of r.members) { const e = makeEnt(r, { cid: m.cid, nick: m.nick, look: m.look, team: m.team, conn: m.conn }); if (m.conn) { leaveSpace(m.conn); m.conn.ent = e; m.conn.room = r; } }
+  { // Bedwars picks Solo / Duos / Squads from how many people are here
+    const humansN = [...r.ents.values()].length, cnt = [0, 0, 0, 0]; for (const e of r.ents.values()) cnt[e.team]++;
+    r.autoPer = autoPer(humansN, 0);
+    const parties = Math.max(...cnt); if (parties > r.autoPer && parties <= 25) { // keep friends together, but rebalance if a team is overloaded
+      const sorted = [...r.ents.values()].sort((a, b) => cnt[b.team] - cnt[a.team]);
+      for (const e of sorted) { if (cnt[e.team] > r.autoPer) { let best = 0; for (let t = 1; t < 4; t++) if (cnt[t] < cnt[best]) best = t; if (cnt[best] < r.autoPer) { cnt[e.team]--; e.team = best; cnt[best]++; const b = r.map.bases[best]; e.x = b.spawn.x; e.y = b.spawn.y; } } }
+      r.autoPer = Math.max(r.autoPer, ...cnt);
+    }
+    r.mode = r.autoPer === 1 ? 'solo' : r.autoPer === 2 ? 'duos' : 'squads';
+  }
   let roleIdx = [0, 0, 0, 0];
   for (const e of r.ents.values()) roleIdx[e.team]++;
-  for (let t = 0; t < 4; t++) {
+  if (r.noBots) { // no bots: only add one if someone would be alone on the map
+    const used = [0, 1, 2, 3].filter((t) => [...r.ents.values()].some((e) => e.team === t));
+    if (used.length < 2) { const t = [0, 1, 2, 3].find((x) => !used.includes(x)); const e = makeEnt(r, { nick: pick(BOT_NAMES), look: botLook(), team: t, bot: true }); e.ai.role = 'atk'; }
+  }
+  for (let t = 0; t < 4 && !r.noBots; t++) {
     while ([...r.ents.values()].filter((e) => e.team === t).length < basePer(r)) {
       let name; do { name = pick(BOT_NAMES); } while (used.has(name) && used.size < BOT_NAMES.length); used.add(name);
       const e = makeEnt(r, { nick: name, look: botLook(), team: t, bot: true });
@@ -1331,7 +1354,7 @@ function onMsg(c, m, now) {
     const pp = partyOf(c);
     if (pp && pp.leader !== c.cid && pp.members.length > 1) return send(c, { t: 'err', msg: '👥 Your party leader (' + (pp.nicks[pp.leader] || '?') + ') picks the game. Leave the party to queue alone.' });
     const size = 1 + partyMates(c).length;
-    for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && x.mode === mode && x.members.length + size <= capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
+    for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && (game === 'bw' || x.mode === mode) && x.members.length + size <= capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
     if (!room) room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', game);
     return joinWithParty(c, room);
   }
@@ -1357,6 +1380,7 @@ function onMsg(c, m, now) {
     } else if (t === 'cfg' && r.kind === 'private' && r.host === c.cid) {
       if (r.game === 'bw' && BW.MODES[m.mode]) { r.mode = m.mode; for (const t2 of [0, 1, 2, 3]) { const mm = r.members.filter((x) => x.team === t2); while (mm.length > per(r)) { const x = mm.pop(); x.team = bestTeam(r); } } }
       if (SK[m.diff]) r.diff = m.diff;
+      if (typeof m.bots === 'boolean') r.noBots = !m.bots;
       if (m.map != null) { const id = String(m.map); if (id === '' || id === 'default') r.mapId = id || null; else { const cm = GMS.getMap(id); if (cm && cm.ok && cm.game === r.game) r.mapId = id; } }
       pushRoom(r);
     } else if (t === 'start' && r.kind === 'private' && r.host === c.cid) { r.startAt = now + 3000; pushRoom(r); }

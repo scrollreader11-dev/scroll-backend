@@ -29,7 +29,7 @@ function start(r) {
   r.seed = (rnd() * 1e9) | 0;
   r.map = MG.genMap(r.game, r.seed, r.custom);
   r.ents = new Map();
-  r.teams = []; for (let t = 0; t < (r.school ? 32 : 8); t++) r.teams.push({ bed: false, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } });
+  r.teams = []; for (let t = 0; t < Math.max(8, r.members.length + 8); t++) r.teams.push({ bed: false, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } });
   r.gens = []; r.projs = []; r.tnts = []; r.events = []; r.tl = 0; r.tier = { dia: 0, em: 0 };
   r.goAt = now + 4200; r.lastHuman = now;
   r.ev = (a) => r.events.push(a);
@@ -45,7 +45,7 @@ function start(r) {
   const count = (t) => [...r.ents.values()].filter((e) => e.team === t).length;
 
   if (r.game === 'ctf') {
-    for (let t = 0; t < 2; t++) while (count(t) < GM.per) addBot(t);
+    for (let t = 0; t < 2; t++) while (count(t) < (r.noBots ? 1 : GM.per)) addBot(t);
     for (let t = 0; t < 2; t++) {
       const bots = [...r.ents.values()].filter((e) => e.team === t && e.bot);
       const roles = ['def', 'atk', 'mid', 'atk'];
@@ -58,7 +58,7 @@ function start(r) {
     for (const e of r.ents.values()) { e.stats = freshStats({ caps: 0, rets: 0 }); e.carry = -1; kitCTF(r, e); }
   } else if (r.game === 'spleef') {
     const taken = new Set([...r.ents.values()].map((e) => e.team));
-    for (let t = 0; t < GM.max; t++) if (!taken.has(t)) addBot(t);
+    for (let t = 0; t < GM.max && !(r.noBots && r.ents.size >= 2); t++) if (!taken.has(t)) addBot(t);
     const m = r.map;
     for (const e of r.ents.values()) {
       const s = m.spawns[e.team % m.spawns.length];
@@ -78,7 +78,7 @@ function start(r) {
       e.stats = freshStats({ streak: 0, best: 0 });
     }
   } else if (r.game === 'murder') {
-    while (r.ents.size < GM.max) addBot(r.ents.size);
+    while (r.ents.size < (r.noBots ? 3 : GM.max)) addBot(r.ents.size);
     const all = shuffle([...r.ents.values()]);
     const m2 = r.map, spots2 = shuffle(m2.hideSpawns.concat([m2.seekSpawn]));
     all.forEach((e, k) => {
@@ -93,7 +93,7 @@ function start(r) {
     });
     r.endAt = r.goAt + GM.mins * 60000; r.golds = new Map(); r.goldSeq = 0; r.goldAt = r.goAt + 3000; r.detId = all[1].id;
   } else if (r.game === 'build') {
-    while (r.ents.size < GM.max) addBot(r.ents.size);
+    while (r.ents.size < (r.noBots ? 2 : GM.max)) addBot(r.ents.size);
     r.phase = 'build'; r.theme = pick(MG.BB_THEMES); r.buildEnd = r.goAt + GM.buildSec * 1000;
     r.votes = r.map.plots.map(() => ({ sum: 0, n: 0, who: new Set() }));
     r.voteOrder = null; r.voteIdx = -1; r.voteNext = 0; r.results = null;
@@ -104,9 +104,9 @@ function start(r) {
       if (e.bot) bbPlanBot(r, e);
     }
   } else if (r.game === 'hide') {
-    while (r.ents.size < GM.max) addBot(0);
+    while (r.ents.size < (r.noBots ? 2 : GM.max)) addBot(0);
     const all = shuffle([...r.ents.values()]);
-    const nSeek = all.length <= 5 ? 1 : r.school ? Math.max(2, Math.round(all.length / 6)) : 2;
+    const nSeek = all.length <= 5 ? 1 : Math.max(2, Math.round(all.length / 6));
     const m = r.map, spots = shuffle(m.hideSpawns.slice());
     all.forEach((e, k) => {
       e.stats = freshStats({ finds: 0, taunts: 0, survived: 0 });

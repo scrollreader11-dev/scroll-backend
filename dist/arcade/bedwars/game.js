@@ -511,26 +511,27 @@
   function renderWait() {
     var r = S.room; if (!r || S.screen !== 'wait') return;
     var rg = r.game || 'bw', md = rg === 'bw' ? B.MODES[r.mode] : MG.GAMES[rg];
-    $('wTitle').textContent = (r.kind === 'private' ? 'Private Room' : r.kind === 'practice' ? 'Practice' : 'Quick Play') + ' · ' + (rg === 'bw' ? 'Bedwars ' : '') + md.name;
+    $('wTitle').textContent = (r.kind === 'private' ? 'Private Room' : r.kind === 'practice' ? 'Practice' : 'Quick Play') + ' · ' + (rg === 'bw' ? 'Bedwars ' + (r.kind !== 'practice' && r.autoMode ? r.autoMode : md.name) : md.name);
     $('wCodeWrap').classList.toggle('hidden', !r.code); $('wCode').textContent = r.code || '';
     var host = r.kind === 'private' && r.host === r.you;
     $('wHost').classList.toggle('hidden', !host);
     if (host) { [].forEach.call($('hMode').children, function (b) { b.classList.toggle('on', b.dataset.v === r.mode); }); [].forEach.call($('hDiff').children, function (b) { b.classList.toggle('on', b.dataset.v === r.diff); }); }
-    $('hMode').classList.toggle('hidden', rg !== 'bw');
+    $('hMode').classList.add('hidden');
+    if ($('hBots')) { $('hBots').textContent = r.bots === false ? '🤖 Bots: OFF' : '🤖 Bots: ON'; $('hBots').classList.toggle('green', r.bots !== false); $('hDiff').classList.toggle('hidden', r.bots === false); }
     var ms = $('hMap'), maps = r.maps || [];
     if (ms) { ms.classList.toggle('hidden', !host || !maps.length); if (host && maps.length) { var opts = '<option value="">🎲 Random map</option><option value="default">' + (rg === 'bw' ? 'Classic Bedwars map' : 'Classic ' + md.name + ' map') + '</option>' + maps.map(function (mp) { return '<option value="' + esc(mp.id) + '">🗺️ ' + esc(mp.name) + '</option>'; }).join(''); if (ms.dataset.k !== opts) { ms.innerHTML = opts; ms.dataset.k = opts; } ms.value = r.mapId || ''; } }
     if (!host && r.mapName) $('wHint').innerHTML += '<br>🗺️ Map: <b>' + esc(r.mapName) + '</b>';
     $('wHint').innerHTML = (rg !== 'bw' ? '<b>' + md.icon + ' ' + esc(md.desc) + '</b><br>' : '') + (r.kind === 'private' && (rg === 'bw' || rg === 'ctf') ? '🟥🟦 Stand on a colored pad to join that team' : r.kind === 'practice' ? '🤖 Bots are getting ready…' : '🤖 Empty slots get filled with bots');
     var html = '';
     if (rg === 'spleef' || rg === 'hide' || rg === 'duel' || rg === 'murder' || rg === 'build') {
-      var row2 = ''; for (var k2 = 0; k2 < (r.cap || 8); k2++) { var mm = r.members[k2]; row2 += mm ? '<span class="wp' + (mm.cid === r.you ? ' you' : '') + '">' + esc(mm.nick) + '</span>' : '<span class="wp bot">🤖</span>'; }
+      var row2 = ''; for (var k2 = 0; k2 < (r.slots || r.cap || 8); k2++) { var mm = r.members[k2]; row2 += mm ? '<span class="wp' + (mm.cid === r.you ? ' you' : '') + '">' + esc(mm.nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '🤖') + '</span>'; }
       $('wRoster').innerHTML = '<div class="wt">' + row2 + '</div>' + (rg === 'hide' ? '<div class="whint">🎲 Seekers are picked at random when the round starts</div>' : rg === 'murder' ? '<div class="whint">🎲 The murderer and detective are secret!</div>' : '');
       r.members.forEach(function (m) { var e = S.ents.get(m.pid); if (e) e.team = rg === 'spleef' || rg === 'duel' ? m.team : -1; });
       updateWaitCount(); return;
     }
     for (var t = 0; t < (r.teams || 4); t++) {
       var mem = r.members.filter(function (m) { return m.team === t; }), row = '';
-      for (var k = 0; k < r.per; k++) row += mem[k] ? '<span class="wp' + (mem[k].cid === r.you ? ' you' : '') + '">' + esc(mem[k].nick) + '</span>' : '<span class="wp bot">🤖</span>';
+      for (var k = 0; k < Math.max(mem.length, r.slots || r.per); k++) row += mem[k] ? '<span class="wp' + (mem[k].cid === r.you ? ' you' : '') + '">' + esc(mem[k].nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '🤖') + '</span>';
       html += '<div class="wt"><i style="background:' + teamCol(t) + '"></i>' + row + '</div>';
     }
     $('wRoster').innerHTML = html;
@@ -547,6 +548,7 @@
     if (left >= 0 && left <= 5 && left !== S.lastWaitBeep) { S.lastWaitBeep = left; if (left > 0) SC.sfx('count'); }
   }
   $('wLeave').onclick = function () { send({ t: 'leave' }); };
+  if ($('hBots')) $('hBots').onclick = function () { var r = S.room; if (!r) return; send({ t: 'cfg', bots: r.bots === false }); SC.sfx('click'); };
   $('hStart').onclick = function () { send({ t: 'start' }); SC.sfx('go'); };
   $('wCopy').onclick = function () { var u = location.origin + '/arcade?room=' + (S.room && S.room.code); try { navigator.clipboard.writeText(u); toast('Invite link copied!', 1600); } catch (e) { toast(u, 4000); } };
   $('hubLb').onclick = function () { renderLb(); openModal('mLb'); };
