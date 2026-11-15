@@ -657,12 +657,15 @@
     S.projs.forEach(function (p, id) { if (!seen[id]) S.projs.delete(id); });
     if (m.teams) { S.teams = m.teams; renderTeams(); }
     if (m.fl) { S.flags = m.fl; S.score = m.sc || S.score; }
+    if (S.screen === 'game' && !S.replay) potgRec(m);
     if (m.e) m.e.forEach(onEvent);
+    if (S.screen === 'game' && !S.replay) potgCheck();
   }
   function entPos(e) { return e.id === S.myId && P ? { x: P.x, y: P.y } : { x: e.x, y: e.y }; }
   function nameHtml(e) { return e ? '<b style="color:' + teamCol(e.team) + '">' + esc(e.nick) + '</b>' : '?'; }
   function onEvent(ev) {
     var k = ev[0], e, p, i;
+    if (S.screen === 'game' && !S.replay) potgEv(ev);
     if (k === 'pj') { if (S.screen !== 'hub' && S.screen !== 'wait') return; var fresh = !S.ents.has(ev[1]); var ne = addSpacePlayer({ id: ev[1], nick: ev[2], look: ev[3], x: ev[4], y: ev[5], team: ev[6] }); if (fresh && ev[1] !== S.myId) { ne.x = ev[4]; ne.y = ev[5]; D.burst('magic', ev[4], ev[5] - 20, 10, '#c4b5fd'); } updateOnline(); return; }
     if (k === 'pl') { var le = S.ents.get(ev[1]); if (le && ev[1] !== S.myId && (S.screen === 'hub' || S.screen === 'wait')) { D.burst('smoke', le.x, le.y - 16, 6); S.ents.delete(ev[1]); updateOnline(); } return; }
     if (k === 'pt') { var te = S.ents.get(ev[1]); if (te) { te.team = ev[2]; D.ring(te.x, te.y, teamCol(ev[2]), 40, 0.5, 5); if (ev[1] === S.myId) { S.team = ev[2]; SC.sfx('pop'); toast('You joined the ' + tname(ev[2]) + ' team', 1400); } } return; }
@@ -797,6 +800,7 @@
   var MOVE_KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'], lastTap = {};
   addEventListener('keydown', function (e) {
     if (e.target && e.target.tagName === 'INPUT') return;
+    if (S.replay) { if (!e.repeat) potgSkip(); return; }
     var k = e.key.toLowerCase();
     if (S.quizOpen) { if (/^[1-4]$/.test(k)) quizPick(+k - 1); if (k === 'escape' || k === 'g') closeQuiz(); e.preventDefault(); return; }
     if (k === 'g' && S.screen === 'game' && S.en >= 0) { openQuiz(); return; }
@@ -822,6 +826,7 @@
   cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   addEventListener('mousemove', function (e) { mouse.x = e.clientX; mouse.y = e.clientY; var ch = $('crosshair'); ch.style.left = e.clientX + 'px'; ch.style.top = e.clientY + 'px'; });
   cv.addEventListener('mousedown', function (e) {
+    if (S.replay) { potgSkip(); return; }
     mouse.x = e.clientX; mouse.y = e.clientY; screenToWorld();
     if (S.screen === 'hub' || S.screen === 'wait') {
       cv.focus(); if (e.button !== 0 || !P) return;
@@ -854,6 +859,7 @@
     hold('tPlace', function () { if (S.screen === 'game' && isMini() && mgTouch('place')) return; S.touchPlace = true; }, function () { S.touchPlace = false; });
     hold('tUse', function () { if (S.screen === 'game' && isMini() && mgTouch('use')) return; var it = S.held; if (['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(it) < 0) { var hb = hotbarItems().filter(function (x) { return ['fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed'].indexOf(x) >= 0; }); if (!hb.length) { toast('No usable item — buy some at the shop!', 1600); return; } it = hb[0]; S.held = it; renderHotbar(); send({ t: 'sel', it: it }); } touchAim(); useHeld(); });
     cv.addEventListener('touchstart', function (e) {
+      if (S.replay) { potgSkip(); return; }
       if ((S.screen === 'hub' || S.screen === 'wait') && P) {
         var t0 = e.changedTouches[0]; mouse.x = t0.clientX; mouse.y = t0.clientY; screenToWorld();
         var ho = objUnderCursor(); if (ho) { if (Math.hypot(ho.x - P.x, ho.y - P.y) < objRange(ho)) useObj(ho); else walkToObj(ho); }
@@ -1003,6 +1009,7 @@
   var trails = [];
   function update(dt, t) {
     if (window.SHMusic) SHMusic.want(S.screen === 'hub' || S.screen === 'wait' ? 'lobby' : null);
+    if (S.replay) { potgTick(dt, t); return; }
     screenToWorld();
     if (!P) return;
     var me = S.ents.get(S.myId);
@@ -1291,11 +1298,157 @@
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (isMini() && S.screen === 'game') mgScreen(t, z);
     if (S.season === 'xmas' && (S.screen === 'hub' || S.screen === 'wait' || S.screen === 'game' || S.screen === 'end')) drawSnow(dt, t);
+    if (S.replay) potgOverlay(t);
     if (S.screen === 'game') {
       var hurt = Math.max(0, 1 - (tnow - S.hurtT) / 450), low = S.hp <= 6 && !S.dead ? (0.35 + Math.sin(t * 6) * 0.15) : 0;
       $('vign').style.opacity = Math.max(hurt, low);
     } else $('vign').style.opacity = 0;
     drawCrosshairState();
+  }
+  // ---------------------------------------------------------------- PLAY OF THE GAME
+  // Records the last few seconds of the match on this device and replays the best streak at the end.
+  var POTG = { frames: [], evs: [], blk: [], beds: [], kills: [], best: null, pend: null, room: null };
+  function potgReset() { POTG.frames = []; POTG.evs = []; POTG.blk = []; POTG.beds = []; POTG.kills = []; POTG.best = null; POTG.pend = null; }
+  function potgRec(m) {
+    if (POTG.room !== S.room) { POTG.room = S.room; potgReset(); }
+    var tn = now(), fr = { t: tn, p: [], pr: [] };
+    for (var k = 0; k < m.p.length; k++) { var a = m.p[k]; fr.p.push([a[0], a[1], a[2], a[3] / 100, a[4], a[5], a.length > 7 ? a[7] : 0]); }
+    (m.pr || []).forEach(function (q) { fr.pr.push([q[0], q[1], q[2], q[3]]); });
+    POTG.frames.push(fr);
+    while (POTG.frames.length && POTG.frames[0].t < tn - 15000) POTG.frames.shift();
+    while (POTG.evs.length && POTG.evs[0].t < tn - 15000) POTG.evs.shift();
+  }
+  function potgEv(ev) {
+    var k = ev[0], tn = now();
+    if (POTG.room !== S.room) { POTG.room = S.room; potgReset(); }
+    if (k === 'blk' && S.map) { var i = ev[1], m = S.map; POTG.blk.push({ t: tn, i: i, old: [m.f[i], m.fc[i], m.w[i], m.wc[i]], nw: [ev[2], ev[3], ev[4], ev[5]] }); }
+    if (k === 'sw' || k === 'hit' || k === 'die' || k === 'bed' || k === 'blk' || k === 'spawn') POTG.evs.push({ t: tn, ev: ev.slice() });
+    var att = -1, pts = 0;
+    if (k === 'die' && ev[3] != null && ev[3] >= 0 && ev[3] !== ev[1] && S.ents.has(ev[3])) { att = ev[3]; pts = ev[4] ? 2 : 1; }
+    if (k === 'bed') { POTG.beds.push({ t: tn, team: ev[1] }); if (ev[2] != null && ev[2] >= 0 && S.ents.has(ev[2])) { att = ev[2]; pts = 3; } }
+    if (att < 0) return;
+    POTG.kills.push({ t: tn, a: att, pts: pts });
+    var mine = POTG.kills.filter(function (q) { return q.a === att && q.t >= tn - 8000; }), score = 0;
+    mine.forEach(function (q) { score += q.pts; }); score += (mine.length - 1) * 0.5;
+    var cur = POTG.pend || POTG.best;
+    if (!cur || score >= cur.score) {
+      var st = Math.max(mine[0].t - 2200, tn + 2000 - 8500);
+      if (POTG.pend && POTG.pend.hero !== att && POTG.pend.score <= score) POTG.pend = null;
+      POTG.pend = { hero: att, score: score, start: st, end: tn + 2000, n: mine.length };
+    }
+  }
+  function potgCheck(force) {
+    var pd = POTG.pend; if (!pd || (!force && now() < pd.end)) return;
+    var end = Math.min(pd.end, now());
+    var frames = POTG.frames.filter(function (f) { return f.t >= pd.start && f.t <= end; });
+    if (frames.length > 8) POTG.best = { hero: pd.hero, score: pd.score, n: pd.n, start: frames[0].t, end: frames[frames.length - 1].t, frames: frames, evs: POTG.evs.filter(function (q) { return q.t >= pd.start && q.t <= end; }) };
+    POTG.pend = null;
+  }
+  function potgStart(m) {
+    if (S.game === 'build' || POTG.room !== S.room) return false;
+    potgCheck(true);
+    var b = POTG.best; if (!b || b.score < 1 || !S.map) return false;
+    var hero = S.ents.get(b.hero); if (!hero) return false;
+    S.ended = m; mouse.l = mouse.r = false; closeShop(); closeQuiz(true); $('qHud').classList.add('hidden'); $('death').classList.add('hidden');
+    // put the map back the way it was when the moment started
+    var m2 = S.map;
+    for (var j = POTG.blk.length - 1; j >= 0; j--) { var r = POTG.blk[j]; if (r.t < b.start) break; m2.f[r.i] = r.old[0]; m2.fc[r.i] = r.old[1]; m2.w[r.i] = r.old[2]; m2.wc[r.i] = r.old[3]; }
+    POTG.beds.forEach(function (q) { if (q.t >= b.start && m2.beds && m2.beds[q.team]) m2.beds[q.team].alive = true; });
+    if (D.resetChunks) D.resetChunks();
+    S.ents.forEach(function (e) { e.fallT = 0; e.spFall = false; e.bubble = null; });
+    S.replay = { b: b, m: m, rt: b.start, ei: 0, t0: now(), heroId: b.hero, nick: hero.nick, team: hero.team, kills: 0, beds: 0, popT: 0, saveDead: S.dead, flash: 1 };
+    S.dead = false; if (P) { P.dead = false; P.falling = 0; P.sprint = false; }
+    S.projs.clear(); document.body.classList.add('potg'); SC.sfx('win');
+    return true;
+  }
+  function potgSpeed(rp) {
+    var near = rp.b.evs.some(function (q) { var k = q.ev[0]; if (k === 'die' ? q.ev[3] !== rp.heroId : k === 'bed' ? q.ev[2] !== rp.heroId : true) return false; return Math.abs(q.t - rp.rt) < 650; });
+    return near ? 0.38 : 1;
+  }
+  function potgTick(dt, t) {
+    var rp = S.replay, b = rp.b, fr = b.frames;
+    if (now() - rp.t0 > 1300) rp.rt += dt * 1000 * potgSpeed(rp);
+    if (rp.rt >= b.end) return potgFinish();
+    var a = 0; while (a < fr.length - 2 && fr[a + 1].t <= rp.rt) a++;
+    var A0 = fr[a], A1 = fr[Math.min(fr.length - 1, a + 1)], u = A1.t > A0.t ? clamp((rp.rt - A0.t) / (A1.t - A0.t), 0, 1) : 0;
+    var nxt = {}; A1.p.forEach(function (q) { nxt[q[0]] = q; });
+    A0.p.forEach(function (q) {
+      var e = S.ents.get(q[0]); if (!e) return; var z = nxt[q[0]] || q;
+      var nx = q[1] + (z[1] - q[1]) * u, ny = q[2] + (z[2] - q[2]) * u;
+      if (Math.hypot(z[1] - q[1], z[2] - q[2]) > 200) { nx = z[1]; ny = z[2]; }
+      var mv = Math.hypot(nx - e.x, ny - e.y);
+      e.moving = mv > 0.3 && mv < 200; if (e.moving) e.walk = (e.walk || 0) + dt * 10;
+      e.x = nx; e.y = ny; e.ang = q[3]; e.flags = q[4]; e.dead = !!(q[4] & 1); e.elim = false; e.held = HELD[q[5]] || e.held || 'sword';
+      if (S.game === 'spleef') e.z = q[6] & 3; else if (S.game === 'hide') e.prop = q[6] ? MG.PROP_KINDS[q[6] - 1] : ''; else if (S.game === 'ctf') e.carry = q[6] ? q[6] - 1 : -1;
+      if (e.id === S.myId && P) { P.x = nx; P.y = ny; P.ang = q[3]; P.dead = e.dead; P.mv = e.moving; if (S.game === 'spleef') P.z = e.z; }
+    });
+    // projectiles
+    S.projs.clear(); var pn = {}; A1.pr.forEach(function (q) { pn[q[0]] = q; });
+    A0.pr.forEach(function (q) { var z = pn[q[0]] || q; S.projs.set(q[0], { id: q[0], kind: q[1], x: q[2] + (z[2] - q[2]) * u, y: q[3] + (z[3] - q[3]) * u, vx: (z[2] - q[2]) * 20 || 1, vy: (z[3] - q[3]) * 20, tx: z[2], ty: z[3], born: 0 }); });
+    // events
+    while (rp.ei < b.evs.length && b.evs[rp.ei].t <= rp.rt) { potgFire(b.evs[rp.ei].ev, rp); rp.ei++; }
+    S.ents.forEach(function (e) { if (e.swingT != null) { e.swingT += dt; if (e.swingT > 0.45) e.swingT = null; } });
+    var h = S.ents.get(rp.heroId), hx = h ? h.x : cam.x, hy = h ? h.y : cam.y, k2 = 1 - Math.exp(-5 * dt);
+    cam.x += (hx - cam.x) * k2; cam.y += (hy - 20 - cam.y) * k2; listener.x = cam.x; listener.y = cam.y;
+  }
+  function potgFire(ev, rp) {
+    var k = ev[0], e, p;
+    if (k === 'sw') { e = S.ents.get(ev[1]); if (!e) return; if (e.id === S.myId) { e.swingT = 0; e.swingDir = -(e.swingDir || 1); S.slashes.push({ x: e.x, y: e.y - 18, ang: ev[2] / 100, dir: e.swingDir, t0: now(), reach: 56, owner: -1 }); } else onEvent(ev); return; }
+    if (k === 'hit') { onEvent(ev); return; }
+    if (k === 'blk') { setTileLocal(ev[1], ev[2], ev[3], ev[4], ev[5], true); return; }
+    if (k === 'spawn') { e = S.ents.get(ev[1]); if (e) { D.burst('magic', ev[2], ev[3] - 20, 12, B.TEAMS[e.team] ? B.TEAMS[e.team].light : '#fff'); } return; }
+    if (k === 'die') {
+      e = S.ents.get(ev[1]); if (!e) return; p = { x: e.x, y: e.y };
+      D.burst('smoke', p.x, p.y - 16, 12); D.burst('star', p.x, p.y - 24, 10, '#ffd166'); D.ring(p.x, p.y, '#ffffff', 70, 0.5, 6);
+      var byHero = ev[3] === rp.heroId;
+      D.text(p.x, p.y - 70, ev[4] ? 'FINAL KILL!' : 'ELIMINATED', byHero ? '#ffd166' : '#ff6b7a', byHero ? 24 : 16, { pop: true });
+      if (byHero) { rp.kills++; rp.popT = now(); S.shake = Math.max(S.shake, 10); SC.sfx('crit'); } else sfxAt('hit', p.x, p.y);
+      return;
+    }
+    if (k === 'bed') {
+      var bed = S.map.beds && S.map.beds[ev[1]]; if (!bed) return; bed.alive = false;
+      D.burst('feather', bed.x, bed.y, 26, '#ffffff', { speed: 160 }); D.burst('cube', bed.x, bed.y, 18, teamCol(ev[1]), { speed: 170 });
+      D.ring(bed.x, bed.y, teamCol(ev[1]), 140, 0.7, 10); D.flash(bed.x, bed.y, 160, '255,255,255', 0.35); S.shake = Math.max(S.shake, 12); SC.sfx('bed');
+      D.text(bed.x, bed.y - 60, 'BED DESTROYED!', teamCol(ev[1]), 24, { pop: true });
+      if (ev[2] === rp.heroId) { rp.beds++; rp.popT = now(); }
+    }
+  }
+  function potgFinish() {
+    var rp = S.replay; if (!rp) return;
+    // apply anything that happened after the clip so the map ends in its real final state
+    var m2 = S.map; POTG.blk.forEach(function (r) { if (r.t > rp.b.start) { m2.f[r.i] = r.nw[0]; m2.fc[r.i] = r.nw[1]; m2.w[r.i] = r.nw[2]; m2.wc[r.i] = r.nw[3]; } });
+    POTG.beds.forEach(function (q) { if (m2.beds && m2.beds[q.team]) m2.beds[q.team].alive = false; });
+    if (D.resetChunks) D.resetChunks();
+    S.replay = null; S.dead = rp.saveDead; document.body.classList.remove('potg'); S.potgShown = true; S.projs.clear();
+    var msg = rp.m; potgReset(); onEndReal(msg);
+  }
+  function potgSkip() { if (S.replay && now() - S.replay.t0 > 1500) potgFinish(); }
+  function potgOverlay(t) {
+    var rp = S.replay; if (!rp) return;
+    var w = innerWidth, h = innerHeight, el = now() - rp.t0, bar = Math.min(1, el / 400) * Math.max(48, h * 0.09);
+    c.fillStyle = '#000'; c.fillRect(0, 0, w, bar); c.fillRect(0, h - bar, w, bar);
+    var col = rp.team >= 0 && B.TEAMS[rp.team] ? teamCol(rp.team) : '#ffd166';
+    c.textBaseline = 'middle';
+    if (el < 1500) { // big title card
+      var k = el < 250 ? el / 250 : el > 1200 ? 1 - (el - 1200) / 300 : 1;
+      c.globalAlpha = Math.max(0, k); c.fillStyle = 'rgba(10,8,30,.55)'; c.fillRect(0, h / 2 - 70, w, 140);
+      c.textAlign = 'center'; c.fillStyle = '#ffd166'; c.font = '800 ' + Math.min(54, w / 12) + 'px Fredoka, sans-serif'; c.fillText('PLAY OF THE GAME', w / 2, h / 2 - 16);
+      c.fillStyle = col; c.font = '700 ' + Math.min(30, w / 18) + 'px Fredoka, sans-serif'; c.fillText(rp.nick, w / 2, h / 2 + 34);
+      c.globalAlpha = 1;
+    }
+    c.textAlign = 'left'; c.font = '800 ' + Math.min(22, w / 22) + 'px Fredoka, sans-serif'; c.fillStyle = '#ffd166'; c.fillText('★ PLAY OF THE GAME', 18, bar / 2);
+    var tw = c.measureText('★ PLAY OF THE GAME').width; c.font = '700 ' + Math.min(20, w / 24) + 'px Fredoka, sans-serif'; c.fillStyle = col; c.fillText(rp.nick, 30 + tw, bar / 2);
+    if ((t * 2) % 2 < 1.3) { c.fillStyle = '#ff4b5c'; c.beginPath(); c.arc(w - 92, bar / 2, 6, 0, TAU); c.fill(); }
+    c.fillStyle = '#fff'; c.font = '700 15px Fredoka, sans-serif'; c.textAlign = 'right'; c.fillText('REPLAY', w - 18, bar / 2);
+    var sl = potgSpeed(rp) < 1 && el > 1300; if (sl) { c.textAlign = 'left'; c.fillStyle = 'rgba(255,255,255,.8)'; c.font = '700 14px Fredoka, sans-serif'; c.fillText('◀◀ SLOW-MO', 18, h - bar / 2); }
+    if (rp.kills + rp.beds > 0) {
+      var pop = Math.max(0, 1 - (now() - rp.popT) / 350), lbl = (rp.kills ? rp.kills + (rp.kills > 1 ? ' KILLS' : ' KILL') : '') + (rp.beds ? (rp.kills ? ' · ' : '') + rp.beds + (rp.beds > 1 ? ' BEDS' : ' BED') : '');
+      c.save(); c.translate(w / 2, bar + 44); c.scale(1 + pop * 0.35, 1 + pop * 0.35); c.textAlign = 'center'; c.font = '800 30px Fredoka, sans-serif';
+      c.lineWidth = 6; c.strokeStyle = '#1b1636'; c.strokeText(lbl, 0, 0); c.fillStyle = '#ffd166'; c.fillText(lbl, 0, 0); c.restore();
+    }
+    if (el > 1500) { c.textAlign = 'right'; c.fillStyle = 'rgba(255,255,255,.7)'; c.font = '600 13px Fredoka, sans-serif'; c.fillText('Click or press any key to skip', w - 18, h - bar / 2); }
+    var prog = clamp((rp.rt - rp.b.start) / (rp.b.end - rp.b.start), 0, 1); c.fillStyle = 'rgba(255,255,255,.15)'; c.fillRect(0, h - bar - 3, w, 3); c.fillStyle = '#ffd166'; c.fillRect(0, h - bar - 3, w * prog, 3);
+    c.textBaseline = 'alphabetic';
   }
   // ---------------------------------------------------------------- HOLIDAY SEASON
   function hubGen() { var m = B.genHub(); if (S.season === 'xmas') B.addXmas(m); return m; }
@@ -1699,7 +1852,8 @@
 
   // ------------------------------------------------------------------ end
   var podium = null;
-  function onEnd(m) {
+  function onEnd(m) { if (!m.watch && potgStart(m)) return; onEndReal(m); }
+  function onEndReal(m) {
     S.ended = m; mouse.l = mouse.r = false; closeShop();
     if (m.watch) { $('watchBar').classList.add('hidden'); var wn = m.winner >= 0 ? (S.game === 'murder' ? (m.winner ? 'The murderer' : 'The innocents') : S.game === 'hide' ? (m.winner ? 'Seekers' : 'Hiders') : tname(m.winner) + ' team') + ' won!' : 'It’s a draw!'; banner('🏁 MATCH OVER', wn + ' Heading back to the hub…', '#9b6bff'); return; }
     var win = m.win != null ? m.win : m.winner === m.team;
@@ -1717,7 +1871,7 @@
     podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now(), label: m.game === 'hide' ? (m.winner === 0 ? 'HIDERS' : 'SEEKERS') : m.game === 'spleef' ? 'LAST ONE STANDING' : null };
     if (m.game === 'hide') podium.team = m.winner === 0 ? 2 : 0;
     if (S.hello && rw) { S.hello.stats = Object.assign(S.hello.stats || {}, rw.stats, { coins: rw.coins, earnedToday: rw.stats.earned, cap: (S.hello.stats && S.hello.stats.cap) || 1500 }); }
-    setTimeout(function () { show('end'); SC.sfx(win ? 'bigwin' : 'lose'); }, 1600);
+    setTimeout(function () { show('end'); SC.sfx(win ? 'bigwin' : 'lose'); }, S.potgShown ? 250 : 1600); S.potgShown = false;
   }
   function drawPodium(t, dt) {
     var pc = $('podium'), x = pc.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, pc.width, pc.height);
