@@ -1279,6 +1279,7 @@ function adminInfo(c) {
     bans: Object.entries(GMS.store.bans).map(([cid, b]) => ({ cid, nick: b.nick, until: b.until, by: b.by })),
     logs: GMS.store.logs.slice(-60).reverse(),
     maps: GMS.listMaps(), rot: GMS.store.rot,
+    mega: MEGA.map((o) => ({ id: o.id, icon: o.icon, label: o.label, cat: o.cat, scope: o.scope, danger: !!o.danger })),
   };
 }
 // ---- the map builder's channel (only the map maker's account may use it)
@@ -1292,6 +1293,30 @@ function mbMsg(c, m) {
   if (a === 'del') { GMS.deleteMap(String(m.id), c.nick); return list(); }
   if (a === 'rot') { GMS.setRotation(String(m.game), String(m.id), !!m.on); return list(); }
 }
+
+// ============================================================ ⚡ owner powers (Scrollreader11 only)
+// scope: 'p' = the picked player, 'r' = the picked match, 'g' = everyone
+function megaEnt(x) { return x && x.room && x.room.state === 'play' && x.ent ? x.ent : null; }
+function megaFx(x, kind, extra) { send(x, { t: 'fx', kind, ...(extra || {}) }); }
+const MEGA = [
+  { id: 'heal', icon: '❤️', label: 'Full heal', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.hp = BW.MAX_HP; e.dead = false; e.dirty = true; return 'Healed ' + e.nick; } },
+];
+function megaRun(c, m) {
+  const op = MEGA.find((o) => o.id === String(m.op));
+  if (!op) return { ok: false, msg: 'Unknown power.' };
+  const x = [...conns].find((y) => y.pid === Number(m.pid));
+  const r = rooms.get(Number(m.room));
+  const k = {
+    c, m, x, r,
+    ent: () => { const e = megaEnt(x); if (!e) throw new Error((x ? x.nick : 'They') + ' isn’t in a match.'); return e; },
+    room: () => { if (!r || r.state !== 'play') throw new Error('Pick a running match.'); return r; },
+    live: () => [...k.room().ents.values()].filter((e) => !e.dead && !e.elim),
+  };
+  if (op.scope === 'p' && !x) return { ok: false, msg: 'Pick a player first.' };
+  if (op.scope === 'r' && (!r || r.state !== 'play')) return { ok: false, msg: 'Pick a running match first.' };
+  try { const msg = op.fn(k); GMS.log('⚡ ' + c.nick + ': ' + op.label + (x && op.scope === 'p' ? ' → ' + x.nick : r && op.scope === 'r' ? ' → #' + r.id : '')); return { ok: true, msg: msg || op.label + ' done.' }; }
+  catch (err) { return { ok: false, msg: err.message || 'Didn’t work.' }; }
+}
 function adminMsg(c, m, now) {
   const a = String(m.a || '');
   const ok = (msg) => send(c, { t: 'admres', ok: true, msg });
@@ -1299,6 +1324,7 @@ function adminMsg(c, m, now) {
   const room = () => rooms.get(Number(m.room));
   const ent = (r) => r && r.ents && r.ents.get(Number(m.id));
   if (a === 'info') return send(c, adminInfo(c));
+  if (a === 'x') { const res = megaRun(c, m); return send(c, { t: 'admres', ok: res.ok, msg: res.msg }); }
   if (a === 'announce') {
     const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');
     for (const x of conns) send(x, { t: 'ann', text, from: c.nick });

@@ -1751,6 +1751,18 @@
       html += '<div class="admcard"><div class="admhead">🗺️ Custom maps ' + (d.mapper ? '<a class="ab gold" href="/arcade/builder" style="text-decoration:none">🛠️ Open map builder</a>' : '<span class="tag2">only Scrollreader11 can make or change maps</span>') + '</div>';
       if (d.mapper) html += '<div class="admrow"><span class="lbl">Built-in maps in rotation:</span>' + ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { var on = rot[g] && rot[g].def; return ab((on ? '✅ ' : '⬜ ') + MG.GAMES[g].icon + ' ' + MG.GAMES[g].name, { act: 'maprot', game: g, id: 'default', on: on ? 0 : 1 }, on ? 'green' : ''); }).join('') + '</div>';
       html += '<table class="admp">' + (mp.length ? mp.map(function (m) { return '<tr><td>' + MG.GAMES[m.game].icon + ' <b>' + esc(m.name) + '</b><br><span style="color:var(--mut);font-size:12px">by ' + esc(m.author || '?') + ' · ' + new Date(m.at).toLocaleDateString() + (m.ok ? '' : ' · unfinished') + '</span></td><td><div class="acts">' + (m.ok ? ab('▶ Test', { act: 'testmap', id: m.id, game: m.game }, 'green') : '') + (d.mapper && m.ok ? ab(m.rot ? '✅ In rotation' : '⬜ Add to rotation', { act: 'maprot', game: m.game, id: m.id, on: m.rot ? 0 : 1 }, m.rot ? 'green' : '') : '') + (d.mapper ? ab('🗑️', { act: 'mapdel', id: m.id }, 'red', true) : '') + '</div></td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No custom maps yet.</td></tr>') + '</table></div>';
+    } else if (admTab === 'mega') {
+      var mg = d.mega || [];
+      var popts = '<option value="">— pick a player —</option>' + d.conns.map(function (x) { return '<option value="' + x.pid + '"' + (String(S.megaP) === String(x.pid) ? ' selected' : '') + '>' + esc(x.nick) + ' · ' + esc(x.where) + '</option>'; }).join('');
+      var ropts = '<option value="">— pick a match —</option>' + d.rooms.filter(function (r) { return r.state === 'play'; }).map(function (r) { return '<option value="' + r.id + '"' + (String(S.megaR) === String(r.id) ? ' selected' : '') + '>#' + r.id + ' ' + (r.game && r.game !== 'bw' ? MG.GAMES[r.game].name : 'Bedwars') + '</option>'; }).join('');
+      html += '<div class="admcard"><div class="admhead">⚡ ' + mg.length + ' owner powers</div><div class="admrow"><span class="lbl">Player</span><select class="admin-in" id="megaP">' + popts + '</select><span class="lbl">Match</span><select class="admin-in" id="megaR">' + ropts + '</select></div><div class="admrow"><input class="admin-in" id="megaTxt" placeholder="Text / number for powers that need it" value="' + esc(S.megaTxt || '') + '"></div></div>';
+      var cats = []; mg.forEach(function (o) { if (cats.indexOf(o.cat) < 0) cats.push(o.cat); });
+      cats.forEach(function (ct) {
+        html += '<div class="admcard"><div class="admhead">' + esc(ct) + '</div><div class="acts">';
+        mg.filter(function (o) { return o.cat === ct; }).forEach(function (o) { html += ab(o.icon + ' ' + o.label + (o.scope === 'p' ? ' 👤' : o.scope === 'r' ? ' 🎮' : ' 🌍'), { act: 'x', op: o.id, mega: 1 }, o.danger ? 'red' : '', o.danger); });
+        html += '</div></div>';
+      });
+      html += '<div style="color:var(--mut);font-size:12px;padding:4px 8px">👤 = picked player · 🎮 = picked match · 🌍 = everyone</div>';
     } else if (admTab === 'log') {
       html += '<div class="admcard"><div class="admhead">📜 Recent activity</div><table class="admp">' + (d.logs || []).map(function (l) { return '<tr><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</td><td>' + esc(l.text) + '</td></tr>'; }).join('') + '</table></div>';
     } else {
@@ -1771,6 +1783,8 @@
   $('admBody').addEventListener('input', function (e) { if (e.target.id === 'admAnn') S.admDraft = e.target.value; if (e.target.id === 'admFind') { S.admFind = e.target.value; } if (e.target.id === 'admAmt') S.admAmt = e.target.value; if (e.target.id === 'admMotd') S.admMotdDraft = e.target.value; });
   $('admBody').addEventListener('change', function (e) { if (e.target.id === 'admFind') renderAdmin(); });
   $('admBody').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && e.target.id === 'admAnn') { var b = $('admBody').querySelector('[data-act="announce"]'); if (b) b.click(); } });
+  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'megaP') S.megaP = e.target.value; if (e.target.id === 'megaR') S.megaR = e.target.value; });
+  $('admBody').addEventListener('input', function (e) { if (e.target.id === 'megaTxt') S.megaTxt = e.target.value; });
   $('admBody').addEventListener('click', function (e) {
     var b = e.target.closest('.ab'); if (!b || b.disabled) return;
     var key = b.dataset.key;
@@ -1780,6 +1794,7 @@
     if (b.dataset.act === 'testmap') { closeModals(); S.lastQueue = { t: 'practice', game: b.dataset.game, mode: b.dataset.game === 'bw' ? 'solo' : b.dataset.game, diff: 'normal', map: b.dataset.id }; send(S.lastQueue); return; }
     if (b.dataset.act === 'saveset') { [].forEach.call($('admBody').querySelectorAll('[data-set]'), function (inp) { if (String(S.adm.settings[inp.dataset.set]) !== inp.value) send({ t: 'adm', a: 'setting', k: inp.dataset.set, v: inp.value }); }); SC.sfx('click'); return; }
     var m = { t: 'adm', a: b.dataset.act };
+    if (b.dataset.mega) { m.op = b.dataset.op; m.pid = +(S.megaP || 0); m.room = +(S.megaR || 0); m.text = S.megaTxt || ''; send(m); SC.sfx('click'); return; }
     ['room', 'id', 'op', 'team', 'winner', 'sec', 'pid', 'on', 'mins', 'k', 'v', 'cid', 'game'].forEach(function (k) { if (b.dataset[k] != null) m[k] = isNaN(+b.dataset[k]) || b.dataset[k] === '' ? b.dataset[k] : +b.dataset[k]; });
     if (b.dataset.amount) { var amt = Math.round(+($('admAmt') && $('admAmt').value) || 0); m.amount = b.dataset.amount === '-amt' ? -amt : amt; }
     if (m.a === 'setting' && m.k === 'motd' && b.dataset.v == null) { m.v = ($('admMotd') && $('admMotd').value) || ''; S.admMotdDraft = null; }
