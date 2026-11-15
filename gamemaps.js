@@ -27,6 +27,8 @@ function load(raw) {
     if (d.logs) store.logs = d.logs.slice(-150);
     if (d.elo) store.elo = d.elo;
     if (d.gstats) store.gstats = d.gstats;
+    if (d.nameBans) store.nameBans = d.nameBans;
+    if (d.renames) store.renames = d.renames;
   } catch (e) {}
   applySettings();
 }

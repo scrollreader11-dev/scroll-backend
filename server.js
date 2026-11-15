@@ -1843,6 +1843,7 @@ const httpServer = createServer(async (req, res) => {
     if (nick.length < 2) return sendJson(res, 400, { error: 'Pick a nickname with at least 2 letters.' });
     if (nick.toLowerCase().replace(/[^a-z0-9]/g, '') === 'scrollreader11') return sendJson(res, 400, { error: 'That name is taken — pick another.' });
     const clean = cleanNick(nick); if (clean !== nick) return sendJson(res, 400, { error: 'Pick a different nickname.' });
+    if (globalThis.SH_NAME_BANNED && globalThis.SH_NAME_BANNED(nick)) return sendJson(res, 400, { error: 'That name isn’t allowed — pick another.' });
     const ck = parseCookies(req);
     const cid = /^g-[a-z0-9]{10,}$/.test(ck.sh_cid || '') ? ck.sh_cid : 'g-' + randomBytes(8).toString('hex');
     const secure = String(req.headers['x-forwarded-proto'] || '').startsWith('https') ? ';Secure' : '';

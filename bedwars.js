@@ -24,7 +24,8 @@ const RES = BW.RES;
 
 const conns = new Set();
 // Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
-const OWNERS = new Set(['scrollreader11']); // only Scrollreader11 gets the owner panel
+const OWNERS = new Set(['scrollreader11']);
+globalThis.SH_NAME_BANNED = (n) => (GMS.store.nameBans || []).includes(String(n || '').toLowerCase()); // only Scrollreader11 gets the owner panel
 let LOCKED = false; // owners can pause new matches
 // ---- proximity voice: mic audio (12 kHz mu-law frames) goes through the server, which only
 // forwards it to players standing near the speaker. Works on any network (no peer-to-peer).
@@ -114,7 +115,7 @@ function tickSpace(sp, now) {
     if (t >= 0 && mb && mb.team !== t && r.members.filter((m) => m.team === t).length < per(r)) { mb.team = t; sp.events.push(['pt', c.pid, t]); pushRoom(r); }
   }
   const p = [];
-  for (const c of sp.conns) p.push([c.pid, Math.round(c.sx), Math.round(c.sy), q2(c.sang), (c.smv ? 2 : 0) | (c.smv === 2 ? 1024 : 0), c.sheld | 0, 20]);
+  for (const c of sp.conns) if (!c.spectator) p.push([c.pid, Math.round(c.sx), Math.round(c.sy), q2(c.sang), (c.smv ? 2 : 0) | (c.smv === 2 ? 1024 : 0), c.sheld | 0, 20]);
   const msg = { t: 's', n: now, p };
   if (sp.events.length) { msg.e = sp.events; sp.events = []; }
   const str = JSON.stringify(msg);
@@ -467,7 +468,10 @@ function classInfo() {
   if (CLASS.cq) { const c = CLASS.cq; const ans = [...c.answers.values()]; cq = { id: c.id, q: c.q, a: c.a, open: Date.now() < c.until, left: Math.max(0, Math.ceil((c.until - Date.now()) / 1000)), sent: c.sent, answered: ans.length, right: ans.filter((x) => x.ok).length, wrongNames: ans.filter((x) => !x.ok).map((x) => x.nick).slice(0, 30), counts: c.counts, choices: c.choices }; }
   let vote = null;
   if (CLASS.vote) { const v = CLASS.vote; vote = { left: Math.max(0, Math.ceil((v.endAt - Date.now()) / 1000)), counts: voteCounts(), voters: v.votes.size }; }
-  return { since: CLASS.since, kids, miss, set: set.items.map((it, i) => ({ i, q: it.q.slice(0, 90) })), setName: set.name, cq, vote, until: sc && sc.until || 0 };
+  const online = [...conns].filter((x) => !x.spectator && !x.owner).map((x) => ({ pid: x.pid, nick: x.nick, where: x.room ? (x.room.state === 'play' ? '🎮 ' + (x.room.game === 'bw' ? 'Bedwars' : MG.GAMES[x.room.game].name) : '⏳ waiting') : x.watch ? '👀 watching' : '🏠 hub' })).sort((a, b) => a.nick.localeCompare(b.nick));
+  const live = [...rooms.values()].filter((r) => r.state === 'play' && r.ents).map((r) => ({ id: r.id, game: r.game, n: [...r.ents.values()].filter((e) => e.conn).length, mins: Math.floor((Date.now() - r.goAt) / 60000) }));
+  const bannedNames = (GMS.store.nameBans || []).slice(-30);
+  return { online, live, bannedNames, since: CLASS.since, kids, miss, set: set.items.map((it, i) => ({ i, q: it.q.slice(0, 90) })), setName: set.name, cq, vote, until: sc && sc.until || 0 };
 }
 function sendClassQuestion(by, qi) {
   const sc = schoolCfg(), key = (sc && sc.set) || 'blooket', set = QSETS[key] || QSETS.blooket;
@@ -476,7 +480,7 @@ function sendClassQuestion(by, qi) {
   const q = nextQuestion(st, key);
   const id = Date.now();
   CLASS.cq = { id, i, q: q.q, a: set.items[i].a, choices: q.choices, ans: st.cur.ans, until: Date.now() + 45000, answers: new Map(), counts: [0, 0, 0, 0], sent: 0, set: key };
-  for (const c of conns) { if (c.owner && c !== by && false) continue; send(c, { t: 'cq', id, q: q.q, choices: q.choices, secs: 45, from: by.nick }); CLASS.cq.sent++; }
+  for (const c of conns) { if (c.spectator) continue; send(c, { t: 'cq', id, q: q.q, choices: q.choices, secs: 45, from: by.nick }); CLASS.cq.sent++; }
   GMS.log('📣 ' + by.nick + ' sent a class question');
 }
 function classAnswer(c, m) {
@@ -491,7 +495,7 @@ function classAnswer(c, m) {
 // ---- class game vote (owner starts it; everyone not mid-match votes; winner launches a room with everyone in it)
 const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'];
 function voteCounts() { const n = {}; VOTE_GAMES.forEach((g) => { n[g] = 0; }); if (CLASS.vote) for (const g of CLASS.vote.votes.values()) n[g]++; return n; }
-function voteTargets() { return [...conns].filter((c) => !(c.room && c.room.state === 'play')); }
+function voteTargets() { return [...conns].filter((c) => !c.spectator && !(c.room && c.room.state === 'play')); }
 function voteVoters() { const out = {}; if (!CLASS.vote) return out; for (const c of conns) { const g = c.cid && CLASS.vote.votes.get(c.cid); if (!g) continue; (out[g] || (out[g] = [])).length < 12 && out[g].push({ n: c.nick, l: c.look }); } return out; }
 function voteBroadcast() { if (!CLASS.vote) return; const msg = { t: 'vote', endAt: CLASS.vote.endAt, left: Math.max(0, CLASS.vote.endAt - Date.now()), total: Math.max(1, CLASS.vote.total || 0), counts: voteCounts(), voters: voteVoters(), games: CLASS.vote.games }; for (const c of voteTargets()) send(c, msg); }
 function startVote(by, secs, games) {
@@ -1246,13 +1250,16 @@ export function handleBedwarsUpgrade(req, socket, head) {
     c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
     c.mapper = !!(req._auth && String(req._auth.username || '').toLowerCase() === GMS.MAPPER);
     try { const tk = globalThis.SH_TEACHER_KEY && globalThis.SH_TEACHER_KEY(); const ck = /(?:^|;\s*)sh_teacher=([^;]+)/.exec(req.headers.cookie || ''); c.teacher = !!(tk && ck && decodeURIComponent(ck[1]) === tk); } catch (e) { c.teacher = false; }
+    c.spectator = !!(c.teacher && !c.owner); // the teacher watches; she isn't a player
+    if (GMS.store.renames && GMS.store.renames[cid]) c.nick = GMS.store.renames[cid];
     let isBuilder = false; try { isBuilder = new URL(req.url, 'http://x').searchParams.get('builder') === '1'; } catch (e) {}
     if (isBuilder) { // the map builder page: its own little channel, never a player
       send(c, { t: 'hello', builder: true, mapper: c.mapper, nick: c.nick });
       ws.on('message', (buf, bin) => { if (bin) return; let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; } if (!m) return; if (m.t === 'ping') return send(c, { t: 'pong', c: m.c, n: Date.now() }); if (m.t === 'mb') { try { mbMsg(c, m); } catch (err) { send(c, { t: 'mbs', ok: false, msg: 'Error: ' + (err && err.message) }); } } });
       return;
     }
-    const banned = GMS.banInfo(cid);
+    const nameBan = !c.owner && !c.teacher && (GMS.store.nameBans || []).includes(c.nick.toLowerCase());
+    const banned = GMS.banInfo(cid) || (nameBan ? { until: 0 } : null);
     if (banned && !c.owner) { try { ws.send(JSON.stringify({ t: 'err', code: 'kicked', msg: 'You’re banned from Games' + (banned.until ? ' until ' + new Date(banned.until).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '') + '.' })); ws.close(4001); } catch (e) {} return; }
     // One session per account: the newest tab wins and takes over the old one's seat.
     for (const o of [...conns]) if (o.cid === cid) {
@@ -1295,7 +1302,7 @@ function onMsg(c, m, now) {
     return;
   }
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
-  if (t === 'adm' && !c.owner && c.teacher) { const TA = ['info', 'class', 'classreset', 'cq', 'cqclose', 'vote', 'schooltimer', 'school']; if (TA.includes(String(m.a))) { try { if (m.a === 'info') send(c, { t: 'adminfo', teacher: true, school: schoolCfg(), rooms: [], conns: [], bans: [], logs: [], maps: [], rot: {}, mega: [], settings: {}, now: Date.now() }); else adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
+  if (t === 'adm' && !c.owner && c.teacher) { const TA = ['info', 'class', 'classreset', 'cq', 'cqclose', 'vote', 'schooltimer', 'school', 'skick', 'sban', 'srename', 'swatch', 'sunban']; if (TA.includes(String(m.a))) { try { if (m.a === 'info') send(c, { t: 'adminfo', teacher: true, school: schoolCfg(), rooms: [], conns: [], bans: [], logs: [], maps: [], rot: {}, mega: [], settings: {}, now: Date.now() }); else adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
   if (t === 'cqa') { classAnswer(c, m); return; }
@@ -1305,6 +1312,7 @@ function onMsg(c, m, now) {
   if (c.watch) return;
   // ---- menus
   const game = MG.isMini(m.game) ? m.game : 'bw';
+  if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && c.spectator) return send(c, { t: 'err', msg: '👀 You’re watching as the teacher — use Teacher Tools to spectate a match.' });
   if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: '🔒 Games are locked in School Mode — your teacher starts the next game with a vote.' });
   if (t === 'quick') {
     const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
@@ -1521,6 +1529,29 @@ function adminMsg(c, m, now) {
   if (a === 'info') return send(c, adminInfo(c));
   if (a === 'x') { const res = megaRun(c, m); return send(c, { t: 'admres', ok: res.ok, msg: res.msg }); }
   if (a === 'class') { return send(c, { t: 'cls', d: classInfo() }); }
+  if (a === 'skick' || a === 'sban' || a === 'srename' || a === 'swatch' || a === 'sunban') {
+    if (a === 'sunban') { const n = String(m.name || '').toLowerCase(); GMS.store.nameBans = (GMS.store.nameBans || []).filter((x) => x !== n); for (const [cid, b] of Object.entries(GMS.store.bans)) if ((b.nick || '').toLowerCase() === n) GMS.unban(cid); GMS.save(); return ok('Unbanned ' + (m.name || '')); }
+    if (a === 'swatch') { const r = rooms.get(Number(m.room)); if (!r || r.state !== 'play') return no('That match isn’t running.'); startWatch(c, r); return ok('👀 Watching match #' + r.id); }
+    const x = [...conns].find((y) => y.pid === Number(m.pid)); if (!x) return no('Student not found.');
+    if (x.owner || x.teacher) return no('You can’t do that to them.');
+    if (a === 'skick') { send(x, { t: 'err', code: 'kicked', msg: 'Your teacher removed you from the game.' }); setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150); GMS.log('🚪 ' + c.nick + ' kicked ' + x.nick); return ok('Kicked ' + x.nick); }
+    if (a === 'sban') {
+      const n = x.nick.toLowerCase(); GMS.store.nameBans = [...new Set([...(GMS.store.nameBans || []), n])];
+      GMS.ban(x.cid, x.nick, 0, c.nick); GMS.save();
+      send(x, { t: 'err', code: 'kicked', msg: 'That name is banned by your teacher.' }); setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
+      GMS.log('⛔ ' + c.nick + ' banned the name ' + x.nick); return ok('Banned “' + x.nick + '”');
+    }
+    if (a === 'srename') {
+      let nn = String(m.nick || '').replace(/[^\w .-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+      if (nn.length < 2) return no('Type a new name (2+ letters).');
+      const old = x.nick; x.nick = nn; if (x.ent) x.ent.nick = nn;
+      (GMS.store.renames || (GMS.store.renames = {}))[x.cid] = nn; GMS.save();
+      if (CLASS.kids.has(x.cid)) CLASS.kids.get(x.cid).nick = nn;
+      send(x, { t: 'toast', msg: '✏️ Your teacher changed your name to ' + nn });
+      if (x.space && !x.room) goHub(x);
+      GMS.log('✏️ ' + c.nick + ' renamed ' + old + ' → ' + nn); return ok('Renamed ' + old + ' → ' + nn);
+    }
+  }
   if (a === 'classreset') { classReset(); return send(c, { t: 'admres', ok: true, msg: 'Class stats reset' }); }
   if (a === 'cq') { sendClassQuestion(c, m.i == null || m.i === '' ? -1 : m.i | 0); return send(c, { t: 'admres', ok: true, msg: 'Question sent to everyone 📣' }); }
   if (a === 'cqclose') { if (CLASS.cq) CLASS.cq.until = Date.now(); for (const x of conns) send(x, { t: 'cqend' }); return send(c, { t: 'admres', ok: true, msg: 'Class question closed' }); }
