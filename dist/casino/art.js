@@ -222,18 +222,33 @@
     var s = o.scale || 1;
     c.save(); c.translate(x, y); c.scale(s, s);
     if (o.alpha != null) c.globalAlpha = o.alpha;
-    var bob = o.moving ? -Math.abs(Math.sin(o.walk || 0)) * 3.5 : Math.sin(t * 2.2) * 0.8;
+    var bob = o.moving ? -Math.abs(Math.sin(o.walk || 0)) * 3.5 : Math.sin(t * 2.2) * 1.1;
     if (S.float) bob = Math.sin(t * 3) * 2.5 - 5;
-    var tilt = 0;
+    var tilt = 0, sqx = 1, sqy = 1, idle = !o.moving && !o.dance && !o.still;
+    var side0 = o.side != null ? Math.max(-1, Math.min(1, o.side)) : null; // smooth facing for diagonals
+    if (o.moving && !o.dance) { // lean into the direction you walk + a little squash on each step
+      var st0 = Math.abs(Math.sin(o.walk || 0)); sqx = 1 + st0 * 0.035; sqy = 1 - st0 * 0.035;
+      tilt = (side0 != null ? side0 : dir === 1 ? -1 : dir === 2 ? 1 : 0) * 0.075;
+    } else if (idle) { // standing still: breathe, sway, and every few seconds do a little hop or stretch
+      tilt = Math.sin(t * 1.15) * 0.028;
+      var ip = (t * 0.16) % 1;
+      if (ip < 0.06) { var hp = ip / 0.06; bob -= Math.sin(hp * Math.PI) * 6; sqy = 1 + Math.sin(hp * Math.PI) * 0.06; sqx = 1 - Math.sin(hp * Math.PI) * 0.04; }
+      else if (ip > 0.5 && ip < 0.56) { var sp2 = (ip - 0.5) / 0.06; sqy = 1 + Math.sin(sp2 * Math.PI) * 0.08; sqx = 1 - Math.sin(sp2 * Math.PI) * 0.05; }
+      else { sqy = 1 + Math.sin(t * 2.2) * 0.012; sqx = 1 - Math.sin(t * 2.2) * 0.01; }
+    }
     if (o.dance) { bob = -Math.abs(Math.sin(t * 7)) * 7; tilt = Math.sin(t * 3.5) * 0.18; }
     if (o.shadow !== false) shadow(c, 0, 0, S.float ? 13 : 17, 5);
     if (tilt) c.rotate(tilt);
+    if (sqx !== 1 || sqy !== 1) c.scale(sqx, sqy);
+    if (side0 != null && (dir === 0 || dir === 3)) c.scale(1 - Math.abs(side0) * 0.07, 1); // a 3/4 turn looks a bit narrower
     var base = baseHex(body);
     var D = S.dims || {};
     var W = D.W || 38, H = D.H || 40;
     var g = { skin: skin, body: body, base: base, t: t, dir: dir, side: dir === 1 ? -1 : dir === 2 ? 1 : 0, W: W, H: H, bx: -W / 2, by: -H - 4 + bob - (D.top || 0), blink: o.blink, moving: o.moving, walk: o.walk || 0 };
     if (skin === 'mushroom') g.by = -H - 4 + bob - 16;
     var bodyTop = skin === 'mushroom' ? g.by + 16 : g.by; // where the drawn body rect starts
+    if (side0 != null && (dir === 0 || dir === 3)) g.side = side0 * 0.85;
+    if (o.blink == null && idle !== null) { var bk = ((t * 0.29) + (t * 0.071 % 1) * 0.0) % 1; g.blink = bk < 0.03; }
     g.ex = g.side * 5;
 
     // --- behind body
@@ -278,6 +293,8 @@
       var ex = g.ex, eyeY = g.by + 15, lx, ly;
       if (o.lookAt) { var dd = Math.hypot(o.lookAt.x, o.lookAt.y) || 1; lx = o.lookAt.x / dd * 2.4; ly = o.lookAt.y / dd * 2; }
       else { lx = g.side * 2.2; ly = dir === 0 ? 1 : 0; }
+      if (idle && !o.lookAt) { var lk = Math.sin(t * 0.45) + Math.sin(t * 0.23) * 0.6; lx += Math.max(-1.6, Math.min(1.6, lk * 1.2)); }
+      else if (idle && o.lookAt) { var lk2 = Math.sin(t * 0.45) + Math.sin(t * 0.23) * 0.6; if (Math.abs(lk2) > 1.1) lx += (lk2 > 0 ? 1 : -1) * 1.4; }
       if (S.eyesUnder) S.eyesUnder(c, g, ex, eyeY);
       if (!(S.face && S.face(c, g, ex, lx, ly))) {
         [-1, 1].forEach(function (k) {
@@ -293,6 +310,15 @@
       if (S.cheeks) { c.fillStyle = 'rgba(255,90,140,.35)'; ell(c, -13 + ex, my - 3, 3.5, 2.2); c.fill(); ell(c, 13 + ex, my - 3, 3.5, 2.2); c.fill(); }
       A.drawAcc(c, look.acc, g.by, ex, dir, t, base);
     } else {
+      if (Math.abs(g.side) > 0.25 && !S.noBackPeek && !S.shape && skin !== 'mushroom') { // 3/4 back view: the edge of the face peeks out on the side you're turning to
+        var sg = g.side > 0 ? 1 : -1, pe = Math.min(1, (Math.abs(g.side) - 0.25) / 0.5);
+        c.save(); rr(c, g.bx, g.by, W, H, D.r != null ? D.r : 15); c.clip();
+        var pcx = sg * (W / 2 - 1 - pe * 3), pcy = g.by + 15;
+        ell(c, pcx, pcy, 5.2, 6.4); fs(c, '#fff', OL, 2);
+        circ(c, pcx + sg * 1.6, pcy + 0.5, 2.8); c.fillStyle = '#16122b'; c.fill();
+        c.fillStyle = 'rgba(255,90,140,.3)'; ell(c, pcx - sg * 2, pcy + 10, 3, 1.8); c.fill();
+        c.restore();
+      }
       if (look.acc === 'cape') { c.beginPath(); c.moveTo(-17, g.by + 12); c.lineTo(17, g.by + 12); c.lineTo(22, -3 + bob * 0.3); c.lineTo(-22, -3 + bob * 0.3); c.closePath(); fs(c, '#c1121f', OL, 3); c.fillStyle = 'rgba(0,0,0,.15)'; c.fillRect(-2, g.by + 14, 4, 20); }
       if (look.acc === 'scarf' || look.acc === 'chain' || look.acc === 'medal') A.drawAcc(c, look.acc, g.by, 0, 3, t, base);
     }

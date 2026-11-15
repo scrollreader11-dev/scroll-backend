@@ -1370,7 +1370,7 @@ function onMsg(c, m, now) {
     return joinWithParty(c, room);
   }
   if (t === 'leave' || t === 'hub') { if (c.room) leaveRoom(c); else goHub(c); return; }
-  if (t === 'look') { c.look = worldLook(c.cid); return; }
+  if (t === 'look') { c.look = worldLook(c.cid); if (c.space && !c.spectator) c.space.events.push(['pj', c.pid, c.nick, c.look, Math.round(c.sx), Math.round(c.sy), spaceTeam(c)]); send(c, { t: 'mylook', look: c.look }); return; }
   if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || t === 'lb2' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
   if (!r) return;
   if (r.state === 'lobby') {

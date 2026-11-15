@@ -475,6 +475,10 @@ export const STORE = [
   { id: 'emo_dice', type: 'emote', label: 'Roll the Dice', value: '🎲', price: 6000, rarity: 'epic' },
 ];
 function storeItem(id) { return STORE.find((s) => s.id === id) || null; }
+// School Mode: every paid cosmetic costs 100 Scrolls; prices go back to normal when it's off
+function schoolOn() { try { return !!(globalThis.SH_SCHOOL && globalThis.SH_SCHOOL()); } catch (e) { return false; } }
+export function priceOf(it) { return it && it.price > 0 && schoolOn() ? 100 : it ? it.price : 0; }
+function storeList() { const sc = schoolOn(); return sc ? STORE.map((it) => (it.price > 0 ? { ...it, was: it.price, price: 100 } : it)) : STORE; }
 // Character look (2D casino world). Slots hold item ids.
 const LOOK_SLOTS = ['skin', 'body', 'hat', 'acc', 'trail'];
 const LOOK_DEFAULT = { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' };
@@ -659,7 +663,7 @@ export async function handleCasino(url, req, res) {
   try { checkTournamentRollover(); } catch (e) {} // pay out last week if the week just rolled over
   ensureWeek(p);
 
-  if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: STORE, cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
+  if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(), school: schoolOn(), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
 
   if (path === '/api/casino/daily' && req.method === 'POST') {
     const now = Date.now();
@@ -784,8 +788,9 @@ export async function handleCasino(url, req, res) {
     const body = await readBody(req); const it = storeItem(String(body.itemId || ''));
     if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
     if (p.inventory.includes(it.id) || it.price === 0) return (sendJson(res, 200, { error: 'owned', profile: publicProfile(cid) }), true);
-    if (it.price > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
-    p.coins -= it.price; p.inventory.push(it.id); save(); flush();
+    const cost = priceOf(it);
+    if (cost > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
+    p.coins -= cost; p.inventory.push(it.id); save(); flush();
     sendJson(res, 200, { ok: true, profile: publicProfile(cid) }); return true;
   }
   if (path === '/api/casino/equip' && req.method === 'POST') {

@@ -101,6 +101,7 @@
     if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
     if (t === 'vote') { onVote(m); return; }
     if (t === 'school') { S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
+    if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
@@ -243,7 +244,7 @@
   seg('pMode', function (v) { pMode = v; }); seg('pDiff', function (v) { pDiff = v; });
   seg('cMode', function (v) { cMode = v; }); seg('cDiff', function (v) { cDiff = v; });
   seg('hMode', function (v) { send({ t: 'cfg', mode: v }); }); seg('hDiff', function (v) { send({ t: 'cfg', diff: v }); });
-  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp', 'mGame', 'mSoc'];
+  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp', 'mGame', 'mSoc', 'mShop2'];
   function anyModal() { return MODALS.some(function (k) { return !$(k).classList.contains('hidden'); }) || !$('shop').classList.contains('hidden'); }
   function openModal(id) { closeModals(); $(id).classList.remove('hidden'); SC.sfx('open'); mouse.l = mouse.r = false; keys = {}; }
   function closeModals() { MODALS.forEach(function (k) { $(k).classList.add('hidden'); }); }
@@ -451,7 +452,7 @@
   $('gmPractice').onclick = function () { closeModals(); openPractice(S.gmGame); };
   $('gmPrivate').onclick = function () { closeModals(); openPrivate(S.gmGame); };
   $('gmHow').onclick = function () { closeModals(); openHelp(S.gmGame); };
-  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
+  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
     if (o.act === 'casino' && S.school) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
@@ -462,6 +463,7 @@
     else if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
     else if (o.act === 'practice') openPractice(g);
     else if (o.act === 'private') openPrivate(g);
+    else if (o.act === 'skinshop') openSkinShop();
     else if (o.act === 'how') openHelp(g);
     else if (o.act === 'lb') { renderLb(); openModal('mLb'); }
     else if (o.act === 'casino') { toast('Heading to the casino…', 1500); D.burst('magic', P.x, P.y - 20, 20, '#ffd166'); setTimeout(function () { location.href = '/casino'; }, 350); }
@@ -1305,7 +1307,8 @@
     if (falling >= 0) { if (e.fallX != null && e.id !== S.myId) { x = e.fallX; y = e.fallY; } else if (e.id === S.myId && P.fallX != null) { x = P.fallX; y = P.fallY; } sc = Math.max(0.05, 1 - falling * 0.95); rot = falling * 5; alpha = 1 - falling * 0.6; y += falling * 40; if (Math.random() < 0.4) D.burst('magic', x, y - 10, 1, '#3b2a8a'); }
     else if (dead) return;
     var ang = e.ang || 0, ca = Math.cos(ang), sa = Math.sin(ang);
-    var dir = Math.abs(ca) > Math.abs(sa) * 0.9 ? (ca > 0 ? 2 : 1) : (sa > 0 ? 0 : 3);
+    // 8-way facing: side profile only when mostly sideways; diagonals show a 3/4 turn of the front or back
+    var dir = sa < -0.5 ? 3 : Math.abs(ca) > 0.86 ? (ca > 0 ? 2 : 1) : 0;
     var team = e.team, f = e.flags || 0, inGame = S.screen === 'game' || S.screen === 'end';
     var hu = (tn - (e.hopT || -9e9)) / HOP_MS, hz = hu >= 0 && hu < 1 ? Math.sin(hu * Math.PI) * 17 : 0;
     var bu = (tn - (e.bumpT || -9e9)) / 230; if (bu >= 0 && bu < 1) hz += Math.sin(bu * Math.PI) * 7;
@@ -1320,7 +1323,7 @@
     var behind = sa < -0.35;
     var ee = { team: team, ang: ang, held: e.held, sword: e.sword, pick: e.pick, armor: e.armor, swingT: e.swingT, swingDir: e.swingDir, mining: e.mining, bowing: e.bowing, bowT: e.bowT, dead: false };
     if (behind) D.held(c, ee, 0, 0, t);
-    var o = { t: t + e.id, dir: dir, moving: e.moving, walk: e.walk, lookAt: { x: ca, y: sa }, scale: 1 };
+    var o = { t: t + e.id, dir: dir, side: dir === 0 || dir === 3 ? ca : null, moving: e.moving, walk: e.walk, lookAt: { x: ca, y: sa }, scale: 1 };
     var fl = Math.max(0, 1 - (tn - (e.flashT || -1e9)) / 160);
     o.shadow = hz < 1;
     if (fl > 0) D.gimFlash(c, 0, 0, e.look, o, 0.7 * fl, '255,40,40'); else A.drawGim(c, 0, 0, e.look, o);
@@ -1788,6 +1791,54 @@
   $('qClose').onclick = function () { closeQuiz(); };
   $('qOpen').onclick = function () { openQuiz(); };
 
+
+  // ------------------------------------------------------------------ Skin shop (in the games hub)
+  var SH = { tab: 'skin', data: null, busy: false };
+  var SH_TABS = [['skin', '🐾 Skins'], ['body', '🎨 Colors'], ['hat', '🎩 Hats'], ['acc', '✨ Accessories'], ['trail', '🌈 Trails']];
+  var RAR = { common: '#9aa3b5', rare: '#3fa9ff', epic: '#b185ff', legendary: '#ffc93c', mythic: '#ff6ec7' };
+  function shopFetch(cb) { fetch('/api/casino/me', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) { if (d && d.profile) { SH.data = d; if (cb) cb(); } else $('shGrid').innerHTML = '<div class="sempty">' + esc((d && d.message) || 'Couldn’t load the shop.') + '</div>'; }).catch(function () { $('shGrid').innerHTML = '<div class="sempty">Couldn’t load the shop.</div>'; }); }
+  function openSkinShop() { openModal('mShop2'); $('shGrid').innerHTML = '<div class="sempty">Opening the shop…</div>'; shopFetch(renderShop); SH.on = true; requestAnimationFrame(shopDraw); }
+  function shopPost(path, body, cb) { fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(cb).catch(function () { toast('Couldn’t reach the shop', 1800); SH.busy = false; }); }
+  function renderShop() {
+    var d = SH.data; if (!d) return;
+    var pr = d.profile, inv = pr.inventory || [], look = pr.look || {};
+    $('shCoins').textContent = '📜 ' + (pr.coins || 0).toLocaleString();
+    $('shSchool').classList.toggle('hidden', !d.school);
+    $('shTabs').innerHTML = SH_TABS.map(function (tb) { return '<button data-sht="' + tb[0] + '"' + (SH.tab === tb[0] ? ' class="on"' : '') + '>' + tb[1] + '</button>'; }).join('');
+    var items = d.store.filter(function (it) { return it.type === SH.tab; });
+    items.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
+    $('shGrid').innerHTML = items.map(function (it) {
+      var owned = it.price === 0 || inv.indexOf(it.id) >= 0, on = look[it.type] === it.id || (!look[it.type] && it.price === 0 && /gim$|sky$/.test(it.id));
+      var btn = on ? '<button class="shb on" disabled>✓ Wearing</button>' : owned ? '<button class="shb eq" data-eq="' + it.id + '">Wear</button>' : '<button class="shb buy" data-buy="' + it.id + '"' + (pr.coins < it.price ? ' disabled' : '') + '>' + (it.was ? '<s>' + it.was.toLocaleString() + '</s> ' : '') + '📜 ' + it.price.toLocaleString() + '</button>';
+      return '<div class="shc' + (on ? ' wearing' : '') + '" style="--r:' + (RAR[it.rarity] || '#9aa3b5') + '"><canvas width="220" height="200" data-it="' + it.id + '"></canvas><div class="shn">' + esc(it.label.replace(' (animated)', '')) + (/animated/.test(it.label) ? ' <span class="sha">✨</span>' : '') + '</div><div class="shr">' + esc(it.rarity || 'common') + '</div>' + btn + '</div>';
+    }).join('') || '<div class="sempty">Nothing here yet.</div>';
+  }
+  function shopLook(it) { var d = SH.data, lv = (d && d.profile.lookValues) || (S.hello && S.hello.look) || {}; var lk = { skin: lv.skin || 'gim', body: lv.body || '#3fa9ff', hat: lv.hat || '', acc: lv.acc || '', trail: '' }; if (it) lk[it.type] = it.value; if (it && it.type !== 'trail') lk.trail = ''; return lk; }
+  function shopDraw(ts) {
+    if (!SH.on || $('mShop2').classList.contains('hidden')) { SH.on = false; return; }
+    var t = ts / 1000, d = SH.data;
+    if (d) [].forEach.call(document.querySelectorAll('#shGrid canvas'), function (cv) {
+      var it = d.store.find(function (x) { return x.id === cv.dataset.it; }); if (!it) return;
+      var c2 = cv.getContext('2d'); c2.setTransform(1, 0, 0, 1, 0, 0); c2.clearRect(0, 0, cv.width, cv.height);
+      var gl = c2.createRadialGradient(110, 120, 10, 110, 120, 110); gl.addColorStop(0, 'rgba(255,255,255,.14)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); c2.fillStyle = gl; c2.fillRect(0, 0, 220, 200);
+      if (it.type === 'trail') { cv._p = cv._p || []; if (Math.random() < 0.55) A.spawnTrail(cv._p, it.value, 110 + Math.sin(t * 2) * 40, 172, t); A.drawParticles(c2, cv._p, 1 / 60); }
+      c2.save(); c2.translate(110 + (it.type === 'trail' ? Math.sin(t * 2) * 40 : 0), 176); c2.scale(2.1, 2.1);
+      try { A.drawGim(c2, 0, 0, shopLook(it), { t: t + it.id.length, dir: 0, moving: it.type === 'trail', walk: t * 9 }); } catch (e) {}
+      c2.restore();
+    });
+    requestAnimationFrame(shopDraw);
+  }
+  $('shTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-sht]'); if (!b) return; SH.tab = b.dataset.sht; renderShop(); SC.sfx('click'); });
+  $('shGrid').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || SH.busy) return;
+    var id = b.dataset.buy || b.dataset.eq; if (!id) return;
+    SH.busy = true;
+    var wear = function () { shopPost('/api/casino/equip', { itemId: id }, function (r) { SH.busy = false; if (r && r.profile) { SH.data.profile = r.profile; renderShop(); send({ t: 'look' }); SC.sfx('pop'); } }); };
+    if (b.dataset.buy) shopPost('/api/casino/buy', { itemId: id }, function (r) {
+      if (r && r.ok) { SH.data.profile = r.profile; SC.sfx('bigwin'); toast('🛍️ Bought! Putting it on…', 1500); wear(); }
+      else { SH.busy = false; toast(r && r.error === 'broke' ? '📜 Not enough Scrolls yet — win games to earn more!' : 'Couldn’t buy that.', 2200); if (r && r.profile) { SH.data.profile = r.profile; renderShop(); } }
+    }); else wear();
+  });
   // ---- class question from the teacher (pops up for everyone, any screen)
   function openCq(m) {
     S.qMode = 'cq'; S.quizOpen = true; keys = {}; mouse.l = mouse.r = false;
