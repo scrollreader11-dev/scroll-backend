@@ -203,57 +203,68 @@
     return o;
   }
   B.HUB_SPAWN = { x: 36 * T + T / 2, y: 43 * T + T / 2 };
+  // One big Minecraft-style hub continent: every game portal in one plaza row
+  // (signs BEHIND the portals), leaderboard corner, casino gate, park.
   B.genHub = function () {
     var m = blankMap();
-    // spawn plaza + fountain
-    disc(m, 36, 40, 7, G.MID);
-    obj(m, { kind: 'fountain', tx: 36, ty: 40, dy: 20 }, [[35, 39], [36, 39], [35, 40], [36, 40]]);
-    [[31, 36], [41, 36], [31, 44], [41, 44]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
-    obj(m, { kind: 'sign', tx: 33, ty: 45, text: 'WELCOME!', lines: ['Bedwars: north', 'More games: south', 'Click NPCs to play'] , dy: 10 }, [[33, 45]]);
-    // Bedwars island (north)
-    fill(m, 27, 18, 45, 29, G.GRASS, true);
-    fill(m, 35, 30, 37, 33, G.PATH);
-    var modes = [['solo', 'SOLO', '4 teams of 1', { skin: 'knight', body: '#ff6b6b' }], ['duos', 'DUOS', '4 teams of 2', { skin: 'fox', body: '#ff922b', hat: 'viking' }], ['squads', 'SQUADS', '4 teams of 4', { skin: 'dino', body: '#3fd27a', hat: 'crown' }], ['practice', 'PRACTICE', 'vs bots', { skin: 'robot', body: 'm:chrome', hat: 'phones' }]];
-    modes.forEach(function (q, k) { obj(m, { kind: 'npc', tx: 30 + k * 4, ty: 22, act: q[0] === 'practice' ? 'practice' : 'quick', mode: q[0], label: q[1], sub: q[2], look: q[3], game: 'bedwars' }); });
-    obj(m, { kind: 'npc', tx: 31, ty: 26, act: 'private', label: 'PRIVATE ROOM', sub: 'play with friends', look: { skin: 'panda', body: '#eef2ff', hat: 'top' }, game: 'bedwars' });
-    obj(m, { kind: 'bedDeco', tx: 36, ty: 26 }, [[36, 25], [36, 26]]);
-    obj(m, { kind: 'npc', tx: 41, ty: 26, act: 'how', game: 'bw', mode: 'bw', label: 'HOW TO PLAY', sub: 'tutorial', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
-    obj(m, { kind: 'banner', tx: 36, ty: 19, text: 'BEDWARS', dy: 0 }, [[34, 19], [35, 19], [36, 19], [37, 19], [38, 19]]);
-    [[28, 19], [44, 19]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k }); });
-    [[28, 28], [44, 28]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k + 2 }); });
-    // Casino island (east)
-    fill(m, 51, 35, 59, 45, G.STONE, true);
-    fill(m, 44, 39, 50, 41, G.PATH);
-    obj(m, { kind: 'portal', tx: 55, ty: 39, act: 'casino', label: 'SCROLLS CASINO', dy: 18 }, [[54, 39], [55, 39], [56, 39]]);
-    [[52, 43], [58, 43]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
-    // Leaderboard island (west)
-    fill(m, 12, 35, 22, 45, G.STONE, true);
-    fill(m, 23, 39, 28, 41, G.PATH);
-    obj(m, { kind: 'board', tx: 17, ty: 37, act: 'lb', dy: 20 }, [[15, 37], [16, 37], [17, 37], [18, 37], [19, 37]]);
-    [[13, 43], [21, 43]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
-    // Game islands (south): Capture the Flag, TNT Spleef, Prop Hunt
-    fill(m, 35, 47, 37, 51, G.PATH);
-    fill(m, 13, 52, 59, 53, G.PATH);
-    var games = [
-      { g: 'ctf', x0: 8, x1: 24, ground: G.GRASS, title: 'CAPTURE THE FLAG', looks: [{ skin: 'knight', body: '#3fa9ff', hat: 'viking' }, { skin: 'fox', body: '#ff4b5c' }, { skin: 'bear', body: '#3fa9ff', hat: 'cap' }, { skin: 'duck', body: '#ffd166', hat: 'wizard' }] },
-      { g: 'spleef', x0: 28, x1: 44, ground: G.SNOW, title: 'TNT SPLEEF', looks: [{ skin: 'penguin', body: '#eef2ff', hat: 'beanie' }, { skin: 'bunny', body: '#7dd3fc' }, { skin: 'robot', body: '#9b6bff', hat: 'phones' }, { skin: 'astro', body: '#eef2ff', hat: 'top' }] },
-      { g: 'hide', x0: 48, x1: 64, ground: G.GRASS, title: 'PROP HUNT', looks: [{ skin: 'cat', body: '#ff922b', hat: 'party' }, { skin: 'ninja', body: '#4a4f6a' }, { skin: 'frog', body: '#3fd27a', hat: 'cowboy' }, { skin: 'skeleton', body: '#eef2ff', hat: 'pirate' }] },
+    var G2 = B.G;
+    // elliptical continent
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var nx = (x - 36) / 32.5, ny = (y - 37) / 29.5;
+      if (nx * nx + ny * ny <= 1) m.g[y * W + x] = G2.GRASS;
+    }
+    // roads
+    fill(m, 35, 19, 37, 52, G2.PATH);
+    fill(m, 8, 30, 64, 31, G2.PATH);
+    fill(m, 13, 40, 59, 41, G2.PATH);
+    // spawn plaza
+    disc(m, 36, 40, 9, G2.COBBLE);
+    disc(m, 36, 40, 7, G2.MID);
+    obj(m, { kind: 'fountain', tx: 36, ty: 39, dy: 20 }, [[35, 38], [36, 38], [35, 39], [36, 39]]);
+    [[30, 35], [42, 35], [30, 45], [42, 45]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    [[32, 34], [40, 34]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k }); });
+    [[32, 46], [40, 46]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k + 2 }); });
+    obj(m, { kind: 'sign', tx: 33, ty: 44, text: 'WELCOME!', lines: ['All games: north ⬆', 'Leaderboards: west', 'Casino: east'], dy: 10 }, [[33, 44]]);
+    obj(m, { kind: 'npc', tx: 39, ty: 44, act: 'how', game: 'bw', mode: 'bw', label: 'GAME GUIDE', sub: 'how to play everything', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
+    // ---- the GAMES row: 7 portals, banner signs BEHIND each one
+    var ports = [
+      { g: 'ctf', tx: 14, ty: 18 }, { g: 'bw', tx: 36, ty: 17 }, { g: 'duel', tx: 58, ty: 18 },
+      { g: 'spleef', tx: 10, ty: 28 }, { g: 'hide', tx: 25, ty: 27 }, { g: 'murder', tx: 47, ty: 27 }, { g: 'build', tx: 62, ty: 28 },
     ];
-    games.forEach(function (q) {
-      var cx = (q.x0 + q.x1) >> 1;
-      fill(m, cx - 1, 54, cx + 1, 55, G.PATH);
-      fill(m, q.x0, 56, q.x1, 67, q.ground, true);
-      fill(m, q.x0 + 1, 55, q.x1 - 1, 68, q.ground, true);
-      obj(m, { kind: 'banner', tx: cx, ty: 57, text: q.title, game: q.g }, [[cx - 2, 57], [cx - 1, 57], [cx, 57], [cx + 1, 57], [cx + 2, 57]]);
-      [['quick', 'PLAY', 'quick match'], ['practice', 'PRACTICE', 'vs bots'], ['private', 'PRIVATE', 'with friends'], ['how', 'HOW TO PLAY', 'tutorial']].forEach(function (n, k) {
-        obj(m, { kind: 'npc', tx: k === 3 ? cx : q.x0 + 4 + k * 4, ty: k === 3 ? 65 : 61, act: n[0], mode: q.g, game: q.g, label: n[1], sub: n[2], look: q.looks[k] });
-      });
-      if (q.g === 'ctf') { obj(m, { kind: 'flag', tx: q.x0 + 1, ty: 59, team: 0 }); obj(m, { kind: 'flag', tx: q.x1 - 1, ty: 59, team: 1 }); obj(m, { kind: 'flag', tx: q.x0 + 1, ty: 66, team: 0 }); obj(m, { kind: 'flag', tx: q.x1 - 1, ty: 66, team: 1 }); }
-      if (q.g === 'spleef') { [[q.x0 + 1, 59], [q.x1 - 1, 59], [q.x0 + 2, 66], [q.x1 - 2, 66], [q.x0 + 6, 66], [q.x1 - 6, 66]].forEach(function (p, k) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: k % 2 ? 'tnt' : 'snowman' }); }); }
-      if (q.g === 'hide') { [[q.x0 + 1, 59, 'barrel'], [q.x1 - 1, 59, 'pumpkin'], [q.x0 + 2, 66, 'crate'], [q.x1 - 2, 66, 'hay'], [q.x0 + 6, 66, 'bush'], [q.x1 - 6, 66, 'pot']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); }); }
+    B.HUB_PORTS = ports;
+    ports.forEach(function (q) {
+      var names = { bw: 'BEDWARS', ctf: 'CAPTURE THE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER MYSTERY', build: 'BUILD BATTLE' };
+      fill(m, q.tx - 3, q.ty - 4, q.tx + 3, q.ty + 2, G2.GRASS);
+      fill(m, q.tx - 2, q.ty + 1, q.tx + 2, q.ty + 1, G2.COBBLE);
+      fill(m, q.tx, q.ty + 2, q.tx, Math.min(31, q.ty + 14), G2.PATH);
+      // the name sign stands BEHIND the portal
+      obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 2, text: names[q.g], game: q.g }, [[q.tx - 2, q.ty - 2], [q.tx - 1, q.ty - 2], [q.tx, q.ty - 2], [q.tx + 1, q.ty - 2], [q.tx + 2, q.ty - 2]]);
+      obj(m, { kind: 'gport', tx: q.tx, ty: q.ty, game: q.g, act: 'gmenu' }, [[q.tx - 1, q.ty], [q.tx, q.ty], [q.tx + 1, q.ty]]);
     });
-    // trees around the grass islands
-    [[28, 20], [44, 20], [28, 27], [44, 27], [9, 63], [23, 63], [49, 63], [63, 63]].forEach(function (p) { if (m.g[p[1] * W + p[0]]) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
+    obj(m, { kind: 'bedDeco', tx: 31, ty: 21 }, [[31, 20], [31, 21]]);
+    [[19, 22], [53, 22], [31, 28], [41, 28]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    // ---- leaderboard plaza (west)
+    disc(m, 13, 41, 6, G2.COBBLE);
+    fill(m, 12, 43, 14, 43, G2.PAD);
+    obj(m, { kind: 'board', tx: 13, ty: 38, act: 'lb', dy: 20 }, [[11, 38], [12, 38], [13, 38], [14, 38], [15, 38]]);
+    obj(m, { kind: 'podium', tx: 13, ty: 44 }, [[12, 44], [13, 44], [14, 44]]);
+    [[8, 38], [18, 38]].forEach(function (p, k) { obj(m, { kind: 'flag', tx: p[0], ty: p[1], team: k ? 1 : 3 }); });
+    [[9, 45], [17, 45]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    // ---- casino gate (east)
+    disc(m, 59, 41, 6, G2.STONE);
+    obj(m, { kind: 'portal', tx: 59, ty: 40, act: 'casino', label: 'SCROLLS CASINO', dy: 18 }, [[58, 40], [59, 40], [60, 40]]);
+    [[55, 45], [63, 45]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    // ---- map builder hut (south-east)
+    fill(m, 52, 52, 58, 56, G2.FLOOR);
+    obj(m, { kind: 'board', tx: 55, ty: 53, act: 'builder', title: '🛠️ MAP BUILDER', lines: ['Make your own maps!', 'Owner: Scrollreader11'], dy: 14 }, [[53, 53], [54, 53], [55, 53], [56, 53], [57, 53]]);
+    // ---- park (south-west): crystal pond + goodies
+    disc(m, 22, 55, 4, G2.MID);
+    disc(m, 22, 55, 2, G2.SNOW);
+    [[27, 52, 'bush'], [17, 52, 'pot'], [27, 58, 'stool'], [17, 58, 'barrel'], [30, 55, 'mailbox']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); });
+    [[42, 52, 'pumpkin'], [45, 54, 'hay'], [42, 56, 'pumpkin'], [46, 51, 'crate'], [48, 56, 'snowman'], [36, 57, 'trash']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); });
+    // trees around the edges
+    [[8, 24], [5, 34], [7, 48], [14, 55], [20, 61], [30, 63], [44, 62], [53, 59], [62, 50], [66, 38], [64, 24], [54, 14], [44, 10], [28, 10], [18, 13], [24, 34], [48, 34], [29, 50], [47, 46]].forEach(function (p) { if (m.g[p[1] * W + p[0]] === G2.GRASS) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
+    [[24, 44], [48, 37]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
     return m;
   };
   // The island you wait on before a match. Private rooms pick teams by standing on a pad.

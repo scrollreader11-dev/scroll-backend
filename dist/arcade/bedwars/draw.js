@@ -612,14 +612,47 @@
     D.tag(c, label || o.label, px, py - 178, { size: 14, color: '#ffd166', bg: '#1a0f3d' });
     if (Math.random() < 0.3) D.spawn({ k: 'spark', x: px + (Math.random() - 0.5) * 80, y: py - 20 - Math.random() * 120, vx: 0, vy: -30, col: '#ffd166', size: 2, life: 0.7, drag: 1 });
   };
+  D.GCOL = { bw: '#ff4b5c', ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b', duel: '#ffd166', murder: '#c1121f', build: '#2bd576' };
+  // A game gateway: a glowing colored arch with the game's icon floating inside.
+  D.gport = function (c, o, t, count) {
+    var px = o.x, py = o.y + 14, col = D.GCOL[o.game] || '#7b5cff';
+    var icon = (window.MG && MG.GAMES[o.game] ? MG.GAMES[o.game].icon : '🎮');
+    c.fillStyle = 'rgba(10,6,30,.3)'; ell(c, px, py + 2, 62, 15); c.fill();
+    ell(c, px, py, 56, 13); fs(c, '#58617a', OL, 3); ell(c, px, py - 3, 50, 10); fs(c, '#6c768e', null);
+    // vortex
+    c.save(); c.beginPath(); c.ellipse(px, py - 62, 38, 56, 0, 0, TAU); c.clip();
+    var vg = c.createRadialGradient(px, py - 62, 4, px, py - 62, 70);
+    vg.addColorStop(0, '#ffffff'); vg.addColorStop(0.25, col); vg.addColorStop(1, '#120c33');
+    c.fillStyle = vg; c.fillRect(px - 40, py - 120, 80, 120);
+    c.translate(px, py - 62);
+    for (var k = 0; k < 4; k++) { c.rotate(t * 1.2 + k * 1.57); c.strokeStyle = 'rgba(255,255,255,' + (0.14 + k * 0.05) + ')'; c.lineWidth = 3; c.beginPath(); for (var a2 = 0; a2 < 5.5; a2 += 0.3) c.lineTo(Math.cos(a2) * a2 * 6, Math.sin(a2) * a2 * 9); c.stroke(); }
+    c.restore();
+    c.strokeStyle = OL; c.lineWidth = 7; ell(c, px, py - 62, 38, 56); c.stroke();
+    c.strokeStyle = col; c.lineWidth = 3.5; ell(c, px, py - 62, 38, 56); c.stroke();
+    for (var b = 0; b < 10; b++) { var ang = b / 10 * TAU + t * 0.8; circ(c, px + Math.cos(ang) * 38, py - 62 + Math.sin(ang) * 56, 2.6); c.fillStyle = (Math.floor(t * 5) + b) % 2 ? '#fff' : col; c.fill(); }
+    c.save(); c.translate(px, py - 62 + Math.sin(t * 2) * 5); c.font = '34px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 8; c.fillText(icon, 0, 0); c.restore();
+    if (count) D.tag(c, count + ' playing', px, py - 132, { size: 11, color: '#fff', bg: '#14874a' });
+    if (Math.random() < 0.25) D.spawn({ k: 'spark', x: px + (Math.random() - 0.5) * 70, y: py - 10 - Math.random() * 100, vx: 0, vy: -26, col: col, size: 2, life: 0.7, drag: 1 });
+  };
+  D.podium = function (c, o, t) {
+    var x = o.x, y = o.y + 14;
+    [[0, -22, 30, '#ffd166', '1'], [-32, -14, 22, '#c5cfe2', '2'], [32, -10, 18, '#c67b4e', '3']].forEach(function (q) {
+      rr(c, x + q[0] - 15, y - q[2], 30, q[2], 4); fs(c, q[3], OL, 3);
+      c.fillStyle = '#1b1636'; c.font = '700 14px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(q[4], x + q[0], y - q[2] / 2);
+    });
+    var gl = (Math.sin(t * 2) + 1) / 2;
+    c.save(); c.globalAlpha = 0.5 + gl * 0.5; c.font = '22px system-ui'; c.textAlign = 'center'; c.fillText('👑', x, y - 56 + Math.sin(t * 2) * 3); c.restore();
+  };
   D.board = function (c, o, t, rows, me) { // the hub leaderboard
     var x = o.x, y = o.y, w = 210, h = 184;
     [-90, 90].forEach(function (dx) { rr(c, x + dx - 5, y - 30, 10, 34, 3); fs(c, '#5a331b', OL, 3); });
     rr(c, x - w / 2, y - h - 20, w, h, 14); fs(c, '#1a1446', OL, 4);
     rr(c, x - w / 2 + 6, y - h - 14, w - 12, 30, 9); c.fillStyle = '#ffd166'; c.fill();
-    c.font = '700 15px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#2a1300'; c.fillText('🏆 TOP BEDWARS PLAYERS', x, y - h + 1);
-    rows = rows || [];
-    if (!rows.length) { c.fillStyle = '#bdb6ee'; c.font = '600 12px Fredoka, sans-serif'; c.fillText('Win a game to get on the board!', x, y - h + 60); }
+    c.font = '700 15px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#2a1300'; c.fillText(o.title || '🏆 LEADERBOARDS', x, y - h + 1);
+    rows = o.lines ? [] : rows || [];
+    if (o.lines) { c.fillStyle = '#e6e2ff'; c.font = '600 13px Fredoka, sans-serif'; o.lines.forEach(function (ln, k) { c.fillText(ln, x, y - h + 52 + k * 22); }); c.fillStyle = '#ffd166'; c.fillText('Click to open', x, y - 36); }
+    else if (!rows.length) { c.fillStyle = '#bdb6ee'; c.font = '600 12px Fredoka, sans-serif'; c.fillText('Win a game to get on the board!', x, y - h + 60); }
     rows.slice(0, 8).forEach(function (r, k) {
       var ry = y - h + 30 + k * 16;
       c.textAlign = 'left'; c.font = '700 12px Fredoka, sans-serif'; c.fillStyle = k === 0 ? '#ffd166' : k === 1 ? '#e6e8f2' : k === 2 ? '#e8a87c' : '#bdb6ee';

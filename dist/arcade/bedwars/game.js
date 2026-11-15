@@ -112,6 +112,7 @@
     if (t === 'radar') { if (m.none) { toast('No hiders left to find', 1400); return; } S.radar = { x: m.x, y: m.y, d: m.d, t: now() }; SC.sfx('level'); toast('📡 ' + (m.d < 6 * T ? 'HOT! A hider is really close' : m.d < 14 * T ? 'Warm — a hider is nearby' : 'Cold — the nearest hider is far away'), 2200); return; }
     if (t === 'mgt') { if (m.endAt) S.endAt = m.endAt; if (m.seekAt) S.seekAt = m.seekAt; if (m.sdAt) S.sdAt = m.sdAt; return; }
     if (t === 'ann2') { toast(esc(m.text), 1600); return; }
+    if (t === 'lb2') { S.lb2[m.game] = m.rows || []; if (m.myElo != null) S.myElo = m.myElo; renderLb(); return; }
     if (t === 'bbv') { S.phase = 'vote'; S.votePlot = m.plot; S.voteUntil = m.until; S.voted = false; banner('JUDGE THIS BUILD', (m.owner === S.nick ? 'This one is YOURS!' : 'Built by ' + esc(m.owner)) + ' · ' + (m.idx + 1) + ' of ' + m.of, '#ffd166'); SC.sfx('go'); bbUISync(); return; }
     if (t === 'bbr') { S.phase = 'podium'; S.votePlot = -1; var w = m.results && m.results[0]; if (w) banner('🏆 ' + esc(w.nick) + ' WINS!', 'Theme: ' + esc(m.theme) + ' · scored ' + w.avg + ' ⭐', '#ffd166'); SC.sfx('final'); bbUISync(); return; }
     if (t === 'vcstate') { if (window.BWV) BWV.range = m.range || BWV.range; if (m.off && BWV.on) toast('🔇 Voice chat is turned off right now', 2400); if (m.muted && BWV.on) toast('🔇 An owner muted your voice', 2400); S.vcOff = !!m.off; S.vcMuted = !!m.muted; voiceSync(); return; }
@@ -211,7 +212,7 @@
   seg('pMode', function (v) { pMode = v; }); seg('pDiff', function (v) { pDiff = v; });
   seg('cMode', function (v) { cMode = v; }); seg('cDiff', function (v) { cDiff = v; });
   seg('hMode', function (v) { send({ t: 'cfg', mode: v }); }); seg('hDiff', function (v) { send({ t: 'cfg', diff: v }); });
-  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp'];
+  var MODALS = ['mPractice', 'mPrivate', 'mLb', 'how', 'mAdmin', 'mHelp', 'mGame'];
   function anyModal() { return MODALS.some(function (k) { return !$(k).classList.contains('hidden'); }) || !$('shop').classList.contains('hidden'); }
   function openModal(id) { closeModals(); $(id).classList.remove('hidden'); SC.sfx('open'); mouse.l = mouse.r = false; keys = {}; }
   function closeModals() { MODALS.forEach(function (k) { $(k).classList.add('hidden'); }); }
@@ -289,11 +290,35 @@
     return hit;
   }
   function objGame(o) { return o.game && o.game !== 'bedwars' ? o.game : 'bw'; }
-  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
+  function openGameMenu(g) {
+    var GM2 = MG.GAMES[g]; S.gmGame = g;
+    $('gmIco').textContent = GM2.icon; $('gmTitle').textContent = GM2.name;
+    $('gmDesc').innerHTML = esc(GM2.desc || 'The classic.') + ' <span class="tag2">' + esc(GM2.tag || (g === 'bw' ? '4 teams' : '')) + '</span>';
+    var o = S.online || {}, inQ = g === 'bw' ? (o.solo || 0) + (o.duos || 0) + (o.squads || 0) : o[g] || 0, inG = o.inGame ? o.inGame[g] || 0 : 0;
+    var extra2 = '';
+    if (g === 'duel') { var rk4 = MG.rankOf(S.myElo); extra2 = ' · your rank: <b style="color:' + rk4.color + '">' + rk4.name + ' ' + S.myElo + '</b>'; }
+    $('gmLive').innerHTML = (inQ ? '🟢 ' + inQ + ' waiting to play' : '') + (inQ && inG ? ' · ' : '') + (inG ? '🎮 ' + inG + ' in matches' : '') + ((inQ || inG) ? '' : '🤖 nobody waiting — bots fill in!') + extra2;
+    $('gmPlay').innerHTML = g === 'bw'
+      ? '<button class="btn green" data-gm="solo">▶ Solo</button><button class="btn green" data-gm="duos">▶ Duos</button><button class="btn green" data-gm="squads">▶ Squads</button>'
+      : '<button class="btn green big" data-gm="' + esc(g) + '">▶ PLAY</button>';
+    openModal('mGame');
+  }
+  $('gmPlay').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-gm]'); if (!b) return;
+    var v = b.dataset.gm, g = S.gmGame;
+    S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? v : g }; send(S.lastQueue);
+    closeModals(); SC.sfx('go'); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[v].name : gname(g)) + '…', 1500);
+  });
+  $('gmPractice').onclick = function () { closeModals(); openPractice(S.gmGame); };
+  $('gmPrivate').onclick = function () { closeModals(); openPrivate(S.gmGame); };
+  $('gmHow').onclick = function () { closeModals(); openHelp(S.gmGame); };
+  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
     var g = objGame(o);
-    if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
+    if (o.act === 'gmenu') { openGameMenu(g); }
+    else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('🔒 Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
+    else if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
     else if (o.act === 'practice') openPractice(g);
     else if (o.act === 'private') openPrivate(g);
     else if (o.act === 'how') openHelp(g);
@@ -318,9 +343,25 @@
     return null;
   }
   function walkToObj(o) { var path = findPathNear(o); if (!path) { toast('Can’t get there from here', 1200); return; } P.auto = { path: path, i: 0, o: o, t: now() }; }
+  var lbTab = 'bw'; S.lb2 = {};
+  function lbPick(g) {
+    lbTab = g; if (g !== 'bw' && !S.lb2[g]) { send({ t: 'lb2', game: g }); }
+    renderLb();
+  }
   function renderLb() {
-    var rows = S.lb || [], st = S.mystats || {};
-    $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Finals</th><th>Beds</th></tr>' + (rows.length ? rows.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.wins + '</td><td>' + r.finals + '</td><td>' + r.beds + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">No winners yet — be the first!</td></tr>');
+    var st = S.mystats || {};
+    $('lbTabs').innerHTML = ['bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build'].map(function (g) { return '<button data-lbg="' + g + '"' + (g === lbTab ? ' class="on"' : '') + '>' + MG.GAMES[g].icon + ' ' + (MG.GAMES[g].short || 'BEDWARS') + '</button>'; }).join('');
+    var none = '<tr><td colspan="5" style="color:var(--mut)">No winners yet — be the first!</td></tr>';
+    if (lbTab === 'bw') {
+      var rows = S.lb || [];
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Finals</th><th>Beds</th></tr>' + (rows.length ? rows.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.wins + '</td><td>' + r.finals + '</td><td>' + r.beds + '</td></tr>'; }).join('') : none);
+    } else if (lbTab === 'duel') {
+      var rd = S.lb2.duel;
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Rank</th><th>Rating</th><th>W – L</th></tr>' + (rd == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rd.length ? rd.map(function (r, i) { var rk = MG.rankOf(r.r); return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td style="color:' + rk.color + ';font-weight:700">' + rk.name + '</td><td>' + r.r + '</td><td>' + r.w + ' – ' + r.l + '</td></tr>'; }).join('') : none);
+    } else {
+      var rg2 = S.lb2[lbTab], xl = { ctf: 'Captures', spleef: '🥇 Wins', hide: 'Finds', murder: 'Kills', build: '🥇 Wins' }[lbTab];
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Games</th><th>' + xl + '</th></tr>' + (rg2 == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rg2.length ? rg2.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.w + '</td><td>' + r.g + '</td><td>' + r.x + '</td></tr>'; }).join('') : none);
+    }
     $('lbMe').innerHTML = [['Wins', st.wins], ['Finals', st.finals], ['Beds', st.beds], ['Kills', st.kills], ['Games', st.games], ['📜 today', (st.earnedToday || 0) + '/' + (st.cap || 1500)]].map(function (x) { return '<div class="stat"><b>' + (x[1] || 0) + '</b><span>' + x[0] + '</span></div>'; }).join('');
   }
   function renderWait() {
@@ -365,6 +406,7 @@
   $('hStart').onclick = function () { send({ t: 'start' }); SC.sfx('go'); };
   $('wCopy').onclick = function () { var u = location.origin + '/arcade?room=' + (S.room && S.room.code); try { navigator.clipboard.writeText(u); toast('Invite link copied!', 1600); } catch (e) { toast(u, 4000); } };
   $('hubLb').onclick = function () { renderLb(); openModal('mLb'); };
+  $('lbTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-lbg]'); if (b) { SC.sfx('click'); lbPick(b.dataset.lbg); } });
   $('hubHow').onclick = function () { openHelp(S.helpGame || 'bw'); };
   $('gHelp').onclick = function () { openHelp(S.game); };
   $('hubQc').onclick = $('wQc').onclick = function () { toggleQc(); };
@@ -1098,9 +1140,11 @@
     else if (k === 'portal') D.portal(c, o, t);
     else if (k === 'board') { var st = S.mystats || {}; D.board(c, o, t, S.lb, 'You: ' + (st.wins || 0) + ' wins · ' + (st.finals || 0) + ' finals'); }
     else if (k === 'soon') D.soon(c, o, t);
+    else if (k === 'gport') { var gc3 = S.online && S.online.inGame ? (S.online.inGame[o.game] || 0) + (S.online[o.game === 'bw' ? 'solo' : o.game] || 0) : 0; D.gport(c, o, t, gc3); }
+    else if (k === 'podium') D.podium(c, o, t);
     else if (k === 'flag') D.flag(c, o.x, o.y + 14, o.team, t);
     else if (k === 'bedDeco') D.bed(c, { team: 0, x: o.x, y: o.y - T / 2, dir: [0, 1] }, t, false);
-    if (near && k !== 'npc') { var ab = o.y - (k === 'board' ? 236 : k === 'portal' ? 206 : 96) + Math.abs(Math.sin(t * 5)) * -8; c.beginPath(); c.moveTo(o.x - 9, ab); c.lineTo(o.x + 9, ab); c.lineTo(o.x, ab + 11); c.closePath(); c.fillStyle = '#ffd166'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke(); }
+    if (near && k !== 'npc') { var ab = o.y - (k === 'board' ? 236 : k === 'portal' ? 206 : k === 'gport' ? 150 : 96) + Math.abs(Math.sin(t * 5)) * -8; c.beginPath(); c.moveTo(o.x - 9, ab); c.lineTo(o.x + 9, ab); c.lineTo(o.x, ab + 11); c.closePath(); c.fillStyle = '#ffd166'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke(); }
   }
   function drawWaitHolo(t) {
     var r = S.room; if (!r) return;

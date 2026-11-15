@@ -563,7 +563,8 @@
 </div>
 <div id="mLb" class="modal hidden">
   <div class="mwrap" style="width:min(560px,100%)">
-    <div class="mh"><div style="font-size:30px">🏆</div><h2>Bedwars Leaderboard</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="mh"><div style="font-size:30px">🏆</div><h2>Leaderboards</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div class="hgames" id="lbTabs" style="padding-top:10px"></div>
     <div style="padding:14px 16px;overflow:auto">
       <table class="lbt" id="lbRows"></table>
       <div class="lab" style="margin-top:14px">Your stats</div>
@@ -644,6 +645,22 @@
   </div>
 </div>
 
+<div id="mGame" class="modal hidden">
+  <div class="mwrap" style="width:min(480px,100%)">
+    <div class="mh"><div style="font-size:34px" id="gmIco">🎮</div><h2 id="gmTitle">Game</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+      <div id="gmDesc" style="font-size:15px;color:#e6e2ff"></div>
+      <div id="gmLive" style="font-size:13px;color:#cfc8ff;background:rgba(0,0,0,.25);border-radius:10px;padding:7px 10px"></div>
+      <div id="gmPlay" class="flex" style="flex-wrap:wrap"></div>
+      <div class="flex" style="flex-wrap:wrap">
+        <button class="btn sm" id="gmPractice">🤖 Practice vs bots</button>
+        <button class="btn sm" id="gmPrivate">👥 Private room</button>
+        <button class="btn sm" id="gmHow">📖 How to play</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="mHelp" class="modal hidden">
   <div class="mwrap" style="width:min(680px,100%)">
     <div class="mh"><div style="font-size:30px" id="hIco">📖</div><h2 id="hTitle">How to play</h2><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
@@ -665,9 +682,9 @@
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=3"></script>
-<script src="/arcade/bedwars/shared.js?v=5"></script>
+<script src="/arcade/bedwars/shared.js?v=6"></script>
 <script src="/arcade/bedwars/mg.js?v=3"></script>
-<script src="/arcade/bedwars/draw.js?v=5"></script>
+<script src="/arcade/bedwars/draw.js?v=6"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
 <script src="/arcade/bedwars/game.js?v=11"></script>

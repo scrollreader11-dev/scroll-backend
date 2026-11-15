@@ -130,6 +130,12 @@ function spaceMsg(c, m, now) {
   if (t === 'sw') { if (now - (c.swAt || 0) < 110) return; c.swAt = now; sp.events.push(['sw', c.pid, m.a | 0]); return; }
   if (t === 'hop') { if (now - (c.hopAt || 0) < 450) return; c.hopAt = now; sp.events.push(['hop', c.pid]); return; }
   if (t === 'qc') { if (now - (c.qcAt || 0) < 1200) return; c.qcAt = now; const i = m.i | 0; if (i >= 0 && i < BW_QC.length) sp.events.push(['qc', c.pid, i]); return; }
+  if (t === 'lb2') {
+    if (now - (c.lb2At || 0) < 800) return; c.lb2At = now;
+    const g = MG.isMini(String(m.game)) ? String(m.game) : 'bw';
+    send(c, { t: 'lb2', game: g, rows: g === 'bw' ? bwLeaderboard() : GMS.gameLb(g), myElo: g === 'duel' ? GMS.eloOf(c.cid) : undefined });
+    return;
+  }
 }
 
 // ============================================================ rooms / lobby
@@ -938,7 +944,7 @@ setInterval(() => {
 
 // ============================================================ connections
 function lobbyList() {
-  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0 } };
+  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0 } };
   for (const r of rooms.values()) {
     if (r.state === 'lobby' && r.kind === 'public') out[r.mode] = (out[r.mode] || 0) + r.members.length;
     if (r.state === 'play') { const n = humans(r).length; out.playing += n; out.inGame[r.game] = (out.inGame[r.game] || 0) + n; }
@@ -1024,7 +1030,7 @@ function onMsg(c, m, now) {
   }
   if (t === 'leave' || t === 'hub') { if (c.room) leaveRoom(c); else goHub(c); return; }
   if (t === 'look') { c.look = worldLook(c.cid); return; }
-  if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
+  if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || t === 'lb2' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
   if (!r) return;
   if (r.state === 'lobby') {
     if (t === 'team' && r.kind === 'private' && r.game !== 'hide') {
