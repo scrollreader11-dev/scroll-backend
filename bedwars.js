@@ -369,7 +369,7 @@ function emptyInv() { return { kbstick: 0, wool: 0, wood: 0, end: 0, obby: 0, bo
 function makeEnt(r, o) {
   const b = r.map.bases[o.team % r.map.bases.length];
   const e = {
-    quiz: !!r.school && !o.bot, energy: 60, qz: { right: 0, wrong: 0, streak: 0, best: 0 }, qs: {}, qLock: 0,
+    quiz: !!r.school && !o.bot, energy: r.game === 'murder' ? 60 : 100, qz: { right: 0, wrong: 0, streak: 0, best: 0 }, qs: {}, qLock: 0,
     id: nextEnt++, cid: o.cid || '', nick: o.nick, look: o.look, team: o.team, bot: !!o.bot, conn: o.conn || null, ctl: o.bot ? 'ai' : 'human',
     x: b.spawn.x + (rnd() - 0.5) * 30, y: b.spawn.y + (rnd() - 0.5) * 20, vx: 0, vy: 0, ang: Math.atan2(b.inward[1], b.inward[0]), mv: false,
     hp: BW.MAX_HP, absorb: 0, dead: false, elim: false, respawnAt: 0, fall: 0,
@@ -416,8 +416,10 @@ function startMatch(r) {
 
 // ============================================================ School-mode quiz (Gimkit-style)
 function quizReward(r, e) {
-  const st = e.qz.streak, out = { en: 10 + Math.min(10, st * 2) };
-  e.energy = Math.min(250, e.energy + out.en);
+  const st = e.qz.streak, murder = r.game === 'murder';
+  // every game except Murder Mystery: each right answer = a quarter of the bar (4 answers fill it, never more than full)
+  const cap = murder ? 250 : 100, out = { en: murder ? 10 + Math.min(10, st * 2) : 25 };
+  out.en = Math.max(0, Math.min(out.en, cap - e.energy)); e.energy = Math.min(cap, e.energy + out.en);
   if (r.game === 'bw') {
     e.res.iron += 6; e.res.gold += 2; out.iron = 6; out.gold = 2;
     if (st > 0 && st % 3 === 0) { e.res.dia += 1; out.dia = 1; }
@@ -490,7 +492,7 @@ function classAnswer(c, m) {
   cq.answers.set(c.cid, { nick: c.nick, ok }); if (i >= 0 && i < 4) cq.counts[i]++;
   classRecord(c.cid, c.nick, ok, cq.set, cq.i); GMS.recordQuiz(c.cid, c.nick, ok, 0);
   const e = c.ent && c.room && c.room.state === 'play' ? c.ent : null;
-  let gain = null; if (ok && e && e.quiz) { e.energy = Math.min(250, e.energy + 25); e.dirty = true; gain = { en: 25 }; }
+  let gain = null; if (ok && e && e.quiz) { const cap = c.room && c.room.game === 'murder' ? 250 : 100; const add = Math.max(0, Math.min(25, cap - e.energy)); e.energy += add; e.dirty = true; gain = { en: add }; }
   send(c, { t: 'qr', ok, ans: cq.ans, gain, en: e && e.quiz ? Math.ceil(e.energy) : -1, qz: e && e.quiz ? e.qz : { right: 0, wrong: 0, streak: 0 }, cq: 1 });
 }
 // ---- class game vote (owner starts it; everyone not mid-match votes; winner launches a room with everyone in it)

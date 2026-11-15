@@ -1773,7 +1773,7 @@
     [].forEach.call(bs, function (b, k) { if (k === m.ans) b.classList.add('right'); else if (k === S.qPick && !m.ok) b.classList.add('wrong'); else b.classList.add('dim'); });
     var f = $('qFeed');
     if (m.ok) {
-      var g = m.gain || {}, parts = ['+' + g.en + ' ⚡'];
+      var g = m.gain || {}, parts = [g.en > 0 ? '+' + g.en + ' ⚡' : '⚡ full'];
       if (g.iron) parts.push('+' + g.iron + ' iron'); if (g.gold) parts.push('+' + g.gold + ' gold'); if (g.dia) parts.push('+1 diamond 💎'); if (g.em) parts.push('+1 emerald 🟩'); if (g.speed) parts.push('speed boost ⚡');
       f.textContent = '✅ Correct!  ' + parts.join('  ·  ') + (m.qz.streak >= 2 ? '   🔥 ' + m.qz.streak + ' in a row' : ''); f.className = 'ok'; SC.sfx('level');
     } else { f.textContent = '❌ Not quite — the answer is highlighted.'; f.className = 'bad'; SC.sfx('no'); }
