@@ -420,8 +420,8 @@ function schoolBlocked(url) {
   if (!/\.[a-z0-9]{1,6}$/i.test(p)) return true; // app routes like /games, /chat, /proxy
   return false;
 }
-globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket' } : null);
-globalThis.SH_SET_SCHOOL = async (on, set) => { if (typeof on === 'boolean') admin.settings.schoolMode = on; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
+globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0 } : null);
+globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 async function handleAdmin(req, res) {
   const body = await readBody(req);
   if (!ADMIN_PASSWORD || body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
@@ -460,6 +460,8 @@ async function handleAdmin(req, res) {
     if (typeof s.redirect === 'string') admin.settings.redirect = s.redirect.trim();
     if (typeof s.announcement === 'string') admin.settings.announcement = s.announcement.slice(0, 300);
     if (typeof s.schoolMode === 'boolean') { admin.settings.schoolMode = s.schoolMode; logEvent('admin', 'admin', '🏫 School mode ' + (s.schoolMode ? 'ON' : 'OFF')); }
+    if (typeof s.schoolMins === 'number') { admin.settings.schoolUntil = s.schoolMins > 0 ? Date.now() + Math.min(240, s.schoolMins) * 60000 : 0; if (s.schoolMins > 0) admin.settings.schoolMode = true; }
+    if (s.schoolMode === false) admin.settings.schoolUntil = 0;
     if (typeof s.schoolSet === 'string' && ['blooket', 'u9', 'u10', 'both'].includes(s.schoolSet)) admin.settings.schoolSet = s.schoolSet;
     await saveState();
     return sendJson(res, 200, { ok: true, settings: admin.settings });

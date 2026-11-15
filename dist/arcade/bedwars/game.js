@@ -95,8 +95,12 @@
     if (t === 'pinvite') { showInvite(m); return; }
     if (t === 'toast') { toast(m.msg, 3200); return; }
     if (t === 'fx') { screenFx(m); return; }
-    if (t === 'qz') { showQuestion(m); return; }
+    if (t === 'qz') { S.qMode = 'q'; showQuestion(m); return; }
     if (t === 'qr') { quizResult(m); return; }
+    if (t === 'cq') { openCq(m); return; }
+    if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
+    if (t === 'vote') { onVote(m); return; }
+    if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
     if (t === 'me') return onMe(m);
@@ -1719,7 +1723,7 @@
     if (!S.qCur || S.qBusy || now() - (S.qShownAt || 0) < 300) return;
     S.qBusy = true; S.qPick = i;
     [].forEach.call($('qGrid').children, function (b) { b.classList.add('lock'); });
-    send({ t: 'qa', i: i });
+    if (S.qMode === 'cq') send({ t: 'cqa', id: S.qCur.id, i: i }); else send({ t: 'qa', i: i });
   }
   function quizResult(m) {
     if (m.retry) { S.qBusy = false; [].forEach.call($('qGrid').children, function (b) { b.classList.remove('lock'); }); return; }
@@ -1731,13 +1735,44 @@
       if (g.iron) parts.push('+' + g.iron + ' iron'); if (g.gold) parts.push('+' + g.gold + ' gold'); if (g.dia) parts.push('+1 diamond 💎'); if (g.em) parts.push('+1 emerald 🟩'); if (g.speed) parts.push('speed boost ⚡');
       f.textContent = '✅ Correct!  ' + parts.join('  ·  ') + (m.qz.streak >= 2 ? '   🔥 ' + m.qz.streak + ' in a row' : ''); f.className = 'ok'; SC.sfx('level');
     } else { f.textContent = '❌ Not quite — the answer is highlighted.'; f.className = 'bad'; SC.sfx('no'); }
-    S.en = m.en; S.qz = m.qz; quizHud();
+    if (m.en != null && m.en >= 0) { S.en = m.en; S.qz = m.qz; } quizHud();
+    if (m.cq) { clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, 2600); return; }
     // random pause before the next question so nobody can memorize a rhythm
     var wait = (m.ok ? 700 : 1700) + Math.random() * 900;
     clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.quizOpen) send({ t: 'qz' }); }, wait);
   }
   $('qClose').onclick = function () { closeQuiz(); };
   $('qOpen').onclick = function () { openQuiz(); };
+
+  // ---- class question from the teacher (pops up for everyone, any screen)
+  function openCq(m) {
+    S.qMode = 'cq'; S.quizOpen = true; keys = {}; mouse.l = mouse.r = false;
+    $('quiz').classList.remove('hidden');
+    showQuestion({ q: m.q, choices: m.choices, set: '📣 Class question from ' + m.from + ' — everyone answers!' });
+    S.qCur.id = m.id; SC.sfx('level');
+    clearTimeout(S.cqT); S.cqT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, (m.secs || 45) * 1000);
+  }
+  // ---- class game vote
+  function onVote(m) {
+    var box = $('voteBox');
+    if (m.done) {
+      clearInterval(S.voteIv);
+      if (m.cancel) { box.classList.add('hidden'); toast('🗳️ The vote was cancelled', 1800); return; }
+      $('voteTitle').textContent = '🎉 ' + (m.winner === 'bw' ? 'Bedwars' : MG.GAMES[m.winner].name) + ' wins!';
+      $('voteTime').textContent = 'Everyone’s heading in…'; S.myVote = null; SC.sfx('bigwin');
+      setTimeout(function () { box.classList.add('hidden'); }, 2200); return;
+    }
+    if (box.classList.contains('hidden')) { box.classList.remove('hidden'); S.myVote = null; SC.sfx('open'); closeModals(); }
+    S.voteEnd = now() + (m.left || 0);
+    var games = m.games || ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'], tot = 0; games.forEach(function (g) { tot += m.counts[g] || 0; });
+    $('voteTitle').textContent = '🗳️ Vote for the next game!';
+    $('voteGrid').innerHTML = games.map(function (g) {
+      var n = m.counts[g] || 0, gm = g === 'bw' ? { icon: '🛏️', name: 'Bedwars', desc: 'Protect your bed, break theirs' } : MG.GAMES[g];
+      return '<button class="vopt' + (S.myVote === g ? ' mine' : '') + '" data-vg="' + g + '" style="--c:' + (D.GCOL[g] || '#6c4dff') + '"><div class="vi">' + gm.icon + '</div><div class="vn">' + esc(gm.name) + '</div><div class="vd">' + esc(gm.desc || '') + '</div><div class="vbar"><i style="width:' + (tot ? Math.round(n / tot * 100) : 0) + '%"></i></div><div class="vc">' + n + ' vote' + (n === 1 ? '' : 's') + '</div></button>';
+    }).join('');
+    clearInterval(S.voteIv); S.voteIv = setInterval(function () { var l = Math.max(0, Math.ceil((S.voteEnd - now()) / 1000)); $('voteTime').textContent = l + 's left · tap a game to vote'; }, 250);
+  }
+  $('voteGrid').addEventListener('click', function (e) { var b = e.target.closest('[data-vg]'); if (!b) return; S.myVote = b.dataset.vg; send({ t: 'vote', g: S.myVote }); SC.sfx('pop'); [].forEach.call($('voteGrid').children, function (x) { x.classList.toggle('mine', x === b); }); });
   // owner "power" screen effects
   function screenFx(m) {
     var cv = $('cv'), k = m.kind, ms = m.ms || 10000;
@@ -1759,9 +1794,9 @@
   function openAdmin() {
     if (!S.owner) return;
     openModal('mAdmin'); send({ t: 'adm', a: 'info' });
-    clearInterval(admPoll); admPoll = setInterval(function () { if ($('mAdmin').classList.contains('hidden')) { clearInterval(admPoll); return; } send({ t: 'adm', a: 'info' }); }, 1500);
+    clearInterval(admPoll); admPoll = setInterval(function () { if ($('mAdmin').classList.contains('hidden')) { clearInterval(admPoll); return; } send({ t: 'adm', a: 'info' }); if (admTab === 'class') send({ t: 'adm', a: 'class' }); }, 1500);
   }
-  $('admTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-at]'); if (!b) return; admTab = b.dataset.at; [].forEach.call($('admTabs').children, function (x) { x.classList.toggle('on', x === b); }); SC.sfx('click'); renderAdmin(); });
+  $('admTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-at]'); if (!b) return; admTab = b.dataset.at; [].forEach.call($('admTabs').children, function (x) { x.classList.toggle('on', x === b); }); SC.sfx('click'); if (admTab === 'class') send({ t: 'adm', a: 'class' }); renderAdmin(); });
   function ab(label, data, cls, confirm) {
     var key = JSON.stringify(data), armed = admArm && admArm.key === key && now() < admArm.until;
     var attrs = Object.keys(data).map(function (k) { return 'data-' + k + '="' + esc(data[k]) + '"'; }).join(' ');
@@ -1856,6 +1891,25 @@
       html += '<div class="admcard"><div class="admhead">🗺️ Custom maps ' + (d.mapper ? '<a class="ab gold" href="/arcade/builder" style="text-decoration:none">🛠️ Open map builder</a>' : '<span class="tag2">only Scrollreader11 can make or change maps</span>') + '</div>';
       if (d.mapper) html += '<div class="admrow"><span class="lbl">Built-in maps in rotation:</span>' + ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { var on = rot[g] && rot[g].def; return ab((on ? '✅ ' : '⬜ ') + MG.GAMES[g].icon + ' ' + MG.GAMES[g].name, { act: 'maprot', game: g, id: 'default', on: on ? 0 : 1 }, on ? 'green' : ''); }).join('') + '</div>';
       html += '<table class="admp">' + (mp.length ? mp.map(function (m) { return '<tr><td>' + MG.GAMES[m.game].icon + ' <b>' + esc(m.name) + '</b><br><span style="color:var(--mut);font-size:12px">by ' + esc(m.author || '?') + ' · ' + new Date(m.at).toLocaleDateString() + (m.ok ? '' : ' · unfinished') + '</span></td><td><div class="acts">' + (m.ok ? ab('▶ Test', { act: 'testmap', id: m.id, game: m.game }, 'green') : '') + (d.mapper && m.ok ? ab(m.rot ? '✅ In rotation' : '⬜ Add to rotation', { act: 'maprot', game: m.game, id: m.id, on: m.rot ? 0 : 1 }, m.rot ? 'green' : '') : '') + (d.mapper ? ab('🗑️', { act: 'mapdel', id: m.id }, 'red', true) : '') + '</div></td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No custom maps yet.</td></tr>') + '</table></div>';
+    } else if (admTab === 'class') {
+      var cl = S.cls;
+      if (!cl) html = '<div class="admempty">Loading class info…</div>';
+      else {
+        var sc2 = d.school, left = cl.until ? Math.max(0, Math.ceil((cl.until - Date.now()) / 60000)) : 0;
+        html += '<div class="admcard"><div class="admhead">🏫 School Mode ' + (sc2 ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON' + (left ? ' · ' + left + ' min left' : '') + '</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow"><span class="lbl">Turn on for a class period:</span>' + [30, 45, 50, 60, 90].map(function (mn) { return ab(mn + ' min', { act: 'schooltimer', mins: mn }, 'green'); }).join('') + (sc2 ? ab('Turn off now', { act: 'school', on: 0 }, 'red', true) : '') + (cl.until ? ab('No timer', { act: 'schooltimer', mins: 0 }) : '') + '</div></div>';
+        var vt = cl.vote;
+        html += '<div class="admcard"><div class="admhead">🗳️ Game vote</div><div class="admrow">' + (vt ? '<span class="tag2" style="background:#ffd166;color:#2a1300">' + vt.left + 's left · ' + vt.voters + ' voted</span>' + Object.keys(vt.counts).map(function (g) { return '<span class="tag2">' + (g === 'bw' ? '🛏️' : MG.GAMES[g].icon) + ' ' + vt.counts[g] + '</span>'; }).join('') + ab('End now & start', { act: 'vote', op: 'stop' }, 'green') + ab('Cancel', { act: 'vote', op: 'cancel' }, 'red') : ab('🗳️ Start a 20s vote', { act: 'vote', sec: 20 }, 'gold') + ab('30s vote', { act: 'vote', sec: 30 })) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Everyone in the hub gets a big vote screen. When it ends, the winning game starts with everyone in it.</div></div>';
+        var cq = cl.cq;
+        html += '<div class="admcard"><div class="admhead">📣 Ask the whole class a question</div><div class="admrow"><select class="admin-in" id="cqPick" style="flex:1;min-width:0"><option value="">🎲 Random question from ' + esc(cl.setName) + '</option>' + cl.set.map(function (q) { return '<option value="' + q.i + '"' + (String(S.cqPick) === String(q.i) ? ' selected' : '') + '>' + esc(q.q) + '</option>'; }).join('') + '</select>' + ab('📣 Send to everyone', { act: 'cq', cqsend: 1 }, 'gold') + '</div>';
+        if (cq) {
+          var pct = cq.answered ? Math.round(cq.right / cq.answered * 100) : 0;
+          html += '<div class="admrow" style="flex-direction:column;align-items:stretch;gap:4px"><div style="font-weight:700">' + esc(cq.q) + '</div><div>✅ Answer: <b>' + esc(cq.a) + '</b></div><div><span class="tag2" style="background:' + (cq.open ? '#2bd576;color:#05240f' : '#4a4f6a') + '">' + (cq.open ? 'Open · ' + cq.left + 's' : 'Closed') + '</span> <b>' + cq.answered + '</b> / ' + cq.sent + ' answered · <b>' + pct + '%</b> correct</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cq.choices.map(function (ch, k) { return '<span class="tag2" style="background:' + ['#f0a531', '#4d7cff', '#5dcc6b', '#e8473b'][k] + '">' + esc(ch) + ': ' + cq.counts[k] + '</span>'; }).join('') + '</div>' + (cq.wrongNames.length ? '<div style="color:var(--mut);font-size:12px">Missed it: ' + cq.wrongNames.map(esc).join(', ') + '</div>' : '') + (cq.open ? '<div>' + ab('Close question', { act: 'cqclose' }) + '</div>' : '') + '</div>';
+        }
+        html += '</div>';
+        html += '<div class="admcard"><div class="admhead">❗ Most-missed questions</div><table class="admp">' + (cl.miss.length ? cl.miss.map(function (q) { return '<tr><td style="font-size:13px">' + esc(q.q) + '<br><span style="color:#2bd576;font-size:12px">✅ ' + esc(q.a) + '</span></td><td style="white-space:nowrap;color:#ff5c6c;font-weight:800">' + q.pct + '% missed</td><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + q.miss + ' / ' + q.total + '</td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No misses yet.</td></tr>') + '</table></div>';
+        html += '<div class="admcard"><div class="admhead">👩‍🎓 Students (' + cl.kids.length + ') <span style="color:var(--mut);font-weight:600;font-size:12px">since ' + new Date(cl.since).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</span> ' + ab('Reset stats', { act: 'classreset' }, '', true) + '</div><table class="admp"><tr><th style="text-align:left">Student</th><th>✅ Right</th><th>❌ Wrong</th><th>Accuracy</th><th>Last answer</th></tr>' + (cl.kids.length ? cl.kids.map(function (k) { return '<tr><td><b>' + esc(k.nick) + '</b></td><td>' + k.right + '</td><td>' + k.wrong + '</td><td style="font-weight:800;color:' + (k.acc >= 80 ? '#2bd576' : k.acc >= 60 ? '#ffd166' : '#ff5c6c') + '">' + k.acc + '%</td><td style="color:var(--mut);font-size:12px">' + (k.ago < 60 ? k.ago + 's ago' : Math.round(k.ago / 60) + 'm ago') + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">Nobody has answered yet.</td></tr>') + '</table></div>';
+      }
     } else if (admTab === 'mega') {
       var mg = d.mega || [];
       var popts = '<option value="">— pick a player —</option>' + d.conns.map(function (x) { return '<option value="' + x.pid + '"' + (String(S.megaP) === String(x.pid) ? ' selected' : '') + '>' + esc(x.nick) + ' · ' + esc(x.where) + '</option>'; }).join('');
@@ -1888,7 +1942,8 @@
   $('admBody').addEventListener('input', function (e) { if (e.target.id === 'admAnn') S.admDraft = e.target.value; if (e.target.id === 'admFind') { S.admFind = e.target.value; } if (e.target.id === 'admAmt') S.admAmt = e.target.value; if (e.target.id === 'admMotd') S.admMotdDraft = e.target.value; });
   $('admBody').addEventListener('change', function (e) { if (e.target.id === 'admFind') { S.admForce = true; renderAdmin(); } });
   $('admBody').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && e.target.id === 'admAnn') { var b = $('admBody').querySelector('[data-act="announce"]'); if (b) b.click(); } });
-  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'megaP' || e.target.id === 'megaR') { if (e.target.id === 'megaP') S.megaP = e.target.value; else S.megaR = e.target.value; e.target.blur(); SC.sfx('click'); S.admForce = true; renderAdmin(); } });
+  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'cqPick') { S.cqPick = e.target.value; e.target.blur(); S.admForce = true; renderAdmin(); return; }
+    if (e.target.id === 'megaP' || e.target.id === 'megaR') { if (e.target.id === 'megaP') S.megaP = e.target.value; else S.megaR = e.target.value; e.target.blur(); SC.sfx('click'); S.admForce = true; renderAdmin(); } });
   $('admBody').addEventListener('focusout', function (e) { if ((e.target.tagName === 'SELECT') && S.admPending) setTimeout(function () { var ae = document.activeElement; if (!ae || !$('admBody').contains(ae) || ae.tagName !== 'SELECT') { S.admForce = true; renderAdmin(); } }, 50); });
   $('admBody').addEventListener('input', function (e) { if (e.target.id === 'megaTxt') S.megaTxt = e.target.value; });
   $('admBody').addEventListener('click', function (e) {
@@ -1900,6 +1955,7 @@
     if (b.dataset.act === 'testmap') { closeModals(); S.lastQueue = { t: 'practice', game: b.dataset.game, mode: b.dataset.game === 'bw' ? 'solo' : b.dataset.game, diff: 'normal', map: b.dataset.id }; send(S.lastQueue); return; }
     if (b.dataset.act === 'saveset') { [].forEach.call($('admBody').querySelectorAll('[data-set]'), function (inp) { if (String(S.adm.settings[inp.dataset.set]) !== inp.value) send({ t: 'adm', a: 'setting', k: inp.dataset.set, v: inp.value }); }); SC.sfx('click'); return; }
     var m = { t: 'adm', a: b.dataset.act };
+    if (b.dataset.cqsend) { send({ t: 'adm', a: 'cq', i: S.cqPick === '' || S.cqPick == null ? '' : +S.cqPick }); SC.sfx('click'); setTimeout(function () { send({ t: 'adm', a: 'class' }); }, 300); return; }
     if (b.dataset.mega) { m.op = b.dataset.op; m.pid = +(S.megaP || 0); m.room = +(S.megaR || 0); m.text = S.megaTxt || ''; send(m); SC.sfx('click'); return; }
     ['room', 'id', 'op', 'team', 'winner', 'sec', 'pid', 'on', 'mins', 'k', 'v', 'cid', 'game'].forEach(function (k) { if (b.dataset[k] != null) m[k] = isNaN(+b.dataset[k]) || b.dataset[k] === '' ? b.dataset[k] : +b.dataset[k]; });
     if (b.dataset.amount) { var amt = Math.round(+($('admAmt') && $('admAmt').value) || 0); m.amount = b.dataset.amount === '-amt' ? -amt : amt; }

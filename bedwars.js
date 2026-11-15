@@ -441,11 +441,88 @@ function quizMsg(r, e, c, m, now) {
   if (ok) { e.qz.right++; e.qz.streak++; e.qz.best = Math.max(e.qz.best, e.qz.streak); gain = quizReward(r, e); }
   else { e.qz.wrong++; e.qz.streak = 0; e.dirty = true; }
   GMS.recordQuiz(e.cid, e.nick, ok, e.qz.streak);
+  classRecord(e.cid, e.nick, ok, r.qset, cur.i);
   send(c, { t: 'qr', ok, ans: cur.ans, gain, en: Math.ceil(e.energy), qz: e.qz });
 }
 function quizBoard(r) {
   return [...r.ents.values()].filter((e) => e.quiz).map((e) => ({ nick: e.nick, team: e.team, right: e.qz.right, wrong: e.qz.wrong, best: e.qz.best })).sort((a, b) => b.right - a.right).slice(0, 30);
 }
+
+// ============================================================ Teacher tools: class stats, class question, game vote
+const CLASS = { since: Date.now(), kids: new Map(), miss: new Map(), cq: null, vote: null };
+function classReset() { CLASS.since = Date.now(); CLASS.kids.clear(); CLASS.miss.clear(); CLASS.cq = null; }
+function classRecord(cid, nick, ok, setKey, qi) {
+  if (!cid) return;
+  const k = CLASS.kids.get(cid) || { nick, right: 0, wrong: 0, last: 0 };
+  k.nick = nick; if (ok) k.right++; else k.wrong++; k.last = Date.now(); CLASS.kids.set(cid, k);
+  const set = QSETS[setKey] || QSETS.blooket, it = set.items[qi]; if (!it) return;
+  const key = setKey + ':' + qi, q = CLASS.miss.get(key) || { q: it.q, a: it.a, miss: 0, total: 0 };
+  q.total++; if (!ok) q.miss++; CLASS.miss.set(key, q);
+}
+function classInfo() {
+  const kids = [...CLASS.kids.values()].map((k) => ({ nick: k.nick, right: k.right, wrong: k.wrong, acc: k.right + k.wrong ? Math.round(k.right / (k.right + k.wrong) * 100) : 0, ago: Math.round((Date.now() - k.last) / 1000) })).sort((a, b) => b.right - a.right);
+  const miss = [...CLASS.miss.values()].filter((q) => q.miss > 0).map((q) => ({ q: q.q, a: q.a, miss: q.miss, total: q.total, pct: Math.round(q.miss / q.total * 100) })).sort((a, b) => b.pct - a.pct || b.miss - a.miss).slice(0, 10);
+  const sc = schoolCfg(), set = QSETS[(sc && sc.set) || 'blooket'] || QSETS.blooket;
+  let cq = null;
+  if (CLASS.cq) { const c = CLASS.cq; const ans = [...c.answers.values()]; cq = { id: c.id, q: c.q, a: c.a, open: Date.now() < c.until, left: Math.max(0, Math.ceil((c.until - Date.now()) / 1000)), sent: c.sent, answered: ans.length, right: ans.filter((x) => x.ok).length, wrongNames: ans.filter((x) => !x.ok).map((x) => x.nick).slice(0, 30), counts: c.counts, choices: c.choices }; }
+  let vote = null;
+  if (CLASS.vote) { const v = CLASS.vote; vote = { left: Math.max(0, Math.ceil((v.endAt - Date.now()) / 1000)), counts: voteCounts(), voters: v.votes.size }; }
+  return { since: CLASS.since, kids, miss, set: set.items.map((it, i) => ({ i, q: it.q.slice(0, 90) })), setName: set.name, cq, vote, until: sc && sc.until || 0 };
+}
+function sendClassQuestion(by, qi) {
+  const sc = schoolCfg(), key = (sc && sc.set) || 'blooket', set = QSETS[key] || QSETS.blooket;
+  const i = qi >= 0 && qi < set.items.length ? qi : (Math.random() * set.items.length) | 0;
+  const st = {}; st.deck = [i]; st.set = key;
+  const q = nextQuestion(st, key);
+  const id = Date.now();
+  CLASS.cq = { id, i, q: q.q, a: set.items[i].a, choices: q.choices, ans: st.cur.ans, until: Date.now() + 45000, answers: new Map(), counts: [0, 0, 0, 0], sent: 0, set: key };
+  for (const c of conns) { if (c.owner && c !== by && false) continue; send(c, { t: 'cq', id, q: q.q, choices: q.choices, secs: 45, from: by.nick }); CLASS.cq.sent++; }
+  GMS.log('📣 ' + by.nick + ' sent a class question');
+}
+function classAnswer(c, m) {
+  const cq = CLASS.cq; if (!cq || cq.id !== Number(m.id) || Date.now() > cq.until || !c.cid || cq.answers.has(c.cid)) return;
+  const i = m.i | 0, ok = i === cq.ans;
+  cq.answers.set(c.cid, { nick: c.nick, ok }); if (i >= 0 && i < 4) cq.counts[i]++;
+  classRecord(c.cid, c.nick, ok, cq.set, cq.i); GMS.recordQuiz(c.cid, c.nick, ok, 0);
+  const e = c.ent && c.room && c.room.state === 'play' ? c.ent : null;
+  let gain = null; if (ok && e && e.quiz) { e.energy = Math.min(250, e.energy + 25); e.dirty = true; gain = { en: 25 }; }
+  send(c, { t: 'qr', ok, ans: cq.ans, gain, en: e && e.quiz ? Math.ceil(e.energy) : -1, qz: e && e.quiz ? e.qz : { right: 0, wrong: 0, streak: 0 }, cq: 1 });
+}
+// ---- class game vote (owner starts it; everyone not mid-match votes; winner launches a room with everyone in it)
+const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'];
+function voteCounts() { const n = {}; VOTE_GAMES.forEach((g) => { n[g] = 0; }); if (CLASS.vote) for (const g of CLASS.vote.votes.values()) n[g]++; return n; }
+function voteTargets() { return [...conns].filter((c) => !(c.room && c.room.state === 'play')); }
+function voteBroadcast() { if (!CLASS.vote) return; const msg = { t: 'vote', endAt: CLASS.vote.endAt, left: Math.max(0, CLASS.vote.endAt - Date.now()), counts: voteCounts(), games: CLASS.vote.games }; for (const c of voteTargets()) send(c, msg); }
+function startVote(by, secs, games) {
+  const list = (Array.isArray(games) && games.length ? games : VOTE_GAMES).filter((g) => VOTE_GAMES.includes(g));
+  CLASS.vote = { endAt: Date.now() + (secs || 20) * 1000, votes: new Map(), games: list.length >= 2 ? list : VOTE_GAMES, by: by.nick };
+  voteBroadcast(); GMS.log('🗳️ ' + by.nick + ' started a game vote');
+  clearTimeout(CLASS.voteT); CLASS.voteT = setTimeout(endVote, (secs || 20) * 1000 + 200);
+}
+function endVote(cancel) {
+  const v = CLASS.vote; if (!v) return; CLASS.vote = null; clearTimeout(CLASS.voteT);
+  const targets = voteTargets();
+  if (cancel) { for (const c of targets) send(c, { t: 'vote', done: 1, cancel: 1 }); return; }
+  const n = {}; v.games.forEach((g) => { n[g] = 0; }); for (const g of v.votes.values()) if (n[g] != null) n[g]++;
+  const top = Math.max(...Object.values(n)); const best = Object.keys(n).filter((g) => n[g] === top);
+  const g = best[(Math.random() * best.length) | 0];
+  const players = targets.filter((c) => !c.watch);
+  const mode = g === 'bw' ? (players.length > 8 ? 'squads' : players.length > 4 ? 'duos' : 'solo') : g;
+  for (const c of targets) send(c, { t: 'vote', done: 1, winner: g, counts: n });
+  if (g === 'duel') { // 1v1: pair everyone up
+    for (let i = 0; i < players.length; i += 2) { const room = makeRoom('public', 'duel', GMS.store.settings.publicDiff, '', 'duel'); joinLobby(players[i], room); if (players[i + 1]) joinLobby(players[i + 1], room); room.startAt = Date.now() + 6000; pushRoom(room); }
+  } else {
+    let room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', g);
+    for (const c of players) { if (room.members.length >= capOf(room)) { room.startAt = Date.now() + 6000; pushRoom(room); room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', g); } joinLobby(c, room); }
+    room.startAt = Date.now() + 8000; pushRoom(room);
+  }
+  GMS.log('🗳️ Vote winner: ' + g + ' (' + top + ' votes, ' + players.length + ' players)');
+}
+setInterval(() => { // live vote counts + School Mode timer
+  if (CLASS.vote) voteBroadcast();
+  const sc = schoolCfg();
+  if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('🏫 School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: '🏫 Class time is over — School Mode is off!' }); }
+}, 1000);
 function teamsInfo(r) {
   return r.teams.map((tm, t) => {
     let alive = 0, total = 0; for (const e of r.ents.values()) if (e.team === t) { total++; if (!e.elim) alive++; }
@@ -1216,6 +1293,8 @@ function onMsg(c, m, now) {
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
+  if (t === 'cqa') { classAnswer(c, m); return; }
+  if (t === 'vote') { if (CLASS.vote && Date.now() < CLASS.vote.endAt && c.cid && CLASS.vote.games.includes(String(m.g))) { CLASS.vote.votes.set(c.cid, String(m.g)); voteBroadcast(); } return; }
   if (t === 'soc' || t === 'pinv' || t === 'pacc' || t === 'pdec' || t === 'pleave' || t === 'pkick' || t === 'plead' || t === 'fjoin' || t === 'fwatch') { socialMsg(c, m, now); return; }
   if (c.watch && (t === 'leave' || t === 'hub' || t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) stopWatch(c, t !== 'leave' && t !== 'hub');
   if (c.watch) return;
@@ -1435,6 +1514,12 @@ function adminMsg(c, m, now) {
   const ent = (r) => r && r.ents && r.ents.get(Number(m.id));
   if (a === 'info') return send(c, adminInfo(c));
   if (a === 'x') { const res = megaRun(c, m); return send(c, { t: 'admres', ok: res.ok, msg: res.msg }); }
+  if (a === 'class') { return send(c, { t: 'cls', d: classInfo() }); }
+  if (a === 'classreset') { classReset(); return send(c, { t: 'admres', ok: true, msg: 'Class stats reset' }); }
+  if (a === 'cq') { sendClassQuestion(c, m.i == null || m.i === '' ? -1 : m.i | 0); return send(c, { t: 'admres', ok: true, msg: 'Question sent to everyone 📣' }); }
+  if (a === 'cqclose') { if (CLASS.cq) CLASS.cq.until = Date.now(); for (const x of conns) send(x, { t: 'cqend' }); return send(c, { t: 'admres', ok: true, msg: 'Class question closed' }); }
+  if (a === 'vote') { if (m.op === 'stop') { endVote(false); return send(c, { t: 'admres', ok: true, msg: 'Vote ended early' }); } if (m.op === 'cancel') { endVote(true); return send(c, { t: 'admres', ok: true, msg: 'Vote cancelled' }); } startVote(c, Math.max(10, Math.min(60, m.sec | 0 || 20))); return send(c, { t: 'admres', ok: true, msg: 'Game vote started 🗳️' }); }
+  if (a === 'schooltimer') { const mins = Math.max(0, Math.min(240, Number(m.mins) || 0)); if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(mins > 0 ? true : undefined, null, mins > 0 ? Date.now() + mins * 60000 : 0); if (mins > 0) classReset(); return send(c, { t: 'admres', ok: true, msg: mins > 0 ? '🏫 School mode ON for ' + mins + ' min' : 'Timer cleared' }); }
   if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('🏫 ' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
   if (a === 'announce') {
     const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');

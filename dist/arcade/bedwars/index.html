@@ -520,6 +520,16 @@
   .qopt.wrong{background:#d62839!important;animation:qshake .35s}
   @keyframes qshake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
   @media (max-width:640px){#qGrid{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr)}#qHud{left:auto;right:8px;top:200px;bottom:auto;transform:none;flex-direction:column;gap:6px;padding:8px;border-radius:14px}#qHud .qbw{width:84px;height:12px}#qSt{display:none}#qOpen{padding:9px 10px;font-size:14px}}
+
+  #voteBox{position:fixed;inset:0;z-index:58;background:radial-gradient(circle at 50% 0%,#3b2a99,#120e2e 70%);display:flex;flex-direction:column;align-items:center;padding:18px 14px;overflow:auto}
+  #voteTitle{font-family:Fredoka,sans-serif;font-weight:700;font-size:clamp(26px,5vw,48px);color:#fff;text-align:center;text-shadow:0 4px 0 #0b0920}
+  #voteTime{color:#ffd166;font-weight:800;margin:4px 0 16px;font-size:18px}
+  #voteGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;width:min(1100px,100%)}
+  .vopt{background:#1d1748;border:4px solid var(--c);border-radius:18px;color:#fff;padding:14px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:0 6px 0 #0b0920;transition:transform .1s}
+  .vopt:hover{transform:translateY(-3px)}.vopt.mine{background:var(--c);box-shadow:0 0 0 4px #fff,0 6px 0 #0b0920}
+  .vopt .vi{font-size:44px}.vopt .vn{font-weight:800;font-size:20px}.vopt .vd{font-size:12px;opacity:.8;text-align:center;min-height:30px}
+  .vopt .vbar{width:100%;height:10px;background:#0b0920;border-radius:6px;overflow:hidden}.vopt .vbar i{display:block;height:100%;background:#ffd166;transition:width .3s}
+  .vopt .vc{font-weight:800;font-size:15px}
 </style>
 </head>
 <body>
@@ -616,12 +626,13 @@
 <div id="mAdmin" class="modal hidden">
   <div class="mwrap" style="width:min(860px,100%)">
     <div class="mh"><div style="font-size:30px">👑</div><h2>Owner Panel</h2><span class="admlive">● LIVE</span><div class="grow"></div><button class="xbtn" data-close>✕</button></div>
-    <div class="admtabs" id="admTabs"><button data-at="matches" class="on">🎮 Matches</button><button data-at="players">👥 Players</button><button data-at="server">⚙️ Server</button><button data-at="maps">🗺️ Maps</button><button data-at="mega">⚡ Powers</button><button data-at="tools">✨ Me</button><button data-at="log">📜 Log</button></div>
+    <div class="admtabs" id="admTabs"><button data-at="matches" class="on">🎮 Matches</button><button data-at="players">👥 Players</button><button data-at="server">⚙️ Server</button><button data-at="maps">🗺️ Maps</button><button data-at="class">🏫 Class</button><button data-at="mega">⚡ Powers</button><button data-at="tools">✨ Me</button><button data-at="log">📜 Log</button></div>
     <div class="admbody" id="admBody"><div class="admempty">Loading…</div></div>
   </div>
 </div>
 <div id="schoolTag" class="hidden">🏫 SCHOOL MODE — answer questions to power up!</div>
 <div id="qHud" class="hidden"><span id="qEn">⚡ 0</span><div class="qbw"><div id="qBar"></div></div><span id="qSt" style="font-size:13px;opacity:.9">✅ 0</span><button id="qOpen">📝 Answer (G)</button></div>
+<div id="voteBox" class="hidden"><div id="voteTitle">🗳️ Vote for the next game!</div><div id="voteTime"></div><div id="voteGrid"></div></div>
 <div id="quiz" class="hidden">
   <div class="qtop"><span>📝</span><div class="grow" id="qSet"></div><button id="qClose">Back to game ✕</button></div>
   <div id="qQ"></div>
@@ -765,7 +776,7 @@
 <script src="/arcade/bedwars/draw.js?v=7"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=19"></script>
+<script src="/arcade/bedwars/game.js?v=20"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {
