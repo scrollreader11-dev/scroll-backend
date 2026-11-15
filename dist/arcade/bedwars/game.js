@@ -95,6 +95,8 @@
     if (t === 'pinvite') { showInvite(m); return; }
     if (t === 'toast') { toast(m.msg, 3200); return; }
     if (t === 'fx') { screenFx(m); return; }
+    if (t === 'qz') { showQuestion(m); return; }
+    if (t === 'qr') { quizResult(m); return; }
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
     if (t === 'me') return onMe(m);
@@ -103,7 +105,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; S.school = !!m.school; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -259,6 +261,7 @@
     S.map = hub ? (S.hubMap || (S.hubMap = B.genHub())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
     if (window.BWV) BWV.reset();
     S.watching = false; $('watchBar').classList.add('hidden'); document.body.classList.remove('watching');
+    S.en = -1; closeQuiz(true); quizHud();
     S.spaceKind = m.kind; S.myId = m.you; S.team = -1; S.ended = null; S.dead = S.elim = false; S.held = 'sword'; S.sword = 1; S.armor = 1;
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; S.gens = []; S.teams = []; trails.length = 0; D.parts.length = 0;
     offset = m.now - Date.now(); bestRtt = 1e9;
@@ -435,6 +438,7 @@
   function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
+    if (o.act === 'casino' && S.school) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
     var g = objGame(o);
     if (o.act === 'gmenu') { openGameMenu(g); }
     else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('🔒 Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
@@ -465,16 +469,19 @@
   function walkToObj(o) { var path = findPathNear(o); if (!path) { toast('Can’t get there from here', 1200); return; } P.auto = { path: path, i: 0, o: o, t: now() }; }
   var lbTab = 'bw'; S.lb2 = {};
   function lbPick(g) {
-    lbTab = g; if (g !== 'bw' && !S.lb2[g]) { send({ t: 'lb2', game: g }); }
+    lbTab = g; if (g !== 'bw' && (!S.lb2[g] || g === 'quiz')) { send({ t: 'lb2', game: g }); }
     renderLb();
   }
   function renderLb() {
     var st = S.mystats || {};
-    $('lbTabs').innerHTML = ['bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build'].map(function (g) { return '<button data-lbg="' + g + '"' + (g === lbTab ? ' class="on"' : '') + '>' + MG.GAMES[g].icon + ' ' + (MG.GAMES[g].short || 'BEDWARS') + '</button>'; }).join('');
+    $('lbTabs').innerHTML = ['quiz', 'bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build'].map(function (g) { return '<button data-lbg="' + g + '"' + (g === lbTab ? ' class="on"' : '') + '>' + (g === 'quiz' ? '📝 QUIZ' : MG.GAMES[g].icon + ' ' + (MG.GAMES[g].short || 'BEDWARS')) + '</button>'; }).join('');
     var none = '<tr><td colspan="5" style="color:var(--mut)">No winners yet — be the first!</td></tr>';
     if (lbTab === 'bw') {
       var rows = S.lb || [];
       $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Finals</th><th>Beds</th></tr>' + (rows.length ? rows.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.wins + '</td><td>' + r.finals + '</td><td>' + r.beds + '</td></tr>'; }).join('') : none);
+    } else if (lbTab === 'quiz') {
+      var rq = S.lb2.quiz;
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>✅ Correct</th><th>Accuracy</th><th>🔥 Best streak</th></tr>' + (rq == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rq.length ? rq.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.w + '</td><td>' + (r.g ? Math.round(r.w / r.g * 100) : 0) + '%</td><td>' + r.x + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">No answers yet — play in School Mode!</td></tr>');
     } else if (lbTab === 'duel') {
       var rd = S.lb2.duel;
       $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Rank</th><th>Rating</th><th>W – L</th></tr>' + (rd == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rd.length ? rd.map(function (r, i) { var rk = MG.rankOf(r.r); return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td style="color:' + rk.color + ';font-weight:700">' + rk.name + '</td><td>' + r.r + '</td><td>' + r.w + ' – ' + r.l + '</td></tr>'; }).join('') : none);
@@ -559,6 +566,7 @@
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; D.parts.length = 0; trails.length = 0;
     (m.tnts || []).forEach(function (x) { S.tnts.set(x[0], { x: x[1], y: x[2], at: x[3] }); });
     m.ents.forEach(function (o) { S.ents.set(o.id, mkEnt(o)); });
+    S.en = -1; S.qz = null; closeQuiz(true);
     S.watching = !!m.watch;
     var me = S.ents.get(S.myId);
     if (S.watching) { var fst = null; S.ents.forEach(function (e) { if (!fst && !e.dead && !e.elim) fst = e; }); fst = fst || S.ents.values().next().value; S.specId = fst ? fst.id : 0; me = { x: fst ? fst.x : 36 * T, y: fst ? fst.y : 36 * T, dead: true, elim: true, z: 0 }; }
@@ -744,6 +752,7 @@
     var oldRes = S.res, oldInv = S.inv;
     if (m.role != null && isMini()) { var mmr = S.ents.get(S.myId); S.team = m.role; if (mmr) { mmr.team = m.role; mmr.prop = m.prop; } }
     S.prop = m.prop; if (m.mr != null) S.mrole = m.mr; S.gold = m.gold | 0;
+    if (m.en != null) { var wasEn = S.en; S.en = m.en; if (m.qz) S.qz = m.qz; quizHud(); if (wasEn === -1 && m.en >= 0) toast(S.game === 'bw' ? '🏫 School Mode: answer questions (G) to earn iron, gold, diamonds & energy — generators are off!' : '🏫 School Mode: walking uses ⚡ energy. Press G or tap Answer to earn more!', 4200); if (m.en === 0 && wasEn > 0 && !S.quizOpen && !S.ended) { toast('⚡ Out of energy! Answer questions to keep moving.', 2600); openQuiz(); } }
     S.hp = m.hp; S.absorb = m.absorb; S.inv = m.inv; S.res = m.res; S.sword = m.sword; S.armor = m.armor; S.pick = m.pick; S.stats = m.stats;
     S.dead = m.dead; S.elim = m.elim; if (m.dead && !m.elim) S.respawnAt = now() + m.respawn; S.speedUntil = now() + m.speed; S.slowUntil = now() + (m.slow || 0);
     var me = S.ents.get(S.myId); if (me) { me.sword = m.sword; me.armor = m.armor; me.pick = m.pick; }
@@ -760,6 +769,8 @@
   addEventListener('keydown', function (e) {
     if (e.target && e.target.tagName === 'INPUT') return;
     var k = e.key.toLowerCase();
+    if (S.quizOpen) { if (/^[1-4]$/.test(k)) quizPick(+k - 1); if (k === 'escape' || k === 'g') closeQuiz(); e.preventDefault(); return; }
+    if (k === 'g' && S.screen === 'game' && S.en >= 0) { openQuiz(); return; }
     if (k === 'escape') { closeShop(); closeModals(); $('qcMenu').classList.add('hidden'); return; }
     if (S.screen !== 'game' && S.screen !== 'hub' && S.screen !== 'wait') return;
     if (anyModal()) return;
@@ -982,6 +993,7 @@
           if (ad < 10) P.auto.i++; else { ix = adx / ad; iy = ady / ad; }
         }
       }
+      if (inGame && (S.quizOpen || S.en === 0)) { ix = 0; iy = 0; } // School mode: no energy (or answering) = no walking
       var il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
       if (il < 0.1) S.dblSprint = false;
       // Minecraft-style sprinting: hold Shift/Ctrl, double-tap a direction, or push the joystick all the way.
@@ -1594,6 +1606,8 @@
     $('eReward').classList.toggle('hidden', !rw);
     var st = m.stats.slice().sort(function (a, b) { return (b.finals * 3 + b.kills + b.beds * 4) - (a.finals * 3 + a.kills + a.beds * 4); });
     if (m.game && m.game !== 'bw') $('eTable').innerHTML = mgEndTable(m); else $('eTable').innerHTML = '<tr><th>#</th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + teamCol(s.team) + '">' + (s.bot ? '🤖 ' : '') + esc(s.nick) + '</b></td><td>' + s.kills + '</td><td>' + s.finals + '</td><td>' + s.beds + '</td><td>' + s.deaths + '</td></tr>'; }).join('');
+    if (m.quiz && m.quiz.length) $('eTable').innerHTML += '<tr><th colspan="6" style="padding-top:14px;color:#ffd166">📝 Quiz standings</th></tr><tr><th>#</th><th>Player</th><th>✅ Right</th><th>❌ Wrong</th><th>🔥 Best</th><th></th></tr>' + m.quiz.map(function (q, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(q.nick) + '</td><td>' + q.right + '</td><td>' + q.wrong + '</td><td>' + q.best + '</td><td></td></tr>'; }).join('');
+    closeQuiz(true); $('qHud').classList.add('hidden');
     podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now(), label: m.game === 'hide' ? (m.winner === 0 ? 'HIDERS' : 'SEEKERS') : m.game === 'spleef' ? 'LAST ONE STANDING' : null };
     if (m.game === 'hide') podium.team = m.winner === 0 ? 2 : 0;
     if (S.hello && rw) { S.hello.stats = Object.assign(S.hello.stats || {}, rw.stats, { coins: rw.coins, earnedToday: rw.stats.earned, cap: (S.hello.stats && S.hello.stats.cap) || 1500 }); }
@@ -1659,6 +1673,70 @@
   $('hMap').onchange = function () { send({ t: 'cfg', map: this.value }); SC.sfx('click'); };
   [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.onclick = function () { openAdmin(); }; });
 
+
+  // ------------------------------------------------------------------ School mode quiz (Gimkit / Blooket style)
+  S.en = -1;
+  var QCOLS = ['#f0a531', '#4d7cff', '#5dcc6b', '#e8473b'];
+  function quizHud() {
+    if ($('schoolTag')) $('schoolTag').classList.toggle('hidden', !S.school || S.screen === 'game');
+    var on = S.screen === 'game' && S.en >= 0;
+    $('qHud').classList.toggle('hidden', !on);
+    if (!on) return;
+    var pct = Math.max(0, Math.min(100, S.en));
+    $('qBar').style.width = pct + '%';
+    $('qBar').style.background = S.en <= 15 ? '#ff4b5c' : S.en <= 40 ? '#ffd166' : '#2bd576';
+    $('qEn').textContent = '⚡ ' + S.en;
+    $('qHud').classList.toggle('empty', S.en === 0);
+    var z = S.qz || {}; $('qSt').textContent = '✅ ' + (z.right || 0) + (z.streak ? '  🔥 ' + z.streak : '');
+  }
+  function openQuiz() {
+    if (S.en < 0 || S.quizOpen) return;
+    S.quizOpen = true; keys = {}; mouse.l = mouse.r = false;
+    $('quiz').classList.remove('hidden'); $('qFeed').textContent = ''; $('qQ').textContent = 'Loading question…'; $('qGrid').innerHTML = '';
+    send({ t: 'qz' }); SC.sfx('open');
+  }
+  function closeQuiz(silent) {
+    if (!S.quizOpen) { if ($('quiz')) $('quiz').classList.add('hidden'); return; }
+    S.quizOpen = false; clearTimeout(S.qNextT); $('quiz').classList.add('hidden'); if (!silent) SC.sfx('click');
+  }
+  function fitQ(el, txt) { el.textContent = txt; var n = txt.length; el.style.fontSize = n > 170 ? 'clamp(17px,2.6vw,28px)' : n > 110 ? 'clamp(19px,3vw,34px)' : 'clamp(22px,3.6vw,42px)'; }
+  function showQuestion(m) {
+    if (!S.quizOpen) return;
+    S.qCur = m; S.qBusy = false; S.qShownAt = now();
+    fitQ($('qQ'), m.q); $('qFeed').textContent = ''; $('qFeed').className = '';
+    $('qSet').textContent = m.set || '';
+    var g = $('qGrid'); g.innerHTML = '';
+    m.choices.forEach(function (ch, i) {
+      var b = document.createElement('button'); b.className = 'qopt'; b.style.background = QCOLS[i]; b.dataset.i = i;
+      b.innerHTML = '<span class="qk">' + (i + 1) + '</span><span class="qt"></span>'; b.lastChild.textContent = ch;
+      b.onclick = function () { quizPick(i); };
+      g.appendChild(b);
+    });
+    if (m.en != null) { S.en = m.en; S.qz = m.qz; quizHud(); }
+  }
+  function quizPick(i) {
+    if (!S.qCur || S.qBusy || now() - (S.qShownAt || 0) < 300) return;
+    S.qBusy = true; S.qPick = i;
+    [].forEach.call($('qGrid').children, function (b) { b.classList.add('lock'); });
+    send({ t: 'qa', i: i });
+  }
+  function quizResult(m) {
+    if (m.retry) { S.qBusy = false; [].forEach.call($('qGrid').children, function (b) { b.classList.remove('lock'); }); return; }
+    var bs = $('qGrid').children;
+    [].forEach.call(bs, function (b, k) { if (k === m.ans) b.classList.add('right'); else if (k === S.qPick && !m.ok) b.classList.add('wrong'); else b.classList.add('dim'); });
+    var f = $('qFeed');
+    if (m.ok) {
+      var g = m.gain || {}, parts = ['+' + g.en + ' ⚡'];
+      if (g.iron) parts.push('+' + g.iron + ' iron'); if (g.gold) parts.push('+' + g.gold + ' gold'); if (g.dia) parts.push('+1 diamond 💎'); if (g.em) parts.push('+1 emerald 🟩'); if (g.speed) parts.push('speed boost ⚡');
+      f.textContent = '✅ Correct!  ' + parts.join('  ·  ') + (m.qz.streak >= 2 ? '   🔥 ' + m.qz.streak + ' in a row' : ''); f.className = 'ok'; SC.sfx('level');
+    } else { f.textContent = '❌ Not quite — the answer is highlighted.'; f.className = 'bad'; SC.sfx('no'); }
+    S.en = m.en; S.qz = m.qz; quizHud();
+    // random pause before the next question so nobody can memorize a rhythm
+    var wait = (m.ok ? 700 : 1700) + Math.random() * 900;
+    clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.quizOpen) send({ t: 'qz' }); }, wait);
+  }
+  $('qClose').onclick = function () { closeQuiz(); };
+  $('qOpen').onclick = function () { openQuiz(); };
   // owner "power" screen effects
   function screenFx(m) {
     var cv = $('cv'), k = m.kind, ms = m.ms || 10000;
@@ -1765,6 +1843,8 @@
       html += '<div class="admcard"><div class="admhead">📢 Hub message (shows at the top of the hub)</div><div class="admrow"><input class="admin-in" id="admMotd" maxlength="120" placeholder="e.g. Tournament at 7pm!" value="' + esc(S.admMotdDraft != null ? S.admMotdDraft : st.motd || '') + '">' + ab('Set', { act: 'setting', k: 'motd' }, 'gold') + ab('Clear', { act: 'setting', k: 'motd', v: '' }) + '</div></div>';
       html += '<div class="admcard"><div class="admhead">🎮 Game settings <span class="tag2">new matches</span></div>' + num('ctfCaps', '🚩 CTF captures to win', 'captures') + num('ctfMins', '🚩 CTF time limit', 'minutes') + num('hideSec', '🎃 Prop Hunt hiding time', 'seconds') + num('seekSec', '🎃 Prop Hunt seeking time', 'seconds') + num('spleefMins', '❄️ Spleef sudden death after', 'minutes') +
         '<div class="admrow"><span class="lbl" style="min-width:150px">🤖 Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('💾 Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
+      var sc = d.school;
+      html += '<div class="admcard"><div class="admhead">🏫 School mode ' + (sc ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (sc ? ab('Turn school mode off', { act: 'school', on: 0 }, 'red', true) : ab('🏫 Turn school mode on', { act: 'school', on: 1 }, 'green', true)) + '</div><div class="admrow"><span class="lbl">Questions:</span>' + [['blooket', 'Class Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9+10']].map(function (q) { return ab(q[1], { act: 'school', v: q[0] }, sc && sc.set === q[0] ? 'gold' : ''); }).join('') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Site goes to the games hub only · 30 players per game · walking uses ⚡ energy, answers refill it · Bedwars resources come from answers.</div></div>';
       html += '<div class="admcard"><div class="admhead">⏹️ Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
     } else if (admTab === 'maps') {
       var mp = d.maps || [], rot = d.rot || {};

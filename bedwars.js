@@ -9,6 +9,7 @@ import './dist/arcade/bedwars/shared.js';
 import './dist/arcade/bedwars/mg.js';
 import { MINI, initMini } from './minigames.js';
 import * as GMS from './gamemaps.js';
+import { nextQuestion, SETS as QSETS } from './quizbank.js';
 import { worldIdentity, worldLook, bwReward, bwStats, bwLeaderboard, grantCoins } from './casino.js';
 
 const BW = globalThis.BW;
@@ -136,7 +137,7 @@ function spaceMsg(c, m, now) {
   if (t === 'qc') { if (now - (c.qcAt || 0) < 1200) return; c.qcAt = now; const i = m.i | 0; if (i >= 0 && i < BW_QC.length) sp.events.push(['qc', c.pid, i]); return; }
   if (t === 'lb2') {
     if (now - (c.lb2At || 0) < 800) return; c.lb2At = now;
-    const g = MG.isMini(String(m.game)) ? String(m.game) : 'bw';
+    const g = String(m.game) === 'quiz' ? 'quiz' : MG.isMini(String(m.game)) ? String(m.game) : 'bw';
     send(c, { t: 'lb2', game: g, rows: g === 'bw' ? bwLeaderboard() : GMS.gameLb(g), myElo: g === 'duel' ? GMS.eloOf(c.cid) : undefined });
     return;
   }
@@ -147,16 +148,21 @@ function newCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c; do { c
 function makeRoom(kind, mode, diff, host, game) {
   game = MG.isMini(game) ? game : 'bw';
   const r = { id: nextRoom++, mapId: null, game, kind, mode: game !== 'bw' ? game : BW.MODES[mode] ? mode : 'solo', diff: SK[diff] ? diff : 'normal', code: kind === 'private' ? newCode() : '', host: host || '', state: 'lobby', members: [], startAt: 0, created: Date.now() };
+  const sc = schoolCfg(); if (sc) { r.school = true; r.qset = sc.set || 'blooket'; }
   r.space = makeSpace('wait', r);
   rooms.set(r.id, r); if (r.code) codes.set(r.code, r);
   return r;
 }
-function per(r) { return r.game !== 'bw' ? MG.GAMES[r.game].per : BW.MODES[r.mode].per; }
-function nTeams(r) { return r.game !== 'bw' ? MG.GAMES[r.game].teams : 4; }
-function capOf(r) { return r.game !== 'bw' ? MG.GAMES[r.game].max : 4 * per(r); }
+// ---- School mode (set from the site admin panel): up to 30 players per game + quiz power-ups
+function schoolCfg() { try { return globalThis.SH_SCHOOL ? globalThis.SH_SCHOOL() : null; } catch (e) { return null; } }
+const SCHOOL_CAP = { bw: [4, 8, 30], ctf: [2, 15, 30], hide: [2, 30, 30], spleef: [30, 1, 30], murder: [30, 1, 30], build: [4, 8, 30] }; // [teams, per team, max]
+function basePer(r) { return r.game !== 'bw' ? MG.GAMES[r.game].per : BW.MODES[r.mode].per; }
+function per(r) { return r.school && SCHOOL_CAP[r.game] ? SCHOOL_CAP[r.game][1] : basePer(r); }
+function nTeams(r) { return r.school && SCHOOL_CAP[r.game] ? SCHOOL_CAP[r.game][0] : r.game !== 'bw' ? MG.GAMES[r.game].teams : 4; }
+function capOf(r) { return r.school && SCHOOL_CAP[r.game] ? SCHOOL_CAP[r.game][2] : r.game !== 'bw' ? MG.GAMES[r.game].max : 4 * per(r); }
 function bestTeam(r) {
   if (r.game === 'hide') return r.members.length < capOf(r) ? 0 : -1;
-  const cnt = [0, 0, 0, 0, 0, 0, 0, 0]; for (const m of r.members) cnt[m.team]++;
+  const cnt = new Array(32).fill(0); for (const m of r.members) cnt[m.team]++;
   let best = -1; for (let t = 0; t < nTeams(r); t++) if (cnt[t] < per(r) && (best < 0 || cnt[t] < cnt[best])) best = t;
   return best;
 }
@@ -178,7 +184,7 @@ function joinLobby(c, r, team) {
   c.room = r; c.ent = null;
   if (r.kind === 'public') {
     const now = Date.now();
-    if (!r.startAt) r.startAt = now + 25000;
+    if (!r.startAt) r.startAt = now + (r.school ? 45000 : 25000);
     if (r.members.length >= capOf(r)) r.startAt = Math.min(r.startAt, now + 5000);
   }
   if (r.kind === 'practice') r.startAt = Date.now() + 2500;
@@ -246,7 +252,7 @@ function joinWithParty(c, room, team) {
   const mates = partyMates(c);
   let t = team;
   if (mates.length && room.game !== 'hide' && nTeams(room) > 1) { // the team with the most free seats, so you all fit
-    const cnt = [0, 0, 0, 0, 0, 0, 0, 0]; for (const m of room.members) cnt[m.team]++;
+    const cnt = new Array(32).fill(0); for (const m of room.members) cnt[m.team]++;
     let best = -1; for (let k = 0; k < nTeams(room); k++) { const free = per(room) - cnt[k]; if (free > 0 && (best < 0 || free > per(room) - cnt[best])) best = k; }
     if (best >= 0) t = best;
   }
@@ -359,8 +365,9 @@ setInterval(() => { // tidy parties where nobody is online, and refresh who's ta
 // ============================================================ match setup
 function emptyInv() { return { kbstick: 0, wool: 0, wood: 0, end: 0, obby: 0, bow: 0, arrows: 0, fireball: 0, tnt: 0, gapple: 0, pearl: 0, egg: 0, speed: 0 }; }
 function makeEnt(r, o) {
-  const b = r.map.bases[o.team];
+  const b = r.map.bases[o.team % r.map.bases.length];
   const e = {
+    quiz: !!r.school && !o.bot, energy: 60, qz: { right: 0, wrong: 0, streak: 0, best: 0 }, qs: {}, qLock: 0,
     id: nextEnt++, cid: o.cid || '', nick: o.nick, look: o.look, team: o.team, bot: !!o.bot, conn: o.conn || null, ctl: o.bot ? 'ai' : 'human',
     x: b.spawn.x + (rnd() - 0.5) * 30, y: b.spawn.y + (rnd() - 0.5) * 20, vx: 0, vy: 0, ang: Math.atan2(b.inward[1], b.inward[0]), mv: false,
     hp: BW.MAX_HP, absorb: 0, dead: false, elim: false, respawnAt: 0, fall: 0,
@@ -396,13 +403,49 @@ function startMatch(r) {
   let roleIdx = [0, 0, 0, 0];
   for (const e of r.ents.values()) roleIdx[e.team]++;
   for (let t = 0; t < 4; t++) {
-    while ([...r.ents.values()].filter((e) => e.team === t).length < per(r)) {
+    while ([...r.ents.values()].filter((e) => e.team === t).length < basePer(r)) {
       let name; do { name = pick(BOT_NAMES); } while (used.has(name) && used.size < BOT_NAMES.length); used.add(name);
       const e = makeEnt(r, { nick: name, look: botLook(), team: t, bot: true });
       e.ai.role = roleIdx[t]++ === 0 ? 'def' : 'atk';
     }
   }
   for (const e of r.ents.values()) if (e.conn) send(e.conn, fullState(r, e));
+}
+
+// ============================================================ School-mode quiz (Gimkit-style)
+function quizReward(r, e) {
+  const st = e.qz.streak, out = { en: 10 + Math.min(10, st * 2) };
+  e.energy = Math.min(250, e.energy + out.en);
+  if (r.game === 'bw') {
+    e.res.iron += 6; e.res.gold += 2; out.iron = 6; out.gold = 2;
+    if (st > 0 && st % 3 === 0) { e.res.dia += 1; out.dia = 1; }
+    if (st > 0 && st % 5 === 0) { e.res.em += 1; out.em = 1; }
+  } else if (r.game === 'murder' && !e.elim) {
+    e.gold = (e.gold | 0) + 1; out.gold = 1;
+    if (e.mrole !== 'm' && e.gold >= 10) { e.gold -= 10; e.inv.bow = 1; e.inv.arrows = Math.max(1, e.inv.arrows | 0); r.ev(['mbow', e.id]); }
+  } else if (st > 0 && st % 4 === 0 && !e.dead) { e.speedUntil = Date.now() + 8000; out.speed = 1; }
+  e.dirty = true;
+  return out;
+}
+function quizMsg(r, e, c, m, now) {
+  if (!e.quiz) return;
+  if (m.t === 'qz') {
+    if (e.qs.cur && now - e.qs.cur.at < 400) return;
+    const q = nextQuestion(e.qs, r.qset);
+    return send(c, { t: 'qz', q: q.q, choices: q.choices, set: (QSETS[r.qset] || QSETS.blooket).name, en: Math.ceil(e.energy), qz: e.qz });
+  }
+  const cur = e.qs.cur; if (!cur || cur.done) return;
+  if (now - cur.at < 150) return send(c, { t: 'qr', retry: 1 }); // no machine-gun guessing
+  cur.done = true;
+  const ok = (m.i | 0) === cur.ans;
+  let gain = null;
+  if (ok) { e.qz.right++; e.qz.streak++; e.qz.best = Math.max(e.qz.best, e.qz.streak); gain = quizReward(r, e); }
+  else { e.qz.wrong++; e.qz.streak = 0; e.dirty = true; }
+  GMS.recordQuiz(e.cid, e.nick, ok, e.qz.streak);
+  send(c, { t: 'qr', ok, ans: cur.ans, gain, en: Math.ceil(e.energy), qz: e.qz });
+}
+function quizBoard(r) {
+  return [...r.ents.values()].filter((e) => e.quiz).map((e) => ({ nick: e.nick, team: e.team, right: e.qz.right, wrong: e.qz.wrong, best: e.qz.best })).sort((a, b) => b.right - a.right).slice(0, 30);
 }
 function teamsInfo(r) {
   return r.teams.map((tm, t) => {
@@ -424,7 +467,7 @@ function fullState(r, e) {
 }
 function meMsg(e) {
   const now = Date.now();
-  return { t: 'me', role: e.team, mr: e.mrole || '', gold: e.gold | 0, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), slow: Math.max(0, e.slowUntil - now), stats: e.stats };
+  return { t: 'me', en: e.quiz ? Math.ceil(e.energy) : -1, qz: e.quiz ? e.qz : null, role: e.team, mr: e.mrole || '', gold: e.gold | 0, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), slow: Math.max(0, e.slowUntil - now), stats: e.stats };
 }
 
 // ============================================================ actions (shared by players & bots)
@@ -549,7 +592,7 @@ function die(r, v, kind, att) {
 }
 function respawn(r, e) {
   if (r.game !== 'bw') return MINI.respawn(r, e);
-  const b = r.map.bases[e.team];
+  const b = r.map.bases[e.team % r.map.bases.length];
   e.dead = false; e.hp = BW.MAX_HP; e.absorb = 0; e.x = b.spawn.x + (rnd() - 0.5) * 30; e.y = b.spawn.y + (rnd() - 0.5) * 16; e.vx = e.vy = 0;
   e.invulnUntil = Date.now() + 1800; e.fall = 0; e.lastHitBy = 0; e.dirty = true;
   r.ev(['spawn', e.id, Math.round(e.x), Math.round(e.y)]);
@@ -661,6 +704,7 @@ function endMatch(r, winner) {
   const mult = r.kind === 'public' ? 1 : 0.5;
   const extra = r.game !== 'bw' ? MINI.endInfo(r) : {};
   if (r.game === 'duel' && r.kind !== 'practice') extra.elo = GMS.duelElo(r, winner);
+  if (r.school) extra.quiz = quizBoard(r);
   for (const e of r.ents.values()) {
     if (e.bot || !e.cid) continue;
     const win = r.game !== 'bw' ? MINI.isWinner(r, e, winner) : e.team === winner;
@@ -771,7 +815,7 @@ function think(r, e, now) {
   if (e.hp < 9 && e.inv.gapple) useItem(r, e, 'gapple', e.x, e.y, now);
   if (e.inv.speed && ai.goal && ai.goal.type === 'attack') useItem(r, e, 'speed', e.x, e.y, now);
   // Intruders in our base pull every nearby bot back.
-  const base = r.map.bases[e.team];
+  const base = r.map.bases[e.team % r.map.bases.length];
   let intr = null;
   if (tm.bed) for (const o of r.ents.values()) if (o.team !== e.team && !o.dead && !o.elim && inRect(base.rect, o.x, o.y)) { intr = o; break; }
   const foe = foeNear(r, e, 6.5 * T);
@@ -791,7 +835,7 @@ function think(r, e, now) {
 }
 function goalDone(r, e, g, now) {
   if (g.until && now > g.until) return true;
-  if (g.type === 'defend') { const o = r.ents.get(g.t); return !o || o.dead || o.elim || !inRect(r.map.bases[e.team].rect, o.x, o.y); }
+  if (g.type === 'defend') { const o = r.ents.get(g.t); return !o || o.dead || o.elim || !inRect(r.map.bases[e.team % r.map.bases.length].rect, o.x, o.y); }
   if (g.type === 'attack') { const bed = r.map.beds[g.team]; return !bed.alive; }
   if (g.type === 'hunt') { const o = r.ents.get(g.t); return !o || o.dead || o.elim; }
   if (g.type === 'collect') return !!botWish(r, e) && !g.dia;
@@ -817,7 +861,7 @@ function choose(r, e, now, el) {
   return { type: 'collect', gi: myGen, until: now + 5000 + rnd() * 9000 };
 }
 function standTile(r, e) { // where a builder stands to wall in the bed
-  const b = r.map.bases[e.team];
+  const b = r.map.bases[e.team % r.map.bases.length];
   for (const a of [-2, 2]) { const p = baseL(b, a, 2); const i = p[1] * W + p[0]; if (BW.floorAt(r.map, p[0], p[1]) && !BW.solidAt(r.map, p[0], p[1])) return i; }
   const p = baseL(b, 0, 0); return p[1] * W + p[0];
 }
@@ -986,6 +1030,7 @@ function tickRoom(r, now) {
       if (g.kind === 'em') { if (tm.up.forge < 3) continue; every = 45; }
       else every = BW.GEN[g.kind].every / BW.GEN.forgeMult[tm.up.forge];
     } else every = BW.GEN[g.kind].every[r.tier[g.kind]];
+    if (r.school) { g.acc = 0; continue; } // School mode: resources come from answering questions
     if (g.n >= BW.GEN[g.kind].cap) { g.acc = 0; continue; }
     g.acc += DT;
     if (g.acc >= every) { g.acc -= every; g.n++; g.last = now; r.ev(['gen', gi, g.n, Math.round(every * 10)]); }
@@ -1011,7 +1056,7 @@ function tickRoom(r, now) {
     const tm = r.teams[e.team];
     let heal = 0;
     if (now - e.lastDmgAt > 5000) heal += 0.45;
-    if (tm.up.heal && inRect(m.bases[e.team].rect, e.x, e.y)) heal += 1;
+    if (tm.up.heal && inRect(m.bases[e.team % m.bases.length].rect, e.x, e.y)) heal += 1;
     if (now < e.regenUntil) heal += 2.2;
     if (heal && e.hp < BW.MAX_HP) { e.hp = Math.min(BW.MAX_HP, e.hp + heal * DT); }
     if (Math.ceil(e.hp) !== e.lastHp) { e.lastHp = Math.ceil(e.hp); e.dirty = true; }
@@ -1139,7 +1184,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     conns.add(c);
     for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg() });
     setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
@@ -1217,6 +1262,7 @@ function onMsg(c, m, now) {
   if (r.state !== 'play') return;
   const e = c.ent; if (!e || e.conn !== c) return;
   if (t === 'qc') { if (now - (e.qcAt || 0) < 1200) return; e.qcAt = now; const i = m.i | 0; if (i >= 0 && i < BW_QC.length) r.ev(['qc', e.id, i]); return; }
+  if (t === 'qz' || t === 'qa') { quizMsg(r, e, c, m, now); return; }
   if (e.dead || e.elim) return;
   if (now < r.goAt) return;
   if (r.game !== 'bw' && MINI.onMsg(r, e, m, now)) return;
@@ -1228,6 +1274,11 @@ function onMsg(c, m, now) {
     let bad = false;
     if (d > allow && !e.god) { x = e.x + dx / d * allow; y = e.y + dy / d * allow; bad = true; }
     if (BW.hits(r.map, x, y, false) && !BW.hits(r.map, e.x, e.y, false)) { x = e.x; y = e.y; bad = true; }
+    if (e.quiz && !e.dead && !e.god) { // School mode: walking uses energy, answering questions refills it
+      const moved = Math.hypot(x - e.x, y - e.y);
+      if (e.energy <= 0 && moved > 2) { x = e.x; y = e.y; if (now - (e.noEnAt || 0) > 500) { e.noEnAt = now; bad = true; } else bad = false; }
+      else if (moved > 0.5) { const before = Math.ceil(e.energy); e.energy = Math.max(0, e.energy - moved / T * (m.m === 2 ? 1.6 : 1) * 0.9); if (Math.ceil(e.energy) !== before) e.dirty = true; }
+    }
     e.x = clamp(x, T, (W - 1) * T); e.y = clamp(y, T, (H - 1) * T);
     if (Number.isFinite(m.a)) e.ang = m.a / 100;
     e.mv = !!m.m; e.sprint = m.m === 2; e.bow = !!m.b && e.inv.bow > 0;
@@ -1279,6 +1330,7 @@ function adminInfo(c) {
     bans: Object.entries(GMS.store.bans).map(([cid, b]) => ({ cid, nick: b.nick, until: b.until, by: b.by })),
     logs: GMS.store.logs.slice(-60).reverse(),
     maps: GMS.listMaps(), rot: GMS.store.rot,
+    school: schoolCfg(),
     mega: MEGA.map((o) => ({ id: o.id, icon: o.icon, label: o.label, cat: o.cat, scope: o.scope, danger: !!o.danger })),
   };
 }
@@ -1384,6 +1436,7 @@ function adminMsg(c, m, now) {
   const ent = (r) => r && r.ents && r.ents.get(Number(m.id));
   if (a === 'info') return send(c, adminInfo(c));
   if (a === 'x') { const res = megaRun(c, m); return send(c, { t: 'admres', ok: res.ok, msg: res.msg }); }
+  if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('🏫 ' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
   if (a === 'announce') {
     const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');
     for (const x of conns) send(x, { t: 'ann', text, from: c.nick });

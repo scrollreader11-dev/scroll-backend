@@ -126,7 +126,7 @@ async function kvFlush() {
 setInterval(kvFlush, 12000);
 
 const admin = {
-  settings: { maintenance: false, redirect: '', announcement: '' },
+  settings: { maintenance: false, redirect: '', announcement: '', schoolMode: false, schoolSet: 'blooket' },
   bansByIp: {},   // ip -> {nickname, reason, ts}
   kicks: {},      // clientId -> {message, ts}  (one-shot)
   broadcast: null,// {text, ts}  shown to everyone once
@@ -320,7 +320,7 @@ async function handlePresence(req, res) {
     banned: false,
     nickname, // sanitized — client updates its stored nick if it changed
     maintenance: admin.settings.maintenance,
-    redirect: admin.settings.redirect || '',
+    redirect: admin.settings.redirect || (admin.settings.schoolMode && String((req._auth && req._auth.username) || '').toLowerCase() !== 'scrollreader11' ? location_school(req) : ''),
     announcement: admin.settings.announcement || '',
     kick: kick || null,
     broadcast: admin.broadcast || null,
@@ -409,6 +409,19 @@ async function serveGameImg(req, res, url) {
 }
 
 // Password-guarded admin control endpoint.
+
+// Pages that School mode sends to the games hub instead.
+function location_school(req) { const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return proto + '://' + req.headers.host + '/arcade'; }
+function schoolBlocked(url) {
+  const p = url.split('?')[0];
+  if (p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars') || p.startsWith('/calltest') || p.startsWith('/bw-ws')) return false;
+  if (p === '/' || p === '/index.html' || p.startsWith('/casino') && (p === '/casino' || p === '/casino/' || p.endsWith('.html'))) return true;
+  if (/\.html?$/.test(p)) return true;
+  if (!/\.[a-z0-9]{1,6}$/i.test(p)) return true; // app routes like /games, /chat, /proxy
+  return false;
+}
+globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket' } : null);
+globalThis.SH_SET_SCHOOL = async (on, set) => { if (typeof on === 'boolean') admin.settings.schoolMode = on; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 async function handleAdmin(req, res) {
   const body = await readBody(req);
   if (!ADMIN_PASSWORD || body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
@@ -446,6 +459,8 @@ async function handleAdmin(req, res) {
     if (typeof s.maintenance === 'boolean') admin.settings.maintenance = s.maintenance;
     if (typeof s.redirect === 'string') admin.settings.redirect = s.redirect.trim();
     if (typeof s.announcement === 'string') admin.settings.announcement = s.announcement.slice(0, 300);
+    if (typeof s.schoolMode === 'boolean') { admin.settings.schoolMode = s.schoolMode; logEvent('admin', 'admin', '🏫 School mode ' + (s.schoolMode ? 'ON' : 'OFF')); }
+    if (typeof s.schoolSet === 'string' && ['blooket', 'u9', 'u10', 'both'].includes(s.schoolSet)) admin.settings.schoolSet = s.schoolSet;
     await saveState();
     return sendJson(res, 200, { ok: true, settings: admin.settings });
   }
@@ -1820,6 +1835,12 @@ const httpServer = createServer(async (req, res) => {
     return sendJson(res, 200, { online: bwOnline(), casino: worldOnline(), me: id.cid ? { nick: id.nick, bw: bwStats(id.cid) } : null });
   }
 
+  // School mode: everyone (except the owner) only gets the games hub.
+  if (admin.settings.schoolMode && req.method === 'GET' && schoolBlocked(url)) {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    const name = who && (who.username || (who.account && who.account.username) || who.name);
+    if (String(name || '').toLowerCase() !== 'scrollreader11') { res.writeHead(302, { Location: '/arcade', 'cache-control': 'no-store' }); res.end(); return; }
+  }
   if (url === '/admin' || url === '/admin/') {
     req.url = '/admin/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });

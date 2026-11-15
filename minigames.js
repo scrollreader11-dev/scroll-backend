@@ -29,7 +29,7 @@ function start(r) {
   r.seed = (rnd() * 1e9) | 0;
   r.map = MG.genMap(r.game, r.seed, r.custom);
   r.ents = new Map();
-  r.teams = []; for (let t = 0; t < 8; t++) r.teams.push({ bed: false, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } });
+  r.teams = []; for (let t = 0; t < (r.school ? 32 : 8); t++) r.teams.push({ bed: false, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } });
   r.gens = []; r.projs = []; r.tnts = []; r.events = []; r.tl = 0; r.tier = { dia: 0, em: 0 };
   r.goAt = now + 4200; r.lastHuman = now;
   r.ev = (a) => r.events.push(a);
@@ -72,7 +72,7 @@ function start(r) {
     for (let t = 0; t < 2; t++) while (count(t) < 1) addBot(t);
     r.score = [0, 0]; r.endAt = r.goAt + GM.mins * 60000;
     for (const e of r.ents.values()) {
-      const b = r.map.bases[e.team];
+      const b = r.map.bases[e.team % r.map.bases.length];
       e.x = b.spawn.x; e.y = b.spawn.y; e.ang = Math.atan2(0, b.inward[0]);
       e.sword = 3; e.armor = 2; e.inv = A.emptyInv(); e.held = 'sword';
       e.stats = freshStats({ streak: 0, best: 0 });
@@ -98,7 +98,7 @@ function start(r) {
     r.votes = r.map.plots.map(() => ({ sum: 0, n: 0, who: new Set() }));
     r.voteOrder = null; r.voteIdx = -1; r.voteNext = 0; r.results = null;
     for (const e of r.ents.values()) {
-      const b = r.map.bases[e.team];
+      const b = r.map.bases[e.team % r.map.bases.length];
       e.x = b.spawn.x; e.y = b.spawn.y; e.held = 'fists'; e.god = true;
       e.stats = freshStats({ placed: 0, score: 0, place: 0 });
       if (e.bot) bbPlanBot(r, e);
@@ -106,7 +106,7 @@ function start(r) {
   } else if (r.game === 'hide') {
     while (r.ents.size < GM.max) addBot(0);
     const all = shuffle([...r.ents.values()]);
-    const nSeek = all.length <= 5 ? 1 : 2;
+    const nSeek = all.length <= 5 ? 1 : r.school ? Math.max(2, Math.round(all.length / 6)) : 2;
     const m = r.map, spots = shuffle(m.hideSpawns.slice());
     all.forEach((e, k) => {
       e.stats = freshStats({ finds: 0, taunts: 0, survived: 0 });
@@ -185,7 +185,7 @@ function ctfTouch(r, e, now) {
   }
   // capture: carry the enemy flag to your own flag while it's home
   if (e.carry >= 0) {
-    const mine = r.flags[e.team], base = r.map.bases[e.team];
+    const mine = r.flags[e.team], base = r.map.bases[e.team % r.map.bases.length];
     if (mine.state === 0 && Math.hypot(base.fx - e.x, base.fy - e.y) < 46) {
       const f = r.flags[e.carry];
       f.state = 0; f.carrier = 0; f.x = r.map.bases[f.team].fx; f.y = r.map.bases[f.team].fy;
@@ -367,10 +367,10 @@ function respawn(r, e) {
   e.dead = false; e.hp = BW.MAX_HP; e.absorb = 0; e.vx = e.vy = 0; e.fall = 0; e.lastHitBy = 0; e.dirty = true;
   e.invulnUntil = now + 1800;
   if (r.game === 'ctf') {
-    const b = m.bases[e.team]; e.x = b.spawn.x + (rnd() - 0.5) * 30; e.y = b.spawn.y + (rnd() - 0.5) * 60; kitCTF(r, e);
+    const b = m.bases[e.team % m.bases.length]; e.x = b.spawn.x + (rnd() - 0.5) * 30; e.y = b.spawn.y + (rnd() - 0.5) * 60; kitCTF(r, e);
     if (e.ai) { e.ai.viaDone = false; e.ai.lane = rnd() < 0.5 ? -1 : 1; e.ai.tp = null; }
   } else if (r.game === 'duel') {
-    const b = m.bases[e.team]; e.x = b.spawn.x; e.y = b.spawn.y; e.vx = e.vy = 0; e.held = 'sword';
+    const b = m.bases[e.team % m.bases.length]; e.x = b.spawn.x; e.y = b.spawn.y; e.vx = e.vy = 0; e.held = 'sword';
   } else if (r.game === 'hide') {
     setSeeker(r, e, false);
     if (e.turned && e.conn) A.send(e.conn, { t: 'role', role: 1 });
@@ -554,7 +554,7 @@ function ctfBot(r, e, now) {
   if (ai.tp) { const d = Math.hypot(ai.tp.x - e.x, ai.tp.y - e.y); if (d > 10) A.moveToward(r, e, ai.tp.x, ai.tp.y, A.DT, ai.role === 'def' ? 0.6 : 1); }
 }
 function ctfThink(r, e, now) {
-  const ai = e.ai, my = r.flags[e.team], en = r.flags[1 - e.team], base = r.map.bases[e.team];
+  const ai = e.ai, my = r.flags[e.team], en = r.flags[1 - e.team], base = r.map.bases[e.team % r.map.bases.length];
   if (e.hp < 9 && e.inv.gapple) A.useItem(r, e, 'gapple', e.x, e.y, now);
   if (e.inv.speed && (e.carry >= 0 || ai.role === 'atk')) A.useItem(r, e, 'speed', e.x, e.y, now);
   const carrying = e.carry >= 0;
@@ -860,7 +860,7 @@ function bbProp(m, i, v) {
 }
 function plotOwners(r) {
   const o = [];
-  for (const e of r.ents.values()) if (e.team < r.map.plots.length) o[e.team] = { id: e.id, nick: e.nick, bot: !!e.bot };
+  for (const e of r.ents.values()) if (e.team < r.map.plots.length) { const p = o[e.team]; if (!p) o[e.team] = { id: e.id, nick: e.nick, bot: !!e.bot, ids: [e.id] }; else { p.ids.push(e.id); p.nick = p.ids.length > 2 ? p.nick.split(' + ')[0] + ' + ' + (p.ids.length - 1) + ' more' : p.nick + ' + ' + e.nick; } }
   return o;
 }
 function buildTick(r, now) {
@@ -926,7 +926,7 @@ function bbResults(r, now) {
     const o = owners[k] || {};
     return { plot: k, team: k, id: o.id || 0, nick: o.nick || '?', avg: Math.round(avg * 10) / 10 };
   }).sort((a, b) => b.avg - a.avg);
-  r.results.forEach((q, k) => { const e = r.ents.get(q.id); if (e) { e.stats.place = k + 1; e.stats.score = q.avg; } });
+  r.results.forEach((q, k) => { for (const e of r.ents.values()) if (e.team === q.team) { e.stats.place = k + 1; e.stats.score = q.avg; } });
   r.podiumAt = now + 7000;
   A.roomSend(r, { t: 'bbr', results: r.results, theme: r.theme });
 }

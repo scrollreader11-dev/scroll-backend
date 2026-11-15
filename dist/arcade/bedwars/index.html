@@ -495,6 +495,31 @@
   #partyBar .ph{font-size:11px;color:#ffd166;font-weight:800;padding-left:4px}
   #watchBar{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:12;background:rgba(18,14,46,.9);border:3px solid #9b6bff;border-radius:14px;padding:6px 8px 6px 14px;display:flex;gap:10px;align-items:center;font-weight:800;color:#fff}
   #pInvite{position:fixed;right:14px;bottom:14px;z-index:40;background:#1d1748;border:3px solid #6c4dff;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-weight:700;color:#fff;max-width:300px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+
+  body.school .casinoBtn{display:none!important}
+  #schoolTag{position:fixed;left:50%;top:56px;transform:translateX(-50%);z-index:9;background:#ffd166;color:#2a1300;font-weight:800;border-radius:999px;padding:5px 14px;font-size:14px;box-shadow:0 4px 0 #b07d00;pointer-events:none;white-space:nowrap}
+  #qHud{position:fixed;left:50%;bottom:132px;transform:translateX(-50%);z-index:11;display:flex;align-items:center;gap:10px;background:rgba(18,14,46,.88);border:3px solid var(--line);border-radius:16px;padding:6px 8px 6px 12px;color:#fff;font-weight:800}
+  #qHud .qbw{width:min(240px,34vw);height:16px;background:#2a2457;border-radius:9px;overflow:hidden;border:2px solid #0b0920}
+  #qBar{height:100%;width:50%;transition:width .25s,background .25s}
+  #qHud.empty{border-color:#ff4b5c;animation:qpulse 1s infinite}
+  @keyframes qpulse{50%{box-shadow:0 0 18px #ff4b5c}}
+  #qOpen{background:#6c4dff;color:#fff;border:0;border-radius:12px;padding:8px 14px;font-weight:800;font-size:15px;box-shadow:0 4px 0 #3b2a99;cursor:pointer;white-space:nowrap}
+  #quiz{position:fixed;inset:0;z-index:60;background:#f4f1ff;display:flex;flex-direction:column}
+  #quiz .qtop{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#6c4dff;color:#fff;font-weight:800}
+  #quiz .qtop .grow{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85;font-size:14px}
+  #qClose{background:#fff;color:#3b2a99;border:0;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer}
+  #qQ{flex:0 0 auto;min-height:24vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px 6vw;color:#1e1b3a;font-weight:700;line-height:1.25;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.08)}
+  #qFeed{min-height:34px;text-align:center;font-weight:800;font-size:18px;padding:6px 10px}
+  #qFeed.ok{color:#139a43}#qFeed.bad{color:#d62839}
+  #qGrid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;padding:0 10px 10px}
+  .qopt{position:relative;border:0;border-radius:14px;color:#fff;font-weight:800;font-size:clamp(17px,2.6vw,30px);padding:14px 18px;cursor:pointer;box-shadow:inset 0 -8px 0 rgba(0,0,0,.18);text-shadow:0 2px 0 rgba(0,0,0,.25);transition:transform .08s,filter .15s,opacity .15s;display:flex;align-items:center;justify-content:center;text-align:center}
+  .qopt:hover{filter:brightness(1.07)}.qopt:active{transform:scale(.98)}
+  .qopt .qk{position:absolute;left:12px;top:10px;font-size:14px;opacity:.75;background:rgba(0,0,0,.2);border-radius:8px;padding:1px 7px}
+  .qopt.lock{pointer-events:none}.qopt.dim{opacity:.35}
+  .qopt.right{background:#20c05c!important;box-shadow:0 0 0 6px #b6ffcf,inset 0 -8px 0 rgba(0,0,0,.18)}
+  .qopt.wrong{background:#d62839!important;animation:qshake .35s}
+  @keyframes qshake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  @media (max-width:640px){#qGrid{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr)}#qHud{left:auto;right:8px;top:200px;bottom:auto;transform:none;flex-direction:column;gap:6px;padding:8px;border-radius:14px}#qHud .qbw{width:84px;height:12px}#qSt{display:none}#qOpen{padding:9px 10px;font-size:14px}}
 </style>
 </head>
 <body>
@@ -530,7 +555,7 @@
     <button class="hbtn" id="hubHow" title="How to play">❓</button>
     <button class="hbtn" id="hubQc" title="Quick chat (Q)">💬</button>
     <button class="hbtn muteBtn" title="Sound">🔊</button>
-    <a class="hbtn" href="/casino" title="Back to the casino">🎰</a>
+    <a class="hbtn casinoBtn" href="/casino" title="Back to the casino">🎰</a>
   </div>
   <div class="hhint"><span><kbd>WASD</kbd> move</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> jump</span><span><kbd>Click</kbd> an NPC to play</span><span><kbd>E</kbd> interact</span><span><kbd>Q</kbd> chat</span></div>
 </div>
@@ -594,6 +619,14 @@
     <div class="admtabs" id="admTabs"><button data-at="matches" class="on">🎮 Matches</button><button data-at="players">👥 Players</button><button data-at="server">⚙️ Server</button><button data-at="maps">🗺️ Maps</button><button data-at="mega">⚡ Powers</button><button data-at="tools">✨ Me</button><button data-at="log">📜 Log</button></div>
     <div class="admbody" id="admBody"><div class="admempty">Loading…</div></div>
   </div>
+</div>
+<div id="schoolTag" class="hidden">🏫 SCHOOL MODE — answer questions to power up!</div>
+<div id="qHud" class="hidden"><span id="qEn">⚡ 0</span><div class="qbw"><div id="qBar"></div></div><span id="qSt" style="font-size:13px;opacity:.9">✅ 0</span><button id="qOpen">📝 Answer (G)</button></div>
+<div id="quiz" class="hidden">
+  <div class="qtop"><span>📝</span><div class="grow" id="qSet"></div><button id="qClose">Back to game ✕</button></div>
+  <div id="qQ"></div>
+  <div id="qFeed"></div>
+  <div id="qGrid"></div>
 </div>
 <div id="mSoc" class="modal hidden">
   <div class="mwrap">
@@ -732,7 +765,7 @@
 <script src="/arcade/bedwars/draw.js?v=7"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=16"></script>
+<script src="/arcade/bedwars/game.js?v=17"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

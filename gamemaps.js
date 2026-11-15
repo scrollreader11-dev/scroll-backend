@@ -153,7 +153,16 @@ export function recordResult(cid, nick, game, win, st) {
   q.x += game === 'ctf' ? (st.caps | 0) : game === 'hide' ? (st.finds | 0) : game === 'spleef' ? (st.place === 1 ? 1 : 0) : game === 'murder' ? (st.kills | 0) : game === 'build' ? (st.place === 1 ? 1 : 0) : (st.finals | 0);
   dirty = true;
 }
+export function recordQuiz(cid, nick, ok, streak) {
+  if (!cid) return;
+  const g = store.gstats[cid] || (store.gstats[cid] = { nick });
+  g.nick = nick;
+  const q = g.quiz || (g.quiz = { w: 0, g: 0, x: 0 });
+  q.g++; if (ok) q.w++; q.x = Math.max(q.x, streak | 0);
+  dirty = true;
+}
 export function gameLb(game) {
+  if (game === 'quiz') return Object.entries(store.gstats).map(([cid, g]) => g.quiz ? { nick: g.nick, w: g.quiz.w, g: g.quiz.g, x: g.quiz.x } : null).filter(Boolean).sort((a, b) => b.w - a.w || b.x - a.x).slice(0, 10);
   if (game === 'duel') return Object.entries(store.elo).map(([cid, q]) => ({ nick: q.nick, r: q.r, w: q.w, l: q.l })).sort((a, b) => b.r - a.r).slice(0, 10);
   return Object.entries(store.gstats).map(([cid, g]) => { const q = g[game]; return q ? { nick: g.nick, w: q.w, g: q.g, x: q.x } : null; }).filter(Boolean).sort((a, b) => b.w - a.w || b.x - a.x).slice(0, 10);
 }
