@@ -9,6 +9,7 @@
   var T = B.T, W = B.W, H = B.H, TAU = Math.PI * 2;
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), c = cv.getContext('2d');
+  D.season = 'xmas'; A.season = 'xmas';
   var touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
   if (touch) document.body.classList.add('touch');
   function now() { return performance.now(); }
@@ -53,6 +54,7 @@
 
   // ------------------------------------------------------------------ state
   var S = {
+    season: 'xmas',
     screen: 'loading', net: null, hello: null, room: null,
     map: null, ents: new Map(), myId: 0, team: 0, mode: 'solo', kind: 'public', goAt: 0,
     inv: {}, res: { iron: 0, gold: 0, dia: 0, em: 0 }, sword: 1, armor: 1, pick: 0, held: 'sword', hp: 20, absorb: 0,
@@ -100,6 +102,7 @@
     if (t === 'cq') { openCq(m); return; }
     if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
     if (t === 'vote') { onVote(m); return; }
+    if (t === 'season') { applySeason(m.v); if (S.screen === 'hub') toast(S.season ? '🎄 Happy holidays! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
     if (t === 'school') { S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
     if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
@@ -111,7 +114,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; S.school = !!m.school; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -211,7 +214,7 @@
     $('loading').classList.add('out');
     setTimeout(function () { $('loading').classList.add('hidden'); }, 700);
     if (S.screen === 'loading') { // still no word from the server: show the hub anyway
-      S.map = S.hubMap || (S.hubMap = B.genHub()); P = newBody(B.HUB_SPAWN.x, B.HUB_SPAWN.y); cam.x = P.x; cam.y = P.y; show('hub'); renderHubHud();
+      S.map = S.hubMap || (S.hubMap = hubGen()); P = newBody(B.HUB_SPAWN.x, B.HUB_SPAWN.y); cam.x = P.x; cam.y = P.y; show('hub'); renderHubHud();
     }
   }
   setTimeout(finishLoading, 14000); // never get stuck on the loading screen
@@ -224,7 +227,7 @@
     $('loading').style.background = 'radial-gradient(ellipse at center, rgba(18,12,51,.35), rgba(18,12,51,.92) 70%)';
     ldStep(0.08, 'Waking up the islands…');
     try { await Promise.race([document.fonts.load('700 20px Fredoka'), wait(1500)]); } catch (e) {}
-    S.hubMap = B.genHub(); S.map = S.hubMap; cam.x = B.HUB_SPAWN.x; cam.y = B.HUB_SPAWN.y - 120;
+    S.hubMap = hubGen(); S.map = S.hubMap; cam.x = B.HUB_SPAWN.x; cam.y = B.HUB_SPAWN.y - 120;
     ldStep(0.3, 'Painting blocks & beds…'); await wait(250);
     var ids = ['sword1', 'sword2', 'sword3', 'sword4', 'kbstick', 'wool', 'wood', 'end', 'obby', 'pick1', 'pick2', 'pick3', 'pick4', 'bow', 'arrows', 'fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed', 'armor1', 'armor2', 'armor3', 'armor4', 'iron', 'gold', 'dia', 'em', 'forge', 'heal', 'trap', 'star'];
     ids.forEach(function (id) { D.iconURL(id, 0, 0, 64); });
@@ -275,7 +278,7 @@
   function enterSpace(m) {
     closeShop(); closeModals();
     var hub = m.kind === 'hub';
-    S.map = hub ? (S.hubMap || (S.hubMap = B.genHub())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
+    S.map = hub ? (S.hubMap || (S.hubMap = hubGen())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
     if (window.BWV) BWV.reset();
     S.watching = false; $('watchBar').classList.add('hidden'); document.body.classList.remove('watching');
     S.en = -1; closeQuiz(true); quizHud();
@@ -1270,6 +1273,7 @@
     if (S.screen === 'game' && touch && P && !P.dead && S.autoMine >= 0) { var am = S.autoMine, amk = S.map.w[am] ? 'wall' : 'floor'; D.tileCursor(c, (am % W) * T, ((am / W) | 0) * T, amk, true, t); }
     if (S.screen === 'wait') drawWaitHolo(t);
     if (isMini() && S.screen === 'game') mgWorldTop(t);
+    if (S.season === 'xmas' && S.screen === 'hub' && S.map === S.hubMap) drawGarlands(t);
     // projectiles, slashes, top particles
     S.projs.forEach(function (p) { D.projectile(c, { kind: p.kind, x: p.x, y: p.y, vx: p.vx || 1, vy: p.vy }, t); });
     for (var s2 = S.slashes.length - 1; s2 >= 0; s2--) { var fx = S.slashes[s2]; if (fx.owner === S.myId && P) { fx.x = P.x; fx.y = P.y - 18; } else if (fx.owner) { var oe = S.ents.get(fx.owner); if (oe) { fx.x = oe.x; fx.y = oe.y - 18; } } if (!D.slash(c, fx, tnow)) S.slashes.splice(s2, 1); }
@@ -1281,11 +1285,56 @@
     // screen fx
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (isMini() && S.screen === 'game') mgScreen(t, z);
+    if (S.season === 'xmas' && (S.screen === 'hub' || S.screen === 'wait' || S.screen === 'game' || S.screen === 'end')) drawSnow(dt, t);
     if (S.screen === 'game') {
       var hurt = Math.max(0, 1 - (tnow - S.hurtT) / 450), low = S.hp <= 6 && !S.dead ? (0.35 + Math.sin(t * 6) * 0.15) : 0;
       $('vign').style.opacity = Math.max(hurt, low);
     } else $('vign').style.opacity = 0;
     drawCrosshairState();
+  }
+  // ---------------------------------------------------------------- HOLIDAY SEASON
+  function hubGen() { var m = B.genHub(); if (S.season === 'xmas') B.addXmas(m); return m; }
+  function applySeason(v) {
+    S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', S.season === 'xmas');
+    var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks();
+    if (wasHub) { S.hubMap = hubGen(); S.map = S.hubMap; }
+    if (window.SHMusic) SHMusic.season(S.season);
+  }
+  var SNOW = [];
+  function drawSnow(dt, t) {
+    var w = innerWidth, h = innerHeight, want = S.screen === 'game' ? 60 : 150;
+    while (SNOW.length < want) SNOW.push({ x: Math.random() * w, y: Math.random() * h, r: 1 + Math.random() * 2.6, s: 25 + Math.random() * 45, ph: Math.random() * 6.28, ccx: cam.x, ccy: cam.y });
+    if (SNOW.length > want) SNOW.length = want;
+    var dcx = cam.x - (drawSnow.cx == null ? cam.x : drawSnow.cx), dcy = cam.y - (drawSnow.cy == null ? cam.y : drawSnow.cy); drawSnow.cx = cam.x; drawSnow.cy = cam.y;
+    if (Math.abs(dcx) > 200 || Math.abs(dcy) > 200) dcx = dcy = 0;
+    c.fillStyle = 'rgba(255,255,255,.85)';
+    for (var i = 0; i < SNOW.length; i++) {
+      var f = SNOW[i], par = 0.25 + f.r * 0.18;
+      f.y += f.s * dt * (0.6 + f.r * 0.25) - dcy * par; f.x += Math.sin(t * 1.3 + f.ph) * 12 * dt - dcx * par;
+      if (f.y > h + 5) { f.y = -5; f.x = Math.random() * w; } if (f.y < -6) f.y = h + 4;
+      if (f.x > w + 5) f.x = -5; if (f.x < -6) f.x = w + 4;
+      c.globalAlpha = 0.45 + f.r * 0.18; c.beginPath(); c.arc(f.x, f.y, f.r, 0, 6.2832); c.fill();
+    }
+    c.globalAlpha = 1;
+  }
+  function drawGarlands(t) {
+    var T2 = B.T, cols = ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'];
+    B.XMAS_LIGHTS.forEach(function (row) {
+      for (var k = 0; k < row.length - 1; k++) {
+        var x1 = row[k][0] * T2 + T2 / 2, y1 = row[k][1] * T2 + T2 / 2 - 48, x2 = row[k + 1][0] * T2 + T2 / 2, y2 = row[k + 1][1] * T2 + T2 / 2 - 48;
+        var len = Math.hypot(x2 - x1, y2 - y1), sag = Math.min(40, len * 0.12), n = Math.max(4, Math.round(len / 22));
+        c.strokeStyle = '#1d3b24'; c.lineWidth = 2; c.beginPath();
+        for (var j = 0; j <= 16; j++) { var u = j / 16, px = x1 + (x2 - x1) * u, py = y1 + (y2 - y1) * u + Math.sin(u * Math.PI) * sag; if (j) c.lineTo(px, py); else c.moveTo(px, py); }
+        c.stroke();
+        for (var b = 1; b < n; b++) {
+          var u2 = b / n, bx = x1 + (x2 - x1) * u2, by = y1 + (y2 - y1) * u2 + Math.sin(u2 * Math.PI) * sag + 4, ci = (b + k * 3) % cols.length;
+          var on = ((Math.floor(t * 2.5) + b) % 3) !== 0;
+          c.fillStyle = cols[ci]; c.globalAlpha = on ? 1 : 0.35;
+          if (on) { c.shadowColor = cols[ci]; c.shadowBlur = 10; }
+          c.beginPath(); c.ellipse(bx, by, 3.2, 4.4, 0, 0, 6.2832); c.fill(); c.shadowBlur = 0; c.globalAlpha = 1;
+        }
+      }
+    });
   }
   function genInfo(g) {
     var gg = g.g; if (gg.team != null) return null;
@@ -1823,7 +1872,7 @@
       var gl = c2.createRadialGradient(110, 120, 10, 110, 120, 110); gl.addColorStop(0, 'rgba(255,255,255,.14)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); c2.fillStyle = gl; c2.fillRect(0, 0, 220, 200);
       if (it.type === 'trail') { cv._p = cv._p || []; if (Math.random() < 0.55) A.spawnTrail(cv._p, it.value, 110 + Math.sin(t * 2) * 40, 172, t); A.drawParticles(c2, cv._p, 1 / 60); }
       c2.save(); c2.translate(110 + (it.type === 'trail' ? Math.sin(t * 2) * 40 : 0), 176); c2.scale(2.1, 2.1);
-      try { A.drawGim(c2, 0, 0, shopLook(it), { t: t + it.id.length, dir: 0, moving: it.type === 'trail', walk: t * 9 }); } catch (e) {}
+      try { A.drawGim(c2, 0, 0, shopLook(it), { t: t + it.id.length, dir: 0, moving: it.type === 'trail', walk: t * 9, noSeason: true }); } catch (e) {}
       c2.restore();
     });
     requestAnimationFrame(shopDraw);
@@ -2036,6 +2085,7 @@
         '<div class="admrow"><span class="lbl" style="min-width:150px">🤖 Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('💾 Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
       var sc = d.school;
       html += '<div class="admcard"><div class="admhead">🏫 School mode ' + (sc ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (sc ? ab('Turn school mode off', { act: 'school', on: 0 }, 'red', true) : ab('🏫 Turn school mode on', { act: 'school', on: 1 }, 'green', true)) + '</div><div class="admrow"><span class="lbl">Questions:</span>' + [['blooket', 'Class Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9+10']].map(function (q) { return ab(q[1], { act: 'school', v: q[0] }, sc && sc.set === q[0] ? 'gold' : ''); }).join('') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Site goes to the games hub only · 30 players per game · walking uses ⚡ energy, answers refill it · Bedwars resources come from answers.</div></div>';
+      html += '<div class="admcard"><div class="admhead">🎄 Holiday decorations ' + (S.season ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.season ? ab('Turn decorations off', { act: 'season', v: 0 }, 'red') : ab('🎄 Turn Christmas on', { act: 'season', v: 1 }, 'green')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Snow, string lights, trees, presents and snowmen in the hub · frosty ground · Santa hats · holiday music.</div></div>';
       html += '<div class="admcard"><div class="admhead">⏹️ Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
     } else if (admTab === 'maps') {
       var mp = d.maps || [], rot = d.rot || {};

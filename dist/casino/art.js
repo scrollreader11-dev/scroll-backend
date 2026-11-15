@@ -326,7 +326,7 @@
     if (S.front) S.front(c, g);
     var hatY = skin === 'mushroom' ? g.by - 16 : g.by;
     if (look.acc === 'orbs' || look.acc === 'pet') A.fxFront(c, g, look.acc, t);
-    A.drawHat(c, look.hat, hatY, g.side, dir, t);
+    A.drawHat(c, (look.hat && look.hat !== 'none') ? look.hat : (A.season === 'xmas' && !o.noSeason && skin !== 'mushroom' && !S.shape ? 'santa' : look.hat), hatY, g.side, dir, t);
     c.restore();
     return hatY * s;
   };

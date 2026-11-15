@@ -663,7 +663,7 @@ export async function handleCasino(url, req, res) {
   try { checkTournamentRollover(); } catch (e) {} // pay out last week if the week just rolled over
   ensureWeek(p);
 
-  if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(), school: schoolOn(), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
+  if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(), school: schoolOn(), season: (globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
 
   if (path === '/api/casino/daily' && req.method === 'POST') {
     const now = Date.now();

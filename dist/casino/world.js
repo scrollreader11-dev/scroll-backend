@@ -465,7 +465,7 @@
       var L = lookWith(it);
       if (it.type === 'trail') { if (Math.random() < 0.5) A.spawnTrail(pp, it.value, 30 + Math.random() * 12, 86, t); A.drawParticles(c, pp, 1 / 30); }
       var sc = it.type === 'hat' ? 1.2 : 1.3;
-      A.drawGim(c, it.type === 'trail' ? 58 : 48, it.type === 'hat' ? 94 : 86, L, { t: t, scale: sc, dir: it.type === 'trail' ? 2 : 0, moving: it.type === 'trail', walk: t * 12, shadow: true });
+      A.drawGim(c, it.type === 'trail' ? 58 : 48, it.type === 'hat' ? 94 : 86, L, { t: t, scale: sc, dir: it.type === 'trail' ? 2 : 0, moving: it.type === 'trail', walk: t * 12, shadow: true, noSeason: true });
     } else if (it.type === 'emote') {
       if (it.value === 'GG') A.label(c, 'GG', 48, 50, { size: 34, color: '#ffd166' });
       else { c.font = '46px serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(it.value, 48, 52 + Math.sin(t * 3) * 3); }
@@ -556,7 +556,7 @@
         if (wdWalk && me.look.trail && Math.random() < 0.6) A.spawnTrail(wdParts, me.look.trail, 110 - (wdDir === 2 ? 24 : wdDir === 1 ? -24 : 0), 200, t);
         if (wdWalk) wdParts.forEach(function (p) { p.x += (wdDir === 2 ? -1 : wdDir === 1 ? 1 : 0) * 2; p.y += (wdDir === 0 ? -1 : wdDir === 3 ? 1 : 0) * 2; });
         A.drawParticles(c, wdParts, 1 / 30);
-        A.drawGim(c, 110, 205, me.look, { t: t, scale: 2.6, dir: wdDir, moving: wdWalk, walk: t * 12, blink: ((t % 4) < 0.12) });
+        A.drawGim(c, 110, 205, me.look, { t: t, scale: 2.6, dir: wdDir, moving: wdWalk, walk: t * 12, blink: ((t % 4) < 0.12), noSeason: true });
         drawNameTag(c, 110, 205 - 2.6 * (me.look.hat ? 70 : 58), me.nick || 'You', me.cos, t, 1.1);
         c.restore();
       } });
@@ -1011,7 +1011,7 @@
         hideLoading(); $('gateTitle').textContent = d.error === 'network' ? "Can't reach the casino" : 'Log in to play';
         $('gateMsg').textContent = d.error === 'network' ? 'Check your connection and reload.' : 'Log in to ScrollHub to walk into the casino with your friends.'; $('gate').style.display = 'flex'; return;
       }
-      state.store = d.store || []; state.cases = d.cases || {}; state.dailyMs = d.dailyMs; state.nick = d.nick;
+      state.store = d.store || []; A.season = d.season == null ? 'xmas' : d.season; state.season = A.season; state.cases = d.cases || {}; state.dailyMs = d.dailyMs; state.nick = d.nick;
       state.store.forEach(function (it) { storeById[it.id] = it; });
       me.nick = d.nick || 'You';
       SC.setProfile(d.profile);

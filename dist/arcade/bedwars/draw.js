@@ -124,6 +124,14 @@
       c.strokeStyle = 'rgba(80,90,110,.45)'; c.lineWidth = 2; c.strokeRect(x + 2, y + 2, T - 4, T - 4);
       c.fillStyle = tc; c.globalAlpha = 0.28; c.fillRect(x + 6, y + 6, T - 12, T - 12); c.globalAlpha = 1;
     }
+    if (D.season === 'xmas' && (g === 1 || g === 2 || g === 4 || g === 7)) { // holiday frost: snow drifts on grass, a dusting elsewhere
+      if (g === 1) {
+        c.save(); c.beginPath(); c.rect(x, y, T, T); c.clip(); c.fillStyle = 'rgba(244,250,255,.82)';
+        for (var sn = 0; sn < 3; sn++) { var sx = x + hash(i * 11 + sn) * T, sy = y + hash(i * 13 + sn) * T, srd = 7 + hash(i * 17 + sn) * 9; c.beginPath(); c.ellipse(sx, sy, srd * 1.3, srd * 0.8, 0, 0, Math.PI * 2); c.fill(); }
+        c.restore(); c.fillStyle = 'rgba(200,225,255,.35)'; c.fillRect(x, y, T, T);
+      } else { c.fillStyle = 'rgba(240,248,255,.22)'; c.fillRect(x, y, T, T); }
+      c.fillStyle = 'rgba(255,255,255,.9)'; for (var sp = 0; sp < 4; sp++) { c.fillRect(x + hash(i * 19 + sp) * (T - 2), y + hash(i * 23 + sp) * (T - 2), 2, 2); }
+    }
     // rims on void edges
     var n = !gAt(m, tx, ty - 1), s = !gAt(m, tx, ty + 1), wv = !gAt(m, tx - 1, ty), e = !gAt(m, tx + 1, ty);
     c.fillStyle = P.rim;

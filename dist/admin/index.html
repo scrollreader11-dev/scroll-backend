@@ -653,6 +653,13 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
           </div>
         </div>
 
+        <div class="card" style="border:2px solid #2bd576">
+          <h2>🎄 Holiday Decorations</h2>
+          <div class="field">
+            <label class="toggle"><span id="seasonSw" class="sw"></span><span style="font-size:.85rem"><b id="seasonTxt">Off</b> — snowfall, string lights, Christmas trees, presents and snowmen in the Games hub, frosty ground in every game, Santa hats, and holiday music.</span></label>
+          </div>
+        </div>
+
         <div class="card">
           <h2>⚙️ Site Controls</h2>
           <div class="field">
@@ -1060,7 +1067,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     $('sBanned').textContent = bans.length;
     $('sMaint').textContent = s.maintenance ? 'On' : 'Off';
     $('maintSw').className = 'sw' + (s.maintenance ? ' on2' : '');
-    $('schoolSw').className = 'sw' + (s.schoolMode ? ' on2' : ''); $('lnkGames').value = location.origin + '/arcade'; $('schoolLeft').textContent = s.schoolMode && s.schoolUntil ? '⏱ ' + Math.max(0, Math.ceil((s.schoolUntil - Date.now()) / 60000)) + ' min left' : ''; $('schoolTxt').textContent = s.schoolMode ? 'ON' : 'Off'; if (document.activeElement !== $('schoolSet')) $('schoolSet').value = s.schoolSet || 'blooket';
+    $('schoolSw').className = 'sw' + (s.schoolMode ? ' on2' : ''); $('lnkGames').value = location.origin + '/arcade'; $('schoolLeft').textContent = s.schoolMode && s.schoolUntil ? '⏱ ' + Math.max(0, Math.ceil((s.schoolUntil - Date.now()) / 60000)) + ' min left' : ''; $('schoolTxt').textContent = s.schoolMode ? 'ON' : 'Off'; var sea = s.season == null ? 'xmas' : s.season; $('seasonSw').className = 'sw' + (sea ? ' on2' : ''); $('seasonTxt').textContent = sea ? 'ON — Christmas' : 'Off'; if (document.activeElement !== $('schoolSet')) $('schoolSet').value = s.schoolSet || 'blooket';
     if (!redirFocused) $('redir').value = s.redirect || '';
     if (!annFocused) $('ann').value = s.announcement || '';
     try { var toEl = $('toActive'); if (toEl) toEl.textContent = (s.takeover && s.takeover.mode) ? (TO_NAMES[s.takeover.mode] || s.takeover.mode) : 'Off'; } catch (e) {}
@@ -1243,6 +1250,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   $('lnkTeacherBtn').onclick = function () { copyBox('lnkTeacher'); };
   $('lnkTeacherNew').onclick = function () { if (!confirm('Make a new teacher link? The old one stops working and anyone who opened it loses Teacher Tools.')) return; api('newTeacherKey', {}).then(function () { flash('New teacher link made.'); loadTeacher(); }); };
   setTimeout(loadTeacher, 600); setInterval(function () { if (!$('lnkTeacher').value) loadTeacher(); }, 4000);
+  $('seasonSw').onclick = function () { var on = $('seasonSw').className.indexOf('on2') === -1; api('settings', { settings: { season: on ? 'xmas' : '' } }).then(function () { flash(on ? '🎄 Holiday decorations ON' : 'Holiday decorations OFF'); tick(); }); };
   $('schoolSw').onclick = function () {
     var on = $('schoolSw').className.indexOf('on2') === -1;
     api('settings', { settings: { schoolMode: on, schoolSet: $('schoolSet').value } }).then(function () { flash(on ? '🏫 School mode ON' : 'School mode OFF'); tick(); });

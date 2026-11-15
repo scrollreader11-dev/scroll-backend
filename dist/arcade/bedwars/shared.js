@@ -272,6 +272,33 @@
     [[24, 44], [48, 37]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
     return m;
   };
+  // Holiday decorations for the hub (client-only; the hub's movement is client-side).
+  B.XMAS_LIGHTS = [[[13, 25], [21, 25], [27, 25], [33, 25], [39, 25], [45, 25], [51, 25], [59, 25]], [[30, 35], [42, 35]], [[30, 45], [42, 45]], [[30, 35], [30, 45]], [[42, 35], [42, 45]]];
+  B.addXmas = function (m) {
+    var G2 = B.G, put = function (tx, ty, what) {
+      var i = ty * W + tx; if (!B.inb(tx, ty) || !m.g[i] || m.g[i] === G2.PATH || m.obj[i]) return;
+      obj(m, { kind: 'deco', tx: tx, ty: ty, what: what, xmas: true });
+    };
+    // two big trees with presents either side of the fountain
+    put(32, 37, 'xtree'); put(31, 38, 'presents'); put(33, 38, 'present');
+    put(40, 37, 'xtree'); put(41, 38, 'presents'); put(39, 38, 'present');
+    // candy canes lining the road up to the Portal Hall
+    [[34, 27], [38, 27], [34, 29], [38, 29], [34, 33], [38, 33]].forEach(function (p) { put(p[0], p[1], 'candycane'); });
+    put(28, 43, 'gingerbread'); put(44, 43, 'gingerbread');
+    // snowmen and snow piles around the island
+    [[26, 47], [46, 48], [20, 34], [52, 36], [10, 48], [61, 46]].forEach(function (p) { put(p[0], p[1], 'snowman'); });
+    [[12, 33], [60, 34], [50, 44], [23, 38], [52, 48], [15, 50], [57, 28], [27, 30]].forEach(function (p) { put(p[0], p[1], 'snowpile'); });
+    // Santa's sleigh and reindeer in the park
+    put(21, 47, 'reindeer'); put(19, 47, 'reindeer'); put(24, 47, 'sleigh');
+    // toy soldiers guarding the casino and the leaderboard
+    put(56, 39, 'toysoldier'); put(62, 39, 'toysoldier'); put(10, 43, 'toysoldier'); put(16, 43, 'toysoldier');
+    // ice crystals by the pond, banners by the hall, wreaths and lantern posts
+    put(17, 55, 'icecrystal'); put(26, 55, 'icecrystal'); put(22, 50, 'ornament');
+    put(10, 20, 'bannerred'); put(62, 20, 'bannergold'); put(10, 22, 'xtree'); put(62, 22, 'xtree');
+    put(30, 29, 'wreath'); put(42, 29, 'wreath'); put(43, 32, 'presents'); put(29, 32, 'presents');
+    put(24, 41 + 2, 'lanternpost'); put(48, 42, 'lanternpost'); put(55, 50, 'xtree'); put(52, 50, 'presents');
+    return m;
+  };
   // The island you wait on before a match. Private rooms pick teams by standing on a pad.
   B.WAIT_SPAWN = { x: 36 * T + T / 2, y: 36 * T + T / 2 };
   B.genWait = function () {

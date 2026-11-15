@@ -155,6 +155,7 @@ function makeRoom(kind, mode, diff, host, game) {
   return r;
 }
 // ---- School mode (set from the site admin panel): up to 30 players per game + quiz power-ups
+function seasonCfg() { try { return globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'; } catch (e) { return ''; } }
 function schoolCfg() { try { return globalThis.SH_SCHOOL ? globalThis.SH_SCHOOL() : null; } catch (e) { return null; } }
 const SCHOOL_CAP = { bw: [4, 25, 100], ctf: [2, 50, 100], hide: [2, 100, 100], spleef: [100, 1, 100], murder: [100, 1, 100], build: [4, 25, 100] }; // [teams, per team, max] — lobbies hold (practically) everyone
 function autoPer(n, biggest) { const p = n <= 4 ? 1 : n <= 8 ? 2 : n <= 16 ? 4 : Math.ceil(n / 4); return Math.max(p, biggest || 0); }
@@ -553,6 +554,7 @@ function endVote(cancel) {
 setInterval(() => { // live vote counts + School Mode timer
   if (CLASS.vote) voteBroadcast();
   const sc = schoolCfg();
+  const ss = seasonCfg(); if (ss !== CLASS.lastSeason) { const first = CLASS.lastSeason === undefined; CLASS.lastSeason = ss; if (!first) for (const c of conns) send(c, { t: 'season', v: ss }); }
   if (!!sc !== CLASS.lastSchool) { CLASS.lastSchool = !!sc; for (const c of conns) send(c, { t: 'school', on: !!sc }); }
   if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('🏫 School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: '🏫 Class time is over — School Mode is off!' }); }
 }, 1000);
@@ -1305,7 +1307,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     conns.add(c);
     for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg() });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), season: seasonCfg() });
     setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
@@ -1458,6 +1460,7 @@ function adminInfo(c) {
     logs: GMS.store.logs.slice(-60).reverse(),
     maps: GMS.listMaps(), rot: GMS.store.rot,
     school: schoolCfg(),
+    season: seasonCfg(),
     mega: MEGA.map((o) => ({ id: o.id, icon: o.icon, label: o.label, cat: o.cat, scope: o.scope, danger: !!o.danger })),
   };
 }
@@ -1593,6 +1596,7 @@ function adminMsg(c, m, now) {
   if (a === 'cqclose') { if (CLASS.cq) CLASS.cq.until = Date.now(); for (const x of conns) send(x, { t: 'cqend' }); return send(c, { t: 'admres', ok: true, msg: 'Class question closed' }); }
   if (a === 'vote') { if (m.op === 'stop') { endVote(false); return send(c, { t: 'admres', ok: true, msg: 'Vote ended early' }); } if (m.op === 'cancel') { endVote(true); return send(c, { t: 'admres', ok: true, msg: 'Vote cancelled' }); } startVote(c, Math.max(10, Math.min(60, m.sec | 0 || 20))); return send(c, { t: 'admres', ok: true, msg: 'Game vote started 🗳️' }); }
   if (a === 'schooltimer') { const mins = Math.max(0, Math.min(240, Number(m.mins) || 0)); if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(mins > 0 ? true : undefined, null, mins > 0 ? Date.now() + mins * 60000 : 0); if (mins > 0) classReset(); return send(c, { t: 'admres', ok: true, msg: mins > 0 ? '🏫 School mode ON for ' + mins + ' min' : 'Timer cleared' }); }
+  if (a === 'season') { if (globalThis.SH_SET_SEASON) globalThis.SH_SET_SEASON(m.v ? 'xmas' : ''); GMS.log('🎄 ' + c.nick + ' turned holiday decorations ' + (m.v ? 'ON' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: '🎄 Holiday decorations ' + (m.v ? 'ON' : 'OFF') }); }
   if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('🏫 ' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
   if (a === 'announce') {
     const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');

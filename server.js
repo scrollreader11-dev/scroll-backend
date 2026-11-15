@@ -424,6 +424,8 @@ function schoolBlocked(url) {
 function teacherKey() { if (!admin.settings.teacherKey) { admin.settings.teacherKey = randomBytes(9).toString('base64url'); saveState().catch(() => {}); } return admin.settings.teacherKey; }
 globalThis.SH_TEACHER_KEY = () => teacherKey();
 globalThis.SH_NEW_TEACHER_KEY = () => { admin.settings.teacherKey = randomBytes(9).toString('base64url'); saveState().catch(() => {}); return admin.settings.teacherKey; };
+globalThis.SH_SEASON = () => (admin.settings.season == null ? 'xmas' : admin.settings.season || '');
+globalThis.SH_SET_SEASON = async (v) => { admin.settings.season = v ? String(v) : ''; try { await saveState(); } catch (e) {} };
 globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0 } : null);
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 async function handleAdmin(req, res) {
@@ -468,6 +470,7 @@ async function handleAdmin(req, res) {
     if (typeof s.schoolMode === 'boolean') { admin.settings.schoolMode = s.schoolMode; logEvent('admin', 'admin', '🏫 School mode ' + (s.schoolMode ? 'ON' : 'OFF')); }
     if (typeof s.schoolMins === 'number') { admin.settings.schoolUntil = s.schoolMins > 0 ? Date.now() + Math.min(240, s.schoolMins) * 60000 : 0; if (s.schoolMins > 0) admin.settings.schoolMode = true; }
     if (s.schoolMode === false) admin.settings.schoolUntil = 0;
+    if (typeof s.season === 'string' && ['', 'xmas'].includes(s.season)) { admin.settings.season = s.season; logEvent('admin', 'admin', '🎄 Season decorations ' + (s.season ? 'ON (' + s.season + ')' : 'OFF')); }
     if (typeof s.schoolSet === 'string' && ['blooket', 'u9', 'u10', 'both'].includes(s.schoolSet)) admin.settings.schoolSet = s.schoolSet;
     await saveState();
     return sendJson(res, 200, { ok: true, settings: admin.settings });
