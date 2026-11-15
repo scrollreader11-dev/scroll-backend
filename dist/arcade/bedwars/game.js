@@ -100,6 +100,7 @@
     if (t === 'cq') { openCq(m); return; }
     if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
     if (t === 'vote') { onVote(m); return; }
+    if (t === 'school') { S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
@@ -444,6 +445,7 @@
     SC.sfx('click');
     if (o.act === 'casino' && S.school) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
     var g = objGame(o);
+    if (o.act === 'gmenu' && schoolLocked()) { toast('🔒 Portals are locked in School Mode — wait for your teacher’s vote!', 2400); return; }
     if (o.act === 'gmenu') { openGameMenu(g); }
     else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('🔒 Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
     else if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
@@ -1107,6 +1109,34 @@
     hudTick(); spaceTick(); touchMineTick();
   }
 
+
+  // School Mode: portals get chained shut with a padlock (the teacher starts games with a vote)
+  function schoolLocked() { return S.school && !S.owner; }
+  function drawLock(c, o, t) {
+    var px = o.x, py = o.y + 14 - 62;
+    c.save();
+    c.fillStyle = 'rgba(12,8,30,.55)'; c.beginPath(); c.ellipse(px, py, 38, 56, 0, 0, Math.PI * 2); c.fill();
+    // two crossed chains
+    [[-1, 1], [1, 1]].forEach(function (d) {
+      for (var k = -5; k <= 5; k++) {
+        var cx = px + k * 7.5 * d[0], cy = py + k * 9.5;
+        c.save(); c.translate(cx, cy); c.rotate(Math.atan2(9.5, 7.5 * d[0]) + (k % 2 ? Math.PI / 2 : 0));
+        c.strokeStyle = '#2b2f3f'; c.lineWidth = 6; c.beginPath(); c.ellipse(0, 0, 6, 3.6, 0, 0, Math.PI * 2); c.stroke();
+        c.strokeStyle = '#c9d1e3'; c.lineWidth = 2.6; c.beginPath(); c.ellipse(0, 0, 6, 3.6, 0, 0, Math.PI * 2); c.stroke();
+        c.restore();
+      }
+    });
+    // padlock (swings a little)
+    c.translate(px, py + 6); c.rotate(Math.sin(t * 2) * 0.08);
+    c.strokeStyle = '#1b1636'; c.lineWidth = 9; c.beginPath(); c.arc(0, -8, 11, Math.PI, 0); c.stroke();
+    c.strokeStyle = '#c9d1e3'; c.lineWidth = 5; c.beginPath(); c.arc(0, -8, 11, Math.PI, 0); c.stroke();
+    c.fillStyle = '#ffc93c'; c.strokeStyle = '#1b1636'; c.lineWidth = 3.5; c.beginPath(); c.roundRect ? c.roundRect(-17, -9, 34, 28, 6) : c.rect(-17, -9, 34, 28); c.fill(); c.stroke();
+    c.fillStyle = '#b07d00'; c.fillRect(-15, 12, 30, 4);
+    c.fillStyle = '#1b1636'; c.beginPath(); c.arc(0, 2, 4, 0, Math.PI * 2); c.fill(); c.fillRect(-1.6, 3, 3.2, 8);
+    c.restore();
+    c.save(); c.font = '700 13px Fredoka, sans-serif'; c.textAlign = 'center'; c.lineWidth = 4; c.strokeStyle = '#1b1636'; c.fillStyle = '#ffd166';
+    c.strokeText('LOCKED', px, o.y + 14 + 22); c.fillText('LOCKED', px, o.y + 14 + 22); c.restore();
+  }
   // Walk straight into a hub portal to start that game.
   function portalWalk() {
     if (!P || !S.map || !S.map.objs || anyModal()) return;
@@ -1114,6 +1144,7 @@
     S.map.objs.forEach(function (o) { if (o.kind === 'gport' && o.walk && Math.abs(P.x - o.x) < T * 1.25 && P.y > o.y - T * 0.9 && P.y < o.y + T * 1.1) hit = o; });
     if (!hit) { S.portLock = null; S.portIn = 0; return; }
     if (S.portLock === hit) return;
+    if (schoolLocked()) { S.portLock = hit; toast('🔒 Portals are locked in School Mode — your teacher starts the next game with a vote!', 2600); SC.sfx('no'); return; }
     if (!S.portIn) { S.portIn = now(); SC.sfx('open'); D.burst('magic', P.x, P.y - 20, 14, D.GCOL[hit.game] || '#9b6bff'); toast('🌀 Entering ' + gname(objGame(hit)) + '…', 1200); }
     if (now() - S.portIn < 650) return;
     S.portLock = hit; S.portIn = 0;
@@ -1300,7 +1331,7 @@
     else if (k === 'portal') D.portal(c, o, t);
     else if (k === 'board') { var st = S.mystats || {}; D.board(c, o, t, S.lb, 'You: ' + (st.wins || 0) + ' wins · ' + (st.finals || 0) + ' finals'); }
     else if (k === 'soon') D.soon(c, o, t);
-    else if (k === 'gport') { var gc3 = S.online && S.online.inGame ? (S.online.inGame[o.game] || 0) + (S.online[o.game === 'bw' ? 'solo' : o.game] || 0) : 0; D.gport(c, o, t, gc3); }
+    else if (k === 'gport') { var gc3 = S.online && S.online.inGame ? (S.online.inGame[o.game] || 0) + (S.online[o.game === 'bw' ? 'solo' : o.game] || 0) : 0; D.gport(c, o, t, gc3); if (S.school) drawLock(c, o, t); }
     else if (k === 'podium') D.podium(c, o, t);
     else if (k === 'flag') D.flag(c, o.x, o.y + 14, o.team, t);
     else if (k === 'bedDeco') D.bed(c, { team: 0, x: o.x, y: o.y - T / 2, dir: [0, 1] }, t, false);

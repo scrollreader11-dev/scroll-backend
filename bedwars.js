@@ -523,6 +523,7 @@ function endVote(cancel) {
 setInterval(() => { // live vote counts + School Mode timer
   if (CLASS.vote) voteBroadcast();
   const sc = schoolCfg();
+  if (!!sc !== CLASS.lastSchool) { CLASS.lastSchool = !!sc; for (const c of conns) send(c, { t: 'school', on: !!sc }); }
   if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('🏫 School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: '🏫 Class time is over — School Mode is off!' }); }
 }, 1000);
 function teamsInfo(r) {
@@ -1302,6 +1303,7 @@ function onMsg(c, m, now) {
   if (c.watch) return;
   // ---- menus
   const game = MG.isMini(m.game) ? m.game : 'bw';
+  if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: '🔒 Games are locked in School Mode — your teacher starts the next game with a vote.' });
   if (t === 'quick') {
     const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
     let room = null;
