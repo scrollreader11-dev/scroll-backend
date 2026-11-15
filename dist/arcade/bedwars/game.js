@@ -669,7 +669,7 @@
     }
     if (k === 'loot') { if (ev[1] === S.myId) { var parts = []; B.RES.forEach(function (r, j) { if (ev[2 + j]) parts.push('+' + ev[2 + j] + ' ' + B.RES_NAMES[r]); }); if (parts.length) { D.text(P.x, P.y - 80, parts.join('  '), '#ffd166', 15, { vy: -40, life: 1.6 }); SC.sfx('coins'); } } return; }
     if (k === 'gear') { e = S.ents.get(ev[1]); if (e) { e.sword = ev[2]; e.armor = ev[3]; e.pick = ev[4]; } return; }
-    if (k === 'ex') return boom(ev[1], ev[2], ev[3], ev[4]);
+    if (k === 'ex') { S.tnts.forEach(function (tn, id) { if (Math.abs(tn.x - ev[1]) < 6 && Math.abs(tn.y - ev[2]) < 6) S.tnts.delete(id); }); return boom(ev[1], ev[2], ev[3], ev[4]); }
     if (k === 'tnt') { S.tnts.set(ev[1], { x: ev[2], y: ev[3], at: snow() + ev[4] }); sfxAt('fuse', ev[2], ev[3]); return; }
     if (k === 'shoot') { e = S.ents.get(ev[1]); if (!e) return; p = entPos(e); sfxAt(ev[2] === 'arrow' ? 'bow' : 'throw', p.x, p.y); return; }
     if (k === 'arrow') { D.burst('dust', ev[1], ev[2] + 16, 3); return; }
@@ -1175,7 +1175,7 @@
     S.gens.forEach(function (g, gi) { var gg = g.g; if (gg.x > L - 120 && gg.x < L + vw + 120 && gg.y > Tp - 140 && gg.y < Tp + vh + 80) list.push({ k: 'gen', y: gg.y + (gg.kind === 'iron' || gg.kind === 'gold' ? 12 : 10), g: g, gi: gi }); });
     map.npcs.forEach(function (n) { if (n.x > L - 80 && n.x < L + vw + 80 && n.y > Tp - 120 && n.y < Tp + vh + 80) list.push({ k: 'npc', y: n.y + 2, n: n }); });
     map.bases.forEach(function (b) { if (!b.flag) return; [b.flag, b.flag2].forEach(function (f) { var fx = f[0] * T + T / 2, fy = f[1] * T + T / 2; if (fx > L - 80 && fx < L + vw + 80 && fy > Tp - 120 && fy < Tp + vh + 60) list.push({ k: 'flag', y: fy, x: fx, team: b.team }); }); });
-    S.tnts.forEach(function (tn) { list.push({ k: 'tnt', y: tn.y + 14, tn: tn }); });
+    S.tnts.forEach(function (tn, id) { if (snow() > tn.at + 1500) { S.tnts.delete(id); return; } list.push({ k: 'tnt', y: tn.y + 14, tn: tn }); });
     (map.objs || []).forEach(function (o) { if (o.x > L - 260 && o.x < L + vw + 260 && o.y > Tp - 60 && o.y < Tp + vh + 260) list.push({ k: 'obj', y: o.y + (o.kind === 'fountain' ? -6 : 4), o: o }); });
     if (map.props) map.props.forEach(function (pp) { if (pp.x > L - 60 && pp.x < L + vw + 60 && pp.y > Tp - 60 && pp.y < Tp + vh + 80) list.push({ k: 'prop', y: pp.y + 12, p: pp }); });
     if (S.game === 'ctf' && map.game === 'ctf') mgCtfDrawables(list, t);
