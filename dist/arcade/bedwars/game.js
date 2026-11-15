@@ -1770,6 +1770,10 @@
   function fmtT(sec) { return B.fmtTime(sec); }
   function renderAdmin() {
     var d = S.adm, body = $('admBody'); if (!d || !body || $('mAdmin').classList.contains('hidden')) return;
+    // don't rebuild while a dropdown or text box is in use (that closed the player picker mid-click)
+    var ae = document.activeElement;
+    if (ae && body.contains(ae) && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT') && !S.admForce) { S.admPending = true; return; }
+    S.admForce = false; S.admPending = false;
     var top = body.scrollTop, html = '';
     if (admTab === 'matches') {
       if (!d.rooms.length) html = '<div class="admempty">No matches or waiting rooms right now.</div>';
@@ -1882,9 +1886,10 @@
     if (S.adm.myEnt) [].forEach.call(body.querySelectorAll('[data-op="tpme"],[data-op="bring"]'), function () {});
   }
   $('admBody').addEventListener('input', function (e) { if (e.target.id === 'admAnn') S.admDraft = e.target.value; if (e.target.id === 'admFind') { S.admFind = e.target.value; } if (e.target.id === 'admAmt') S.admAmt = e.target.value; if (e.target.id === 'admMotd') S.admMotdDraft = e.target.value; });
-  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'admFind') renderAdmin(); });
+  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'admFind') { S.admForce = true; renderAdmin(); } });
   $('admBody').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && e.target.id === 'admAnn') { var b = $('admBody').querySelector('[data-act="announce"]'); if (b) b.click(); } });
-  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'megaP') S.megaP = e.target.value; if (e.target.id === 'megaR') S.megaR = e.target.value; });
+  $('admBody').addEventListener('change', function (e) { if (e.target.id === 'megaP' || e.target.id === 'megaR') { if (e.target.id === 'megaP') S.megaP = e.target.value; else S.megaR = e.target.value; e.target.blur(); SC.sfx('click'); S.admForce = true; renderAdmin(); } });
+  $('admBody').addEventListener('focusout', function (e) { if ((e.target.tagName === 'SELECT') && S.admPending) setTimeout(function () { var ae = document.activeElement; if (!ae || !$('admBody').contains(ae) || ae.tagName !== 'SELECT') { S.admForce = true; renderAdmin(); } }, 50); });
   $('admBody').addEventListener('input', function (e) { if (e.target.id === 'megaTxt') S.megaTxt = e.target.value; });
   $('admBody').addEventListener('click', function (e) {
     var b = e.target.closest('.ab'); if (!b || b.disabled) return;
