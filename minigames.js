@@ -356,7 +356,9 @@ function die(r, v, kind, att) {
       setSeekerLater(r, v);
     } else v.respawnAt = now + 5000;
   }
-  r.ev(['die', v.id, kind, att ? att.id : 0, final, Math.round(v.x), Math.round(v.y)]);
+  // Murder Mystery: never say who did it — the kill feed would give the murderer away
+  r.ev(['die', v.id, r.game === 'murder' ? 'murder' : kind, att && r.game !== 'murder' ? att.id : 0, final, Math.round(v.x), Math.round(v.y)]);
+  if (r.game === 'murder' && att && att.conn && att.mrole === 'm') A.send(att.conn, { t: 'toast', msg: '🔪 You eliminated ' + v.nick + ' — nobody saw who did it…' });
   v.dirty = true; r.teamsDirty = true;
   if (v.ai) { v.ai.goal = null; v.ai.path = null; v.ai.enemy = null; }
   checkEnd(r, now);

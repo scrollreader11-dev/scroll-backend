@@ -733,6 +733,7 @@
     if (kind === 'void') { e.fallT = now(); e.fallX = x; e.fallY = y; sfxAt('fall', x, y); }
     else { D.burst('smoke', x, y - 16, 10); D.burst('cube', x, y - 16, 6, teamCol(e.team), { speed: 120 }); D.spawn({ k: 'soul', x: x, y: y - 20, life: 1.4 }); sfxAt('die', x, y); }
     var how = kind === 'void' ? (killer ? 'knocked ' + nameHtml(e) + ' into the void' : '') : kind === 'arrow' ? '🏹' : kind === 'fireball' ? '🔥' : kind === 'tnt' ? '💥' : '⚔️';
+    if (kind === 'murder') { feed('💀 ' + nameHtml(e) + ' was found eliminated…', final); if (e.id === S.myId) { S.dead = true; if (P) P.dead = true; showDeath(null, final, kind); } return; }
     var line = killer ? (kind === 'void' ? nameHtml(killer) + ' ' + how : nameHtml(killer) + ' ' + how + ' ' + nameHtml(e)) : nameHtml(e) + (kind === 'void' ? ' fell into the void' : ' died');
     feed(line + (final ? ' <span class="fk">FINAL KILL</span>' : ''), final);
     if (killer && killer.id === S.myId) { SC.sfx(final ? 'final' : 'kill'); toastBig(final ? 'FINAL KILL!' : '+1 KILL', final ? '#ff5c6c' : '#ffd166'); }
