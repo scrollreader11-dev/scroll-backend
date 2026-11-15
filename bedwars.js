@@ -1241,10 +1241,11 @@ export function bwOnline() { return lobbyList(); }
 export function handleBedwarsUpgrade(req, socket, head) {
   wss.handleUpgrade(req, socket, head, (ws) => {
     const { cid, nick } = worldIdentity(req);
-    if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Log in to ScrollHub to play Bedwars.' })); ws.close(4000); } catch (e) {} return; }
+    if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Log in or create an account to play' })); ws.close(4000); } catch (e) {} return; }
     const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
     c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
     c.mapper = !!(req._auth && String(req._auth.username || '').toLowerCase() === GMS.MAPPER);
+    try { const tk = globalThis.SH_TEACHER_KEY && globalThis.SH_TEACHER_KEY(); const ck = /(?:^|;\s*)sh_teacher=([^;]+)/.exec(req.headers.cookie || ''); c.teacher = !!(tk && ck && decodeURIComponent(ck[1]) === tk); } catch (e) { c.teacher = false; }
     let isBuilder = false; try { isBuilder = new URL(req.url, 'http://x').searchParams.get('builder') === '1'; } catch (e) {}
     if (isBuilder) { // the map builder page: its own little channel, never a player
       send(c, { t: 'hello', builder: true, mapper: c.mapper, nick: c.nick });
@@ -1263,7 +1264,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     conns.add(c);
     for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg() });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg() });
     setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
@@ -1294,6 +1295,7 @@ function onMsg(c, m, now) {
     return;
   }
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
+  if (t === 'adm' && !c.owner && c.teacher) { const TA = ['info', 'class', 'classreset', 'cq', 'cqclose', 'vote', 'schooltimer', 'school']; if (TA.includes(String(m.a))) { try { if (m.a === 'info') send(c, { t: 'adminfo', teacher: true, school: schoolCfg(), rooms: [], conns: [], bans: [], logs: [], maps: [], rot: {}, mega: [], settings: {}, now: Date.now() }); else adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
   if (t === 'cqa') { classAnswer(c, m); return; }

@@ -110,7 +110,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; S.school = !!m.school; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; S.school = !!m.school; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -148,8 +148,21 @@
   function fatal(msg, code) {
     var d = document.createElement('div'); d.className = 'modal'; d.style.zIndex = 90;
     d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + (code === 'login' ? '🔐' : code === 'kicked' ? '🚫' : '🪟') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
-      (code === 'login' ? '<a class="btn green" href="/">Go to ScrollHub</a>' : code === 'kicked' ? '<a class="btn green" href="/casino">Go to the casino</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
+      (code === 'login' ? '<div class="lgform" style="display:flex;flex-direction:column;gap:8px;text-align:left"><input id="lgU" class="admin-in" placeholder="Username" maxlength="20" autocomplete="username" style="font-size:17px;padding:10px"><input id="lgP" class="admin-in" type="password" placeholder="Password" autocomplete="current-password" style="font-size:17px;padding:10px"><div style="display:flex;gap:8px"><button class="btn green" id="lgIn" style="flex:1">Log in</button><button class="btn" id="lgUp" style="flex:1">Create account</button></div><div id="lgMsg" style="color:#ff8a95;font-weight:700;min-height:20px;text-align:center"></div></div>' : code === 'kicked' ? '<a class="btn green" href="/casino">Go to the casino</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
     document.body.appendChild(d);
+    if (code === 'login') {
+      var go = function (kind) {
+        var u = $('lgU').value.trim(), pw = $('lgP').value; if (!u || !pw) { $('lgMsg').textContent = 'Type a username and password.'; return; }
+        $('lgMsg').style.color = '#cfc8ff'; $('lgMsg').textContent = kind === 'signup' ? 'Creating your account…' : 'Logging in…';
+        fetch('/api/auth/' + kind, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: u, password: pw }) }).then(function (r) { return r.json(); }).then(function (r) {
+          if (r && (r.ok || r.user || r.token)) { try { if (r.token) localStorage.setItem('sh_token', r.token); } catch (e) {} location.reload(); }
+          else { $('lgMsg').style.color = '#ff8a95'; $('lgMsg').textContent = (r && (r.message || r.error)) || 'That didn’t work — try again.'; }
+        }).catch(function () { $('lgMsg').textContent = 'Couldn’t reach the server.'; });
+      };
+      $('lgIn').onclick = function () { go('login'); }; $('lgUp').onclick = function () { go('signup'); };
+      $('lgP').onkeydown = function (e) { e.stopPropagation(); if (e.key === 'Enter') go('login'); }; $('lgU').onkeydown = function (e) { e.stopPropagation(); };
+      setTimeout(function () { try { $('lgU').focus(); } catch (e) {} }, 100);
+    }
     var ld = $('loading'); ld.classList.add('out');
   }
 
@@ -1703,7 +1716,7 @@
 
   // ------------------------------------------------------------------ owner panel
   var admTab = 'matches', admPoll = 0, admArm = null;
-  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner); }); $('hubBuild').classList.toggle('hidden', !S.mapper); }
+  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner && !S.teacher); if (S.teacher && !S.owner) { b.textContent = '🏫 Teacher'; b.title = 'Teacher tools'; } }); $('hubBuild').classList.toggle('hidden', !S.mapper); }
   [].forEach.call(document.querySelectorAll('.menuBtn'), function (b) { b.onclick = function () { var box = b.parentElement; box.classList.toggle('open'); b.textContent = box.classList.contains('open') ? '✕' : '☰'; SC.sfx('click'); }; });
   document.addEventListener('click', function (e) { if (e.target.closest('.menuBtn')) return; [].forEach.call(document.querySelectorAll('.hbtns.open,#hudBtns.open'), function (box) { if (e.target.closest('.hbtn') && box.contains(e.target)) { box.classList.remove('open'); var mb = box.querySelector('.menuBtn'); if (mb) mb.textContent = '☰'; } }); });
   $('hMap').onchange = function () { send({ t: 'cfg', map: this.value }); SC.sfx('click'); };
@@ -1878,7 +1891,8 @@
     if (m.sfx) SC.sfx(m.sfx);
   }
   function openAdmin() {
-    if (!S.owner) return;
+    if (!S.owner && !S.teacher) return;
+    var tOnly = S.teacher && !S.owner; [].forEach.call($('admTabs').children, function (x) { x.classList.toggle('hidden', tOnly && x.dataset.at !== 'class'); }); if (tOnly) { admTab = 'class'; [].forEach.call($('admTabs').children, function (x) { x.classList.toggle('on', x.dataset.at === 'class'); }); send({ t: 'adm', a: 'class' }); $('mAdmin').querySelector('h2') && ($('mAdmin').querySelector('h2').textContent = 'Teacher Tools'); }
     openModal('mAdmin'); send({ t: 'adm', a: 'info' });
     clearInterval(admPoll); admPoll = setInterval(function () { if ($('mAdmin').classList.contains('hidden')) { clearInterval(admPoll); return; } send({ t: 'adm', a: 'info' }); if (admTab === 'class') send({ t: 'adm', a: 'class' }); }, 1500);
   }

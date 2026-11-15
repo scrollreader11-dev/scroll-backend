@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 // ============================================================
 // SCROLL UNBLOCKER — all-in-one server
 // Serves the website (dist/) + Wisp proxy (same-origin) and
@@ -420,6 +421,8 @@ function schoolBlocked(url) {
   if (!/\.[a-z0-9]{1,6}$/i.test(p)) return true; // app routes like /games, /chat, /proxy
   return false;
 }
+function teacherKey() { if (!admin.settings.teacherKey) { admin.settings.teacherKey = randomBytes(9).toString('base64url'); saveState().catch(() => {}); } return admin.settings.teacherKey; }
+globalThis.SH_TEACHER_KEY = () => teacherKey();
 globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0 } : null);
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 async function handleAdmin(req, res) {
@@ -454,6 +457,7 @@ async function handleAdmin(req, res) {
       announcements: chat.announcements.slice(-20),
     });
   }
+  if (action === 'newTeacherKey') { admin.settings.teacherKey = randomBytes(9).toString('base64url'); await saveState(); return sendJson(res, 200, { ok: true, teacherKey: admin.settings.teacherKey }); }
   if (action === 'settings') {
     const s = body.settings || {};
     if (typeof s.maintenance === 'boolean') admin.settings.maintenance = s.maintenance;
@@ -1837,6 +1841,14 @@ const httpServer = createServer(async (req, res) => {
     return sendJson(res, 200, { online: bwOnline(), casino: worldOnline(), me: id.cid ? { nick: id.nick, bw: bwStats(id.cid) } : null });
   }
 
+  // Teacher link: /teacher/<key> marks this browser as the teacher (class tools in the games hub).
+  if (url.startsWith('/teacher/')) {
+    const key = decodeURIComponent(url.split('?')[0].slice(9)).replace(/\/+$/, '');
+    const good = key && key === teacherKey();
+    const secure = String(req.headers['x-forwarded-proto'] || '').startsWith('https') ? ';Secure' : '';
+    res.writeHead(302, { Location: good ? '/arcade?teacher=1' : '/arcade', 'cache-control': 'no-store', ...(good ? { 'Set-Cookie': 'sh_teacher=' + encodeURIComponent(key) + ';Path=/;Max-Age=15552000;SameSite=Lax;HttpOnly' + secure } : {}) });
+    res.end(); return;
+  }
   // School mode: everyone (except the owner) only gets the games hub.
   if (admin.settings.schoolMode && req.method === 'GET' && schoolBlocked(url)) {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
