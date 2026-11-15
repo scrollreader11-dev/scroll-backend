@@ -1300,6 +1300,15 @@ function megaEnt(x) { return x && x.room && x.room.state === 'play' && x.ent ? x
 function megaFx(x, kind, extra) { send(x, { t: 'fx', kind, ...(extra || {}) }); }
 const MEGA = [
   { id: 'heal', icon: '❤️', label: 'Full heal', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.hp = BW.MAX_HP; e.dead = false; e.dirty = true; return 'Healed ' + e.nick; } },
+  { id: 'onehp', icon: '💔', label: 'Set to 1 HP', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); if (!e.god) e.hp = 1; e.dirty = true; return e.nick + ' is on 1 HP'; } },
+  { id: 'kill', icon: '☠️', label: 'Kill', cat: 'Player', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); e.god = false; die(k.x.room, e, 'void', null); return 'Killed ' + e.nick; } },
+  { id: 'pgod', icon: '🛡️', label: 'Toggle god mode', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.god = !e.god; if (e.god) e.hp = BW.MAX_HP; e.dirty = true; if (k.x) send(k.x, { t: 'god', on: e.god }); return e.nick + (e.god ? ' is a god now' : ' is mortal again'); } },
+  { id: 'pspeed', icon: '⚡', label: 'Speed 60s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.speedUntil = Date.now() + 60000; e.dirty = true; return e.nick + ' is fast'; } },
+  { id: 'pslow', icon: '🐌', label: 'Slow 30s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.slowUntil = Date.now() + 30000; e.dirty = true; return e.nick + ' is slow'; } },
+  { id: 'pgiant', icon: '🐘', label: 'Make giant', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.giant = !e.giant; e.tiny = false; return e.nick + (e.giant ? ' is GIANT' : ' is normal size'); } },
+  { id: 'ptiny', icon: '🐜', label: 'Make tiny', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.tiny = !e.tiny; e.giant = false; return e.nick + (e.tiny ? ' is tiny' : ' is normal size'); } },
+  { id: 'shake', icon: '📳', label: 'Shake their screen', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'shake'); return 'Shook ' + k.x.nick + '’s screen'; } },
+  { id: 'flip', icon: '🙃', label: 'Upside-down screen 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flip', { ms: 15000 }); return k.x.nick + ' is upside down 🙃'; } },
 ];
 function megaRun(c, m) {
   const op = MEGA.find((o) => o.id === String(m.op));

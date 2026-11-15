@@ -94,6 +94,7 @@
     if (t === 'party') { S.party = m.id ? m : null; renderPartyBar(); if (!$('mSoc').classList.contains('hidden')) renderSoc(); return; }
     if (t === 'pinvite') { showInvite(m); return; }
     if (t === 'toast') { toast(m.msg, 3200); return; }
+    if (t === 'fx') { screenFx(m); return; }
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
     if (t === 'me') return onMe(m);
@@ -1657,6 +1658,25 @@
   document.addEventListener('click', function (e) { if (e.target.closest('.menuBtn')) return; [].forEach.call(document.querySelectorAll('.hbtns.open,#hudBtns.open'), function (box) { if (e.target.closest('.hbtn') && box.contains(e.target)) { box.classList.remove('open'); var mb = box.querySelector('.menuBtn'); if (mb) mb.textContent = '☰'; } }); });
   $('hMap').onchange = function () { send({ t: 'cfg', map: this.value }); SC.sfx('click'); };
   [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.onclick = function () { openAdmin(); }; });
+
+  // owner "power" screen effects
+  function screenFx(m) {
+    var cv = $('cv'), k = m.kind, ms = m.ms || 10000;
+    function css(prop, val) { cv.style[prop] = val; clearTimeout(S['fx' + prop]); S['fx' + prop] = setTimeout(function () { cv.style[prop] = ''; }, ms); }
+    if (k === 'shake') { cam.shake = 30; S.shake = 1.2; try { navigator.vibrate && navigator.vibrate(300); } catch (e) {} var t0 = now(); var iv = setInterval(function () { var p = now() - t0; if (p > 1200) { clearInterval(iv); cv.style.translate = ''; return; } cv.style.translate = ((Math.random() - 0.5) * 24) + 'px ' + ((Math.random() - 0.5) * 24) + 'px'; }, 30); }
+    else if (k === 'flip') css('transform', 'rotate(180deg)');
+    else if (k === 'spin') { cv.style.transition = 'transform 2s'; cv.style.transform = 'rotate(360deg)'; setTimeout(function () { cv.style.transition = ''; cv.style.transform = ''; }, 2100); }
+    else if (k === 'mirror') css('transform', 'scaleX(-1)');
+    else if (k === 'invert') css('filter', 'invert(1)');
+    else if (k === 'gray') css('filter', 'grayscale(1)');
+    else if (k === 'blur') css('filter', 'blur(5px)');
+    else if (k === 'zoom') css('transform', 'scale(1.6)');
+    else if (k === 'dark') css('filter', 'brightness(0.25)');
+    else if (k === 'flash') { var f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;z-index:80;background:' + (m.col || '#fff') + ';opacity:1;transition:opacity 1.2s;pointer-events:none'; document.body.appendChild(f); requestAnimationFrame(function () { f.style.opacity = '0'; }); setTimeout(function () { f.remove(); }, 1300); }
+    else if (k === 'rain' || k === 'confetti') { var em = m.em || '🎉'; for (var i = 0; i < 40; i++) (function (i) { var d = document.createElement('div'); d.textContent = k === 'confetti' ? ['🎉', '🎊', '✨', '⭐'][i % 4] : em; d.style.cssText = 'position:fixed;top:-40px;left:' + (Math.random() * 100) + 'vw;font-size:' + (20 + Math.random() * 18) + 'px;z-index:80;pointer-events:none;transition:transform ' + (2 + Math.random() * 2) + 's linear'; document.body.appendChild(d); setTimeout(function () { d.style.transform = 'translateY(' + (innerHeight + 80) + 'px) rotate(' + (Math.random() * 720 - 360) + 'deg)'; }, 30 + i * 40); setTimeout(function () { d.remove(); }, 5000); })(i); }
+    else if (k === 'big') { banner(m.text || '👀', m.sub || '', m.col || '#ffd166'); }
+    if (m.sfx) SC.sfx(m.sfx);
+  }
   function openAdmin() {
     if (!S.owner) return;
     openModal('mAdmin'); send({ t: 'adm', a: 'info' });
