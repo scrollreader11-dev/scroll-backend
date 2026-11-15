@@ -112,6 +112,14 @@
     if (t === 'radar') { if (m.none) { toast('No hiders left to find', 1400); return; } S.radar = { x: m.x, y: m.y, d: m.d, t: now() }; SC.sfx('level'); toast('📡 ' + (m.d < 6 * T ? 'HOT! A hider is really close' : m.d < 14 * T ? 'Warm — a hider is nearby' : 'Cold — the nearest hider is far away'), 2200); return; }
     if (t === 'mgt') { if (m.endAt) S.endAt = m.endAt; if (m.seekAt) S.seekAt = m.seekAt; if (m.sdAt) S.sdAt = m.sdAt; return; }
     if (t === 'ann2') { toast(esc(m.text), 1600); return; }
+    if (t === 'disco') {
+      document.body.classList.add('disco');
+      clearTimeout(S.discoT); S.discoT = setTimeout(function () { document.body.classList.remove('disco'); clearInterval(S.discoI); }, m.ms || 30000);
+      clearInterval(S.discoI);
+      S.discoI = setInterval(function () { if (S.screen !== 'game' || !P) return; var cols = ['#ff4b5c', '#ffd166', '#2bd576', '#3fa9ff', '#9b6bff', '#ff6ec7']; D.burst('star', P.x + (Math.random() - 0.5) * 500, P.y + (Math.random() - 0.5) * 320, 4, cols[(Math.random() * 6) | 0]); }, 450);
+      banner('🪩 DISCO TIME!', '', '#9b6bff'); SC.sfx('level');
+      return;
+    }
     if (t === 'lb2') { S.lb2[m.game] = m.rows || []; if (m.myElo != null) S.myElo = m.myElo; renderLb(); return; }
     if (t === 'bbv') { S.phase = 'vote'; S.votePlot = m.plot; S.voteUntil = m.until; S.voted = false; banner('JUDGE THIS BUILD', (m.owner === S.nick ? 'This one is YOURS!' : 'Built by ' + esc(m.owner)) + ' · ' + (m.idx + 1) + ' of ' + m.of, '#ffd166'); SC.sfx('go'); bbUISync(); return; }
     if (t === 'bbr') { S.phase = 'podium'; S.votePlot = -1; var w = m.results && m.results[0]; if (w) banner('🏆 ' + esc(w.nick) + ' WINS!', 'Theme: ' + esc(m.theme) + ' · scored ' + w.avg + ' ⭐', '#ffd166'); SC.sfx('final'); bbUISync(); return; }
@@ -622,7 +630,7 @@
     if (m.role != null && isMini()) { var mmr = S.ents.get(S.myId); S.team = m.role; if (mmr) { mmr.team = m.role; mmr.prop = m.prop; } }
     S.prop = m.prop; if (m.mr != null) S.mrole = m.mr; S.gold = m.gold | 0;
     S.hp = m.hp; S.absorb = m.absorb; S.inv = m.inv; S.res = m.res; S.sword = m.sword; S.armor = m.armor; S.pick = m.pick; S.stats = m.stats;
-    S.dead = m.dead; S.elim = m.elim; if (m.dead && !m.elim) S.respawnAt = now() + m.respawn; S.speedUntil = now() + m.speed;
+    S.dead = m.dead; S.elim = m.elim; if (m.dead && !m.elim) S.respawnAt = now() + m.respawn; S.speedUntil = now() + m.speed; S.slowUntil = now() + (m.slow || 0);
     var me = S.ents.get(S.myId); if (me) { me.sword = m.sword; me.armor = m.armor; me.pick = m.pick; }
     var hb = hotbarItems();
     if (hb.indexOf(S.held) < 0) { S.held = hb.indexOf(m.held) >= 0 ? m.held : hb[0]; }
@@ -1098,6 +1106,7 @@
     if (S.game === 'spleef' && !dead) { var fu = e.id === S.myId ? (P && P.falling ? Math.min(1, (tn - P.falling) / 420) : -1) : e.spFall ? Math.min(1, (tn - (e.spFallT || tn)) / 420) : -1; falling = -1; if (fu >= 0) { sc = 1 - fu * 0.4; alpha = 1 - fu * 0.55; y += fu * 18; } }
     if (S.game === 'hide' && e.prop && !dead) { drawDisguised(e, x, y, t); if (S.reveal && S.owner && e.id !== S.myId) D.tag(c, '👁️ ' + e.nick, x, y - 50, { size: 11, color: '#fff', bg: '#c1121f' }); return; }
     if ((e.flags || 0) & 1024 && e.id !== S.myId) { if (!S.owner) return; alpha *= 0.35; }
+    if ((e.flags || 0) & 2048) sc *= 1.65; else if ((e.flags || 0) & 4096) sc *= 0.58;
     if (falling >= 0) { if (e.fallX != null && e.id !== S.myId) { x = e.fallX; y = e.fallY; } else if (e.id === S.myId && P.fallX != null) { x = P.fallX; y = P.fallY; } sc = Math.max(0.05, 1 - falling * 0.95); rot = falling * 5; alpha = 1 - falling * 0.6; y += falling * 40; if (Math.random() < 0.4) D.burst('magic', x, y - 10, 1, '#3b2a8a'); }
     else if (dead) return;
     var ang = e.ang || 0, ca = Math.cos(ang), sa = Math.sin(ang);
@@ -1547,6 +1556,16 @@
           if (r.game === 'bw') [0, 1, 2, 3].forEach(function (t4) { if (r.teams && r.teams[t4].bed) html += ab('Join ' + B.TEAMS[t4].name, { act: 'joinmatch', room: r.id, team: t4 }).replace('class="ab ', 'style="background:' + teamCol(t4) + '" class="ab '); });
           else if (r.game === 'ctf') [0, 1].forEach(function (t4) { html += ab('Join ' + B.TEAMS[t4].name, { act: 'joinmatch', room: r.id, team: t4 }).replace('class="ab ', 'style="background:' + teamCol(t4) + '" class="ab '); });
           else if (r.game === 'hide') html += ab('Join as seeker', { act: 'joinmatch', room: r.id, team: 1 }, 'blue');
+        }
+        if (r.state === 'play' || r.state === 'end') {
+          html += '</div><div class="admhead" style="margin-top:8px">✨ Fun & chaos</div><div class="acts">' +
+            ab('🧲 Bring all', { act: 'fun', room: r.id, op: 'bringall' }) + ab('🎲 Scatter', { act: 'fun', room: r.id, op: 'scatter' }) + ab('🚀 Launch', { act: 'fun', room: r.id, op: 'launchall' }) +
+            ab('❤️ Heal all', { act: 'fun', room: r.id, op: 'healall' }, 'green') + ab('💔 1 HP all', { act: 'fun', room: r.id, op: 'hurtall' }, 'red', true) +
+            ab('⚡ Speed all', { act: 'fun', room: r.id, op: 'speedall' }) + ab('🐌 Slow all', { act: 'fun', room: r.id, op: 'slowall' }) +
+            ab('🐘 Giant', { act: 'fun', room: r.id, op: 'giant' }) + ab('🐜 Tiny', { act: 'fun', room: r.id, op: 'tiny' }) + ab('↩ Normal', { act: 'fun', room: r.id, op: 'normal' }) +
+            ab('🪩 Disco', { act: 'fun', room: r.id, op: 'disco' }, 'gold') + ab('💣 Chaos', { act: 'fun', room: r.id, op: 'chaos' }, 'red', true) +
+            ab('🤖 +Bot', { act: 'fun', room: r.id, op: 'addbot' }) + ab('🧹 Clear bots', { act: 'fun', room: r.id, op: 'clearbots' }, '', true) +
+            ab(r.paused ? '▶️ Unpause' : '⏸️ Pause', { act: 'fun', room: r.id, op: 'pause' }, r.paused ? 'green' : 'blue') + ab('🔄 Restart', { act: 'fun', room: r.id, op: 'restart' }, '', true);
         }
         if (r.state === 'play' && r.game === 'ctf') html += ab('+1 Red', { act: 'mini', room: r.id, op: 'score', team: 0 }) + ab('+1 Blue', { act: 'mini', room: r.id, op: 'score', team: 1 }) + ab('🏠 Flags home', { act: 'mini', room: r.id, op: 'retflags' });
         if (r.state === 'play' && r.game === 'spleef') html += ab('💥 Sudden death', { act: 'mini', room: r.id, op: 'sd' }, 'red', true);

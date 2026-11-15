@@ -266,7 +266,7 @@ function fullState(r, e) {
 }
 function meMsg(e) {
   const now = Date.now();
-  return { t: 'me', role: e.team, mr: e.mrole || '', gold: e.gold | 0, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), stats: e.stats };
+  return { t: 'me', role: e.team, mr: e.mrole || '', gold: e.gold | 0, z: e.z || 0, prop: e.prop || '', hp: Math.ceil(e.hp), absorb: Math.ceil(e.absorb), inv: e.inv, res: e.res, sword: e.sword, armor: e.armor, pick: e.pick, held: e.held, dead: e.dead, elim: e.elim, respawn: e.dead && !e.elim ? Math.max(0, e.respawnAt - now) : 0, speed: Math.max(0, e.speedUntil - now), slow: Math.max(0, e.slowUntil - now), stats: e.stats };
 }
 
 // ============================================================ actions (shared by players & bots)
@@ -803,6 +803,7 @@ function tickRoom(r, now) {
   const m = r.map;
   if (humans(r).length) r.lastHuman = now;
   else if (now - r.lastHuman > 45000) { r.state = 'dead'; killRoom(r); return; }
+  if (r.paused) return;
   if (r.game !== 'bw') { MINI.tick(r, now); if (r.state !== 'play') return; tickProj(r, now); if (r.state === 'play') flush(r); return; }
   const el = (now - r.goAt) / 1000;
   // timeline
@@ -913,7 +914,7 @@ function tickProj(r, now) {
   for (let k = r.tnts.length - 1; k >= 0; k--) { const tn = r.tnts[k]; if (now >= tn.at) { r.tnts.splice(k, 1); explode(r, tn.x, tn.y, 2.6, 9, tn.owner, 'tnt'); } }
 }
 function flags(e, now) {
-  return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0) | (e.god ? 512 : 0) | (e.vanish ? 1024 : 0);
+  return (e.dead ? 1 : 0) | (e.mv ? 2 : 0) | (e.mine ? 4 : 0) | (e.bow ? 8 : 0) | (now < e.regenUntil ? 16 : 0) | (now < e.speedUntil ? 32 : 0) | (now < e.invulnUntil - 400 ? 64 : 0) | (e.elim ? 128 : 0) | (e.ctl === 'ai' && !e.bot ? 256 : 0) | (e.god ? 512 : 0) | (e.vanish ? 1024 : 0) | (e.giant ? 2048 : 0) | (e.tiny ? 4096 : 0);
 }
 function flush(r) {
   const now = Date.now();
@@ -1233,6 +1234,102 @@ function adminMsg(c, m, now) {
     if (r.game === 'spleef' && op === 'sd') { r.sdAt = Date.now(); roomSend(r, { t: 'mgt', sdAt: r.sdAt }); return ok('Sudden death started!'); }
     if (r.game === 'hide' && op === 'release') { if (r.phase !== 'hide') return no('The seekers are already out.'); r.seekAt = Date.now(); roomSend(r, { t: 'mgt', seekAt: r.seekAt, endAt: r.endAt }); return ok('Seekers released!'); }
     return no('Unknown control.');
+  }
+  if (a === 'fun') {
+    const op = String(m.op);
+    if (!r) return no('Pick a match.');
+    if (op !== 'restart' && r.state !== 'play') return no('That match isn’t running.');
+    const live = [...r.ents.values()].filter((e) => !e.dead && !e.elim);
+    const freeTile = (e) => {
+      for (let tries = 0; tries < 60; tries++) {
+        const i = (rnd() * N) | 0;
+        if (r.game === 'spleef') { if (r.map.L[e.z || 0][i] === 1) return i; continue; }
+        if (r.map.g[i] && r.map.g[i] !== G.ROCK && !BW.solidAt(r.map, i % W, (i / W) | 0)) return i;
+      }
+      return -1;
+    };
+    const tpEnt = (e, x, y) => { e.x = x; e.y = y; e.vx = e.vy = 0; e.kbBudget += 2000; if (e.conn) send(e.conn, { t: 'pos', x: Math.round(x), y: Math.round(y) }); };
+    if (op === 'bringall') {
+      const cx = c.room === r && c.ent && !c.ent.dead ? c.ent.x : W * T / 2, cy = c.room === r && c.ent && !c.ent.dead ? c.ent.y : H * T / 2;
+      let k = 0; for (const e of live) { if (e === c.ent) continue; const an = k / Math.max(1, live.length - 1) * Math.PI * 2; tpEnt(e, cx + Math.cos(an) * 70, cy + Math.sin(an) * 70); k++; }
+      GMS.log('👑 ' + c.nick + ' pulled everyone together in #' + r.id);
+      return ok('Everyone teleported to you.');
+    }
+    if (op === 'scatter') { for (const e of live) { const i = freeTile(e); if (i >= 0) tpEnt(e, (i % W) * T + T / 2, ((i / W) | 0) * T + T / 2); } return ok('Everyone scattered! 🎲'); }
+    if (op === 'launchall') { for (const e of live) { const an = rnd() * Math.PI * 2; knock(r, e, Math.cos(an), Math.sin(an), 1100); } roomSend(r, { t: 'ann', text: '🚀 WHEEE!', from: c.nick }); return ok('Launched them all 🚀'); }
+    if (op === 'healall') { for (const e of live) { e.hp = BW.MAX_HP; e.dirty = true; } r.ev(['drink', live[0] ? live[0].id : 0]); return ok('Everyone healed ❤️'); }
+    if (op === 'hurtall') { for (const e of live) { if (!e.god) { e.hp = 1; e.lastDmgAt = Date.now(); e.dirty = true; } } roomSend(r, { t: 'ann', text: '💔 Half a heart. Good luck.', from: c.nick }); return ok('Everyone is on 1 HP 💔'); }
+    if (op === 'speedall' || op === 'slowall') {
+      for (const e of live) { if (op === 'speedall') e.speedUntil = Date.now() + 30000; else e.slowUntil = Date.now() + 30000; e.dirty = true; }
+      roomSend(r, { t: 'ann', text: op === 'speedall' ? '⚡ SPEED BOOST for 30s!' : '🐌 Sloooow mode for 30s', from: c.nick });
+      return ok(op === 'speedall' ? 'Everyone is fast for 30s ⚡' : 'Everyone is slow for 30s 🐌');
+    }
+    if (op === 'giant' || op === 'tiny' || op === 'normal') {
+      for (const e of r.ents.values()) { e.giant = op === 'giant'; e.tiny = op === 'tiny'; }
+      roomSend(r, { t: 'ann', text: op === 'giant' ? '🐘 GIANT MODE' : op === 'tiny' ? '🐜 tiny mode' : 'Back to normal size', from: c.nick });
+      return ok(op === 'giant' ? 'Everyone is GIANT 🐘' : op === 'tiny' ? 'Everyone is tiny 🐜' : 'Sizes reset.');
+    }
+    if (op === 'disco') { roomSend(r, { t: 'disco', ms: 30000 }); GMS.log('🪩 ' + c.nick + ' started a disco in #' + r.id); return ok('🪩 Disco for 30 seconds!'); }
+    if (op === 'chaos') {
+      if (r.game === 'build') return no('Not while they’re building!');
+      if (r.game === 'spleef') { for (let k = 0; k < 50; k++) { const z = (rnd() * MG.SP_LAYERS) | 0, L = r.map.L[z]; for (let t2 = 0; t2 < 30; t2++) { const i = (rnd() * N) | 0; if (L[i] === 1) { MINI.snowLand(r, { z, x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2 - 16, owner: 0 }); break; } } } roomSend(r, { t: 'ann', text: '🌨️ FLOOR STORM!', from: c.nick }); return ok('Floor storm! ❄️'); }
+      let n2 = 0;
+      for (let k = 0; k < 14; k++) {
+        const i = (rnd() * N) | 0; if (!r.map.g[i] || r.map.g[i] === G.ROCK) continue;
+        const tn = { id: nextProj++, x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2, at: Date.now() + 1000 + rnd() * 2600, owner: 0, team: -9 };
+        r.tnts.push(tn); r.ev(['tnt', tn.id, Math.round(tn.x), Math.round(tn.y), tn.at - Date.now()]); n2++;
+      }
+      roomSend(r, { t: 'ann', text: '💣 TNT RAIN! RUN!', from: c.nick });
+      GMS.log('💣 ' + c.nick + ' dropped TNT rain on #' + r.id);
+      return ok('TNT rain incoming 💣 (' + n2 + ')');
+    }
+    if (op === 'addbot') {
+      if (r.game === 'spleef' || r.game === 'duel' || r.game === 'build') return no('Bots can’t join a running ' + MG.GAMES[r.game].name + ' match.');
+      const used = new Set([...r.ents.values()].map((e) => e.nick));
+      let name; do { name = BOT_NAMES[(rnd() * BOT_NAMES.length) | 0]; } while (used.has(name) && used.size < BOT_NAMES.length);
+      let team = 0;
+      if (r.game === 'bw') { let best = -1; for (let t2 = 0; t2 < 4; t2++) { if (!r.teams[t2].bed && ![...r.ents.values()].some((e) => e.team === t2 && !e.elim)) continue; const n3 = [...r.ents.values()].filter((e) => e.team === t2).length; if (best < 0 || n3 < [...r.ents.values()].filter((e) => e.team === best).length) best = t2; } team = Math.max(0, best); }
+      else if (r.game === 'ctf') team = [...r.ents.values()].filter((e) => e.team === 0).length <= [...r.ents.values()].filter((e) => e.team === 1).length ? 0 : 1;
+      else if (r.game === 'hide') team = 1;
+      const e = makeEnt(r, { nick: name, look: botLook(), team, bot: true });
+      if (r.game !== 'bw') MINI.lateJoin(r, e);
+      r.teamsDirty = true; r.ev(['spawn', e.id, Math.round(e.x), Math.round(e.y)]);
+      for (const x of humans(r)) send(x, { t: 'join', ent: entPub(e) });
+      return ok('🤖 ' + name + ' joined' + (r.game === 'hide' ? ' as a seeker' : '') + '.');
+    }
+    if (op === 'clearbots') {
+      let n3 = 0;
+      for (const e of [...r.ents.values()]) if (e.bot) { r.ents.delete(e.id); r.ev(['dc', e.id]); n3++; }
+      r.teamsDirty = true; checkWin(r);
+      return ok('Removed ' + n3 + ' bot(s).');
+    }
+    if (op === 'pause') {
+      if (r.paused) {
+        const d = Date.now() - r.pausedAt; r.paused = false;
+        r.goAt += d; ['endAt', 'seekAt', 'sdAt', 'buildEnd', 'voteNext', 'nextTaunt', 'goldAt'].forEach((k) => { if (r[k]) r[k] += d; });
+        if (r.pick) r.pick.forEach((q) => { q.at += d; });
+        if (r.crum) for (const [k, v] of r.crum) r.crum.set(k, v + d);
+        for (const e of r.ents.values()) { if (e.respawnAt) e.respawnAt += d; if (e.arrowAt) e.arrowAt += d; }
+        for (const x of humans(r)) { if (x.pausedFroze) { x.frozen = false; x.pausedFroze = false; send(x, { t: 'frozen', on: false }); } }
+        roomSend(r, { t: 'ann', text: '▶️ Unpaused!', from: c.nick }); roomSend(r, { t: 'goat', goAt: r.goAt });
+        return ok('Match unpaused ▶️');
+      }
+      r.paused = true; r.pausedAt = Date.now();
+      for (const x of humans(r)) { if (!x.frozen) { x.frozen = true; x.pausedFroze = true; send(x, { t: 'frozen', on: true }); } }
+      roomSend(r, { t: 'ann', text: '⏸️ Match paused by ' + c.nick, from: c.nick });
+      return ok('Match paused ⏸️');
+    }
+    if (op === 'restart') {
+      if (r.state !== 'play' && r.state !== 'end') return no('Nothing to restart.');
+      const players = humans(r);
+      if (!players.length) return no('Nobody is in that match.');
+      r.members = players.map((x, k) => ({ cid: x.cid, nick: x.nick, look: x.look, team: r.game === 'bw' || r.game === 'ctf' ? k % (r.game === 'ctf' ? 2 : 4) : k, conn: x, pid: x.pid }));
+      r.paused = false; r.winner = null; r.projs = []; r.tnts = []; r.events = [];
+      startMatch(r);
+      GMS.log('🔄 ' + c.nick + ' restarted match #' + r.id);
+      return ok('Match restarted with a fresh map 🔄');
+    }
+    return no('Unknown fun action.');
   }
   if (a === 'bed') { const t = Number(m.team); const b = r.map.beds[t]; if (r.game !== 'bw') return no('That match has no beds.'); if (!b || !b.alive) return no('That bed is already gone.'); destroyBed(r, b, null); return ok(BW.TEAMS[t].name + ' bed destroyed.'); }
   if (a === 'ent') {

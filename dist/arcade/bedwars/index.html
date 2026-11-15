@@ -463,6 +463,9 @@
   body.touch #bbPal{bottom:8px;left:8px;right:8px;transform:none;max-width:none}
   body.touch.g-build #joy{bottom:120px!important}
   body.touch #bbVote{top:96px}
+  /* disco mode */
+  body.disco canvas#c, body.disco #cv{animation:discoHue 2.4s linear infinite}
+  @keyframes discoHue{0%{filter:hue-rotate(0) saturate(1.5)}50%{filter:hue-rotate(180deg) saturate(2)}100%{filter:hue-rotate(360deg) saturate(1.5)}}
 </style>
 </head>
 <body>
@@ -687,7 +690,7 @@
 <script src="/arcade/bedwars/draw.js?v=6"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/arcade/bedwars/game.js?v=11"></script>
+<script src="/arcade/bedwars/game.js?v=12"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {
