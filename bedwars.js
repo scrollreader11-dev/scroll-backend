@@ -1302,7 +1302,7 @@ function onMsg(c, m, now) {
     return;
   }
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
-  if (t === 'adm' && !c.owner && c.teacher) { const TA = ['info', 'class', 'classreset', 'cq', 'cqclose', 'vote', 'schooltimer', 'school', 'skick', 'sban', 'srename', 'swatch', 'sunban']; if (TA.includes(String(m.a))) { try { if (m.a === 'info') send(c, { t: 'adminfo', teacher: true, school: schoolCfg(), rooms: [], conns: [], bans: [], logs: [], maps: [], rot: {}, mega: [], settings: {}, now: Date.now() }); else adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
+  if (t === 'adm' && !c.owner && c.teacher) { const TA = ['info', 'class', 'classreset', 'cq', 'cqclose', 'vote', 'skick', 'sban', 'srename', 'swatch', 'sunban']; if (TA.includes(String(m.a))) { try { if (m.a === 'info') send(c, { t: 'adminfo', teacher: true, school: schoolCfg(), rooms: [], conns: [], bans: [], logs: [], maps: [], rot: {}, mega: [], settings: {}, now: Date.now() }); else adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
   if (t === 'cqa') { classAnswer(c, m); return; }
