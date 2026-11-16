@@ -2005,9 +2005,9 @@
   var SH_TABS = [['skin', '🐾 Skins'], ['body', '🎨 Colors'], ['hat', '🎩 Hats'], ['acc', '✨ Accessories'], ['trail', '🌈 Trails']];
   var RAR = { common: '#9aa3b5', rare: '#3fa9ff', epic: '#b185ff', legendary: '#ffc93c', mythic: '#ff6ec7' };
   function shopFetch(cb) { fetch('/api/casino/me', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) { if (d && d.profile) { SH.data = d; if (cb) cb(); } else $('shGrid').innerHTML = '<div class="sempty">' + esc((d && d.message) || 'Couldn’t load the shop.') + '</div>'; }).catch(function () { $('shGrid').innerHTML = '<div class="sempty">Couldn’t load the shop.</div>'; }); }
-  function openSkinShop() { openModal('mShop2'); $('shGrid').innerHTML = '<div class="sempty">Opening the shop…</div>'; shopFetch(renderShop); SH.on = true; requestAnimationFrame(shopDraw); }
+  function openSkinShop() { openModal('mShop2'); $('shGrid').innerHTML = '<div class="sempty">Opening the shop…</div>'; shopFetch(renderSkinShop); SH.on = true; requestAnimationFrame(shopDraw); }
   function shopPost(path, body, cb) { fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(cb).catch(function () { toast('Couldn’t reach the shop', 1800); SH.busy = false; }); }
-  function renderShop() {
+  function renderSkinShop() {
     var d = SH.data; if (!d) return;
     var pr = d.profile, inv = pr.inventory || [], look = pr.look || {};
     $('shCoins').textContent = '📜 ' + (pr.coins || 0).toLocaleString();
@@ -2036,15 +2036,15 @@
     });
     requestAnimationFrame(shopDraw);
   }
-  $('shTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-sht]'); if (!b) return; SH.tab = b.dataset.sht; renderShop(); SC.sfx('click'); });
+  $('shTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-sht]'); if (!b) return; SH.tab = b.dataset.sht; renderSkinShop(); SC.sfx('click'); });
   $('shGrid').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || SH.busy) return;
     var id = b.dataset.buy || b.dataset.eq; if (!id) return;
     SH.busy = true;
-    var wear = function () { shopPost('/api/casino/equip', { itemId: id }, function (r) { SH.busy = false; if (r && r.profile) { SH.data.profile = r.profile; renderShop(); send({ t: 'look' }); SC.sfx('pop'); } }); };
+    var wear = function () { shopPost('/api/casino/equip', { itemId: id }, function (r) { SH.busy = false; if (r && r.profile) { SH.data.profile = r.profile; renderSkinShop(); send({ t: 'look' }); SC.sfx('pop'); } }); };
     if (b.dataset.buy) shopPost('/api/casino/buy', { itemId: id }, function (r) {
       if (r && r.ok) { SH.data.profile = r.profile; SC.sfx('bigwin'); toast('🛍️ Bought! Putting it on…', 1500); wear(); }
-      else { SH.busy = false; toast(r && r.error === 'broke' ? '📜 Not enough Scrolls yet — win games to earn more!' : 'Couldn’t buy that.', 2200); if (r && r.profile) { SH.data.profile = r.profile; renderShop(); } }
+      else { SH.busy = false; toast(r && r.error === 'broke' ? '📜 Not enough Scrolls yet — win games to earn more!' : 'Couldn’t buy that.', 2200); if (r && r.profile) { SH.data.profile = r.profile; renderSkinShop(); } }
     }); else wear();
   });
   // ---- class question from the teacher (pops up for everyone, any screen)
