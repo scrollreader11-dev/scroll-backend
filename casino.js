@@ -483,7 +483,7 @@ const SPR_FX = ['none', 'bounce', 'wiggle', 'spin', 'pulse', 'float', 'rainbow',
 const TAG_FX = ['', 'pulse', 'gold', 'shimmer', 'rainbow'];
 function syncCustomStore() {
   for (let i = STORE.length - 1; i >= 0; i--) if (STORE[i].custom) STORE.splice(i, 1);
-  for (const it of casino.custom) STORE.push({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, custom: true, ...(it.fx ? { fx: it.fx } : {}), ...(it.ref ? { ref: it.ref } : {}) });
+  for (const it of casino.custom) if (!it.replaces) STORE.push({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, custom: true, ...(it.fx ? { fx: it.fx } : {}), ...(it.ref ? { ref: it.ref } : {}) });
 }
 function cleanSprite(sp) {
   if (!sp || typeof sp !== 'object') return null;
@@ -498,10 +498,11 @@ function cleanSprite(sp) {
 }
 // Custom banners are stored on profiles as a short 'cb:<key>' reference and expanded when sent out.
 function banOut(v) { if (typeof v === 'string' && v.startsWith('cb:')) { const it = casino.custom.find((x) => x.ref === v); return it ? it.value : ''; } return v || ''; }
+function overrideMap() { const o = { skin: {}, hat: {}, acc: {} }; for (const it of casino.custom) if (it.replaces && it.sprite && o[it.type]) o[it.type][it.replaces] = it.value; return o; }
 function spriteMap() { const out = {}; for (const it of casino.custom) if (it.sprite) out[it.value] = it.sprite; return out; }
 function isSpriteOwner(req) { const a = req._auth; const n = a && (a.username || (a.account && a.account.username) || a.name); return String(n || '').toLowerCase() === SPRITE_OWNER; }
 async function handleSprites(path, req, res) {
-  if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at, params: it.params, fx: it.fx || '' })), canEdit: isSpriteOwner(req) }); return true; }
+  if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), overrides: overrideMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at, params: it.params, fx: it.fx || '', replaces: it.replaces || '' })), canEdit: isSpriteOwner(req) }); return true; }
   if (path === '/api/casino/sprites/save' && req.method === 'POST') {
     if (!isSpriteOwner(req)) return (sendJson(res, 403, { error: 'Only Scrollreader11 can save sprites.' }), true);
     const b = await readBody(req);
@@ -515,18 +516,25 @@ async function handleSprites(path, req, res) {
       if (!label) return (sendJson(res, 400, { error: 'Type the name tag text first.' }), true);
       fx = TAG_FX.includes(b.tag && b.tag.fx) ? b.tag.fx : '';
     } else { sprite = cleanSprite(b.sprite); if (!sprite) return (sendJson(res, 400, { error: 'Draw something first!' }), true); }
+    let replaces = '';
+    if (b.replaces && ['skin', 'hat', 'acc'].includes(type)) {
+      const orig = STORE.find((x) => !x.custom && x.type === type && x.value === b.replaces);
+      if (!orig) return (sendJson(res, 400, { error: 'Could not find the item you want to replace.' }), true);
+      replaces = orig.value;
+    }
     const price = Math.max(0, Math.min(1000000, Math.floor(Number(b.price) || 0)));
     const rarity = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(b.rarity) ? b.rarity : 'rare';
     let it = b.id ? casino.custom.find((x) => x.id === b.id) : null;
     if (it) {
       if (it.type !== type) return (sendJson(res, 400, { error: 'You can’t change the type of a saved item — save it as new instead.' }), true);
-      Object.assign(it, { label, price, rarity, sprite, params, fx, at: Date.now() }); if (value) it.value = value;
+      Object.assign(it, { label, price, rarity, sprite, params, fx, replaces, at: Date.now() }); if (value) it.value = value;
     } else {
       if (casino.custom.length >= 300) return (sendJson(res, 400, { error: 'That’s a lot of creations! Delete some first.' }), true);
       const key = Math.random().toString(36).slice(2, 9);
-      it = { id: 'cu_' + type + '_' + key, type, label, value: value || (type === 'tag' ? label : 'c:' + key), price, rarity, sprite, params, fx, at: Date.now(), ...(type === 'banner' ? { ref: 'cb:' + key } : {}) };
+      it = { id: 'cu_' + type + '_' + key, type, label, value: value || (type === 'tag' ? label : 'c:' + key), price, rarity, sprite, params, fx, replaces, at: Date.now(), ...(type === 'banner' ? { ref: 'cb:' + key } : {}) };
       casino.custom.push(it);
     }
+    if (replaces) for (const x of casino.custom) if (x !== it && x.type === type && x.replaces === replaces) x.replaces = ''; // only one replacement per original
     syncCustomStore(); save(); flush();
     sendJson(res, 200, { ok: true, item: { id: it.id, value: it.value } }); return true;
   }

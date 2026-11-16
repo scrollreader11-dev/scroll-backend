@@ -221,6 +221,9 @@
   // A.CUSTOM['c:<id>'] = { w, h, pal: ['#rrggbb', ...], px: 'string of palette chars (0 = empty)', back: '' | px, eyes: bool, feet: bool }
   var CUST_CH = '0123456789abcdefghijklmnopqrstuv';
   A.CUSTOM = A.CUSTOM || {};
+  A.OVR = { skin: {}, hat: {}, acc: {} }; A.noOvr = false; // built-in items Scrollreader11 redrew in the Studio
+  function ovr(type, k) { if (A.noOvr || !k) return null; var o = A.OVR[type] && A.OVR[type][k]; return o && A.CUSTOM[o] ? o : null; }
+  A.ovr = ovr;
   var custCache = {}, custLast = 0, custBusy = false;
   A.loadCustom = function (force) {
     if (custBusy || (!force && Date.now() - custLast < 8000)) return; custBusy = true; custLast = Date.now();
@@ -229,6 +232,7 @@
       fetch(base + '/api/casino/sprites', { credentials: 'include' }).then(function (r) { return r.json(); }).then(function (d) {
         custBusy = false; if (!d || !d.sprites) return;
         for (var k in d.sprites) { A.CUSTOM[k] = d.sprites[k]; A.custInvalidate(k); }
+        if (d.overrides) A.OVR = { skin: d.overrides.skin || {}, hat: d.overrides.hat || {}, acc: d.overrides.acc || {} };
       }).catch(function () { custBusy = false; });
     } catch (e) { custBusy = false; }
   };
@@ -312,8 +316,9 @@
     c.restore();
   }
   A.drawGim = function (c, x, y, look, o) {
+    if (look && look.acc && !A.isCustom(look.acc) && ovr('acc', look.acc)) look = Object.assign({}, look, { acc: ovr('acc', look.acc) });
     o = o || {}; look = look || {};
-    var custK = A.isCustom(look.skin) ? look.skin : null, custS = custK ? custSprite(custK) : null;
+    var custK = A.isCustom(look.skin) ? look.skin : ovr('skin', look.skin || 'gim'), custS = custK ? custSprite(custK) : null;
     var skin = SKIN[look.skin] ? look.skin : 'gim', S = SKIN[skin], body = look.body || '#3fa9ff', t = o.t || 0, dir = o.dir || 0;
     var s = o.scale || 1;
     c.save(); c.translate(x, y); c.scale(s, s);
@@ -431,6 +436,7 @@
   // ---------------------------------------------------------------- ACCESSORIES
   A.drawAcc = function (c, k, by, ex, dir, t, base) {
     if (!k) return;
+    var oa = ovr('acc', k); if (oa) k = oa;
     if (A.isCustom(k)) { if (dir === 3) return; var as = custSprite(k), af = as && custFrame(k, false, custFi(as, t)); if (!af) return; custDraw(c, af, ex * 0.5 - 22, by - 4, 44, false, as, t); return; }
     var eyeY = by + 15;
     c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
@@ -550,6 +556,7 @@
   // ---------------------------------------------------------------- HATS
   A.drawHat = function (c, k, by, side, dir, t) {
     if (!k) return;
+    var oh = ovr('hat', k); if (oh) k = oh;
     var hx = side * 3, y = by;
     if (A.isCustom(k)) { var hs = custSprite(k), hf = hs && (dir === 3 && hs.back ? custFrame(k, true) : custFrame(k, false, custFi(hs, t))); if (!hf || hf.bot < 0) return; var hsz = 44, hc = hsz / hf.w; c.save(); if (dir === 3 && !hs.back) c.globalAlpha *= 0.95; var hf0 = custFrame(k, false) || hf; custDraw(c, hf, hx - hsz / 2, y + 7 - (hf0.bot + 1) * hc, hsz, side < -0.3 && dir !== 3, hs, t); c.restore(); return; }
     c.save(); c.lineJoin = 'round'; c.lineCap = 'round';

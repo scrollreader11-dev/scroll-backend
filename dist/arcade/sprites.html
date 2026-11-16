@@ -80,6 +80,21 @@
   .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .cgrid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut);font-weight:600}
   .mi .bthumb{height:44px;border-radius:8px;margin-bottom:4px}
+  .mi .rep{display:block;font-size:10px;color:#2a1300;background:#ffd166;border-radius:6px;margin-top:2px;padding:1px 3px}
+  #copyModal{position:fixed;inset:0;background:rgba(5,3,20,.75);z-index:30;display:flex;align-items:center;justify-content:center;padding:14px}
+  #copyModal .box{background:var(--panel);border:4px solid var(--line);border-radius:20px;width:min(960px,100%);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 10px 0 rgba(0,0,0,.4)}
+  #copyModal .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-bottom:3px solid var(--line)}
+  #copyModal h2{margin:0;font-size:20px;flex:1 1 auto}
+  #cpGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;padding:14px;overflow-y:auto;min-height:0;flex:1 1 auto;grid-auto-rows:max-content}
+  .cpi{background:#16123a;border:3px solid var(--line);border-radius:14px;padding:6px;cursor:pointer;text-align:center;font-weight:700;font-size:12.5px;line-height:1.2}
+  .cpi:hover{border-color:var(--pink);transform:translateY(-2px)}
+  .cpi canvas{width:100%;height:auto;aspect-ratio:1;display:block}
+  .cpi small{display:block;color:var(--mut);font-weight:600;font-size:11px}
+  .cpi .own{color:#ff6ec7}
+  .repbox{background:rgba(255,209,102,.12);border:2px dashed #ffd166;border-radius:12px;padding:8px 10px;margin-top:8px}
+  .repbox select{max-width:100%}
+  .toolsec{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
+  .toolsec .lbl{font-size:12px;color:var(--mut);font-weight:700;align-self:center;margin-right:2px}
   .mi .tthumb{height:44px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}
 </style>
 </head>
@@ -88,6 +103,7 @@
   <a class="b ghost" href="/arcade">⬅ Hub</a>
   <h1>🎨 Sprite Studio</h1>
   <div class="seg" id="types"><button data-t="skin" class="on">🐾 Gim</button><button data-t="hat">🎩 Hat</button><button data-t="acc">✨ Accessory</button><button data-t="banner">🏳️ Banner</button><button data-t="tag">🏷️ Name Tag</button></div>
+  <button class="b gold" id="copyBtn" title="Start from any gim, hat or accessory in the game">📥 Copy any item</button>
   <div class="grow"></div>
   <div class="seg" id="frames"><button data-f="front" class="on">Front</button><button data-f="back">Back</button></div>
 </header>
@@ -100,7 +116,11 @@
       <button class="b" data-tool="fill" title="Fill (F)">🪣</button>
       <button class="b" data-tool="pick" title="Color picker (I)">💧</button>
       <button class="b" data-tool="line" title="Line (L)">📏</button>
-      <button class="b" data-tool="rect" title="Box (R)">⬛</button>
+      <button class="b" data-tool="rect" title="Box (R) — hold Shift for filled">⬛</button>
+      <button class="b" data-tool="circle" title="Circle (C) — hold Shift for filled">⭕</button>
+      <button class="b" data-tool="spray" title="Spray paint (S)">💨</button>
+      <button class="b" data-tool="shade" id="shadeBtn" title="Shade brush (H) — tap again to switch lighter/darker">☀️</button>
+      <button class="b" data-tool="recolor" title="Recolor (O): click a color to swap it everywhere for your color">🎨</button>
       <button class="b" id="mirror" title="Mirror drawing (M)">🪞 Mirror</button>
       <button class="b" id="bsize" title="Brush size">● 1</button>
     </div>
@@ -113,6 +133,15 @@
       <button class="b ghost" id="guideBtn" title="Show where the gim's body is">👻 Guide</button>
       <button class="b ghost" id="copyBack">📋 Front → Back</button>
       <button class="b red" id="clear">🗑 Clear</button>
+    </div>
+    <div class="toolsec">
+      <span class="lbl">MAGIC</span>
+      <button class="b ghost" id="outline" title="Add a dark outline around everything">✏️ Outline</button>
+      <button class="b ghost" id="flipV" title="Flip upside down">↕ Flip</button>
+      <button class="b ghost" id="hueM" title="Shift every color's hue">🌈 −</button><button class="b ghost" id="hueP">🌈 +</button>
+      <button class="b ghost" id="darkAll" title="Make everything darker">🌑</button><button class="b ghost" id="lightAll" title="Make everything lighter">☀️</button>
+      <button class="b ghost" id="importBtn" title="Turn a picture into pixel art">🖼️ Picture → pixels</button>
+      <input type="file" id="importFile" accept="image/*" class="hidden">
     </div>
     <div class="tools" id="tpl"></div>
   </section>
@@ -155,6 +184,8 @@
         <label class="chk"><input type="checkbox" id="optEyes"> Animated gim eyes</label>
         <label class="chk"><input type="checkbox" id="optFeet" checked> Feet</label>
       </div>
+      <div class="row"><label>Scene</label><div class="chips" id="pbg"></div></div>
+      <div class="row" id="tryRow"><label>Try with</label><select id="tryHat"><option value="">no hat</option></select><select id="tryAcc"><option value="">no accessory</option></select></div>
       <div class="row"><label>Spin</label><div class="seg" id="pdir"><button data-d="auto" class="on">Auto</button><button data-d="0">⬇</button><button data-d="2">➡</button><button data-d="3">⬆</button><button data-d="1">⬅</button></div></div>
     </div>
     <div class="pn" id="animPn">
@@ -170,6 +201,9 @@
       <div class="row"><input type="text" id="name" maxlength="28" placeholder="Name it (e.g. Dragon Gim)" style="flex:1"></div>
       <div class="row"><label>Price 📜</label><input type="number" id="price" min="0" max="1000000" value="5000" style="width:110px">
         <select id="rarity"><option>common</option><option>uncommon</option><option selected>rare</option><option>epic</option><option>legendary</option><option>mythic</option></select></div>
+      <div class="repbox" id="repBox"><label class="chk"><input type="checkbox" id="repOn"> ✏️ Change a built-in item instead</label>
+        <div class="row hidden" id="repRow"><select id="repSel" style="flex:1"></select></div>
+        <div class="hint" id="repHint">Your drawing will replace the original everywhere — for everyone who owns it. Delete this creation to bring the original back.</div></div>
       <div class="row">
         <button class="b green" id="saveNew">💾 Save as new</button>
         <button class="b gold hidden" id="saveUpd">✅ Update</button>
@@ -180,12 +214,19 @@
     </div>
     <div class="pn">
       <h3>YOUR CREATIONS</h3>
+      <div class="row" style="margin:0 0 8px"><div class="chips" id="mineF"></div><input type="text" id="mineQ" placeholder="🔎 search" style="flex:1;min-width:90px;font-size:13px;padding:5px 8px"></div>
       <div id="mine"><div class="hint">Nothing yet — draw something and save it!</div></div>
     </div>
   </aside>
 </main>
+<div id="copyModal" class="hidden"><div class="box">
+  <div class="top"><h2>📥 Copy any item</h2><div class="seg" id="cpTypes"><button data-ct="skin" class="on">🐾 Gims</button><button data-ct="hat">🎩 Hats</button><button data-ct="acc">✨ Accessories</button></div>
+    <input type="text" id="cpQ" placeholder="🔎 search" style="width:150px"><button class="b red" id="cpClose">✕</button></div>
+  <div class="hint" style="padding:8px 14px 0">Pick anything — it turns into pixels you can edit. Then save it as a new item, or tick “Change a built-in item” to redraw the original.</div>
+  <div id="cpGrid"></div>
+</div></div>
 <div id="msg"></div>
-<script src="/casino/art.js?v=8"></script>
+<script src="/casino/art.js?v=9"></script>
 <script src="/arcade/bannergen.js?v=1"></script>
 <script>
 (function () {
@@ -259,10 +300,27 @@
   }
   function shapeCells(sh) {
     if (sh.kind === 'line') return lineCells(sh.a, sh.b);
+    if (sh.kind === 'circle') {
+      var ax = Math.min(sh.a % N, sh.b % N), bx2 = Math.max(sh.a % N, sh.b % N), ay = Math.min((sh.a / N) | 0, (sh.b / N) | 0), by2 = Math.max((sh.a / N) | 0, (sh.b / N) | 0);
+      var cx = (ax + bx2) / 2, cy = (ay + by2) / 2, rx = (bx2 - ax) / 2 + 0.5, ry = (by2 - ay) / 2 + 0.5, oc = [], ins = function (x, y) { return Math.pow((x - cx) / rx, 2) + Math.pow((y - cy) / ry, 2) <= 1; };
+      for (var yy = ay; yy <= by2; yy++) for (var xx = ax; xx <= bx2; xx++) if (ins(xx, yy) && (sh.solid || !ins(xx - 1, yy) || !ins(xx + 1, yy) || !ins(xx, yy - 1) || !ins(xx, yy + 1))) oc.push(yy * N + xx);
+      return oc;
+    }
     var x0 = Math.min(sh.a % N, sh.b % N), x1 = Math.max(sh.a % N, sh.b % N), y0 = Math.min((sh.a / N) | 0, (sh.b / N) | 0), y1 = Math.max((sh.a / N) | 0, (sh.b / N) | 0), out = [];
     for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) if (sh.solid || x === x0 || x === x1 || y === y0 || y === y1) out.push(y * N + x);
     return out;
   }
+  function paint(j, col, e) {
+    if (S.tool === 'shade') { var dark = S.shadeDark !== !!(e.altKey || e.button === 2 || (e.buttons & 2)); shadeAt(j, dark); if (S.mirror) shadeAt(((j / N) | 0) * N + (N - 1 - j % N), dark); return; }
+    if (S.tool === 'spray') { for (var k = 0; k < 5; k++) { var a = Math.random() * 6.283, r = Math.random() * 2.6, x = (j % N) + Math.round(Math.cos(a) * r), y = ((j / N) | 0) + Math.round(Math.sin(a) * r); if (x >= 0 && y >= 0 && x < N && y < N && Math.random() < 0.55) { var d = cur(); d[y * N + x] = col; if (S.mirror) d[y * N + (N - 1 - x)] = col; } } return; }
+    setPx(j, col);
+  }
+  function shadeAt(j, dark) { var d = cur(), v = d[j]; if (!v || shadeAt.done[j]) return; shadeAt.done[j] = 1; d[j] = shadeHex(v, dark ? -0.16 : 0.16); }
+  shadeAt.done = {};
+  function allLayers() { return S.data.front.map(function (d, fi) { return { f: 'front', fi: fi }; }).concat(S.type !== 'acc' ? [{ f: 'back', fi: 0 }] : []); }
+  function snapAll() { S.undo.push({ multi: allLayers().map(function (L) { return { f: L.f, fi: L.fi, d: layer(L.f, L.fi).slice() }; }) }); if (S.undo.length > 80) S.undo.shift(); S.redo = []; }
+  function mapAll(fn) { allLayers().forEach(function (L) { var d = layer(L.f, L.fi); for (var k = 0; k < d.length; k++) if (d[k]) d[k] = fn(d[k]); }); }
+  function recolorAll(from, to) { mapAll(function (v) { return v === from ? to : v; }); }
   function cellAt(e) { var r = gc.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / (r.width / N)), y = Math.floor((e.clientY - r.top) / (r.height / N)); return x < 0 || y < 0 || x >= N || y >= N ? -1 : y * N + x; }
   var down = false, last = -1;
   gc.addEventListener('pointerdown', function (e) {
@@ -271,24 +329,25 @@
     if (S.tool === 'pick') { var pc = cur()[i]; if (pc) { setColor(pc); setTool('pen'); } return; }
     snap();
     if (S.tool === 'fill') { fill(i, col); useColor(col); changed(); return; }
-    if (S.tool === 'line' || S.tool === 'rect') { shape = { kind: S.tool, a: i, b: i, solid: e.shiftKey, col: col }; down = true; drawGrid(); return; }
-    down = true; last = i; setPx(i, col); useColor(col); changed();
+    if (S.tool === 'recolor') { var from = cur()[i]; if (!from) return; snapAll(); recolorAll(from, S.color); useColor(S.color); changed(); msg('Swapped that color everywhere'); return; }
+    if (S.tool === 'line' || S.tool === 'rect' || S.tool === 'circle') { shape = { kind: S.tool, a: i, b: i, solid: e.shiftKey, col: col }; down = true; drawGrid(); return; }
+    down = true; last = i; paint(i, col, e); useColor(col); changed();
   });
   gc.addEventListener('pointermove', function (e) {
     var i = cellAt(e); if (i !== hover) { hover = i; if (!down) drawGrid(); }
     if (!down || i < 0) return;
     if (shape) { shape.b = i; drawGrid(); return; }
     var col = S.tool === 'erase' || (e.buttons & 2) ? '' : S.color;
-    lineCells(last, i).forEach(function (j) { setPx(j, col); }); last = i; changed();
+    (S.tool === 'spray' ? [i] : lineCells(last, i)).forEach(function (j) { paint(j, col, e); }); last = i; changed();
   });
   function up() { if (shape) { var col = shape.col; shapeCells(shape).forEach(function (j) { setPx(j, col); }); useColor(col); shape = null; changed(); } down = false; last = -1; }
-  gc.addEventListener('pointerup', up); gc.addEventListener('pointercancel', up);
+  gc.addEventListener('pointerup', function () { shadeAt.done = {}; }); gc.addEventListener('pointerup', up); gc.addEventListener('pointercancel', up);
   gc.addEventListener('pointerleave', function () { hover = -1; if (!down) drawGrid(); });
   gc.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   // ------------------------------------------------------------ tools & palette
   function setTool(t) { S.tool = t; [].forEach.call(document.querySelectorAll('[data-tool]'), function (b) { b.classList.toggle('on', b.dataset.tool === t); }); }
-  $('tools').addEventListener('click', function (e) { var b = e.target.closest('[data-tool]'); if (b) setTool(b.dataset.tool); });
+  $('tools').addEventListener('click', function (e) { var b = e.target.closest('[data-tool]'); if (!b) return; if (b.dataset.tool === 'shade' && S.tool === 'shade') { S.shadeDark = !S.shadeDark; b.textContent = S.shadeDark ? '🌑' : '☀️'; msg(S.shadeDark ? 'Shade brush: darker' : 'Shade brush: lighter'); } setTool(b.dataset.tool); });
   $('mirror').onclick = function () { S.mirror = !S.mirror; this.classList.toggle('on', S.mirror); drawGrid(); };
   $('mirror').classList.toggle('on', S.mirror);
   $('bsize').onclick = function () { S.size = S.size === 1 ? 2 : S.size === 2 ? 3 : 1; this.textContent = '● ' + S.size; };
@@ -302,7 +361,8 @@
   }
   document.addEventListener('click', function (e) { var b = e.target.closest('[data-c]'); if (b) setColor(b.dataset.c); });
   $('cpick').addEventListener('input', function () { setColor(this.value); });
-  function hist(from, to) { var u = from.pop(); if (!u) return; if (u.f === 'front' && !S.data.front[u.fi]) return; to.push({ f: u.f, fi: u.fi, d: layer(u.f, u.fi).slice() }); setLayer(u.f, u.fi, u.d); if (u.f === 'front') S.fi = u.fi; if (u.f !== S.frame) setFrame(u.f); changed(); }
+  function hist(from, to) { var u = from.pop(); if (!u) return;
+    if (u.multi) { to.push({ multi: u.multi.map(function (m) { return { f: m.f, fi: m.fi, d: (layer(m.f, m.fi) || blank()).slice() }; }) }); u.multi.forEach(function (m) { if (m.f === 'back' || S.data.front[m.fi]) setLayer(m.f, m.fi, m.d); }); changed(); return; } if (u.f === 'front' && !S.data.front[u.fi]) return; to.push({ f: u.f, fi: u.fi, d: layer(u.f, u.fi).slice() }); setLayer(u.f, u.fi, u.d); if (u.f === 'front') S.fi = u.fi; if (u.f !== S.frame) setFrame(u.f); changed(); }
   $('undo').onclick = function () { hist(S.undo, S.redo); };
   $('redo').onclick = function () { hist(S.redo, S.undo); };
   [].forEach.call(document.querySelectorAll('[data-shift]'), function (b) { b.onclick = function () {
@@ -317,7 +377,7 @@
     var k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).onclick(); return; }
     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); $('redo').onclick(); return; }
-    var map = { p: 'pen', b: 'pen', e: 'erase', f: 'fill', g: 'fill', i: 'pick', l: 'line', r: 'rect' }; if (map[k]) setTool(map[k]);
+    var map = { p: 'pen', b: 'pen', e: 'erase', f: 'fill', g: 'fill', i: 'pick', l: 'line', r: 'rect', c: 'circle', s: 'spray', h: 'shade', o: 'recolor' }; if (map[k]) setTool(map[k]);
     if (k === 'm') $('mirror').onclick.call($('mirror'));
   });
 
@@ -348,7 +408,7 @@
     $('name').parentNode.classList.toggle('hidden', t === 'tag');
     if (t === 'banner') renderBanner(); if (t === 'tag') renderTag();
     $('whereHint').textContent = pix ? 'Saved items appear in the Skin Shop (games hub) and the casino store right away.' : 'Saved ' + (t === 'banner' ? 'banners' : 'name tags') + ' appear in the casino store (' + (t === 'banner' ? 'Profile FX' : 'Name Tags') + ' tab) right away, and show next to your name in chat.';
-    $('skinOpts').classList.toggle('hidden', t !== 'skin');
+    $('skinOpts').classList.toggle('hidden', t !== 'skin'); if ($('repBox')) { $('repBox').classList.toggle('hidden', !pix); if (S.store) fillRep(); }
     $('frames').classList.toggle('hidden', t === 'acc' || !pix); $('copyBack').classList.toggle('hidden', t === 'acc');
     if (t === 'acc') setFrame('front');
     renderTpl(); changed();
@@ -372,17 +432,29 @@
 
   // ------------------------------------------------------------ live preview
   var pv = $('prev'), px2 = pv.getContext('2d');
-  function updatePreview() { var e = encode(); A.CUSTOM['c:__prev'] = e.sprite; A.custInvalidate('c:__prev'); }
+  var SCENES = [['dark', '🌌 Dark'], ['grass', '🌳 Hub'], ['snow', '❄️ Snow'], ['casino', '🎰 Casino'], ['sand', '🏖️ Beach']];
+  S.scene = 'dark';
+  function drawScene(c, w, h, t) {
+    var sc = S.scene;
+    if (sc === 'dark') { c.fillStyle = 'rgba(255,255,255,.06)'; c.beginPath(); c.ellipse(w / 2, h * 0.86, 170, 34, 0, 0, Math.PI * 2); c.fill(); return; }
+    var top = { grass: '#8fd3ff', snow: '#bcd7f2', casino: '#2a0f3d', sand: '#ffd9a0' }[sc], gnd = { grass: '#5cbf4f', snow: '#eef6ff', casino: '#6b1838', sand: '#f2cf86' }[sc];
+    c.fillStyle = top; c.fillRect(0, 0, w, h); c.fillStyle = gnd; c.fillRect(0, h * 0.62, w, h);
+    if (sc === 'casino') { for (var i = 0; i < 12; i++) { c.fillStyle = ['#ffd166', '#ff6ec7', '#5cf2ff'][i % 3]; c.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + i); c.beginPath(); c.arc(25 + i * 50, 40, 6, 0, 6.28); c.fill(); } c.globalAlpha = 1; c.fillStyle = '#4a0f26'; for (var j = 0; j < 8; j++) c.fillRect(j * 80, h * 0.62, 40, h); }
+    if (sc === 'grass') { c.fillStyle = '#4fae43'; for (var k = 0; k < 40; k++) c.fillRect((k * 97) % w, h * 0.66 + (k * 53) % (h * 0.3), 6, 3); }
+    if (sc === 'snow') { c.fillStyle = '#fff'; for (var q = 0; q < 50; q++) { c.beginPath(); c.arc((q * 73 + t * 20 * (1 + q % 3)) % w, (q * 41 + t * 40 * (1 + q % 2)) % h, 2 + q % 3, 0, 6.28); c.fill(); } }
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(w / 2, h * 0.86, 120, 22, 0, 0, Math.PI * 2); c.fill();
+  }
+  function updatePreview() { saveDraft(); var e = encode(); A.CUSTOM['c:__prev'] = e.sprite; A.custInvalidate('c:__prev'); }
   function previewLoop(ts) {
     var t = ts / 1000, w = pv.width, h = pv.height; px2.setTransform(1, 0, 0, 1, 0, 0); px2.clearRect(0, 0, w, h);
     var dirs = [0, 2, 3, 1], dir = S.pdir === 'auto' ? dirs[Math.floor(t / 1.6) % 4] : +S.pdir, moving = S.pdir === 'auto' ? Math.floor(t / 0.8) % 2 === 1 : false;
-    var look = S.type === 'skin' ? { skin: 'c:__prev', body: '#3fa9ff' } : S.type === 'hat' ? { skin: 'gim', body: '#3fa9ff', hat: 'c:__prev' } : { skin: 'gim', body: '#3fa9ff', acc: 'c:__prev' };
-    // ground
-    px2.fillStyle = 'rgba(255,255,255,.06)'; px2.beginPath(); px2.ellipse(w / 2, h * 0.86, 170, 34, 0, 0, Math.PI * 2); px2.fill();
+    var th = $('tryHat').value, ta = $('tryAcc').value;
+    var look = S.type === 'skin' ? { skin: 'c:__prev', body: '#3fa9ff', hat: th, acc: ta } : S.type === 'hat' ? { skin: S.trySkin || 'gim', body: '#3fa9ff', hat: 'c:__prev', acc: ta } : { skin: S.trySkin || 'gim', body: '#3fa9ff', acc: 'c:__prev', hat: th };
+    drawScene(px2, w, h, t);
     try { A.drawGim(px2, w / 2, h * 0.86, look, { t: t, scale: 4.2, dir: dir, moving: moving, walk: t * 9, noSeason: true, side: dir === 1 ? -1 : dir === 2 ? 1 : null }); } catch (er) {}
     // small one at real size
     try { A.drawGim(px2, w - 60, h - 22, look, { t: t + 1, scale: 1, dir: 0, noSeason: true }); } catch (er) {}
-    px2.fillStyle = 'rgba(255,255,255,.5)'; px2.font = '600 18px Fredoka'; px2.textAlign = 'right'; px2.fillText('real size', w - 18, h - 80 + 4);
+    px2.fillStyle = S.scene === 'dark' || S.scene === 'casino' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.45)'; px2.font = '600 18px Fredoka'; px2.textAlign = 'right'; px2.fillText('real size', w - 18, h - 80 + 4);
     requestAnimationFrame(previewLoop);
   }
 
@@ -390,7 +462,7 @@
   function api(path, body) { return fetch('/api/casino/sprites' + path, { method: body ? 'POST' : 'GET', credentials: 'include', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json(); }); }
   function load() {
     return api('').then(function (d) {
-      S.canEdit = !!d.canEdit; S.items = d.items || []; S.sprites = d.sprites || {};
+      S.canEdit = !!d.canEdit; S.items = d.items || []; S.sprites = d.sprites || {}; if (d.overrides) A.OVR = d.overrides;
       for (var k in S.sprites) { A.CUSTOM[k] = S.sprites[k]; A.custInvalidate(k); }
       $('lock').classList.toggle('hidden', S.canEdit); ['saveNew', 'saveUpd', 'del'].forEach(function (id) { $(id).disabled = !S.canEdit; });
       renderMine();
@@ -400,8 +472,11 @@
     if (!S.items.length) { $('mine').innerHTML = '<div class="hint">Nothing yet — draw something and save it!</div>'; return; }
     var icon = { skin: '🐾', hat: '🎩', acc: '✨' };
     icon.banner = '🏳️'; icon.tag = '🏷️';
-    $('mine').innerHTML = S.items.slice().reverse().map(function (it) { var th = it.type === 'banner' ? '<div class="bthumb" data-ban="' + it.id + '"></div>' : it.type === 'tag' ? '<div class="tthumb"><span class="ttag fx-' + (it.fx || 'none') + '">' + esc(it.label) + '</span></div>' : '<canvas width="32" height="32" data-v="' + it.value + '"></canvas>';
-      return '<div class="mi' + (it.id === S.editId ? ' on' : '') + '" data-id="' + it.id + '">' + th + icon[it.type] + ' ' + (it.type === 'tag' ? 'Name tag' : esc(it.label)) + '<small>' + (it.price ? it.price.toLocaleString() + ' 📜' : 'Free') + '</small></div>'; }).join('');
+    var mf = S.mineF || 'all', mq = ($('mineQ').value || '').toLowerCase();
+    var list = S.items.slice().reverse().filter(function (it) { return (mf === 'all' || it.type === mf) && (!mq || it.label.toLowerCase().indexOf(mq) >= 0); });
+    if (!list.length) { $('mine').innerHTML = '<div class="hint">No matches.</div>'; return; }
+    $('mine').innerHTML = list.map(function (it) { var th = it.type === 'banner' ? '<div class="bthumb" data-ban="' + it.id + '"></div>' : it.type === 'tag' ? '<div class="tthumb"><span class="ttag fx-' + (it.fx || 'none') + '">' + esc(it.label) + '</span></div>' : '<canvas width="32" height="32" data-v="' + it.value + '"></canvas>';
+      return '<div class="mi' + (it.id === S.editId ? ' on' : '') + '" data-id="' + it.id + '">' + th + icon[it.type] + ' ' + (it.type === 'tag' ? 'Name tag' : esc(it.label)) + (it.replaces ? '<span class="rep">✏️ replaces ' + esc(storeLabel(it.type, it.replaces)) + '</span>' : '<small>' + (it.price ? it.price.toLocaleString() + ' 📜' : 'Free') + '</small>') + '</div>'; }).join('');
     [].forEach.call(document.querySelectorAll('#mine [data-ban]'), function (el) { var it = S.items.find(function (x) { return x.id === el.dataset.ban; }); if (it && it.params) el.style.background = SHBanner.css(it.params); });
     [].forEach.call(document.querySelectorAll('#mine canvas'), function (cv) { var f = A.custFrame(cv.dataset.v, false); if (f) cv.getContext('2d').drawImage(f.cv, 0, 0); });
   }
@@ -415,7 +490,7 @@
     var sp = S.sprites[it.value]; if (!sp) return;
     S.data = decode(sp); S.fi = 0; S.fps = sp.fps || 6; S.fx = sp.fx || 'none'; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; renderFx(); S.undo = []; S.redo = []; S.editId = it.id; S.editType = it.type; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
     $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity;
-    sp.pal.forEach(useColor); setFrame('front'); setType(it.type); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    sp.pal.forEach(useColor); setFrame('front'); setType(it.type); setRep(it.replaces || ''); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   function syncEditBtns() { $('saveUpd').classList.toggle('hidden', !S.editId); $('del').classList.toggle('hidden', !S.editId); }
   function save(asNew) {
@@ -424,6 +499,7 @@
     if (S.type === 'banner') { body.banner = S.ban; if (!$('name').value.trim()) body.label = (S.ban.emoji ? S.ban.emoji + ' ' : '') + 'Custom Banner'; }
     else if (S.type === 'tag') { if (!S.tag.text.trim()) return msg('Type the name tag text first!'); body.tag = S.tag; }
     else { var e = encode(); if (e.err) return msg(e.err); if (!/[1-9a-v]/.test(e.sprite.px)) return msg('Draw the front first!'); body.sprite = e.sprite; }
+    if (isPix() && $('repOn').checked && $('repSel').value) { body.replaces = $('repSel').value; if (!confirm('Replace the original “' + ($('repSel').selectedOptions[0] || {}).text + '” for everyone?')) return; }
     if (!asNew && S.editId) body.id = S.editId;
     api('/save', body).then(function (d) {
       if (d.error) return msg('⚠️ ' + d.error);
@@ -433,7 +509,7 @@
   $('saveNew').onclick = function () { save(true); };
   $('saveUpd').onclick = function () { save(false); };
   $('del').onclick = function () { if (!S.editId || !confirm('Delete this creation? Anyone wearing it goes back to the default.')) return; api('/delete', { id: S.editId }).then(function (d) { if (d.error) return msg('⚠️ ' + d.error); msg('Deleted'); newDrawing(); load(); }); };
-  function newDrawing() { S.data = { front: [blank()], back: blank() }; S.fi = 0; S.fx = 'none'; renderFx(); S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
+  function newDrawing() { setRep(''); S.data = { front: [blank()], back: blank() }; S.fi = 0; S.fx = 'none'; renderFx(); S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
   $('newBtn').onclick = function () { if (cur().some(function (v) { return v; }) && !confirm('Start a new drawing? Unsaved changes will be lost.')) return; newDrawing(); };
 
   // ------------------------------------------------------------ animation frames + easy effects
@@ -484,7 +560,156 @@
   $('tText').addEventListener('input', function () { S.tag.text = this.value; var el = $('tagPrev'); el.textContent = S.tag.text || '✨ Your tag'; });
   $('tagBoard').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.tfx != null) S.tag.fx = b.dataset.tfx; else if (b.dataset.temo) S.tag.text = (b.dataset.temo + ' ' + S.tag.text.replace(/^\S+\s/, function (m) { return /[a-z0-9]/i.test(m) ? m : ''; })).slice(0, 18); else return; renderTag(); });
 
-  renderFx(); renderPal(); setColor(S.color); setType('skin'); layout(); load(); requestAnimationFrame(previewLoop);
+  // ------------------------------------------------------------ store list (for copying / replacing / try-ons)
+  S.store = [];
+  function storeLabel(type, v) { var it = S.store.find(function (x) { return x.type === type && x.value === v; }); return it ? it.label : v; }
+  function builtins(type) { return S.store.filter(function (x) { return x.type === type && !x.custom && x.value; }); }
+  function loadStore() {
+    return fetch('/api/casino/me', { credentials: 'include' }).then(function (r) { return r.json(); }).then(function (d) {
+      S.store = (d.store || []).map(function (x) { return { id: x.id, type: x.type, label: x.label, value: x.value, custom: !!x.custom }; });
+      $('tryHat').innerHTML = '<option value="">no hat</option>' + S.store.filter(function (x) { return x.type === 'hat' && x.value; }).map(function (x) { return '<option value="' + esc(x.value) + '">' + esc(x.label) + '</option>'; }).join('');
+      $('tryAcc').innerHTML = '<option value="">no accessory</option>' + S.store.filter(function (x) { return x.type === 'acc' && x.value; }).map(function (x) { return '<option value="' + esc(x.value) + '">' + esc(x.label) + '</option>'; }).join('');
+      fillRep(); renderMine();
+    }).catch(function () {});
+  }
+  function fillRep() { var cur0 = $('repSel').value; $('repSel').innerHTML = '<option value="">— pick the item to change —</option>' + builtins(S.type).map(function (x) { var has = S.items.find(function (it) { return it.replaces === x.value && it.type === S.type; }); return '<option value="' + esc(x.value) + '">' + esc(x.label) + (has ? ' (already redrawn)' : '') + '</option>'; }).join(''); $('repSel').value = cur0; }
+  function setRep(v) { $('repOn').checked = !!v; $('repRow').classList.toggle('hidden', !v); fillRep(); $('repSel').value = v || ''; }
+  $('repOn').onchange = function () { $('repRow').classList.toggle('hidden', !this.checked); fillRep(); };
+  $('mineQ').addEventListener('input', renderMine);
+  $('mineF').innerHTML = [['all', 'All'], ['skin', '🐾'], ['hat', '🎩'], ['acc', '✨'], ['banner', '🏳️'], ['tag', '🏷️']].map(function (f) { return '<button data-mf="' + f[0] + '"' + (f[0] === 'all' ? ' class="on"' : '') + '>' + f[1] + '</button>'; }).join('');
+  $('mineF').addEventListener('click', function (e) { var b = e.target.closest('[data-mf]'); if (!b) return; S.mineF = b.dataset.mf; [].forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); }); renderMine(); });
+  $('pbg').innerHTML = SCENES.map(function (x) { return '<button data-sc="' + x[0] + '"' + (x[0] === S.scene ? ' class="on"' : '') + '>' + x[1] + '</button>'; }).join('');
+  $('pbg').addEventListener('click', function (e) { var b = e.target.closest('[data-sc]'); if (!b) return; S.scene = b.dataset.sc; [].forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); }); });
+
+  // ------------------------------------------------------------ copy any item → pixels
+  var RS = 8; // supersampling per cell
+  function drawItem(c, type, value, back) { // draws an item in world units with the head-top / body origin at (0,0)
+    if (type === 'skin') A.drawGim(c, 0, 0, { skin: value, body: '#3fa9ff' }, { t: 0, dir: back ? 3 : 0, still: true, blink: false, shadow: false, noSeason: true });
+    else if (type === 'hat') A.drawHat(c, value, 0, 0, back ? 3 : 0, 0);
+    else A.drawAcc(c, value, 0, 0, 0, 0, '#3fa9ff');
+  }
+  function bboxOf(type, value, back) {
+    var Z = 300, cv = document.createElement('canvas'); cv.width = Z; cv.height = Z; var c = cv.getContext('2d'); c.translate(Z / 2, Z * 0.7);
+    A.noOvr = true; try { drawItem(c, type, value, back); } catch (e) {} A.noOvr = false;
+    var d = c.getImageData(0, 0, Z, Z).data, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (var i = 0; i < Z * Z; i++) if (d[i * 4 + 3] > 90) { var x = i % Z - Z / 2, y = ((i / Z) | 0) - Z * 0.7; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return x1 < x0 ? null : [x0, y0, x1 + 1, y1 + 1];
+  }
+  // The world-space square the 32x32 grid covers. Matches how custom sprites are drawn in-game (44px square),
+  // and grows (shrinking the copy) only when the original doesn't fit.
+  function regionFor(type, bb) {
+    if (type === 'skin') { var size = Math.max(44, 2 * Math.max(-bb[0], bb[2]) + 2, -2 - bb[1] + 1); return [-size / 2, -2 - size, size]; }
+    if (type === 'hat') { var hs = Math.max(44, bb[2] - bb[0] + 4, bb[3] - bb[1] + 2), cx = (bb[0] + bb[2]) / 2; return [cx - hs / 2, bb[3] - hs, hs]; }
+    var as = Math.max(44, 2 * Math.max(-bb[0], bb[2]) + 2, bb[3] + 4 + 1); return [-as / 2, -4, as];
+  }
+  function rasterize(type, value, back, region) {
+    var R = N * RS, cv = document.createElement('canvas'); cv.width = R; cv.height = R; var c = cv.getContext('2d'), k = R / region[2];
+    c.scale(k, k); c.translate(-region[0], -region[1]);
+    A.noOvr = true; try { drawItem(c, type, value, back); } catch (e) {} A.noOvr = false;
+    var img = c.getImageData(0, 0, R, R).data, out = blank();
+    for (var cy = 0; cy < N; cy++) for (var cx = 0; cx < N; cx++) {
+      var groups = {}, opaque = 0;
+      for (var y = 0; y < RS; y++) for (var x = 0; x < RS; x++) { var o = ((cy * RS + y) * R + cx * RS + x) * 4; if (img[o + 3] < 110) continue; opaque++; var key = (img[o] >> 4) + ',' + (img[o + 1] >> 4) + ',' + (img[o + 2] >> 4), g = groups[key] || (groups[key] = [0, 0, 0, 0]); g[0] += img[o]; g[1] += img[o + 1]; g[2] += img[o + 2]; g[3]++; }
+      if (opaque < RS * RS * 0.38) continue;
+      var best = null; for (var gk in groups) if (!best || groups[gk][3] > best[3]) best = groups[gk];
+      out[cy * N + cx] = toHex(best[0] / best[3], best[1] / best[3], best[2] / best[3]);
+    }
+    return out;
+  }
+  function toHex(r, g, b) { return '#' + [r, g, b].map(function (v) { return ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(''); }
+  function rgbOf(h) { var n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  // Merge similar colors until there are few enough for a palette.
+  function reduceColors(layers, max) {
+    for (var guard = 0; guard < 400; guard++) {
+      var cnt = {}; layers.forEach(function (d) { d.forEach(function (v) { if (v) cnt[v] = (cnt[v] || 0) + 1; }); });
+      var cols = Object.keys(cnt); if (cols.length <= max) return;
+      var bi = 0, bj = 1, bd = 1e9;
+      for (var i = 0; i < cols.length; i++) { var a = rgbOf(cols[i]); for (var j = i + 1; j < cols.length; j++) { var b = rgbOf(cols[j]), dd = (a[0] - b[0]) * (a[0] - b[0]) * 0.3 + (a[1] - b[1]) * (a[1] - b[1]) * 0.59 + (a[2] - b[2]) * (a[2] - b[2]) * 0.11; if (dd < bd) { bd = dd; bi = i; bj = j; } } }
+      var keep = cnt[cols[bi]] >= cnt[cols[bj]] ? cols[bi] : cols[bj], drop = keep === cols[bi] ? cols[bj] : cols[bi];
+      layers.forEach(function (d) { for (var q = 0; q < d.length; q++) if (d[q] === drop) d[q] = keep; });
+    }
+  }
+  function openCopy(type) { S.cpType = type || (isPix() ? S.type : 'skin'); $('copyModal').classList.remove('hidden'); [].forEach.call(document.querySelectorAll('#cpTypes button'), function (b) { b.classList.toggle('on', b.dataset.ct === S.cpType); }); renderCopy(); }
+  function renderCopy() {
+    var q = ($('cpQ').value || '').toLowerCase(), t = S.cpType;
+    var mine = S.items.filter(function (it) { return it.type === t; }).map(function (it) { return { label: it.label, value: it.value, own: true }; });
+    var list = builtins(t).map(function (x) { return { label: x.label, value: x.value }; }).concat(mine).filter(function (x) { return !q || x.label.toLowerCase().indexOf(q) >= 0; });
+    $('cpGrid').innerHTML = list.map(function (x, i) { return '<div class="cpi" data-i="' + i + '"><canvas width="160" height="160"></canvas>' + esc(x.label) + '<small' + (x.own ? ' class="own">your creation' : '>built-in') + '</small></div>'; }).join('') || '<div class="hint">Nothing found.</div>';
+    S.cpList = list;
+    var cvs = document.querySelectorAll('#cpGrid canvas'), idx = 0;
+    (function step() { // draw previews a few at a time so the modal opens instantly
+      for (var n = 0; n < 8 && idx < cvs.length; n++, idx++) { var x = list[idx], c = cvs[idx].getContext('2d'); c.clearRect(0, 0, 160, 160);
+        var lk = t === 'skin' ? { skin: x.value, body: '#3fa9ff' } : t === 'hat' ? { skin: 'gim', body: '#3fa9ff', hat: x.value } : { skin: 'gim', body: '#3fa9ff', acc: x.value };
+        A.noOvr = !x.own; try { A.drawGim(c, 80, 140, lk, { t: 1, scale: 2.2, dir: 0, still: true, shadow: false, noSeason: true }); } catch (e) {} A.noOvr = false; }
+      if (idx < cvs.length && !$('copyModal').classList.contains('hidden')) requestAnimationFrame(step);
+    })();
+  }
+  $('copyBtn').onclick = function () { openCopy(); };
+  $('cpClose').onclick = function () { $('copyModal').classList.add('hidden'); };
+  $('copyModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+  $('cpTypes').addEventListener('click', function (e) { var b = e.target.closest('[data-ct]'); if (!b) return; S.cpType = b.dataset.ct; [].forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); }); renderCopy(); });
+  $('cpQ').addEventListener('input', renderCopy);
+  $('cpGrid').addEventListener('click', function (e) {
+    var b = e.target.closest('.cpi'); if (!b) return; var x = S.cpList[+b.dataset.i], t = S.cpType; if (!x) return;
+    if (cur().some(function (v) { return v; }) && !confirm('Replace your current drawing with “' + x.label + '”?')) return;
+    var data;
+    if (x.own && S.sprites[x.value]) { var sp = S.sprites[x.value]; data = decode(sp); S.fps = sp.fps || 6; S.fx = sp.fx || 'none'; S.eyes = !!sp.eyes; S.feet = sp.feet !== false; }
+    else {
+      var bb = bboxOf(t, x.value, false); if (!bb) return msg('That one is a special effect, so it can’t be turned into pixels — try another!');
+      var bbB = t !== 'acc' && bboxOf(t, x.value, true); if (bbB) bb = [Math.min(bb[0], bbB[0]), Math.min(bb[1], bbB[1]), Math.max(bb[2], bbB[2]), Math.max(bb[3], bbB[3])];
+      var reg = regionFor(t, bb);
+      data = { front: [rasterize(t, x.value, false, reg)], back: t === 'acc' ? blank() : rasterize(t, x.value, true, reg) };
+      if (t === 'hat' && data.back.join() === data.front[0].join()) data.back = blank();
+      reduceColors([data.front[0], data.back], 30); S.fx = 'none'; S.fps = 6;
+      if (t === 'skin') { S.eyes = false; S.feet = true; }
+    }
+    if (!data.front[0].some(function (v) { return v; })) return msg('That one is a special effect, so it can’t be turned into pixels — try another!');
+    S.data = data; S.fi = 0; S.undo = []; S.redo = []; S.editId = null; $('copyModal').classList.add('hidden');
+    $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; renderFx();
+    $('name').value = (x.own ? x.label + ' 2' : x.label + ' Remix').slice(0, 28);
+    setFrame('front'); setType(t); syncEditBtns(); setRep(x.own ? '' : '');
+    S.copiedFrom = x.own ? '' : x.value; if (!x.own) { $('repSel').value = x.value; }
+    var used = {}; data.front[0].forEach(function (v) { if (v) used[v] = 1; }); Object.keys(used).slice(0, 16).forEach(useColor);
+    msg(x.own ? '📋 Copied “' + x.label + '” — save as new to make a variant' : '📥 “' + x.label + '” is ready to edit! Tick “Change a built-in item” to redraw the original.');
+  });
+
+  // ------------------------------------------------------------ magic buttons
+  function layerOp(fn) { snap(); var d = cur(), nd = fn(d); setCur(nd || d); changed(); }
+  $('outline').onclick = function () { layerOp(function (d) { var nd = d.slice(), OL = '#1b1636'; for (var i = 0; i < N * N; i++) { if (d[i]) continue; var x = i % N, y = (i / N) | 0; if ((x > 0 && d[i - 1] && d[i - 1] !== OL) || (x < N - 1 && d[i + 1] && d[i + 1] !== OL) || (y > 0 && d[i - N] && d[i - N] !== OL) || (y < N - 1 && d[i + N] && d[i + N] !== OL)) nd[i] = OL; } return nd; }); };
+  $('flipV').onclick = function () { layerOp(function (d) { var nd = blank(); for (var i = 0; i < N * N; i++) nd[(N - 1 - ((i / N) | 0)) * N + i % N] = d[i]; return nd; }); };
+  function hueShiftHex(h, deg) { var c = rgbOf(h).map(function (v) { return v / 255; }), mx = Math.max.apply(0, c), mn = Math.min.apply(0, c), l = (mx + mn) / 2, s2 = 0, hh = 0, d = mx - mn;
+    if (d) { s2 = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); hh = mx === c[0] ? (c[1] - c[2]) / d + (c[1] < c[2] ? 6 : 0) : mx === c[1] ? (c[2] - c[0]) / d + 2 : (c[0] - c[1]) / d + 4; hh *= 60; } else return h;
+    return hsl2hex((hh + deg + 360) % 360, s2, l); }
+  function allOp(fn, label) { snapAll(); mapAll(fn); changed(); if (label) msg(label); }
+  $('hueM').onclick = function () { allOp(function (v) { return hueShiftHex(v, -30); }); };
+  $('hueP').onclick = function () { allOp(function (v) { return hueShiftHex(v, 30); }); };
+  $('darkAll').onclick = function () { allOp(function (v) { return v === '#1b1636' ? v : shadeHex(v, -0.12); }); };
+  $('lightAll').onclick = function () { allOp(function (v) { return v === '#1b1636' ? v : shadeHex(v, 0.12); }); };
+  $('importBtn').onclick = function () { $('importFile').click(); };
+  $('importFile').onchange = function () {
+    var f = this.files && this.files[0]; if (!f) return; var url = URL.createObjectURL(f), im = new Image();
+    im.onload = function () {
+      var cv = document.createElement('canvas'); cv.width = N; cv.height = N; var c = cv.getContext('2d'), sc = Math.min(N / im.width, N / im.height), w = im.width * sc, h = im.height * sc;
+      c.imageSmoothingQuality = 'high'; c.drawImage(im, (N - w) / 2, N - h, w, h); var px = c.getImageData(0, 0, N, N).data, d = blank();
+      for (var i = 0; i < N * N; i++) if (px[i * 4 + 3] > 120) d[i] = toHex(px[i * 4], px[i * 4 + 1], px[i * 4 + 2]);
+      reduceColors([d], 24); snap(); setCur(d); changed(); URL.revokeObjectURL(url); msg('🖼️ Picture turned into pixels! Tip: try ✏️ Outline.');
+    };
+    im.src = url; this.value = '';
+  };
+
+  // ------------------------------------------------------------ autosave draft
+  var draftT = 0;
+  function saveDraft() { clearTimeout(draftT); draftT = setTimeout(function () { try { localStorage.setItem('studio_draft', JSON.stringify({ type: S.type, data: S.data, fps: S.fps, fx: S.fx, eyes: S.eyes, feet: S.feet, ban: S.ban, tag: S.tag, name: $('name').value, at: Date.now() })); } catch (e) {} }, 400); }
+  function loadDraft() {
+    try { var d = JSON.parse(localStorage.getItem('studio_draft') || 'null'); if (!d || !d.data || !d.data.front) return false;
+      var has = d.data.front.some(function (f) { return f.some(function (v) { return v; }); }); if (!has && d.type !== 'banner' && d.type !== 'tag') return false;
+      S.data = d.data; S.fps = d.fps || 6; S.fx = d.fx || 'none'; S.eyes = d.eyes !== false; S.feet = d.feet !== false; if (d.ban) S.ban = d.ban; if (d.tag) S.tag = d.tag; $('name').value = d.name || '';
+      $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; setType(d.type || 'skin'); msg('↩️ Picked up where you left off'); return true;
+    } catch (e) { return false; }
+  }
+  $('name').addEventListener('input', saveDraft);
+
+  renderFx(); renderPal(); setColor(S.color); setType('skin'); loadDraft(); layout(); load().then(loadStore); requestAnimationFrame(previewLoop);
   window.STUDIO = S;
 })();
 </script>
