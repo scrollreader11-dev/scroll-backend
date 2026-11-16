@@ -252,7 +252,7 @@
 
   /* modals */
   .modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(8,6,24,.55);padding:14px;pointer-events:auto}
-  .mwrap{width:min(860px,100%);max-height:calc(100vh - 28px);display:flex;flex-direction:column;background:linear-gradient(180deg,#2c2468,#1d1750);border:4px solid var(--line);border-radius:26px;box-shadow:0 10px 0 #0a0820,0 30px 80px rgba(0,0,0,.55);animation:popIn .28s cubic-bezier(.2,1.5,.4,1);overflow:hidden}
+  .mwrap{width:min(860px,100%);height:min(540px,calc(100vh - 28px));max-height:calc(100vh - 28px);display:flex;flex-direction:column;background:linear-gradient(180deg,#2c2468,#1d1750);border:4px solid var(--line);border-radius:26px;box-shadow:0 10px 0 #0a0820,0 30px 80px rgba(0,0,0,.55);animation:popIn .28s cubic-bezier(.2,1.5,.4,1);overflow:hidden}
   @keyframes popIn{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
   .mh{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:3px solid rgba(0,0,0,.25);background:rgba(255,255,255,.04)}
   .mh h2{margin:0;font-size:24px}
