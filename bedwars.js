@@ -555,7 +555,8 @@ setInterval(() => { // live vote counts + School Mode timer
   if (CLASS.vote) voteBroadcast();
   const sc = schoolCfg();
   const ss = seasonCfg(); if (ss !== CLASS.lastSeason) { const first = CLASS.lastSeason === undefined; CLASS.lastSeason = ss; if (!first) for (const c of conns) send(c, { t: 'season', v: ss }); }
-  if (!!sc !== CLASS.lastSchool) { CLASS.lastSchool = !!sc; for (const c of conns) send(c, { t: 'school', on: !!sc }); }
+  const gam = !!(sc && sc.gamble);
+  if (!!sc !== CLASS.lastSchool || gam !== CLASS.lastGamble) { CLASS.lastSchool = !!sc; CLASS.lastGamble = gam; for (const c of conns) send(c, { t: 'school', on: !!sc, gamble: gam }); }
   if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('🏫 School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: '🏫 Class time is over — School Mode is off!' }); }
 }, 1000);
 function teamsInfo(r) {
@@ -1307,7 +1308,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     conns.add(c);
     for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), season: seasonCfg() });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), gamble: !!(schoolCfg() && schoolCfg().gamble), season: seasonCfg() });
     setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
@@ -1597,6 +1598,7 @@ function adminMsg(c, m, now) {
   if (a === 'vote') { if (m.op === 'stop') { endVote(false); return send(c, { t: 'admres', ok: true, msg: 'Vote ended early' }); } if (m.op === 'cancel') { endVote(true); return send(c, { t: 'admres', ok: true, msg: 'Vote cancelled' }); } startVote(c, Math.max(10, Math.min(60, m.sec | 0 || 20))); return send(c, { t: 'admres', ok: true, msg: 'Game vote started 🗳️' }); }
   if (a === 'schooltimer') { const mins = Math.max(0, Math.min(240, Number(m.mins) || 0)); if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(mins > 0 ? true : undefined, null, mins > 0 ? Date.now() + mins * 60000 : 0); if (mins > 0) classReset(); return send(c, { t: 'admres', ok: true, msg: mins > 0 ? '🏫 School mode ON for ' + mins + ' min' : 'Timer cleared' }); }
   if (a === 'season') { if (globalThis.SH_SET_SEASON) globalThis.SH_SET_SEASON(m.v ? 'xmas' : ''); GMS.log('🎄 ' + c.nick + ' turned holiday decorations ' + (m.v ? 'ON' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: '🎄 Holiday decorations ' + (m.v ? 'ON' : 'OFF') }); }
+  if (a === 'gamble') { if (globalThis.SH_SET_GAMBLE) globalThis.SH_SET_GAMBLE(!!m.v); GMS.log('🎰 ' + c.nick + ' ' + (m.v ? 'unlocked' : 'locked') + ' the casino for School Mode'); return send(c, { t: 'admres', ok: true, msg: m.v ? '🎰 Casino unlocked for School Mode' : '🔒 Casino locked again' }); }
   if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('🏫 ' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
   if (a === 'announce') {
     const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');

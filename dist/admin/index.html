@@ -640,6 +640,9 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
             <label class="toggle"><span id="schoolSw" class="sw"></span><span style="font-size:.85rem"><b id="schoolTxt">Off</b> — when on, everyone who opens the site only gets the Games hub, every game holds up to 30 players, and players answer questions to power up (walking uses energy, answers refill it; in Bedwars answers give the resources for gear).</span></label>
           </div>
           <div class="field">
+            <label class="toggle"><span id="gambleSw" class="sw"></span><span style="font-size:.85rem"><b>🎰 Gamble</b> <b id="gambleTxt">Locked</b> — while School Mode is on, unlock the casino (and only the casino) so students can gamble and play casino games.</span></label>
+          </div>
+          <div class="field">
             <div class="label">Question set</div>
             <div class="row"><select id="schoolSet" style="flex:1">
               <option value="blooket">Class Blooket set (23 questions)</option>
@@ -1067,7 +1070,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
     $('sBanned').textContent = bans.length;
     $('sMaint').textContent = s.maintenance ? 'On' : 'Off';
     $('maintSw').className = 'sw' + (s.maintenance ? ' on2' : '');
-    $('schoolSw').className = 'sw' + (s.schoolMode ? ' on2' : ''); $('lnkGames').value = location.origin + '/arcade'; $('schoolLeft').textContent = s.schoolMode && s.schoolUntil ? '⏱ ' + Math.max(0, Math.ceil((s.schoolUntil - Date.now()) / 60000)) + ' min left' : ''; $('schoolTxt').textContent = s.schoolMode ? 'ON' : 'Off'; var sea = s.season == null ? 'xmas' : s.season; $('seasonSw').className = 'sw' + (sea ? ' on2' : ''); $('seasonTxt').textContent = sea ? 'ON — Christmas' : 'Off'; if (document.activeElement !== $('schoolSet')) $('schoolSet').value = s.schoolSet || 'blooket';
+    $('schoolSw').className = 'sw' + (s.schoolMode ? ' on2' : ''); $('lnkGames').value = location.origin + '/arcade'; $('schoolLeft').textContent = s.schoolMode && s.schoolUntil ? '⏱ ' + Math.max(0, Math.ceil((s.schoolUntil - Date.now()) / 60000)) + ' min left' : ''; $('schoolTxt').textContent = s.schoolMode ? 'ON' : 'Off'; $('gambleSw').className = 'sw' + (s.schoolGamble ? ' on2' : ''); $('gambleTxt').textContent = s.schoolGamble ? 'UNLOCKED' : 'Locked'; var sea = s.season == null ? 'xmas' : s.season; $('seasonSw').className = 'sw' + (sea ? ' on2' : ''); $('seasonTxt').textContent = sea ? 'ON — Christmas' : 'Off'; if (document.activeElement !== $('schoolSet')) $('schoolSet').value = s.schoolSet || 'blooket';
     if (!redirFocused) $('redir').value = s.redirect || '';
     if (!annFocused) $('ann').value = s.announcement || '';
     try { var toEl = $('toActive'); if (toEl) toEl.textContent = (s.takeover && s.takeover.mode) ? (TO_NAMES[s.takeover.mode] || s.takeover.mode) : 'Off'; } catch (e) {}
@@ -1251,6 +1254,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   $('lnkTeacherNew').onclick = function () { if (!confirm('Make a new teacher link? The old one stops working and anyone who opened it loses Teacher Tools.')) return; api('newTeacherKey', {}).then(function () { flash('New teacher link made.'); loadTeacher(); }); };
   setTimeout(loadTeacher, 600); setInterval(function () { if (!$('lnkTeacher').value) loadTeacher(); }, 4000);
   $('seasonSw').onclick = function () { var on = $('seasonSw').className.indexOf('on2') === -1; api('settings', { settings: { season: on ? 'xmas' : '' } }).then(function () { flash(on ? '🎄 Holiday decorations ON' : 'Holiday decorations OFF'); tick(); }); };
+  $('gambleSw').onclick = function () { var on = $('gambleSw').className.indexOf('on2') === -1; api('settings', { settings: { schoolGamble: on } }).then(function () { flash(on ? '🎰 Casino unlocked for School Mode' : '🔒 Casino locked'); tick(); }); };
   $('schoolSw').onclick = function () {
     var on = $('schoolSw').className.indexOf('on2') === -1;
     api('settings', { settings: { schoolMode: on, schoolSet: $('schoolSet').value } }).then(function () { flash(on ? '🏫 School mode ON' : 'School mode OFF'); tick(); });

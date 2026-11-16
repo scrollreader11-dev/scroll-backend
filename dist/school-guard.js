@@ -14,7 +14,7 @@
   function check() {
     var h = {}; var t = tok(); if (t) h.Authorization = 'Bearer ' + t;
     fetch(base + '/api/school', { credentials: base === location.origin ? 'include' : 'omit', headers: h, cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
-      if (s && s.on && !s.exempt) { document.documentElement.style.visibility = 'hidden'; go(); }
+      if (s && s.on && !s.exempt && !(s.gamble && /^\/casino/.test(p))) { document.documentElement.style.visibility = 'hidden'; go(); }
     }).catch(function () {});
   }
   check(); setInterval(check, 3000);

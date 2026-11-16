@@ -415,6 +415,7 @@ async function serveGameImg(req, res, url) {
 function location_school(req) { const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return proto + '://' + req.headers.host + '/arcade'; }
 function schoolBlocked(url) {
   const p = url.split('?')[0];
+  if (admin.settings.schoolGamble && p.startsWith('/casino')) return false; // Gamble switch: the casino stays open
   if (p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars') || p.startsWith('/calltest') || p.startsWith('/bw-ws')) return false;
   if (p === '/' || p === '/index.html' || p.startsWith('/casino') && (p === '/casino' || p === '/casino/' || p.endsWith('.html'))) return true;
   if (/\.html?$/.test(p)) return true;
@@ -426,7 +427,8 @@ globalThis.SH_TEACHER_KEY = () => teacherKey();
 globalThis.SH_NEW_TEACHER_KEY = () => { admin.settings.teacherKey = randomBytes(9).toString('base64url'); saveState().catch(() => {}); return admin.settings.teacherKey; };
 globalThis.SH_SEASON = () => (admin.settings.season == null ? 'xmas' : admin.settings.season || '');
 globalThis.SH_SET_SEASON = async (v) => { admin.settings.season = v ? String(v) : ''; try { await saveState(); } catch (e) {} };
-globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0 } : null);
+globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0, gamble: !!admin.settings.schoolGamble } : null);
+globalThis.SH_SET_GAMBLE = async (v) => { admin.settings.schoolGamble = !!v; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (v ? 'UNLOCKED' : 'locked')); try { await saveState(); } catch (e) {} };
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 async function handleAdmin(req, res) {
   const body = await readBody(req);
@@ -470,6 +472,7 @@ async function handleAdmin(req, res) {
     if (typeof s.schoolMode === 'boolean') { admin.settings.schoolMode = s.schoolMode; logEvent('admin', 'admin', '🏫 School mode ' + (s.schoolMode ? 'ON' : 'OFF')); }
     if (typeof s.schoolMins === 'number') { admin.settings.schoolUntil = s.schoolMins > 0 ? Date.now() + Math.min(240, s.schoolMins) * 60000 : 0; if (s.schoolMins > 0) admin.settings.schoolMode = true; }
     if (s.schoolMode === false) admin.settings.schoolUntil = 0;
+    if (typeof s.schoolGamble === 'boolean') { admin.settings.schoolGamble = s.schoolGamble; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (s.schoolGamble ? 'UNLOCKED' : 'locked')); }
     if (typeof s.season === 'string' && ['', 'xmas'].includes(s.season)) { admin.settings.season = s.season; logEvent('admin', 'admin', '🎄 Season decorations ' + (s.season ? 'ON (' + s.season + ')' : 'OFF')); }
     if (typeof s.schoolSet === 'string' && ['blooket', 'u9', 'u10', 'both'].includes(s.schoolSet)) admin.settings.schoolSet = s.schoolSet;
     await saveState();
@@ -1845,7 +1848,7 @@ const httpServer = createServer(async (req, res) => {
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
-    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt });
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, gamble: !!admin.settings.schoolGamble });
   }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);
