@@ -3076,7 +3076,7 @@
   void hcv;
 
   // debug hook for automated tests
-  window.BWG = { openHelp: function (g) { openHelp(g); }, skinShop: function () { openSkinShop(); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
+    window.BWG = { openHelp: function (g) { openHelp(g); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
 
   if (window.BWV) BWV.listen(); // hear nearby players right away (no mic needed)
   requestAnimationFrame(frame);
