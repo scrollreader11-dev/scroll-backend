@@ -146,6 +146,14 @@
     ornament: { name: 'Giant Ornament', r: 13 }, toysoldier: { name: 'Toy Soldier', r: 9 }, wreath: { name: 'Wreath Post', r: 10 }, snowpile: { name: 'Snow Pile', r: 16 },
     bannerred: { name: 'Red Banner', r: 9 }, bannerblue: { name: 'Blue Banner', r: 9 }, bannergold: { name: 'Gold Banner', r: 9 }, lanternpost: { name: 'Light String Post', r: 9 },
     icecrystal: { name: 'Ice Crystal', r: 11 },
+    // other holidays
+    deadtree: { name: 'Spooky Tree', r: 16 }, gravestone: { name: 'Gravestone', r: 11 }, cauldron: { name: 'Cauldron', r: 13 }, ghostprop: { name: 'Ghost', r: 11 },
+    jacklantern: { name: "Jack-o'-Lantern", r: 12 }, spiderweb: { name: 'Spider Web', r: 12 }, scarecrow: { name: 'Scarecrow', r: 12 }, leafpile: { name: 'Leaf Pile', r: 14 },
+    heartballoon: { name: 'Heart Balloon', r: 10 }, rosebush: { name: 'Rose Bush', r: 14 }, loveletter: { name: 'Love Letter', r: 11 }, egg: { name: 'Easter Egg', r: 11 },
+    flowerbed: { name: 'Tulips', r: 14 }, bunnyprop: { name: 'Bunny Statue', r: 12 }, firework: { name: 'Firework', r: 10 }, balloons: { name: 'Balloons', r: 11 },
+    potofgold: { name: 'Pot of Gold', r: 13 }, clover: { name: 'Clover', r: 12 }, beachball: { name: 'Beach Ball', r: 10 }, umbrella: { name: 'Beach Umbrella', r: 14 },
+    sandcastle: { name: 'Sandcastle', r: 15 }, turkey: { name: 'Turkey', r: 13 }, cornstalk: { name: 'Corn Stalks', r: 12 },
+    bannerorange: { name: 'Orange Banner', r: 10 }, bannerpurple: { name: 'Purple Banner', r: 10 }, bannergreen: { name: 'Green Banner', r: 10 }, bannerpink: { name: 'Pink Banner', r: 10 },
   };
   M.CLASSIC_PROPS = ['barrel', 'crate', 'bush', 'pot', 'hay', 'pumpkin', 'trash', 'mailbox', 'stool', 'lamp'];
   M.PROP_KINDS = Object.keys(M.PROPS);

@@ -220,6 +220,7 @@
   // ---------------------------------------------------------------- CUSTOM SPRITES (made in the Sprite Studio)
   // A.CUSTOM['c:<id>'] = { w, h, pal: ['#rrggbb', ...], px: 'string of palette chars (0 = empty)', back: '' | px, eyes: bool, feet: bool }
   var CUST_CH = '0123456789abcdefghijklmnopqrstuv';
+  A.SEASON_HATS = { xmas: 'santa', halloween: 'wizard', thanksgiving: 'cowboy', newyear: 'party', stpatricks: 'top', easter: 'flowers', july4: 'top', summer: 'cap' };
   A.CUSTOM = A.CUSTOM || {};
   A.OVR = { skin: {}, hat: {}, acc: {} }; A.noOvr = false; // built-in items Scrollreader11 redrew in the Studio
   function ovr(type, k) { if (A.noOvr || !k) return null; var o = A.OVR[type] && A.OVR[type][k]; return o && A.CUSTOM[o] ? o : null; }
@@ -311,7 +312,7 @@
     if (!back) A.drawAcc(c, look.acc, headY, g.side * 5, dir, t, '#3fa9ff');
     else if (look.acc === 'scarf' || look.acc === 'chain' || look.acc === 'medal') A.drawAcc(c, look.acc, headY, 0, 3, t, '#3fa9ff');
     if (look.acc === 'orbs' || look.acc === 'pet') A.fxFront(c, g, look.acc, t);
-    var hat = (look.hat && look.hat !== 'none') ? look.hat : (A.season === 'xmas' && !o.noSeason ? 'santa' : '');
+    var hat = (look.hat && look.hat !== 'none') ? look.hat : (!o.noSeason && A.SEASON_HATS[A.season]) || '';
     A.drawHat(c, hat, headY, g.side, dir, t);
     c.restore();
   }
@@ -428,7 +429,7 @@
     if (S.front) S.front(c, g);
     var hatY = skin === 'mushroom' ? g.by - 16 : g.by;
     if (look.acc === 'orbs' || look.acc === 'pet') A.fxFront(c, g, look.acc, t);
-    A.drawHat(c, (look.hat && look.hat !== 'none') ? look.hat : (A.season === 'xmas' && !o.noSeason && skin !== 'mushroom' && !S.shape ? 'santa' : look.hat), hatY, g.side, dir, t);
+    A.drawHat(c, (look.hat && look.hat !== 'none') ? look.hat : (A.SEASON_HATS[A.season] && !o.noSeason && skin !== 'mushroom' && !S.shape ? A.SEASON_HATS[A.season] : look.hat), hatY, g.side, dir, t);
     c.restore();
     return hatY * s;
   };

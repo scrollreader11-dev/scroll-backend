@@ -124,6 +124,11 @@
       c.strokeStyle = 'rgba(80,90,110,.45)'; c.lineWidth = 2; c.strokeRect(x + 2, y + 2, T - 4, T - 4);
       c.fillStyle = tc; c.globalAlpha = 0.28; c.fillRect(x + 6, y + 6, T - 12, T - 12); c.globalAlpha = 1;
     }
+    if (D.season && D.season !== 'xmas' && g === 1) { // other holidays tint the grass
+      var gt = { halloween: ['rgba(60,20,80,.30)', ['#ff7a1a', '#8a3ffc']], thanksgiving: ['rgba(200,110,20,.22)', ['#ff7a1a', '#e0a400', '#d62839']], valentines: ['rgba(255,120,170,.10)', ['#ff9ec7', '#ffffff']],
+        stpatricks: ['rgba(20,200,80,.12)', ['#2bd576', '#ffd166']], easter: ['rgba(180,255,200,.10)', ['#ffb7d5', '#fff27a', '#c8b6ff']], summer: ['rgba(255,210,90,.12)', ['#fff27a']], newyear: ['rgba(0,0,0,0)', ['#ffd166']], july4: ['rgba(0,0,0,0)', ['#ff4b5c', '#3a6dff']] }[D.season];
+      if (gt) { c.fillStyle = gt[0]; c.fillRect(x, y, T, T); for (var gs = 0; gs < 2; gs++) { if (hash(i * 31 + gs) < 0.55) continue; c.fillStyle = gt[1][(hash(i * 7 + gs) * gt[1].length) | 0]; var gx = x + hash(i * 37 + gs) * (T - 6) + 3, gy = y + hash(i * 41 + gs) * (T - 6) + 3; c.beginPath(); c.arc(gx, gy, 2.2, 0, 6.2832); c.fill(); } }
+    }
     if (D.season === 'xmas' && (g === 1 || g === 2 || g === 4 || g === 7)) { // holiday frost: snow drifts on grass, a dusting elsewhere
       if (g === 1) {
         c.save(); c.beginPath(); c.rect(x, y, T, T); c.clip(); c.fillStyle = 'rgba(244,250,255,.82)';

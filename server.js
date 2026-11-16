@@ -412,10 +412,17 @@ async function serveGameImg(req, res, url) {
 // Password-guarded admin control endpoint.
 
 // Pages that School mode sends to the games hub instead.
-function location_school(req) { const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return proto + '://' + req.headers.host + '/arcade'; }
-function schoolBlocked(url) {
+function schoolHome() { return admin.settings.schoolGamble ? '/casino' : '/arcade'; } // Gamble switch: the casino replaces the games hub
+function isTeacherReq(req) { try { const tk = admin.settings.teacherKey; const ck = /(?:^|;\s*)sh_teacher=([^;]+)/.exec(req.headers.cookie || ''); return !!(tk && ck && decodeURIComponent(ck[1]) === tk); } catch (e) { return false; } }
+function location_school(req) { const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return proto + '://' + req.headers.host + schoolHome(); }
+function schoolBlocked(url, req) {
   const p = url.split('?')[0];
-  if (admin.settings.schoolGamble && p.startsWith('/casino')) return false; // Gamble switch: the casino stays open
+  if (admin.settings.schoolGamble) { // Gamble switch: ONLY the casino is open (teachers can still watch the games hub)
+    if (p.startsWith('/casino') || p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/teacher')) return false;
+    if ((p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars')) && req && isTeacherReq(req)) return false;
+    if (p.startsWith('/arcade/') && /\.[a-z0-9]{1,6}$/i.test(p) && !/\.html?$/.test(p)) return false; // shared scripts/art the casino uses
+    if (p === '/arcade' || p === '/arcade/' || p === '/play' || p === '/play/' || p.startsWith('/arcade/')) return true;
+  }
   if (p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars') || p.startsWith('/calltest') || p.startsWith('/bw-ws')) return false;
   if (p === '/' || p === '/index.html' || p.startsWith('/casino') && (p === '/casino' || p === '/casino/' || p.endsWith('.html'))) return true;
   if (/\.html?$/.test(p)) return true;
@@ -473,7 +480,7 @@ async function handleAdmin(req, res) {
     if (typeof s.schoolMins === 'number') { admin.settings.schoolUntil = s.schoolMins > 0 ? Date.now() + Math.min(240, s.schoolMins) * 60000 : 0; if (s.schoolMins > 0) admin.settings.schoolMode = true; }
     if (s.schoolMode === false) admin.settings.schoolUntil = 0;
     if (typeof s.schoolGamble === 'boolean') { admin.settings.schoolGamble = s.schoolGamble; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (s.schoolGamble ? 'UNLOCKED' : 'locked')); }
-    if (typeof s.season === 'string' && ['', 'xmas'].includes(s.season)) { admin.settings.season = s.season; logEvent('admin', 'admin', '🎄 Season decorations ' + (s.season ? 'ON (' + s.season + ')' : 'OFF')); }
+    if (typeof s.season === 'string' && ['', 'xmas', 'halloween', 'thanksgiving', 'newyear', 'valentines', 'stpatricks', 'easter', 'july4', 'summer'].includes(s.season)) { admin.settings.season = s.season; logEvent('admin', 'admin', '🎄 Season decorations ' + (s.season ? 'ON (' + s.season + ')' : 'OFF')); }
     if (typeof s.schoolSet === 'string' && ['blooket', 'u9', 'u10', 'both'].includes(s.schoolSet)) admin.settings.schoolSet = s.schoolSet;
     await saveState();
     return sendJson(res, 200, { ok: true, settings: admin.settings });
@@ -1848,7 +1855,7 @@ const httpServer = createServer(async (req, res) => {
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
-    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, gamble: !!admin.settings.schoolGamble });
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome() });
   }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);
@@ -1878,10 +1885,10 @@ const httpServer = createServer(async (req, res) => {
     res.end(); return;
   }
   // School mode: everyone (except the owner) only gets the games hub.
-  if (admin.settings.schoolMode && req.method === 'GET' && schoolBlocked(url)) {
+  if (admin.settings.schoolMode && req.method === 'GET' && schoolBlocked(url, req)) {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const name = who && (who.username || (who.account && who.account.username) || who.name);
-    if (String(name || '').toLowerCase() !== 'scrollreader11') { res.writeHead(302, { Location: '/arcade', 'cache-control': 'no-store' }); res.end(); return; }
+    if (String(name || '').toLowerCase() !== 'scrollreader11') { res.writeHead(302, { Location: schoolHome(), 'cache-control': 'no-store' }); res.end(); return; }
   }
   if (url === '/admin' || url === '/admin/') {
     req.url = '/admin/index.html';

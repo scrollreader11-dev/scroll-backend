@@ -71,6 +71,19 @@
     kick(o, t, 0.25); kick(o, t + 2 * b, 0.22);
     for (var q = 0; q < 8; q++) sleigh(o, t + q * b / 2, q % 2 ? 0.06 : 0.1);
   } };
+  // Halloween hub: spooky minor organ arps, tolling bell and a wobbly theremin
+  TRACKS.lobbyH = { bpm: 96, bar: function (o, i, t, b) {
+    var prog = ['Am', 'F', 'Dm', 'E7'], ch = prog[i % 4], r = ROOT[ch];
+    var arp = CH[ch].concat([CH[ch][1] + 12]);
+    for (var s = 0; s < 8; s++) osc(o, 'square', arp[s % arp.length] + 12, t + s * b / 2, b * 0.42, 0.03, { lp: 1800, lpEnd: 600, r: 0.1 });
+    osc(o, 'sawtooth', r, t, b * 3.8, 0.06, { lp: 380, a: 0.08, r: 0.4 });
+    osc(o, 'triangle', r + 12, t, b * 3.8, 0.08, { a: 0.05, r: 0.4 });
+    if (i % 2 === 0) bell(o, 45, t, 2.6, 0.06);
+    kick(o, t, 0.2); kick(o, t + 2.5 * b, 0.12); nz(o, t + 2 * b, 0.25, 0.03, 'bandpass', 900, 0.5);
+    if (i % 8 >= 4) { var v = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(); var mel = [76, 77, 74, 71][i % 4];
+      v.type = 'sine'; v.frequency.setValueAtTime(mf(mel), t); v.frequency.linearRampToValueAtTime(mf(mel - 2), t + b * 3.5); lfo.frequency.value = 6; lg.gain.value = 9; lfo.connect(lg); lg.connect(v.frequency);
+      env(g, t, 0.3, 0.035, b * 3.8, 0.6); v.connect(g); g.connect(o); v.start(t); v.stop(t + b * 4); lfo.start(t); lfo.stop(t + b * 4); }
+  } };
   // Casino lounge: smooth jazz ii-V-I with walking bass, swung ride, rhodes comping
   TRACKS.casino = { bpm: 92, bar: function (o, i, t, b, x) {
     var prog = ['Dm7', 'G9', 'Cmaj7', 'A7', 'Dm7', 'G9', 'Fmaj7', 'E7'], ch = prog[i % 8], r = ROOT[ch], sw = b * 0.66;
@@ -103,6 +116,7 @@
     if (discoUntil > Date.now()) return 'disco';
     if (!wantName) return null;
     if (wantName === 'lobby' && season === 'xmas') return 'lobbyX';
+    if (wantName === 'lobby' && season === 'halloween') return 'lobbyH';
     return wantName;
   }
   function muted() { return off || (window.SC && SC.sfxMuted && SC.sfxMuted()); }

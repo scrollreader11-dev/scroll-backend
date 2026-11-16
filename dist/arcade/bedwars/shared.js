@@ -275,31 +275,45 @@
   };
   // Holiday decorations for the hub (client-only; the hub's movement is client-side).
   B.XMAS_LIGHTS = [[[13, 25], [21, 25], [27, 25], [33, 25], [39, 25], [45, 25], [51, 25], [59, 25]], [[30, 35], [42, 35]], [[30, 45], [42, 45]], [[30, 35], [30, 45]], [[42, 35], [42, 45]]];
-  B.addXmas = function (m) {
-    var G2 = B.G, put = function (tx, ty, what) {
-      var i = ty * W + tx; if (!B.inb(tx, ty) || !m.g[i] || m.g[i] === G2.PATH || m.obj[i]) return;
-      obj(m, { kind: 'deco', tx: tx, ty: ty, what: what, xmas: true });
-    };
-    // two big trees with presents either side of the fountain
-    put(32, 37, 'xtree'); put(31, 38, 'presents'); put(33, 38, 'present');
-    put(40, 37, 'xtree'); put(41, 38, 'presents'); put(39, 38, 'present');
-    // candy canes lining the road up to the Portal Hall
-    [[34, 27], [38, 27], [34, 29], [38, 29], [34, 33], [38, 33]].forEach(function (p) { put(p[0], p[1], 'candycane'); });
-    put(28, 43, 'gingerbread'); put(44, 43, 'gingerbread');
-    // snowmen and snow piles around the island
-    [[26, 47], [46, 48], [20, 34], [52, 36], [10, 48], [61, 46]].forEach(function (p) { put(p[0], p[1], 'snowman'); });
-    [[12, 33], [60, 34], [50, 44], [23, 38], [52, 48], [15, 50], [57, 28], [27, 30]].forEach(function (p) { put(p[0], p[1], 'snowpile'); });
-    // Santa's sleigh and reindeer in the park
-    put(21, 47, 'reindeer'); put(19, 47, 'reindeer'); put(24, 47, 'sleigh');
-    // toy soldiers guarding the casino and the leaderboard
-    put(56, 39, 'toysoldier'); put(62, 39, 'toysoldier'); put(10, 43, 'toysoldier'); put(16, 43, 'toysoldier');
-    // ice crystals by the pond, banners by the hall, wreaths and lantern posts
-    put(17, 55, 'icecrystal'); put(26, 55, 'icecrystal'); put(22, 50, 'ornament');
-    put(10, 20, 'bannerred'); put(62, 20, 'bannergold'); put(10, 22, 'xtree'); put(62, 22, 'xtree');
-    put(30, 29, 'wreath'); put(42, 29, 'wreath'); put(43, 32, 'presents'); put(29, 32, 'presents');
-    put(24, 41 + 2, 'lanternpost'); put(48, 42, 'lanternpost'); put(55, 50, 'xtree'); put(52, 50, 'presents');
+  // Each holiday fills the same spots in the hub ("roles") with its own decorations.
+  var R = {
+    tree: [[32, 37], [40, 37], [10, 22], [62, 22], [55, 50]], gift: [[31, 38], [41, 38], [43, 32], [29, 32], [52, 50]], gift2: [[33, 38], [39, 38]],
+    cane: [[34, 27], [38, 27], [34, 29], [38, 29], [34, 33], [38, 33]], ginger: [[28, 43], [44, 43]],
+    statue: [[26, 47], [46, 48], [20, 34], [52, 36], [10, 48], [61, 46]], pile: [[12, 33], [60, 34], [50, 44], [23, 38], [52, 48], [15, 50], [57, 28], [27, 30]],
+    deer: [[21, 47], [19, 47]], sleigh: [[24, 47]], guard: [[56, 39], [62, 39], [10, 43], [16, 43]], crystal: [[17, 55], [26, 55]], orn: [[22, 50]],
+    ban1: [[10, 20]], ban2: [[62, 20]], wreath: [[30, 29], [42, 29]], lantern: [[24, 43], [48, 42]],
+  };
+  B.SEASONS = {
+    xmas: { name: 'Christmas', emoji: '🎄', hat: 'santa', fall: 'snow', ground: 'frost', lights: ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'],
+      map: { tree: 'xtree', gift: 'presents', gift2: 'present', cane: 'candycane', ginger: 'gingerbread', statue: 'snowman', pile: 'snowpile', deer: 'reindeer', sleigh: 'sleigh', guard: 'toysoldier', crystal: 'icecrystal', orn: 'ornament', ban1: 'bannerred', ban2: 'bannergold', wreath: 'wreath', lantern: 'lanternpost' } },
+    halloween: { name: 'Halloween', emoji: '🎃', hat: 'wizard', fall: 'bats', ground: 'spooky', lights: ['#ff7a1a', '#8a3ffc', '#7dff9e'],
+      map: { tree: 'deadtree', gift: 'jacklantern', gift2: 'cauldron', cane: 'gravestone', ginger: 'ghostprop', statue: 'scarecrow', pile: 'leafpile', deer: 'gravestone', sleigh: 'cauldron', guard: 'ghostprop', crystal: 'spiderweb', orn: 'jacklantern', ban1: 'bannerorange', ban2: 'bannerpurple', wreath: 'spiderweb', lantern: 'jacklantern' } },
+    thanksgiving: { name: 'Fall / Thanksgiving', emoji: '🦃', hat: 'cowboy', fall: 'leaves', ground: 'autumn', lights: ['#ff8a3d', '#e0a400', '#d62839'],
+      map: { tree: 'cornstalk', gift: 'pumpkin', gift2: 'hay', cane: 'cornstalk', ginger: 'turkey', statue: 'scarecrow', pile: 'leafpile', deer: 'turkey', sleigh: 'hay', guard: 'scarecrow', crystal: 'pumpkin', orn: 'leafpile', ban1: 'bannerorange', ban2: 'bannergold', wreath: 'cornstalk', lantern: 'lanternpost' } },
+    newyear: { name: 'New Year', emoji: '🎉', hat: 'party', fall: 'confetti', fireworks: true, ground: '', lights: ['#ffd166', '#ffffff', '#c8b6ff', '#5cf2ff'],
+      map: { tree: 'balloons', gift: 'presents', gift2: 'balloons', cane: 'firework', ginger: 'balloons', statue: 'firework', pile: 'present', deer: 'balloons', sleigh: 'presents', guard: 'firework', crystal: 'balloons', orn: 'firework', ban1: 'bannergold', ban2: 'bannerpurple', wreath: 'balloons', lantern: 'lanternpost' } },
+    valentines: { name: "Valentine's Day", emoji: '💘', hat: '', fall: 'hearts', ground: 'pink', lights: ['#ff3d6e', '#ff9ec7', '#ffffff'],
+      map: { tree: 'rosebush', gift: 'heartballoon', gift2: 'loveletter', cane: 'heartballoon', ginger: 'loveletter', statue: 'rosebush', pile: 'rosebush', deer: 'heartballoon', sleigh: 'presents', guard: 'heartballoon', crystal: 'loveletter', orn: 'heartballoon', ban1: 'bannerpink', ban2: 'bannerred', wreath: 'rosebush', lantern: 'lanternpost' } },
+    stpatricks: { name: "St. Patrick's Day", emoji: '☘️', hat: 'top', fall: 'clovers', ground: 'green', lights: ['#2bd576', '#ffd166', '#ffffff'],
+      map: { tree: 'clover', gift: 'potofgold', gift2: 'clover', cane: 'clover', ginger: 'potofgold', statue: 'clover', pile: 'clover', deer: 'potofgold', sleigh: 'potofgold', guard: 'clover', crystal: 'potofgold', orn: 'clover', ban1: 'bannergreen', ban2: 'bannergold', wreath: 'clover', lantern: 'lanternpost' } },
+    easter: { name: 'Easter / Spring', emoji: '🐣', hat: 'flowers', fall: 'petals', ground: 'spring', lights: ['#ffb7d5', '#b5f5cf', '#c8b6ff', '#fff27a'],
+      map: { tree: 'flowerbed', gift: 'egg', gift2: 'egg', cane: 'flowerbed', ginger: 'bunnyprop', statue: 'bunnyprop', pile: 'egg', deer: 'bunnyprop', sleigh: 'flowerbed', guard: 'bunnyprop', crystal: 'egg', orn: 'egg', ban1: 'bannerpink', ban2: 'bannergreen', wreath: 'flowerbed', lantern: 'lanternpost' } },
+    july4: { name: '4th of July', emoji: '🎆', hat: 'top', fall: 'confetti', fireworks: true, ground: '', lights: ['#ff4b5c', '#ffffff', '#3a6dff'],
+      map: { tree: 'balloons', gift: 'firework', gift2: 'balloons', cane: 'firework', ginger: 'beachball', statue: 'firework', pile: 'balloons', deer: 'firework', sleigh: 'beachball', guard: 'firework', crystal: 'balloons', orn: 'firework', ban1: 'bannerred', ban2: 'bannerblue', wreath: 'balloons', lantern: 'lanternpost' } },
+    summer: { name: 'Summer', emoji: '☀️', hat: 'cap', fall: 'sun', ground: 'sunny', lights: [],
+      map: { tree: 'umbrella', gift: 'beachball', gift2: 'sandcastle', cane: 'umbrella', ginger: 'sandcastle', statue: 'sandcastle', pile: 'beachball', deer: 'umbrella', sleigh: 'sandcastle', guard: 'beachball', crystal: 'beachball', orn: 'beachball', ban1: 'bannerblue', ban2: 'bannergold', wreath: 'umbrella', lantern: 'lanternpost' } },
+  };
+  B.SEASON_ORDER = ['xmas', 'newyear', 'valentines', 'stpatricks', 'easter', 'july4', 'summer', 'halloween', 'thanksgiving'];
+  B.addSeason = function (m, id) {
+    var se = B.SEASONS[id]; if (!se) return m;
+    var G2 = B.G;
+    for (var role in R) { var kind = se.map[role]; if (!kind) continue; R[role].forEach(function (p) {
+      var tx = p[0], ty = p[1], i = ty * W + tx; if (!B.inb(tx, ty) || !m.g[i] || m.g[i] === G2.PATH || m.obj[i]) return;
+      obj(m, { kind: 'deco', tx: tx, ty: ty, what: kind, xmas: true });
+    }); }
     return m;
   };
+  B.addXmas = function (m) { return B.addSeason(m, 'xmas'); };
   // The island you wait on before a match. Private rooms pick teams by standing on a pad.
   B.WAIT_SPAWN = { x: 36 * T + T / 2, y: 36 * T + T / 2 };
   B.genWait = function () {
