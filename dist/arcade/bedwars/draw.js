@@ -397,8 +397,21 @@
     c.beginPath(); c.moveTo(-13, -12); c.quadraticCurveTo(0, -24, 13, -12); c.lineTo(11, -10); c.quadraticCurveTo(0, -19, -11, -10); c.closePath(); fs(c, col, OL, 2.2);
     c.restore();
   }
+  var GUN_LEN = { pistol: 16, smg: 20, ar: 28, shotgun: 30, sniper: 36 };
+  function gunShape(c, k, s, col) {
+    var L = GUN_LEN[k] || 20; col = col || '#b0b6bd';
+    c.save(); c.scale(s, s); c.lineJoin = 'round';
+    if (k === 'shotgun') { rr(c, -12, -2.5, 10, 6, 2); fs(c, '#a0703f', OL, 2); }
+    if (k === 'sniper') { rr(c, 6, -9, 12, 4.5, 1.5); fs(c, '#2a2f3a', OL, 1.6); }
+    rr(c, -6, -3.5, L, 7, 2); fs(c, '#59606e', OL, 2.2);
+    c.fillStyle = col; c.fillRect(L - 14, -1.5, 8, 3);
+    if (k !== 'pistol') { rr(c, 0, 2, 5, 10, 1.5); fs(c, '#3a3f4a', OL, 2); } else { rr(c, -5, 2, 5, 9, 1.5); fs(c, '#3a3f4a', OL, 2); }
+    if (k === 'smg' || k === 'ar') { rr(c, 8, 2, 4, 8, 1.5); fs(c, '#2a2f3a', OL, 1.8); }
+    c.restore();
+  }
   D.drawItem = function (c, id, s, o) { // centered at 0,0, ~32px at s=1
     o = o || {}; s = s || 1;
+    if (GUN_LEN[id]) { c.save(); c.scale(s, s); c.rotate(-0.3); c.translate(-GUN_LEN[id] / 2 + 3, 0); gunShape(c, id, 1, o.col); c.restore(); return; }
     var tm = o.team == null ? 0 : o.team;
     if (/^sword/.test(id)) { var tier = o.tier || +id.slice(5) || 1; c.save(); c.rotate(0.6); c.translate(0, 8 * s); sword(c, s, B.SWORDS[tier].color); c.restore(); return; }
     if (id === 'kbstick') { c.save(); c.rotate(0.6); c.scale(s, s); rr(c, -2.4, -18, 4.8, 30, 2); fs(c, '#a0703f', OL, 2.2); c.fillStyle = '#c084fc'; for (var k = 0; k < 3; k++) c.fillRect(-2.4, -14 + k * 8, 4.8, 2.5); c.restore(); return; }
@@ -458,6 +471,8 @@
       var sx = -2 + Math.cos(1.15) * 15 - draw * 10;
       c.strokeStyle = '#eee'; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-2 + Math.cos(-1.15) * 15, Math.sin(-1.15) * 15); c.lineTo(sx - 4, 0); c.lineTo(-2 + Math.cos(1.15) * 15, Math.sin(1.15) * 15); c.stroke();
       if (draw > 0) { c.strokeStyle = OL; c.lineWidth = 3.5; c.beginPath(); c.moveTo(sx - 4, 0); c.lineTo(sx + 20, 0); c.stroke(); c.strokeStyle = '#c99a5b'; c.lineWidth = 1.6; c.stroke(); c.beginPath(); c.moveTo(sx + 24, 0); c.lineTo(sx + 18, -3); c.lineTo(sx + 18, 3); c.closePath(); fs(c, '#cfd6e4', OL, 1.4); }
+    } else if (GUN_LEN[it]) {
+      c.rotate(a); c.translate(10, 0); if (Math.cos(a) < 0) c.scale(1, -1); gunShape(c, it, 1, '#b0b6bd');
     } else {
       D.drawItem(c, it, 0.62, { team: e.team, tier: it === 'pick' ? e.pick : 1 });
     }
@@ -658,7 +673,7 @@
     D.tag(c, label || o.label, px, py - 178, { size: 14, color: '#ffd166', bg: '#1a0f3d' });
     if (Math.random() < 0.3) D.spawn({ k: 'spark', x: px + (Math.random() - 0.5) * 80, y: py - 20 - Math.random() * 120, vx: 0, vy: -30, col: '#ffd166', size: 2, life: 0.7, drag: 1 });
   };
-  D.GCOL = { bw: '#ff4b5c', ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b', duel: '#ffd166', murder: '#c1121f', build: '#2bd576' };
+  D.GCOL = { royale: '#ffb02e', bw: '#ff4b5c', ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b', duel: '#ffd166', murder: '#c1121f', build: '#2bd576' };
   // A game gateway: a glowing colored arch with the game's icon floating inside.
   D.gport = function (c, o, t, count) {
     var px = o.x, py = o.y + 14, col = D.GCOL[o.game] || '#7b5cff';
@@ -739,6 +754,12 @@
       c.strokeStyle = '#c99a5b'; c.lineWidth = 2; c.stroke();
       c.beginPath(); c.moveTo(14, 0); c.lineTo(8, -4); c.lineTo(8, 4); c.closePath(); fs(c, '#cfd6e4', OL, 1.5);
       c.fillStyle = '#fff'; c.fillRect(-13, -3, 5, 6);
+      c.restore();
+    } else if (p.kind === 'bullet') {
+      var ba = Math.atan2(p.vy || 0, p.vx || 1);
+      c.save(); c.translate(p.x, p.y); c.rotate(ba); c.globalCompositeOperation = 'lighter';
+      c.strokeStyle = 'rgba(255,220,120,.35)'; c.lineWidth = 6; c.beginPath(); c.moveTo(-40, 0); c.lineTo(0, 0); c.stroke();
+      c.strokeStyle = '#fff6c9'; c.lineWidth = 3; c.beginPath(); c.moveTo(-22, 0); c.lineTo(6, 0); c.stroke();
       c.restore();
     } else if (p.kind === 'fb') {
       c.save(); c.translate(p.x, p.y);

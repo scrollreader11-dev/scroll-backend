@@ -34,8 +34,21 @@
       desc: 'Someone here is the murderer…', tag: '8-player mystery' },
     build: { key: 'build', name: 'Build Battle', short: 'BUILD', icon: '🏗️', teams: 8, per: 1, max: 4, buildSec: 150, voteSec: 9,
       desc: 'Build the theme, then everyone votes', tag: 'Creative' },
+    royale: { key: 'royale', name: 'Scroll Royal', short: 'ROYAL', icon: '🪂', teams: 8, per: 1, max: 8, mins: 9,
+      desc: 'Crack chests, grab guns, outlast the storm', tag: 'Battle royale' },
   };
-  M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide' || g === 'duel' || g === 'murder' || g === 'build'; };
+  M.RARITY = [{ n: 'Common', c: '#b0b6bd', m: 1 }, { n: 'Rare', c: '#4aa8ff', m: 1.15 }, { n: 'Epic', c: '#b55cff', m: 1.3 }, { n: 'Legendary', c: '#ffb02e', m: 1.55 }];
+  // d = damage (hearts, MAX_HP 20), r = ms between shots, s = bullet px/s, sp = spread (rad), p = pellets, a = ammo type, rg = range px
+  M.GUNS = {
+    pistol: { n: 'Pistol', d: 2, r: 380, s: 800, sp: 0.04, p: 1, a: 'l', rg: 620 },
+    smg: { n: 'SMG', d: 1.2, r: 110, s: 850, sp: 0.1, p: 1, a: 'l', rg: 520 },
+    ar: { n: 'Assault Rifle', d: 2.2, r: 170, s: 1000, sp: 0.05, p: 1, a: 'l', rg: 820 },
+    shotgun: { n: 'Shotgun', d: 1, r: 850, s: 800, sp: 0.16, p: 7, a: 's', rg: 340 },
+    sniper: { n: 'Sniper', d: 10, r: 1800, s: 1100, sp: 0, p: 1, a: 'h', rg: 1500 },
+  };
+  M.GUN_ORDER = ['pistol', 'smg', 'ar', 'shotgun', 'sniper'];
+  M.GUN_ORDER.forEach(function (k) { if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); B.ITEM_NAMES[k] = M.GUNS[k].n; });
+  M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide' || g === 'duel' || g === 'murder' || g === 'build' || g === 'royale'; };
   M.RANKS = [
     { key: 'bronze', name: 'Bronze', at: 0, color: '#c67b4e' },
     { key: 'silver', name: 'Silver', at: 1100, color: '#c5cfe2' },
@@ -366,6 +379,15 @@
     for (var t = 0; t < 8; t++) { var s = spots[t % spots.length]; m.bases.push({ team: t, cx: Math.floor(s.x / T), cy: Math.floor(s.y / T), spawn: s, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] }); }
     return m;
   };
+  // ================================================================ SCROLL ROYAL
+  // The Prop Hunt village makes a fine battleground: houses to loot, roads, trees and cover.
+  M.genRoyale = function (seed) {
+    var m = M.genHide(seed); m.game = 'royale'; m.cage = null;
+    var spots = m.hideSpawns.concat([m.seekSpawn]);
+    m.bases = [];
+    for (var t = 0; t < 8; t++) { var s = spots[t % spots.length]; m.bases.push({ team: t, cx: Math.floor(s.x / T), cy: Math.floor(s.y / T), spawn: s, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] }); }
+    return m;
+  };
   // ================================================================ BUILD BATTLE
   M.BB_THEMES = ['Castle', 'Garden', 'Farm', 'Snowy Day', 'Spooky Night', 'Cozy House', 'Market Stall', 'Campsite', 'Pirate Island', 'Birthday Party', 'Zoo', 'Robot'];
   M.BB_GROUNDS = [G.GRASS, G.STONE, G.PATH, G.COBBLE, G.FLOOR, G.SNOW, G.MID, G.ICE, G.CANDY, G.SAND, G.BRICK, 0];
@@ -390,7 +412,7 @@
   };
   M.inPlot = function (m, plot, i) { var p = m.plots[plot]; if (!p) return false; var x = i % W, y = (i / W) | 0; return x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1; };
 
-  M.genMap = function (game, seed, custom) { if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : B.genMap(); };
+  M.genMap = function (game, seed, custom) { if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : game === 'royale' ? M.genRoyale(seed) : B.genMap(); };
 
   // Hotbar per game.
   M.hotbar = function (game, inv, role) {
@@ -399,6 +421,7 @@
     if (game === 'duel') return ['sword'];
     if (game === 'murder') { var o2 = ['fists']; if (role === 'm') o2.push('knife'); if (inv.bow > 0) o2.push('bow'); return o2; }
     if (game === 'build') return ['fists'];
+    if (game === 'royale') { var og = []; M.GUN_ORDER.forEach(function (k) { if (inv.rgun && inv.rgun[k] != null) og.push(k); }); return og.length ? og : ['fists']; }
     return B.hotbar(inv);
   };
   root.MG = M;
