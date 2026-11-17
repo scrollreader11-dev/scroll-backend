@@ -233,12 +233,12 @@
     fill(m, 13, 16, 59, 25, G2.MID);
     fill(m, 35, 26, 37, 32, G2.PATH);
     var ports = [
-      { g: 'spleef', tx: 18, ty: 21 }, { g: 'ctf', tx: 24, ty: 21 }, { g: 'hide', tx: 30, ty: 21 }, { g: 'bw', tx: 36, ty: 21 },
-      { g: 'murder', tx: 42, ty: 21 }, { g: 'duel', tx: 48, ty: 21 }, { g: 'build', tx: 54, ty: 21 },
+      { g: 'spleef', tx: 16, ty: 21 }, { g: 'ctf', tx: 22, ty: 21 }, { g: 'hide', tx: 28, ty: 21 }, { g: 'bw', tx: 34, ty: 21 },
+      { g: 'royale', tx: 40, ty: 21 }, { g: 'murder', tx: 46, ty: 21 }, { g: 'duel', tx: 52, ty: 21 }, { g: 'build', tx: 58, ty: 21 },
     ];
     B.HUB_PORTS = ports;
     ports.forEach(function (q) {
-      var names = { bw: 'BEDWARS', ctf: 'CAPTURE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER', build: 'BUILD BATTLE' };
+      var names = { bw: 'BEDWARS', ctf: 'CAPTURE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER', build: 'BUILD BATTLE', royale: 'SCROLL ROYAL' };
       fill(m, q.tx - 1, q.ty, q.tx + 1, q.ty + 1, G2.PAD);
       // the name banner stands BEHIND (north of) the portal
       obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 2, text: names[q.g], game: q.g, small: true }, [[q.tx - 2, q.ty - 2], [q.tx + 2, q.ty - 2]]);

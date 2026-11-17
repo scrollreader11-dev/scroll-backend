@@ -157,7 +157,7 @@ function makeRoom(kind, mode, diff, host, game) {
 // ---- School mode (set from the site admin panel): up to 30 players per game + quiz power-ups
 function seasonCfg() { try { return globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'; } catch (e) { return ''; } }
 function schoolCfg() { try { return globalThis.SH_SCHOOL ? globalThis.SH_SCHOOL() : null; } catch (e) { return null; } }
-const SCHOOL_CAP = { bw: [4, 25, 100], ctf: [2, 50, 100], hide: [2, 100, 100], spleef: [100, 1, 100], murder: [100, 1, 100], build: [4, 25, 100] }; // [teams, per team, max] — lobbies hold (practically) everyone
+const SCHOOL_CAP = { bw: [4, 25, 100], ctf: [2, 50, 100], hide: [2, 100, 100], spleef: [100, 1, 100], murder: [100, 1, 100], build: [4, 25, 100], royale: [100, 1, 100] }; // [teams, per team, max] — lobbies hold (practically) everyone
 function autoPer(n, biggest) { const p = n <= 4 ? 1 : n <= 8 ? 2 : n <= 16 ? 4 : Math.ceil(n / 4); return Math.max(p, biggest || 0); }
 function autoModeName(p) { return p === 1 ? 'Solo' : p === 2 ? 'Duos' : p === 4 ? 'Squads' : 'Teams of ' + p; }
 function basePer(r) { return r.game !== 'bw' ? MG.GAMES[r.game].per : r.autoPer || BW.MODES[r.mode].per; }
@@ -520,7 +520,7 @@ function classAnswer(c, m) {
   send(c, { t: 'qr', ok, ans: cq.ans, gain, en: e && e.quiz ? Math.ceil(e.energy) : -1, qz: e && e.quiz ? e.qz : { right: 0, wrong: 0, streak: 0 }, cq: 1 });
 }
 // ---- class game vote (owner starts it; everyone not mid-match votes; winner launches a room with everyone in it)
-const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel'];
+const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel', 'royale'];
 function voteCounts() { const n = {}; VOTE_GAMES.forEach((g) => { n[g] = 0; }); if (CLASS.vote) for (const g of CLASS.vote.votes.values()) n[g]++; return n; }
 function voteTargets() { return [...conns].filter((c) => !c.spectator && !(c.room && c.room.state === 'play')); }
 function voteVoters() { const out = {}; if (!CLASS.vote) return out; for (const c of conns) { const g = c.cid && CLASS.vote.votes.get(c.cid); if (!g) continue; (out[g] || (out[g] = [])).length < 12 && out[g].push({ n: c.nick, l: c.look }); } return out; }
@@ -637,11 +637,11 @@ function knock(r, v, kx, ky, pow) {
 function hurt(r, v, amount, att, kind, kx, ky, kbPow, crit) {
   if (v.dead || v.elim || v.god) return false;
   const now = Date.now();
-  if (now < v.invulnUntil) return false;
+  if (now < v.invulnUntil && kind !== 'gun') return false;
   const red = Math.min(0.8, BW.ARMORS[v.armor].red + 0.06 * r.teams[v.team].up.prot);
   let dmg = amount * (1 - red);
   if (v.absorb > 0) { const a = Math.min(v.absorb, dmg); v.absorb -= a; dmg -= a; }
-  v.hp -= dmg; v.lastDmgAt = now; v.invulnUntil = now + (kind === 'melee' ? 300 : 120);
+  v.hp -= dmg; v.lastDmgAt = now; if (kind !== 'gun') v.invulnUntil = now + (kind === 'melee' ? 300 : 120);
   if (att && att !== v) { v.lastHitBy = att.id; v.lastHitAt = now; }
   knock(r, v, kx, ky, kbPow);
   r.ev(['hit', v.id, Math.round(amount * 10), crit ? 1 : 0, att ? att.id : 0, kind]);
@@ -1213,6 +1213,7 @@ function tickProj(r, now) {
         if (Math.hypot(v.x - p.x, v.y - 16 - p.y) < 20) {
           if (p.kind === 'arrow') hurt(r, v, r.game === 'murder' ? 100 : p.dmg, r.ents.get(p.owner), 'arrow', p.vx, p.vy, 220, false);
           else if (p.kind === 'snow') { MINI.snowHit(r, v, p); }
+          else if (p.kind === 'bullet') hurt(r, v, p.dmg, r.ents.get(p.owner), 'gun', p.vx, p.vy, 55, false);
           done = true; break;
         }
       }
@@ -1271,7 +1272,7 @@ setInterval(() => {
 
 // ============================================================ connections
 function lobbyList() {
-  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0 } };
+  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, royale: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, royale: 0 } };
   for (const r of rooms.values()) {
     if (r.state === 'lobby' && r.kind === 'public') out[r.mode] = (out[r.mode] || 0) + r.members.length;
     if (r.state === 'play') { const n = humans(r).length; out.playing += n; out.inGame[r.game] = (out.inGame[r.game] || 0) + n; }
@@ -1645,6 +1646,7 @@ function adminMsg(c, m, now) {
   if (a === 'joinmatch') {
     const r2 = rooms.get(Number(m.room)); if (!r2 || r2.state !== 'play') return no('That match isn’t running.');
     if (c.room && c.room.state === 'play') return no('Leave your match first.');
+    if (r2.game === 'royale') return no('You can’t drop into a Scroll Royal match — wait for the next one.');
     if (r2.game === 'spleef') return no('You can’t drop into a Spleef round — wait for the next one.');
     const tm = r2.game === 'hide' ? 1 : clamp(Number(m.team) || 0, 0, r2.game === 'ctf' ? 1 : 3);
     if (r2.game === 'bw' && !r2.teams[tm].bed) return no('That team has no bed — pick another.');
@@ -1754,7 +1756,7 @@ function adminMsg(c, m, now) {
       return ok('TNT rain incoming 💣 (' + n2 + ')');
     }
     if (op === 'addbot') {
-      if (r.game === 'spleef' || r.game === 'duel' || r.game === 'build') return no('Bots can’t join a running ' + MG.GAMES[r.game].name + ' match.');
+      if (r.game === 'spleef' || r.game === 'duel' || r.game === 'build' || r.game === 'royale') return no('Bots can’t join a running ' + MG.GAMES[r.game].name + ' match.');
       const used = new Set([...r.ents.values()].map((e) => e.nick));
       let name; do { name = BOT_NAMES[(rnd() * BOT_NAMES.length) | 0]; } while (used.has(name) && used.size < BOT_NAMES.length);
       let team = 0;
@@ -1828,6 +1830,6 @@ function adminMsg(c, m, now) {
 initMini({
   DT, SK, BOT_NAMES, send, roomSend, humans, makeEnt, botLook, emptyInv, leaveSpace, fullState, endMatch,
   swing, hurt, knock, place, stopMine, mineStep, useItem, shootBow, moveToward, physics, pathTo, pathNear, astar,
-  stepPath, fight, foeNear, clearLine, aliveEnts, setTile, die: (r, v, kind, att) => die(r, v, kind, att),
+  stepPath, fight, foeNear, clearLine, aliveEnts, setTile, addProj: (r, pj) => { pj.id = nextProj++; r.projs.push(pj); return pj; }, die: (r, v, kind, att) => die(r, v, kind, att),
 });
 export const __bwTest = DEBUG ? { makeRoom, startMatch, rooms, tickRoom } : null;
