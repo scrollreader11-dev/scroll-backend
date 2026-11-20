@@ -65,6 +65,13 @@
   M.R_STORM = [ // wait s, shrink s, radius (tiles) after shrinking, damage per second outside
     { w: 50, s: 30, r: 24, d: 1 }, { w: 35, s: 25, r: 15, d: 2 }, { w: 30, s: 20, r: 9, d: 4 }, { w: 25, s: 18, r: 4, d: 7 }, { w: 20, s: 15, r: 0, d: 10 }];
   M.R_BUS_MS = 17000;
+  // vehicles: hp, speed multiplier, ram damage, hit radius; tanks have a cannon the driver fires by clicking
+  M.RVEH = {
+    jeep: { n: 'Jeep', hp: 320, sp: 2.3, ram: 30, r: 30, icon: '🚙' },
+    car: { n: 'Sports Car', hp: 200, sp: 2.9, ram: 24, r: 28, icon: '🏎️' },
+    tank: { n: 'Tank', hp: 950, sp: 1.3, ram: 50, r: 36, icon: '🛡️', gun: { dmg: 75, blast: 115, cd: 1400, sp: 900 } },
+  };
+  M.RVEH_KEYS = ['jeep', 'car', 'tank'];
   // older code paths still look these up
   M.RARITY = M.RRAR.map(function (r) { return { n: r.n, c: r.c, m: r.dm }; });
   M.GUNS = {}; M.GUN_ORDER = [];
@@ -477,7 +484,7 @@
     cluster(['tree', 'pine', 'bush', 'rock'], 6, 6, 66, 66, 70);           // everywhere
     // loot spots outside too
     for (var lk = 0; lk < 40; lk++) { var lx = 6 + ((r() * 60) | 0), ly = 6 + ((r() * 60) | 0), li = ly * W + lx; if (okG(lx, ly) && !m.obj[li] && !m.w[li]) m.lootSpots.push(li); }
-    [[35, 30], [22, 36], [50, 50], [36, 56], [50, 26]].forEach(function (p) { var vi = p[1] * W + p[0]; if (okG(p[0], p[1])) m.vehSpots.push(vi); });
+    [[35, 30], [22, 36], [50, 50], [36, 56], [50, 26], [14, 21], [57, 51], [30, 36]].forEach(function (p) { var vi = p[1] * W + p[0]; if (okG(p[0], p[1])) m.vehSpots.push(vi); });
     for (i = 0; i < N; i++) { m.noBuild[i] = 1; m.noMine[i] = 1; }
     var c0 = { x: tcx(35.5), y: tcx(35.5) };
     m.bases = []; for (var t2 = 0; t2 < 8; t2++) m.bases.push({ team: t2, cx: 35, cy: 35, spawn: c0, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] });

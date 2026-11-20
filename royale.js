@@ -57,7 +57,8 @@ export function start(r, addBot) {
   // floor loot
   for (const i of m.lootSpots) { if (rnd() < 0.82) { const p = tcen(i); floorLoot(r, p.x + (rnd() - 0.5) * 14, p.y + (rnd() - 0.5) * 14); } }
   // jeeps
-  m.vehSpots.slice(0, 4).forEach((i, k) => { const p = tcen(i); rg.veh.push({ id: k + 1, x: p.x, y: p.y, ang: rnd() * 6.28, hp: 320, driver: 0, vx: 0, vy: 0 }); });
+  const VK = ['tank', 'jeep', 'car', 'jeep', 'car', 'tank', 'car', 'jeep'];
+  m.vehSpots.slice(0, 8).forEach((i, k) => { const p = tcen(i), kind = VK[k % VK.length]; rg.veh.push({ id: k + 1, kind, x: p.x, y: p.y, ang: rnd() * 6.28, tur: 0, hp: MG.RVEH[kind].hp, driver: 0, vx: 0, vy: 0, cd: 0 }); });
   rg.quiet = false;
   planZone(r);
   for (const e of r.ents.values()) {
@@ -192,11 +193,12 @@ function hurtWall(r, i, dmg) {
   if (hp > 0) { r.rg.whp.set(i, hp); r.ev(['rw', i, Math.round(hp)]); return; }
   r.rg.whp.delete(i); A.setTile(r, i, 0, 0, 0, 0);
 }
+const VD = (v) => MG.RVEH[v.kind] || MG.RVEH.jeep;
 function hurtVeh(r, v, dmg, by) {
   if (v.hp <= 0) return; v.hp -= dmg; r.ev(['rvh', v.id, Math.max(0, Math.round(v.hp))]);
   if (v.hp <= 0) {
     const d = v.driver && r.ents.get(v.driver); if (d) exitVeh(r, d, true);
-    setTimeout(() => { if (r.state === 'play') explode(r, v.x, v.y, 120, 70, by, 'jeep'); }, 60);
+    setTimeout(() => { if (r.state === 'play') explode(r, v.x, v.y, v.kind === 'tank' ? 150 : 120, v.kind === 'tank' ? 90 : 70, by, 'jeep'); }, 60);
     r.rg.veh = r.rg.veh.filter((q) => q !== v); r.ev(['rvx', v.id]);
   }
 }
@@ -216,7 +218,7 @@ function explode(r, x, y, rad, dmg, owner, kind) {
     if (r.map.obj[i] === 9) { const o = MG.rObjAt(r.map, i); if (o) hurtObj(r, o, dmg * 2.2 * f, owner); }
     else if (r.map.w[i]) hurtWall(r, i, dmg * 2.4 * f);
   }
-  for (const v of r.rg.veh.slice()) { const d = Math.hypot(v.x - x, v.y - y); if (d < rad + VR) hurtVeh(r, v, dmg * 1.5 * (1 - 0.5 * Math.min(1, d / rad)), owner); }
+  for (const v of r.rg.veh.slice()) { const d = Math.hypot(v.x - x, v.y - y); if (d < rad + VD(v).r) hurtVeh(r, v, dmg * 1.5 * (1 - 0.5 * Math.min(1, d / rad)), owner); }
 }
 function losClear(m, x0, y0, x1, y1) {
   const d = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(d / 14);
@@ -249,13 +251,13 @@ function castRay(r, e, x0, y0, ang, range) {
   for (const v of r.rg.veh) {
     if (e.rs.veh === v.id) continue;
     const px = v.x - x0, py = v.y - 10 - y0, t = px * dx + py * dy; if (t < 0 || t > bestD) continue;
-    if (Math.abs(px * dy - py * dx) < VR) { bestVeh = v; best = null; bestD = t; }
+    if (Math.abs(px * dy - py * dx) < VD(v).r) { bestVeh = v; best = null; bestD = t; }
   }
   return { d: bestD, ent: best, veh: bestVeh, tile: best || bestVeh ? -1 : hitTile };
 }
 function fire(r, e, ang, now) {
   const rs = e.rs; if (rs.st !== 'ground' || now < r.goAt) return false;
-  if (rs.veh) return false;
+  if (rs.veh) return tankFire(r, e, ang, now);
   const it = rs.sel >= 0 ? rs.slots[rs.sel] : null;
   if (!it) return melee(r, e, ang, now);
   const w = RW()[it.k];
@@ -355,9 +357,9 @@ function tickProj(r, now, DT) {
         boom = true; break;
       }
       p.x = nx; p.y = ny;
-      if (p.k === 'rocket') {
+      if (p.k === 'rocket' || p.k === 'shell') {
         for (const v of r.ents.values()) { if (v.id === p.owner || v.dead || v.elim || !v.rs || v.rs.st !== 'ground') continue; if (Math.hypot(v.x - p.x, v.y - 16 - p.y) < PR + 4) { boom = true; break; } }
-        for (const v of r.rg.veh) if (Math.hypot(v.x - p.x, v.y - 10 - p.y) < VR) boom = true;
+        for (const v of r.rg.veh) if (v.id !== p.veh && Math.hypot(v.x - p.x, v.y - 10 - p.y) < VD(v).r) boom = true;
       }
     }
     if (p.bounce) { const f = Math.exp(-2.2 * DT); p.vx *= f; p.vy *= f; }
@@ -367,9 +369,15 @@ function tickProj(r, now, DT) {
 }
 
 // ============================================================ vehicles
+function tankFire(r, e, ang, now) {
+  const v = r.rg.veh.find((q) => q.id === e.rs.veh); if (!v || v.kind !== 'tank' || now < v.cd) return false;
+  const g = MG.RVEH.tank.gun; v.cd = now + g.cd; v.tur = ang;
+  r.rg.pj.push({ id: ++r.rg.pjSeq, k: 'shell', x: v.x + Math.cos(ang) * 46, y: v.y - 14 + Math.sin(ang) * 46, vx: Math.cos(ang) * g.sp, vy: Math.sin(ang) * g.sp, owner: e.id, veh: v.id, life: 1.4, dmg: g.dmg, blast: g.blast });
+  r.ev(['rtf', v.id, Math.round(ang * 100)]); return true;
+}
 function enterVeh(r, e, v) {
   if (v.driver || e.rs.veh) return false;
-  v.driver = e.id; e.rs.veh = v.id; e.rs.use = null; e.rs.rlEnd = 0; e.x = v.x; e.y = v.y; e.rgMul = 2.3; e.rgDirty = true;
+  v.driver = e.id; e.rs.veh = v.id; e.rs.use = null; e.rs.rlEnd = 0; e.x = v.x; e.y = v.y; e.rgMul = VD(v).sp; e.rgDirty = true;
   if (e.conn) A.send(e.conn, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) });
   r.ev(['rve', v.id, e.id]); return true;
 }
@@ -386,11 +394,12 @@ function tickVeh(r, now, DT) {
     if (!d || d.dead || d.elim) { if (v.driver) { v.driver = 0; r.ev(['rve', v.id, 0]); } continue; }
     const dx = d.x - v.x, dy = d.y - v.y, sp = Math.hypot(dx, dy) / DT;
     if (Math.hypot(dx, dy) > 0.5) v.ang = Math.atan2(dy, dx);
-    v.x = d.x; v.y = d.y; v.sp = sp;
-    if (sp > 260) for (const o of r.ents.values()) { // run people over
+    v.x = d.x; v.y = d.y; v.sp = sp; v.tur = d.ang || v.tur;
+    if (v.kind === 'tank' && sp > 60) { const ti = tileOf(v.x + Math.cos(v.ang) * 40, v.y + Math.sin(v.ang) * 40); if (r.map.obj[ti] === 9) { const o = MG.rObjAt(r.map, ti); if (o) hurtObj(r, o, 400, d.id); } }
+    if (sp > (v.kind === 'tank' ? 100 : 260)) for (const o of r.ents.values()) { // run people over
       if (o === d || o.dead || o.elim || !o.rs || o.rs.st !== 'ground' || o.rs.veh) continue;
-      if (Math.hypot(o.x - v.x, o.y - v.y) < VR + PR - 4 && now - (v.hitAt && v.hitAt[o.id] || 0) > 700) {
-        (v.hitAt || (v.hitAt = {}))[o.id] = now; hurt(r, o, 30, d, 'jeep');
+      if (Math.hypot(o.x - v.x, o.y - v.y) < VD(v).r + PR - 4 && now - (v.hitAt && v.hitAt[o.id] || 0) > 700) {
+        (v.hitAt || (v.hitAt = {}))[o.id] = now; hurt(r, o, VD(v).ram, d, 'jeep');
         o.vx += Math.cos(v.ang) * 420; o.vy += Math.sin(v.ang) * 420; o.kbBudget += 300;
         if (o.conn) A.send(o.conn, { t: 'kb', vx: Math.round(Math.cos(v.ang) * 420), vy: Math.round(Math.sin(v.ang) * 420) });
       }
@@ -532,7 +541,7 @@ export function state(r, e) {
       bus: rg.bus, zn: zoneMsg(r), chests: rg.chests.map((c) => [c.id, Math.round(c.x), Math.round(c.y), c.open ? 1 : 0]),
       loot: [...rg.loot.values()].map((o) => [o.id, o.x, o.y, o.k, o.r, o.n, o.a]),
       dead: [...rg.dead], hp: [...rg.objHp.entries()].map(([id, hp]) => [id, Math.round(hp)]), whp: [...rg.whp.entries()],
-      veh: rg.veh.map((v) => [v.id, Math.round(v.x), Math.round(v.y), Math.round(v.ang * 100), v.driver, Math.round(v.hp)]),
+      veh: rg.veh.map((v) => [v.id, Math.round(v.x), Math.round(v.y), Math.round(v.ang * 100), v.driver, Math.round(v.hp), v.kind, Math.round((v.tur || 0) * 100)]),
       me: e && e.rs ? meMsg(r, e) : null, total: r.ents.size,
     },
   };
@@ -546,7 +555,7 @@ export function snapExtra(r, msg, now) {
   const rg = r.rg;
   if (rg.znDirty || now - (rg.znAt || 0) > 1000) { rg.znDirty = false; rg.znAt = now; msg.zn = zoneMsg(r); }
   if (rg.pj.length) msg.rpj = rg.pj.map((p) => [p.id, p.k, Math.round(p.x), Math.round(p.y)]);
-  if (rg.veh.length && (now - (rg.vAt || 0) > 250 || rg.veh.some((v) => v.driver))) { rg.vAt = now; msg.rv = rg.veh.map((v) => [v.id, Math.round(v.x), Math.round(v.y), Math.round(v.ang * 100), v.driver]); }
+  if (rg.veh.length && (now - (rg.vAt || 0) > 250 || rg.veh.some((v) => v.driver))) { rg.vAt = now; msg.rv = rg.veh.map((v) => [v.id, Math.round(v.x), Math.round(v.y), Math.round(v.ang * 100), v.driver, v.kind, Math.round((v.tur || 0) * 100)]); }
 }
 
 // ============================================================ death / end

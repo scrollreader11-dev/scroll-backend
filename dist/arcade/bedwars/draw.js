@@ -475,7 +475,7 @@
       c.strokeStyle = '#eee'; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-2 + Math.cos(-1.15) * 15, Math.sin(-1.15) * 15); c.lineTo(sx - 4, 0); c.lineTo(-2 + Math.cos(1.15) * 15, Math.sin(1.15) * 15); c.stroke();
       if (draw > 0) { c.strokeStyle = OL; c.lineWidth = 3.5; c.beginPath(); c.moveTo(sx - 4, 0); c.lineTo(sx + 20, 0); c.stroke(); c.strokeStyle = '#c99a5b'; c.lineWidth = 1.6; c.stroke(); c.beginPath(); c.moveTo(sx + 24, 0); c.lineTo(sx + 18, -3); c.lineTo(sx + 18, 3); c.closePath(); fs(c, '#cfd6e4', OL, 1.4); }
     } else if (GUN_LEN[it]) {
-      c.rotate(a); c.translate(10, 0); if (Math.cos(a) < 0) c.scale(1, -1); gunShape(c, it, 1, (D.gunCol && D.gunCol(e)) || '#b0b6bd');
+      c.rotate(a); c.translate(10, 0); if (Math.cos(a) < 0) c.scale(1, -1); if (window.RG && RG.active && RG.active() && RG.gunArt) { c.scale(0.44, 0.44); c.translate(14, 0); RG.gunArt(c, it, (D.gunCol && D.gunCol(e)) || '#b0b6bd'); } else gunShape(c, it, 1, (D.gunCol && D.gunCol(e)) || '#b0b6bd');
     } else if (it === 'pickaxe') {
       var sw2 = e.swingT != null ? D.ease.out(Math.min(1, e.swingT / 0.17)) : 1, rot2 = e.swingT != null && e.swingT < 0.3 ? a - 1.2 + 2.4 * sw2 : a + 0.4;
       c.rotate(rot2 + Math.PI / 2); c.translate(0, -4); pickaxe(c, 0.9, '#b8c2d6');
