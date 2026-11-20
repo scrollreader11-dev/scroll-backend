@@ -150,7 +150,7 @@ function newCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c; do { c
 function makeRoom(kind, mode, diff, host, game) {
   game = MG.isMini(game) ? game : 'bw';
   const r = { id: nextRoom++, mapId: null, game, kind, mode: game !== 'bw' ? game : BW.MODES[mode] ? mode : 'solo', diff: SK[diff] ? diff : 'normal', code: kind === 'private' ? newCode() : '', host: host || '', state: 'lobby', members: [], startAt: 0, created: Date.now() };
-  const sc = schoolCfg(); if (sc) { r.school = true; r.qset = sc.set || 'blooket'; }
+  const sc = schoolCfg(); if (sc) { r.school = true; r.qset = sc.set || 'blooket'; r.quiz = sc.quiz !== false; }
   r.space = makeSpace('wait', r);
   rooms.set(r.id, r); if (r.code) codes.set(r.code, r);
   return r;
@@ -380,7 +380,7 @@ function emptyInv() { return { kbstick: 0, wool: 0, wood: 0, end: 0, obby: 0, bo
 function makeEnt(r, o) {
   const b = r.map.bases[o.team % r.map.bases.length];
   const e = {
-    quiz: !!r.school && !o.bot, energy: r.game === 'murder' ? 60 : 100, qz: { right: 0, wrong: 0, streak: 0, best: 0 }, qs: {}, qLock: 0,
+    quiz: !!r.quiz && !o.bot, energy: r.game === 'murder' ? 60 : 100, qz: { right: 0, wrong: 0, streak: 0, best: 0 }, qs: {}, qLock: 0,
     id: nextEnt++, cid: o.cid || '', nick: o.nick, look: o.look, team: o.team, bot: !!o.bot, conn: o.conn || null, ctl: o.bot ? 'ai' : 'human',
     x: b.spawn.x + (rnd() - 0.5) * 30, y: b.spawn.y + (rnd() - 0.5) * 20, vx: 0, vy: 0, ang: Math.atan2(b.inward[1], b.inward[0]), mv: false,
     hp: BW.MAX_HP, absorb: 0, dead: false, elim: false, respawnAt: 0, fall: 0,
@@ -473,29 +473,6 @@ function quizMsg(r, e, c, m, now) {
   classRecord(e.cid, e.nick, ok, r.qset, cur.i);
   send(c, { t: 'qr', ok, ans: cur.ans, gain, en: Math.ceil(e.energy), qz: e.qz });
 }
-function hubQuiz(c, m, now) {
-  const sc = schoolCfg(); if (!sc || c.spectator) return;
-  const set = sc.set || 'blooket';
-  const h = c.hq || (c.hq = { qs: {}, qz: { right: 0, wrong: 0, streak: 0, best: 0 } });
-  if (m.t === 'qz') {
-    if (h.qs.cur && !h.qs.cur.done && now - h.qs.cur.at < 400) return;
-    const q = nextQuestion(h.qs, set);
-    return send(c, { t: 'qz', q: q.q, choices: q.choices, set: (QSETS[set] || QSETS.blooket).name, en: -1, qz: h.qz, hub: 1 });
-  }
-  const cur = h.qs.cur; if (!cur || cur.done) return;
-  if (now - cur.at < 150) return send(c, { t: 'qr', retry: 1 });
-  cur.done = true;
-  const ok = (m.i | 0) === cur.ans; let gain = null;
-  if (ok) {
-    h.qz.right++; h.qz.streak++; h.qz.best = Math.max(h.qz.best, h.qz.streak);
-    const coins = 10 + Math.min(40, (h.qz.streak - 1) * 5); // streaks pay more
-    if (c.cid) { try { grantCoins(c.cid, coins); } catch (e) {} }
-    gain = { coins };
-  } else { h.qz.wrong++; h.qz.streak = 0; }
-  GMS.recordQuiz(c.cid, c.nick, ok, h.qz.streak);
-  classRecord(c.cid, c.nick, ok, set, cur.i);
-  send(c, { t: 'qr', ok, ans: cur.ans, gain, en: -1, qz: h.qz, hub: 1 });
-}
 function quizBoard(r) {
   return [...r.ents.values()].filter((e) => e.quiz).map((e) => ({ nick: e.nick, team: e.team, right: e.qz.right, wrong: e.qz.wrong, best: e.qz.best })).sort((a, b) => b.right - a.right).slice(0, 30);
 }
@@ -579,8 +556,10 @@ setInterval(() => { // live vote counts + School Mode timer
   if (CLASS.vote) voteBroadcast();
   const sc = schoolCfg();
   const ss = seasonCfg(); if (ss !== CLASS.lastSeason) { const first = CLASS.lastSeason === undefined; CLASS.lastSeason = ss; if (!first) for (const c of conns) send(c, { t: 'season', v: ss }); }
+  const qOn = !!(sc && sc.quiz !== false);
+  if (qOn !== CLASS.lastQuiz) { const first = CLASS.lastQuiz === undefined; CLASS.lastQuiz = qOn; if (!first) for (const r of rooms.values()) if (r.school) { r.quiz = qOn; if (r.ents) for (const e of r.ents.values()) if (!e.bot) { e.quiz = qOn; if (qOn && !(e.energy > 0)) e.energy = 100; e.dirty = true; } } }
   const gam = !!(sc && sc.gamble);
-  if (!!sc !== CLASS.lastSchool || gam !== CLASS.lastGamble) { CLASS.lastSchool = !!sc; CLASS.lastGamble = gam; for (const c of conns) send(c, { t: 'school', on: !!sc, gamble: gam }); }
+  if (!!sc !== CLASS.lastSchool || gam !== CLASS.lastGamble || qOn !== CLASS.lastQz) { CLASS.lastSchool = !!sc; CLASS.lastGamble = gam; CLASS.lastQz = qOn; for (const c of conns) send(c, { t: 'school', on: !!sc, gamble: gam, quiz: qOn }); }
   if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('🏫 School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: '🏫 Class time is over — School Mode is off!' }); }
 }, 1000);
 function teamsInfo(r) {
@@ -840,7 +819,7 @@ function endMatch(r, winner) {
   const mult = r.kind === 'public' ? 1 : 0.5;
   const extra = r.game !== 'bw' ? MINI.endInfo(r) : {};
   if (r.game === 'duel' && r.kind !== 'practice') extra.elo = GMS.duelElo(r, winner);
-  if (r.school) extra.quiz = quizBoard(r);
+  if (r.quiz) extra.quiz = quizBoard(r);
   for (const e of r.ents.values()) {
     if (e.bot || !e.cid) continue;
     const win = r.game !== 'bw' ? MINI.isWinner(r, e, winner) : e.team === winner;
@@ -1035,7 +1014,7 @@ function moveToward(r, e, x, y, dt, slow) {
   return d;
 }
 function aiTick(r, e, now) {
-  if (r.school && r.game === 'bw' && !e.dead) { // School Mode: generators are off, so bots "answer questions" like a student would
+  if (r.quiz && r.game === 'bw' && !e.dead) { // School Mode: generators are off, so bots "answer questions" like a student would
     const ai0 = e.ai; if (!ai0.qAt) ai0.qAt = now + 2000 + rnd() * 3000;
     if (now >= ai0.qAt && now >= r.goAt) {
       ai0.qAt = now + 4500 + rnd() * 4000;
@@ -1174,7 +1153,7 @@ function tickRoom(r, now) {
       if (g.kind === 'em') { if (tm.up.forge < 3) continue; every = 45; }
       else every = BW.GEN[g.kind].every / BW.GEN.forgeMult[tm.up.forge];
     } else every = BW.GEN[g.kind].every[r.tier[g.kind]];
-    if (r.school) { g.acc = 0; continue; } // School mode: resources come from answering questions
+    if (r.quiz) { g.acc = 0; continue; } // School mode with questions on: resources come from answering questions
     if (g.n >= BW.GEN[g.kind].cap) { g.acc = 0; continue; }
     g.acc += DT;
     if (g.acc >= every) { g.acc -= every; g.n++; g.last = now; r.ev(['gen', gi, g.n, Math.round(every * 10)]); }
@@ -1333,7 +1312,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     conns.add(c);
     for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), gamble: !!(schoolCfg() && schoolCfg().gamble), season: seasonCfg() });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), gamble: !!(schoolCfg() && schoolCfg().gamble), squiz: !!(schoolCfg() && schoolCfg().quiz !== false), season: seasonCfg() });
     setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
@@ -1400,8 +1379,6 @@ function onMsg(c, m, now) {
   if (t === 'leave' || t === 'hub') { if (c.room) leaveRoom(c); else goHub(c); return; }
   if (t === 'look') { c.look = worldLook(c.cid); if (c.space && !c.spectator) c.space.events.push(['pj', c.pid, c.nick, c.look, Math.round(c.sx), Math.round(c.sy), spaceTeam(c)]); send(c, { t: 'mylook', look: c.look }); return; }
   if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || t === 'lb2' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
-  // School Mode: students waiting in the hub answer questions too (earns Scrolls + counts in the class stats)
-  if ((t === 'qz' || t === 'qa') && (!r || r.state !== 'play')) return hubQuiz(c, m, now);
   if (!r) return;
   if (r.state === 'lobby') {
     if (t === 'team' && r.kind === 'private' && r.game !== 'hide') {
@@ -1625,6 +1602,7 @@ function adminMsg(c, m, now) {
   if (a === 'vote') { if (m.op === 'stop') { endVote(false); return send(c, { t: 'admres', ok: true, msg: 'Vote ended early' }); } if (m.op === 'cancel') { endVote(true); return send(c, { t: 'admres', ok: true, msg: 'Vote cancelled' }); } startVote(c, Math.max(10, Math.min(60, m.sec | 0 || 20))); return send(c, { t: 'admres', ok: true, msg: 'Game vote started 🗳️' }); }
   if (a === 'schooltimer') { const mins = Math.max(0, Math.min(240, Number(m.mins) || 0)); if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(mins > 0 ? true : undefined, null, mins > 0 ? Date.now() + mins * 60000 : 0); if (mins > 0) classReset(); return send(c, { t: 'admres', ok: true, msg: mins > 0 ? '🏫 School mode ON for ' + mins + ' min' : 'Timer cleared' }); }
   if (a === 'season') { const sv = typeof m.v === 'string' && ['', 'xmas', 'halloween', 'thanksgiving', 'newyear', 'valentines', 'stpatricks', 'easter', 'july4', 'summer'].includes(m.v) ? m.v : (m.v ? 'xmas' : ''); if (globalThis.SH_SET_SEASON) globalThis.SH_SET_SEASON(sv); GMS.log('🎉 ' + c.nick + ' set holiday decorations: ' + (sv || 'off')); return send(c, { t: 'admres', ok: true, msg: sv ? '🎉 Holiday: ' + sv : 'Holiday decorations off' }); }
+  if (a === 'squiz') { if (globalThis.SH_SET_SQUIZ) globalThis.SH_SET_SQUIZ(!!m.v); GMS.log('📝 ' + c.nick + ' turned School Mode questions ' + (m.v ? 'ON' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: m.v ? '📝 Questions ON' : '📝 Questions OFF — School Mode stays locked' }); }
   if (a === 'gamble') { if (globalThis.SH_SET_GAMBLE) globalThis.SH_SET_GAMBLE(!!m.v); GMS.log('🎰 ' + c.nick + ' ' + (m.v ? 'unlocked' : 'locked') + ' the casino for School Mode'); return send(c, { t: 'admres', ok: true, msg: m.v ? '🎰 Casino unlocked for School Mode' : '🔒 Casino locked again' }); }
   if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('🏫 ' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
   if (a === 'announce') {

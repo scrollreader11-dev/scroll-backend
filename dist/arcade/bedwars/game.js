@@ -103,7 +103,7 @@
     if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
     if (t === 'vote') { onVote(m); return; }
     if (t === 'season') { applySeason(m.v); var se2 = B.SEASONS[S.season]; if (S.screen === 'hub') toast(se2 ? se2.emoji + ' Happy ' + se2.name + '! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
-    if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? '🎰 The casino is OPEN! Walk through the casino portal to gamble & play.' : '🔒 The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
+    if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; var qWas = S.squiz; S.squiz = m.quiz !== false; if (S.school === !!m.on && gWas === S.gamble && qWas !== S.squiz) { if (S.screen === 'game' && !S.squiz) closeQuiz(true); quizHud(); if (S.owner) { try { renderAdmin(); } catch (e2) {} } return; } if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? '🎰 The casino is OPEN! Walk through the casino portal to gamble & play.' : '🔒 The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
     if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if (t === 's') return onSnap(m);
@@ -114,7 +114,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; S.squiz = m.squiz !== false; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -1968,11 +1968,9 @@
   var QCOLS = ['#f0a531', '#4d7cff', '#5dcc6b', '#e8473b'];
   function quizHud() {
     if ($('schoolTag')) $('schoolTag').classList.toggle('hidden', !S.school || S.screen === 'game');
-    var hubQ = S.school && S.screen === 'hub' && !S.owner && !S.teacher; // School Mode: questions in the hub too
-    var on = (S.screen === 'game' && S.en >= 0) || hubQ;
+    var on = S.screen === 'game' && S.en >= 0;
     $('qHud').classList.toggle('hidden', !on);
     if (!on) return;
-    if (hubQ) { $('qBar').style.width = '100%'; $('qBar').style.background = '#ffd166'; $('qEn').textContent = '📜 Earn Scrolls'; $('qHud').classList.remove('empty'); var hz = S.hqz || {}; $('qSt').textContent = '✅ ' + (hz.right || 0) + (hz.streak ? '  🔥 ' + hz.streak : ''); return; }
     var pct = Math.max(0, Math.min(100, S.en));
     $('qBar').style.width = pct + '%';
     $('qBar').style.background = S.en <= 15 ? '#ff4b5c' : S.en <= 40 ? '#ffd166' : '#2bd576';
@@ -1980,7 +1978,7 @@
     $('qHud').classList.toggle('empty', S.en === 0);
     var z = S.qz || {}; $('qSt').textContent = '✅ ' + (z.right || 0) + (z.streak ? '  🔥 ' + z.streak : '');
   }
-  function quizAllowed() { return S.en >= 0 || (S.school && S.screen === 'hub' && !S.owner && !S.teacher); }
+  function quizAllowed() { return S.en >= 0; }
   function openQuiz() {
     if (!quizAllowed() || S.quizOpen) return;
     S.quizOpen = true; keys = {}; mouse.l = mouse.r = false;
@@ -2028,24 +2026,7 @@
     var wait = (m.ok ? 700 : 1700) + Math.random() * 900;
     clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.quizOpen) send({ t: 'qz' }); }, wait);
   }
-  $('qClose').onclick = function () { closeQuiz(); S.qAutoAt = now() + 45000; };
-  // School Mode: questions come to the students. In the hub after a few seconds (and again ~45s after closing);
-  // in a match at the start and whenever energy runs low.
-  setInterval(function () {
-    if (!S.school || S.owner || S.teacher || S.quizOpen || document.hidden) return;
-    if ($('quiz') && !$('quiz').classList.contains('hidden')) return;
-    var t0 = now(), anyModal = document.querySelector('.modal:not(.hidden)');
-    if (anyModal) return;
-    if (S.screen === 'hub') {
-      if (!S.qAutoAt) S.qAutoAt = t0 + 5000;
-      if (t0 >= S.qAutoAt) { S.qAutoAt = t0 + 45000; openQuiz(); }
-    } else if (S.screen === 'game' && S.en >= 0 && !S.dead && !S.replay) {
-      if (!S.qGameAt) S.qGameAt = t0 + 3500;
-      var low = S.en <= 20 && t0 - (S.qLowAt || 0) > 15000;
-      if (t0 >= S.qGameAt && !S.qFirstDone) { S.qFirstDone = true; openQuiz(); }
-      else if (low) { S.qLowAt = t0; openQuiz(); }
-    } else { S.qGameAt = 0; S.qFirstDone = false; }
-  }, 700);
+  $('qClose').onclick = function () { closeQuiz(); };
   $('qOpen').onclick = function () { openQuiz(); };
 
 
@@ -2293,6 +2274,7 @@
         '<div class="admrow"><span class="lbl" style="min-width:150px">🤖 Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('💾 Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
       var sc = d.school;
       html += '<div class="admcard"><div class="admhead">🏫 School mode ' + (sc ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (sc ? ab('Turn school mode off', { act: 'school', on: 0 }, 'red', true) : ab('🏫 Turn school mode on', { act: 'school', on: 1 }, 'green', true)) + '</div><div class="admrow"><span class="lbl">Questions:</span>' + [['blooket', 'Class Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9+10']].map(function (q) { return ab(q[1], { act: 'school', v: q[0] }, sc && sc.set === q[0] ? 'gold' : ''); }).join('') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Site goes to the games hub only · 30 players per game · walking uses ⚡ energy, answers refill it · Bedwars resources come from answers.</div></div>';
+      html += '<div class="admcard"><div class="admhead">📝 School questions ' + (S.squiz !== false ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.squiz !== false ? ab('Turn questions off', { act: 'squiz', v: 0 }, 'red') : ab('📝 Turn questions on', { act: 'squiz', v: 1 }, 'green')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Off = School Mode stays locked (portals, games, sites) but there are no questions or energy, and Bedwars generators work normally.</div></div>';
       html += '<div class="admcard"><div class="admhead">🎰 Gamble switch ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('🔒 Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('🎰 Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">During School Mode, opens the casino too — students walk between the games hub and the casino through the portals.</div></div>';
       html += '<div class="admcard"><div class="admhead">🎉 Holiday decorations ' + (B.SEASONS[S.season] ? '<span class="tag2" style="background:#2bd576;color:#05240f">' + B.SEASONS[S.season].emoji + ' ' + B.SEASONS[S.season].name + '</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow" style="flex-wrap:wrap">' + B.SEASON_ORDER.map(function (id) { var se3 = B.SEASONS[id]; return ab(se3.emoji + ' ' + se3.name, { act: 'season', v: id }, S.season === id ? 'green' : ''); }).join('') + ab('Off', { act: 'season', v: '' }, !S.season ? 'red' : '') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Decorations, falling effects, string lights, a default hat and (for some) special music.</div></div>';
       html += '<div class="admcard"><div class="admhead">⏹️ Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
@@ -2307,6 +2289,7 @@
       else {
         var sc2 = d.school, left = cl.until ? Math.max(0, Math.ceil((cl.until - Date.now()) / 60000)) : 0;
         html += '<div class="admcard"><div class="admhead">🏫 School Mode ' + (sc2 ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON' + (left ? ' · ' + left + ' min left' : '') + '</span>' : '<span class="tag2">Off</span>') + '</div>' + (S.owner ? '<div class="admrow"><span class="lbl">Turn on for a class period:</span>' + [30, 45, 50, 60, 90].map(function (mn) { return ab(mn + ' min', { act: 'schooltimer', mins: mn }, 'green'); }).join('') + (sc2 ? ab('Turn off now', { act: 'school', on: 0 }, 'red', true) : '') + (cl.until ? ab('No timer', { act: 'schooltimer', mins: 0 }) : '') + '</div>' : '') + '</div>';
+        if (S.owner && sc2) html += '<div class="admcard"><div class="admhead">📝 Questions ' + (S.squiz !== false ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.squiz !== false ? ab('Turn questions off', { act: 'squiz', v: 0 }, 'red') : ab('📝 Turn questions on', { act: 'squiz', v: 1 }, 'green')) + '<span style="color:var(--mut);font-size:12px">School Mode stays locked either way.</span></div></div>';
         if (S.owner && sc2) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">🎰 Gamble ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('🔒 Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('🎰 Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '<span style="color:var(--mut);font-size:12px">Students can walk between the games hub and the casino through the portals.</span></div></div>';
         var vt = cl.vote;
         if (S.owner && cl.tkey) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">🔗 Teacher link <span style="color:var(--mut);font-weight:600;font-size:12px">only you can see this — send it to the teacher privately</span></div><div class="admrow"><input class="admin-in" id="tLink" readonly value="' + esc(location.origin + '/teacher/' + cl.tkey) + '" style="flex:1;min-width:0">' + ab('📋 Copy', { act: 'tcopy' }, 'gold') + ab('🔄 New link', { act: 'newteacher' }, 'red', true) + '</div></div>';
