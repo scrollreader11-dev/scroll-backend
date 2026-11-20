@@ -72,7 +72,6 @@
         if (!g || !g.label || typeof g.url !== 'string' || g.url.charAt(0) !== '/') return;
         if (/^see all/i.test(g.label) || /request games/i.test(g.label)) return;
         var cs = (g.categories || []).map(function (c) { return String(c).toLowerCase(); });
-        if (cs.indexOf('18+') >= 0 || cs.indexOf('gore') >= 0) return;
         var base = 'w-' + Hub.slug(Hub.clean(g.label) || g.label), id = base, n = 2; if (!base || base === 'w-') return;
         while (seen[id]) id = base + '-' + (n++); seen[id] = 1;
         out.push(webGame(g, id));

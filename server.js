@@ -1978,6 +1978,11 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/casino/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if ((url.split('?')[0] === '/' || url.split('?')[0] === '/index.html') && !/[?&]classic=1/.test(req.url)) {
+    res.setHeader('Cache-Control', 'no-cache');
+    req.url = '/hub/index.html';
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
   if (url === '/hub' || url === '/hub/') {
     req.url = '/hub/index.html' + (parsed.search || '');
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
