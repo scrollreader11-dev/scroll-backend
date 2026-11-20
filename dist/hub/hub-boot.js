@@ -281,12 +281,49 @@
     send.addEventListener('click', function () { if (ta.value.trim().length < 4) { Hub.toast('Write a little more first', { bad: true }); return; } send.disabled = true; Hub.api('/api/hub/feedback', { body: { text: ta.value, kind: kind } }).then(function (r) { send.disabled = false; if (r && r.ok) { Hub.toast('Thanks, we got it', { icon: 'send' }); m.close(); } else Hub.toast((r && r.message) || 'Could not send right now', { bad: true }); }); });
   };
 
+
+  // ---------- per-game loading screen ----------
+  // Progress is driven from script (width, percent text, status text), so it still reads correctly on
+  // devices or settings where CSS animation is off; the CSS motion on top is decoration only.
+  function buildLoader(g) {
+    var art = g.art && String(g.art);
+    var cover = h('div', { class: 'pl-cover' });
+    if (art) { var im = new Image(); im.alt = ''; im.decoding = 'async'; im.onerror = function () { cover.classList.add('noart'); cover.textContent = (g.title || '?').charAt(0).toUpperCase(); }; im.src = art; cover.appendChild(im); }
+    else { cover.classList.add('noart'); cover.textContent = (g.title || '?').charAt(0).toUpperCase(); }
+    var back = h('div', { class: 'pl-back' });
+    if (art) back.style.backgroundImage = 'url("' + art.replace(/"/g, '%22') + '")';
+    var pct = h('span', { class: 'pl-pct', text: '0%' }), fill = h('i'), status = h('span', { class: 'pl-status', text: 'Connecting' });
+    var meta = [g.dev, g.players && (/^[0-9]/.test(g.players) ? g.players + ' players' : g.players)].filter(Boolean).join('  /  ');
+    var tip = g.tagline || (g.cats && g.cats.length ? g.cats.slice(0, 3).join('  /  ') : '');
+    var slow = h('div', { class: 'pl-slow', hidden: '' }, [h('p', { text: 'Taking longer than usual.' }), h('div', { class: 'pl-btns' }, [
+      h('button', { type: 'button', class: 'btn primary', text: 'Show the game', onclick: function () { el.onSkip && el.onSkip(); } }),
+      h('button', { type: 'button', class: 'btn', text: 'Back', onclick: function () { el.onExit && el.onExit(); } })])]);
+    var el = h('div', { class: 'pload', role: 'status', 'aria-live': 'polite' }, [back, h('div', { class: 'pl-shade' }),
+      h('div', { class: 'pl-main' }, [
+        h('div', { class: 'pl-ringwrap' }, [cover, h('div', { class: 'pl-logo' }, [glossLogo(true)])]),
+        h('div', { class: 'pl-text' }, [
+          h('h2', { class: 'pl-title', text: g.title }),
+          meta ? h('p', { class: 'pl-meta', text: meta }) : null,
+          h('div', { class: 'pl-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' }, [fill]),
+          h('div', { class: 'pl-row' }, [status, pct]),
+          tip ? h('p', { class: 'pl-tip', text: tip }) : null, slow])])]);
+    var t0 = Date.now(), v = 0, done = false, steps = [[0, 'Connecting'], [22, 'Loading assets'], [55, 'Preparing the game'], [82, 'Almost ready']];
+    function paint() { var r = Math.round(v); fill.style.width = v + '%'; pct.textContent = r + '%'; el.setAttribute('aria-valuenow', String(r)); var s = steps[0][1]; steps.forEach(function (x) { if (v >= x[0]) s = x[1]; }); if (!done && status.textContent !== s) status.textContent = s; }
+    var iv = setInterval(function () { var e = Date.now() - t0; if (!done) { v += (93 - v) * 0.035; if (v > 93) v = 93; paint(); if (e > 12000) slow.hidden = false; } }, 90);
+    el.finish = function (force) {
+      if (done) return; done = true;
+      var wait = force ? 0 : Math.max(0, 1500 - (Date.now() - t0));
+      setTimeout(function () { fill.style.transition = 'width .35s cubic-bezier(.4,0,.2,1)'; v = 100; status.textContent = 'Ready'; paint(); clearInterval(iv); setTimeout(function () { el.classList.add("done"); setTimeout(function () { try { el.remove(); } catch (e) {} }, 750); }, 420); }, wait);
+    };
+    paint(); return el;
+  }
+
   // ---------- player ----------
   var player = null;
   Hub.play = function (g) {
     if (player) return; Hub.record(g); Hub.playing = true; document.title = 'Playing ' + g.title;
     var frame = h('iframe', { allow: 'autoplay; fullscreen; gamepad; clipboard-write; microphone; accelerometer; gyroscope', allowfullscreen: '', title: g.title, referrerpolicy: 'no-referrer-when-downgrade' });
-    var load = h('div', { class: 'pload' }, [glossLogo(true), h('p', { class: 'boot-text', style: 'margin:0;opacity:1;animation:none', text: g.title })]);
+    var load = buildLoader(g);
     var bar = h('div', { class: 'pbar' }), tab = h('button', { class: 'ptab', type: 'button', 'aria-label': 'Show game bar' }, icon('chevron-down'));
     var el = h('div', { id: 'player', role: 'dialog', 'aria-label': 'Playing ' + g.title }, [frame, load, tab, bar]), timer;
     function showBar() { bar.classList.remove('hide'); tab.classList.remove('show'); clearTimeout(timer); timer = setTimeout(hideBar, 3200); }
@@ -300,8 +337,11 @@
     if (fsOk) bar.appendChild(h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Full screen', title: 'Full screen', onclick: function () { var f = el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen(); if (f && f.catch) f.catch(function () {}); } }, icon('fullscreen')));
     bar.appendChild(h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Hide game bar', title: 'Hide bar', onclick: hideBar }, icon('chevron-up')));
     tab.addEventListener('click', showBar); document.addEventListener('keydown', onKey, true);
-    frame.addEventListener('load', function () { load.classList.add('done'); setTimeout(function () { load.remove(); }, 600); });
-    document.body.appendChild(el); frame.src = Hub.launchUrl(g); player = { close: close }; timer = setTimeout(hideBar, 3600);
+    var started = false;
+    frame.addEventListener('load', function () { if (!started) return; load.finish(); });
+    load.onSkip = function () { load.finish(true); };
+    load.onExit = close;
+    document.body.appendChild(el); frame.src = Hub.launchUrl(g); setTimeout(function () { started = true; }, 0); player = { close: close }; timer = setTimeout(hideBar, 3600);
     el.addEventListener('mousemove', function (e) { if (e.clientY < 60) showBar(); });
   };
 
