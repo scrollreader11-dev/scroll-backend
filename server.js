@@ -1978,7 +1978,7 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/casino/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
-  if ((url.split('?')[0] === '/' || url.split('?')[0] === '/index.html') && !/[?&]classic=1/.test(req.url)) {
+  if ((url.split('?')[0] === '/' || url.split('?')[0] === '/index.html')) {
     res.setHeader('Cache-Control', 'no-cache');
     req.url = '/hub/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
@@ -2265,7 +2265,7 @@ const httpServer = createServer(async (req, res) => {
 
   serve(req, res, () => {
     if (looksLikeFile(url)) return proxyUpstream(req, res);
-    req.url = '/index.html';
+    req.url = '/hub/index.html';
     serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   });
  } catch (err) {
