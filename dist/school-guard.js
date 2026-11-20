@@ -3,7 +3,7 @@
   if (window.__schoolGuard) return; window.__schoolGuard = 1;
   var p = location.pathname;
   if (/^\/(admin|calltest)/.test(p)) return;
-  var inHub = /^\/(arcade|play|bedwars)/.test(p), inCasino = /^\/casino/.test(p);
+  var inHub = /^\/(arcade|hub|play|bedwars)/.test(p), inCasino = /^\/casino/.test(p);
   function api() { try { var e = localStorage.getItem('sh_api'); if (e) return e.replace(/\/+$/, ''); } catch (x) {} return location.origin; }
   function tok() { try { return localStorage.getItem('sh_token') || ''; } catch (x) { return ''; } }
   var base = api(), top = window.top === window;

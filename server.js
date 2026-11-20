@@ -1,4 +1,5 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
+import * as nfs from 'node:fs';
 // ============================================================
 // SCROLL UNBLOCKER — all-in-one server
 // Serves the website (dist/) + Wisp proxy (same-origin) and
@@ -418,7 +419,7 @@ function location_school(req) { const proto = String(req.headers['x-forwarded-pr
 function schoolBlocked(url, req) {
   const p = url.split('?')[0];
   if (admin.settings.schoolGamble && p.startsWith('/casino')) return false; // Gamble switch: the casino opens alongside the games hub
-  if (p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars') || p.startsWith('/calltest') || p.startsWith('/bw-ws')) return false;
+  if (p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/arcade') || p.startsWith('/hub') || p === '/play' || p === '/play/' || p.startsWith('/bedwars') || p.startsWith('/calltest') || p.startsWith('/bw-ws')) return false;
   if (p === '/' || p === '/index.html' || p.startsWith('/casino') && (p === '/casino' || p === '/casino/' || p.endsWith('.html'))) return true;
   if (/\.html?$/.test(p)) return true;
   if (!/\.[a-z0-9]{1,6}$/i.test(p)) return true; // app routes like /games, /chat, /proxy
@@ -1025,6 +1026,7 @@ function titleCase(s) { return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.to
 // routed through /imgx/ so it loads on our own domain.
 const CATALOG_OVERRIDES = [
   // ── Top featured games ───────────────────────────────────────────────────
+  { label: 'PolyTrack 0.6.0', url: '/iframe.html?url=/storage/ag/originals/polytrack-0.6.0/index.html', imageUrl: '/storage/ag/originals/polytrack-0.6.0/card.jpg', categories: ['Racing', 'Single Player'] },
   { label: 'Snow Road', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clsnowroad.html', imageUrl: '/storage/images/nexora/clsnowroad.webp', categories: ['Racing'] },
   { label: 'Wrestle Bros', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clwrestlebros.html', imageUrl: '/storage/images/nexora/clwrestlebros.webp', categories: ['Fighting', 'Multiplayer'] },
   { label: 'Escape Road 2', url: '/gadget.html?url=https://cdn.jsdelivr.net/gh/nexorainteractives/Nexora-Assets@main/games/clescaperoad2.html', imageUrl: '/storage/images/nexora/clescaperoad2.webp', categories: ['Racing', 'Action'] },
@@ -1154,6 +1156,83 @@ async function buildCatalog(now) {
     else if (IMG_CDN && img.startsWith('/storage/images/')) g.imageUrl = IMG_CDN + img;
   }
   return { text: JSON.stringify(obj), source, ubg: bottomGames.length };
+}
+
+// ============================================================
+// ScrollHub Hub (the launcher at /hub): ScrollHub Originals, per-game versions and
+// update pushes. Installed games on a player's device are compared against the
+// version + build ("rev") published here, so a new deploy or a manual push shows
+// up as "Update" in everyone's library.
+// ============================================================
+const HUB_ORIGINALS = [
+  { id: 'scrollhub-royale', title: 'Scroll Royale', dev: 'ScrollHub Studios', tagline: 'Drop in. Loot up. Outlast the storm.',
+    desc: 'Jump from the battle bus onto a huge island of towns, farms and forests. Loot chests for rarity-tiered weapons, grab a jeep, a sports car or a tank, and outlast the closing storm. Up to 24 players, with bots filling empty slots.',
+    tags: ['Battle Royale', 'Multiplayer', 'Shooter'], players: '1 to 24', url: '/arcade?play=royale', entry: '/arcade/bedwars/index.html', art: '/hub/art/royale.jpg', accent: '#3b82f6' },
+  { id: 'scrollhub-bedwars', title: 'Bedwars 2D', dev: 'ScrollHub Studios', tagline: 'Guard your bed. Break theirs.',
+    desc: 'Solo, Duos and Squads on floating islands. Mine resources, buy gear and upgrades, bridge to the middle for diamonds, and keep your bed alive. Big maps, bots, and party voice chat.',
+    tags: ['Multiplayer', 'Strategy', 'Action'], players: '2 to 16', url: '/arcade?play=bw&mode=solo', entry: '/arcade/bedwars/index.html', art: '/arcade/bedwars/cover.png', accent: '#22b8cf' },
+  { id: 'scrollhub-arcade', title: 'Game Hub', dev: 'ScrollHub Studios', tagline: 'One world. Every mode.',
+    desc: 'Walk the hub world and step into a portal: Capture the Flag, TNT Spleef, Prop Hunt, Duels, Murder Mystery, Build Battle and more. Party up and your whole group comes along.',
+    tags: ['Multiplayer', 'Party', 'Action'], players: '1 to 24', url: '/arcade', entry: '/arcade/bedwars/index.html', art: '/hub/art/arcade.jpg', accent: '#6366f1' },
+  { id: 'scrollhub-ctf', title: 'Capture the Flag', dev: 'ScrollHub Studios', tagline: 'Steal their flag. Bring it home.',
+    desc: 'Two teams of four. Grab the enemy flag, carry it back to your base and score three captures before the clock runs out. Bots fill empty spots.',
+    tags: ['Multiplayer', 'Team', 'Action'], players: '2 to 8', url: '/arcade?play=ctf', entry: '/arcade/bedwars/index.html', art: '/hub/art/ctf.jpg', accent: '#3b82f6' },
+  { id: 'scrollhub-spleef', title: 'TNT Spleef', dev: 'ScrollHub Studios', tagline: 'The floor falls away.',
+    desc: 'Free for all on a floor that vanishes under your feet. Knock out the tiles around everyone else and be the last one standing.',
+    tags: ['Multiplayer', 'Party', 'Arcade'], players: '2 to 8', url: '/arcade?play=spleef', entry: '/arcade/bedwars/index.html', art: '/hub/art/spleef.jpg', accent: '#60a5fa' },
+  { id: 'scrollhub-prophunt', title: 'Prop Hunt', dev: 'ScrollHub Studios', tagline: 'Hide in plain sight.',
+    desc: 'Hiders disguise themselves as props and blend into the map. Seekers get three minutes to find them all. Switch sides every round.',
+    tags: ['Multiplayer', 'Party', 'Casual'], players: '2 to 8', url: '/arcade?play=hide', entry: '/arcade/bedwars/index.html', art: '/hub/art/hide.jpg', accent: '#38bdf8' },
+  { id: 'scrollhub-duels', title: 'Duels', dev: 'ScrollHub Studios', tagline: 'One on one. First to five.',
+    desc: 'A 1v1 sword fight on a small arena. Win five rounds before your opponent does, with ranked tracking on the leaderboard.',
+    tags: ['Multiplayer', 'Fighting', 'Action'], players: '2', url: '/arcade?play=duel', entry: '/arcade/bedwars/index.html', art: '/hub/art/duel.jpg', accent: '#2563eb' },
+  { id: 'scrollhub-murder', title: 'Murder Mystery', dev: 'ScrollHub Studios', tagline: 'Someone here is the murderer.',
+    desc: 'One player is secretly the murderer, one is the detective, everyone else is trying to survive. Work out who to trust before it is too late.',
+    tags: ['Multiplayer', 'Party', 'Strategy'], players: '2 to 8', url: '/arcade?play=murder', entry: '/arcade/bedwars/index.html', art: '/hub/art/murder.jpg', accent: '#1d4ed8' },
+  { id: 'scrollhub-build', title: 'Build Battle', dev: 'ScrollHub Studios', tagline: 'Build the theme. Win the vote.',
+    desc: 'Everyone gets the same theme and a plot of their own. Build it in 150 seconds, then the whole lobby votes on the best build.',
+    tags: ['Multiplayer', 'Creative', 'Casual'], players: '2 to 4', url: '/arcade?play=build', entry: '/arcade/bedwars/index.html', art: '/hub/art/build.jpg', accent: '#0ea5e9' },
+  { id: 'scrollhub-casino', title: 'Scrolls Casino', dev: 'ScrollHub Studios', tagline: 'Crash, Roulette, Mines and more.',
+    desc: 'A full casino floor played with Scrolls, the in-game currency. Blackjack, Slots, Plinko, Case Battles, a weekly tournament and daily rewards. Play money only, nothing real is ever wagered.',
+    tags: ['Casino', 'Casual', 'Multiplayer'], players: '1 or more', url: '/casino', entry: '/casino/index.html', art: '/hub/art/casino.jpg', accent: '#2563eb', casino: true },
+  { id: 'scrollhub-draw-guess', title: 'Draw & Guess', dev: 'ScrollHub Studios', tagline: 'Sketch fast. Guess faster.',
+    desc: 'Take turns drawing a secret word while everyone else races to guess it. Quick rounds, custom rooms and a live scoreboard.',
+    tags: ['Party', 'Multiplayer', 'Casual'], players: '2 to 12', url: '/skribbl', entry: '/skribbl/index.html', art: '/hub/art/draw.jpg', accent: '#0ea5e9' },
+  { id: 'scrollhub-sprite-lab', title: 'Sprite Lab', dev: 'ScrollHub Studios', tagline: 'Draw it. Animate it. Wear it.',
+    desc: 'A pixel editor for characters, hats and banners. Paint frames, preview the animation and see your work in the game world.',
+    tags: ['Creative', 'Tools', 'Single Player'], players: '1', url: '/arcade/sprites', entry: '/arcade/sprites.html', art: '/hub/art/sprites.jpg', accent: '#38bdf8' },
+];
+const _hubHash = new Map(); // file -> { sig, h }
+function hubFileHash(rel) {
+  try {
+    const abs = join(distDir, rel); const st = nfs.statSync(abs); const sig = st.size + ':' + Math.floor(st.mtimeMs);
+    const c = _hubHash.get(rel); if (c && c.sig === sig) return c.h;
+    const h = createHash('sha1').update(nfs.readFileSync(abs)).digest('hex'); _hubHash.set(rel, { sig, h }); return h;
+  } catch (e) { return ''; }
+}
+// The page plus every same-origin script/style/image it pulls in.
+function hubAssets(entry) {
+  const out = [entry];
+  try {
+    const html = nfs.readFileSync(join(distDir, entry), 'utf8'); const re = /(?:src|href)=["']([^"'#]+)["']/g; let m;
+    while ((m = re.exec(html))) {
+      let u = m[1]; if (/^(?:[a-z]+:)?\/\//i.test(u) || /^(?:data|mailto|blob|javascript):/i.test(u)) continue;
+      u = u.split('?')[0]; if (!/\.(?:js|css|png|jpe?g|webp|svg|json|woff2?|mp3|ogg|wav)$/i.test(u)) continue;
+      if (!u.startsWith('/')) u = entry.replace(/[^/]*$/, '') + u;
+      out.push(u);
+    }
+  } catch (e) {}
+  return [...new Set(out)];
+}
+function hubRev(files) { const h = createHash('sha1'); for (const f of files) h.update(f + ':' + hubFileHash(f)); return h.digest('hex').slice(0, 7); }
+function hubVersions() { if (!admin.settings.hubVersions || typeof admin.settings.hubVersions !== 'object') admin.settings.hubVersions = {}; return admin.settings.hubVersions; }
+function hubManifest() {
+  const hv = hubVersions();
+  const originals = HUB_ORIGINALS.map((g) => { const files = hubAssets(g.entry); const x = hv[g.id] || {}; return { ...g, files, rev: hubRev(files), v: x.v || '1.0.0', notes: x.notes || '', ts: x.ts || 0 }; });
+  const versions = {}; const feed = [];
+  for (const id of Object.keys(hv)) { const x = hv[id]; versions[id] = { v: x.v, notes: x.notes || '', ts: x.ts || 0, hist: (x.hist || []).slice(0, 6) }; for (const h of (x.hist || []).slice(0, 3)) feed.push({ id, title: x.title || id, v: h.v, notes: h.notes || '', ts: h.ts || 0 }); }
+  feed.sort((a, b) => b.ts - a.ts);
+  return { originals, versions, feed: feed.slice(0, 24), serverTime: Date.now() };
 }
 
 async function serveCollection(req, res, debug) {
@@ -1899,6 +1978,10 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/casino/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if (url === '/hub' || url === '/hub/') {
+    req.url = '/hub/index.html' + (parsed.search || '');
+    return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
+  }
   if (url === '/arcade' || url === '/arcade/' || url === '/play' || url === '/play/') {
     req.url = '/arcade/bedwars/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
@@ -1963,6 +2046,47 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(out));
     return;
+  }
+  // ---- Hub launcher: versions + update pushes ----
+  if (url.split('?')[0] === '/api/hub/manifest') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'cache-control': 'no-store' });
+    return res.end(JSON.stringify(hubManifest()));
+  }
+  if (url.split('?')[0] === '/api/hub/publish' && req.method === 'POST') {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    if (!who || String(who.username || '').toLowerCase() !== 'scrollreader11') return sendJson(res, 403, { error: 'owner-only', message: 'Only the owner can publish updates.' });
+    const body = await readBody(req);
+    const id = String(body.id || '').slice(0, 200);
+    if (!/^[a-z0-9][a-z0-9._\-]*$/i.test(id)) return sendJson(res, 400, { error: 'bad-id', message: 'Unknown game.' });
+    const hv = hubVersions(); const cur = hv[id] || { v: '1.0.0', hist: [] };
+    let v = String(body.version || '').trim();
+    if (!/^\d{1,3}\.\d{1,3}\.\d{1,4}$/.test(v)) { const p = String(cur.v || '1.0.0').split('.').map((n) => parseInt(n, 10) || 0); v = p[0] + '.' + p[1] + '.' + (p[2] + 1); }
+    const notes = String(body.notes || '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, 600);
+    const title = String(body.title || cur.title || id).slice(0, 80);
+    const ts = Date.now();
+    hv[id] = { v, notes, ts, title, hist: [{ v, notes, ts }, ...(cur.hist || [])].slice(0, 10) };
+    if (Object.keys(hv).length > 400) { const keep = Object.entries(hv).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 400); admin.settings.hubVersions = Object.fromEntries(keep); }
+    logEvent('admin', 'admin', 'Hub update pushed: ' + title + ' v' + v);
+    try { await saveState(); } catch (e) {}
+    return sendJson(res, 200, { ok: true, id, v, ts });
+  }
+  if (url.split('?')[0] === '/api/hub/feedback') {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    const isOwner = !!who && String(who.username || '').toLowerCase() === 'scrollreader11';
+    if (!Array.isArray(admin.settings.hubFeedback)) admin.settings.hubFeedback = [];
+    if (req.method === 'GET') { if (!isOwner) return sendJson(res, 403, { error: 'owner-only' }); return sendJson(res, 200, { items: admin.settings.hubFeedback.slice(0, 100) }); }
+    if (req.method === 'POST') {
+      const body = await readBody(req); const text = String(body.text || '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 600);
+      if (text.length < 4) return sendJson(res, 400, { error: 'short', message: 'Write a little more first.' });
+      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim(); const now = Date.now();
+      globalThis.__hubFbRate = globalThis.__hubFbRate || new Map(); const last = globalThis.__hubFbRate.get(ip) || 0;
+      if (now - last < 20000) return sendJson(res, 429, { error: 'slow', message: 'Please wait a moment before sending more.' });
+      globalThis.__hubFbRate.set(ip, now); if (globalThis.__hubFbRate.size > 2000) globalThis.__hubFbRate.clear();
+      const ck = parseCookies(req); let from = who ? who.username : 'Guest'; if (!who && ck.sh_nick) { try { from = decodeURIComponent(ck.sh_nick).slice(0, 24); } catch (e) {} }
+      const kind = ['idea', 'bug', 'other'].includes(body.kind) ? body.kind : 'other';
+      admin.settings.hubFeedback.unshift({ ts: now, from, kind, text }); admin.settings.hubFeedback = admin.settings.hubFeedback.slice(0, 200);
+      try { await saveState(); } catch (e) {} return sendJson(res, 200, { ok: true });
+    }
   }
   if (url === '/api/games/catalog') {
     // Built-in, always-present ScrollHub original.

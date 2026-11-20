@@ -158,7 +158,7 @@
     } else if (kind === 'icecrystal') {
       shadow(c, 0, 0, 12, 4);
       [[0, -40, 7], [-9, -22, 5], [10, -24, 5]].forEach(function (q) { c.beginPath(); c.moveTo(q[0], q[1] - q[2] * 2.2); c.lineTo(q[0] + q[2], q[1]); c.lineTo(q[0], q[1] + q[2] * 3.2); c.lineTo(q[0] - q[2], q[1]); c.closePath(); fs(c, 'rgba(170,225,255,.9)', OL, 2.5); c.fillStyle = 'rgba(255,255,255,.6)'; c.beginPath(); c.moveTo(q[0], q[1] - q[2] * 2); c.lineTo(q[0] - q[2] * 0.6, q[1]); c.lineTo(q[0], q[1] + q[2]); c.closePath(); c.fill(); });
-      var sp3 = (Math.sin(t * 3 + x) + 1) / 2; c.fillStyle = 'rgba(255,255,255,' + sp3 + ')'; c.font = '700 10px sans-serif'; c.textAlign = 'center'; c.fillText('✦', 8, -48);
+      var sp3 = (Math.sin(t * 3 + x) + 1) / 2; c.fillStyle = 'rgba(255,255,255,' + sp3 + ')'; c.font = '700 10px sans-serif'; c.textAlign = 'center'; c.fillText('+', 8, -48);
     } else if (kind === 'deadtree') {
       shadow(c, 0, 0, 16, 5);
       c.strokeStyle = OL; c.lineCap = 'round'; c.lineWidth = 9; c.beginPath(); c.moveTo(0, 0); c.lineTo(-2, -40); c.moveTo(-1, -26); c.lineTo(-16, -44); c.moveTo(-2, -38); c.lineTo(12, -58); c.moveTo(4, -50); c.lineTo(20, -52); c.moveTo(-10, -36); c.lineTo(-22, -34); c.stroke();
@@ -227,7 +227,7 @@
     } else if (kind === 'potofgold') {
       shadow(c, 0, 0, 14, 4); for (var pg = 0; pg < 9; pg++) { circ(c, -9 + (pg % 5) * 4.5, -17 - Math.floor(pg / 5) * 3, 3.5); fs(c, '#ffd166', '#b8860b', 1.5); }
       ell(c, 0, -9, 13, 10); fs(c, '#2a2a3a', OL, 2.5); ell(c, 0, -16, 13, 3.5); fs(c, '#3a3a4a', OL, 2);
-      if ((t * 2 + x) % 3 < 0.4) { c.fillStyle = '#fff'; c.font = 'bold 10px sans-serif'; c.textAlign = 'center'; c.fillText('✦', 6, -24); }
+      if ((t * 2 + x) % 3 < 0.4) { c.fillStyle = '#fff'; c.font = 'bold 10px sans-serif'; c.textAlign = 'center'; c.fillText('+', 6, -24); }
     } else if (kind === 'clover') {
       shadow(c, 0, 0, 10, 3); c.strokeStyle = '#1f7a35'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(3, -10, 0, -18); c.stroke();
       [0, 1, 2, 3].forEach(function (i) { var ca = i * Math.PI / 2 + Math.sin(t * 1.5) * 0.1; c.save(); c.translate(0, -22); c.rotate(ca); c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-9, -4, -7, -13, 0, -8); c.bezierCurveTo(7, -13, 9, -4, 0, 0); fs(c, '#2bd576', OL, 2); c.restore(); });

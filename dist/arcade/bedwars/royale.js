@@ -19,8 +19,10 @@
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (q) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[q]; }); }
   function $(id) { return document.getElementById(id); }
+  function ico(k) { return MG.ico(k, 'rgi'); }
+  function drawIco(ctx, k, x, y, sz, col) { try { var pth = new Path2D(MG.RICO[k] || MG.RICO.gun); ctx.save(); ctx.translate(x - sz / 2, y - sz / 2); ctx.scale(sz / 24, sz / 24); ctx.fillStyle = col || '#fff'; ctx.fill(pth, 'evenodd'); ctx.restore(); } catch (e) {} }
 
-  // ------------------------------------------------------------ sound (tiny synth, follows the 🔊 mute)
+  // ------------------------------------------------------------ sound (tiny synth, follows the sound mute)
   var ac = null, noiseBuf = null;
   function audio() {
     if (window.SC && SC.sfxMuted && SC.sfxMuted()) return null;
@@ -63,7 +65,7 @@
   // ------------------------------------------------------------ attach / per-match init
   var rmb = false;
   RG.attach = function (api) { X = api; c = api.ctx; S = api.S; buildHud();
-    addEventListener('mousedown', function (e) { if (e.button === 2) rmb = true; });
+    addEventListener('mousedown', function (e) { if (e.button === 2) rmb = true; if (e.button === 0 && !X.touch && S.screen === 'game' && e.target && e.target.tagName === 'CANVAS') chestAt(e.clientX, e.clientY); });
     addEventListener('mouseup', function (e) { if (e.button === 2) rmb = false; });
     addEventListener('blur', function () { rmb = false; });
   };
@@ -290,7 +292,17 @@
     X.send({ t: 'rsel', s: cur });
   };
   var tp = null;
-  RG.tapDown = function (id, x, y) { if (!st) return; tp = { id: id, x: x, y: y }; if (myState() === 'bus') { X.send({ t: 'rj' }); tp = null; return; } aimAtTap(); RG.hold(); };
+  // tap (touch) or click (mouse) a chest to open it; returns true when the tap landed on a chest
+  function chestAt(sx, sy) {
+    if (!st || !st.me || st.me.veh || myState() !== 'ground') return false;
+    var p = P(); if (!p) return false; var cm = X.cam, wx = cm.x + (sx - innerWidth / 2) / cm.z, wy = cm.y + (sy - innerHeight / 2) / cm.z;
+    var pick = null, bd = Math.max(44, 40 / (cm.z || 1));
+    st.chests.forEach(function (ch) { if (ch.open) return; var d = Math.hypot(ch.x - wx, ch.y - wy); if (d < bd) { bd = d; pick = ch; } });
+    if (!pick) return false;
+    if (Math.hypot(pick.x - p.x, pick.y - p.y) > 80) { X.toast('Move closer to open the chest', 900); return true; }
+    X.send({ t: 'ri', kind: 'chest', id: pick.id }); return true;
+  }
+  RG.tapDown = function (id, x, y) { if (!st) return; tp = { id: id, x: x, y: y }; if (myState() === 'bus') { X.send({ t: 'rj' }); tp = null; return; } if (chestAt(x, y)) { tp = null; return; } aimAtTap(); RG.hold(); };
   RG.tapMove = function (id, x, y) { if (tp && tp.id === id) { tp.x = x; tp.y = y; } };
   RG.tapUp = function (id) { if (tp && (id == null || tp.id === id)) tp = null; };
   function aimAtTap() { var p = P(); if (!tp || !p) return false; var cm = X.cam, wx = cm.x + (tp.x - innerWidth / 2) / cm.z, wy = cm.y + (tp.y - innerHeight / 2) / cm.z; p.ang = Math.atan2(wy - (p.y - 16), wx - p.x); return true; }
@@ -326,15 +338,15 @@
   RG.prompt = function (pr, touch) {
     if (!st || !st.me) return false;
     var s = myState();
-    if (s === 'bus') { pr.classList.remove('hidden'); pr.innerHTML = touch ? '🪂 Tap to jump!' : '<b>SPACE</b> · Jump out of the bus 🪂'; return true; }
+    if (s === 'bus') { pr.classList.remove('hidden'); pr.innerHTML = touch ? 'Tap to jump!' : '<b>SPACE</b> · Jump out of the bus'; return true; }
     if (s !== 'ground') { pr.classList.add('hidden'); return true; }
-    if (st.me.veh) { var mv1 = myVeh(); pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap 📦' : 'E') + ' · Get out' + (mv1 && mv1.kind === 'tank' ? (touch ? ' · tap anywhere to fire the cannon 💥' : ' · Click to fire the cannon 💥') : ''); return true; }
+    if (st.me.veh) { var mv1 = myVeh(); pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap USE' : 'E') + ' · Get out' + (mv1 && mv1.kind === 'tank' ? (touch ? ' · tap anywhere to fire the cannon' : ' · Click to fire the cannon') : ''); return true; }
     var n = nearest();
     if (!n) { pr.classList.add('hidden'); return true; }
     pr.classList.remove('hidden');
-    var key = touch ? 'Tap 📦' : 'E';
-    if (n.kind === 'veh') pr.textContent = key + ' · Drive the ' + VDEF(n.o).n + ' ' + (VDEF(n.o).icon || '🚙');
-    else if (n.kind === 'chest') pr.textContent = key + ' · Open chest';
+    var key = touch ? 'Tap' : 'E';
+    if (n.kind === 'veh') pr.textContent = key + ' · Drive the ' + VDEF(n.o).n;
+    else if (n.kind === 'chest') pr.textContent = (touch ? 'Tap the chest' : 'E or click') + ' · Open chest';
     else { var o = n.o, w = RW(o.k), full = st.me.slots.indexOf(null) < 0 && !(w.cls !== 'gun' && st.me.slots.some(function (q) { return q && q.k === o.k; })); pr.innerHTML = key + ' · ' + (full ? 'Swap for ' : 'Pick up ') + '<b style="color:' + (w.cls === 'gun' ? rar(o.r).c : '#fff') + '">' + (w.cls === 'gun' ? rar(o.r).n + ' ' : '') + w.n + '</b>' + (o.n > 1 ? ' ×' + o.n : ''); }
     return true;
   };
@@ -399,7 +411,7 @@
         R(-6, -9, 8, 14, col, 1.5); P([-4, 5, 4, 5, 2, 15, -4, 15], M3); P([10, 5, 16, 5, 14, 13, 8, 13], M3);
         R(-16, -16, 14, 7, M3, 2); x.fillStyle = '#ff5c6c'; x.beginPath(); x.moveTo(36, -6); x.lineTo(42, -2); x.lineTo(36, 2); x.fill();
         break;
-      default: x.font = '24px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((RW(k) && RW(k).icon) || '?', 0, 0);
+      default: drawIco(x, (RW(k) && RW(k).ico) || 'gun', 0, 0, 34, '#e8eefc');
     }
     x.restore();
   }
@@ -535,7 +547,7 @@
     } else {
       var w = RW(o.k);
       if (w.cls === 'gun') { c.save(); c.translate(x, y); c.rotate(-0.18); c.scale(0.52, 0.52); gunArt(c, o.k, col); c.restore(); }
-      else { c.font = '20px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(w.icon, x, y); if (o.n > 1) { c.font = 'bold 10px sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#1b1636'; c.lineWidth = 3; c.strokeText('×' + o.n, x + 12, y + 9); c.fillText('×' + o.n, x + 12, y + 9); } }
+      else { drawIco(c, w.ico, x, y, 22, '#ffffff'); c.textAlign = 'center'; c.textBaseline = 'middle'; if (o.n > 1) { c.font = 'bold 10px sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#1b1636'; c.lineWidth = 3; c.strokeText('×' + o.n, x + 12, y + 9); c.fillText('×' + o.n, x + 12, y + 9); } }
     }
     c.restore();
   }
@@ -751,7 +763,8 @@
       '#rgMap canvas{width:100%;height:100%}',
       '#rgCount{position:absolute;left:14px;top:212px;display:flex;gap:6px}',
       '#rgCount .c{display:flex;align-items:center;gap:6px;padding:5px 11px;font-weight:700;font-size:17px}',
-      '#rgCount .c i{font-style:normal;font-size:15px;opacity:.9}',
+      '#rgCount .c i{font-style:normal;display:inline-flex;opacity:.9}',
+      '.rgi{width:1.15em;height:1.15em;display:inline-block;vertical-align:-.2em}#rgCount .c .rgi{width:17px;height:17px}.rgRow .ic .rgi{width:16px;height:16px}.rgS .rgIc{display:inline-flex}.rgS .rgIc .rgi{width:30px;height:30px}.rgS.pk .rgIc .rgi{width:26px;height:26px}',
       '#rgStorm{position:absolute;left:14px;top:254px;padding:6px 11px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}',
       '#rgStorm .bar{width:90px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden}#rgStorm .bar i{display:block;height:100%;background:linear-gradient(90deg,#b27cff,#e3c8ff)}',
       '#rgWarn{position:absolute;left:50%;top:16%;transform:translateX(-50%);font-weight:800;font-size:22px;color:#e9d5ff;text-shadow:0 2px 0 #3b0d73,0 0 18px #9b5cff;letter-spacing:.04em}',
@@ -797,7 +810,7 @@
       '  #rgStorm{left:112px;top:42px;font-size:11px;padding:3px 8px}#rgStorm .bar{width:50px}',
       '  #rgInv{left:50%;right:auto;transform:translateX(-50%);bottom:6px;align-items:center}',
       '  #rgHeld{position:absolute;right:calc(50% + 160px);bottom:4px;white-space:nowrap}#rgHeld .nm{display:none}#rgHeld .mag{font-size:20px}#rgHeld .mag small{font-size:12px}#rgAmmoList{display:none}',
-      '  .rgS{width:46px;height:40px;font-size:17px;border-radius:8px}.rgS.pk{width:36px;height:36px;font-size:15px}.rgS canvas{width:42px;height:23px}.rgS .k{display:none}.rgS .n{font-size:10px}.rgS.on{transform:translateY(-5px)}',
+      '  .rgS .rgIc .rgi{width:20px;height:20px}.rgRow .ic .rgi{width:11px;height:11px}.rgS{width:46px;height:40px;font-size:17px;border-radius:8px}.rgS.pk{width:36px;height:36px;font-size:15px}.rgS canvas{width:42px;height:23px}.rgS .k{display:none}.rgS .n{font-size:10px}.rgS.on{transform:translateY(-5px)}',
       '  #rgBars{left:50%;bottom:52px;transform:translateX(-50%);width:min(280px,38vw);padding:4px 7px}.rgBar{height:8px}.rgRow{margin-top:2px}.rgRow .num{font-size:10px;width:22px}.rgRow .ic{font-size:9px;width:12px}',
       '  #rgUse{left:50%;transform:translateX(-50%);bottom:98px;font-size:11px}',
       '  #rgBus{top:16%}#rgBus button{font-size:17px;padding:9px 18px}#rgWarn{font-size:15px}',
@@ -806,12 +819,12 @@
     document.head.appendChild(css);
     var d = document.createElement('div'); d.id = 'rgHud'; d.className = 'hidden';
     d.innerHTML = '<div id="rgMap"><canvas id="rgMapCv" width="400" height="400"></canvas></div>' +
-      '<div id="rgCount"><div class="c gl" title="Players left"><i>👥</i><span id="rgAlive">0</span></div><div class="c gl" title="Your eliminations"><i>💀</i><span id="rgKills">0</span></div></div>' +
+      '<div id="rgCount"><div class="c gl" title="Players left"><i>' + ico('users') + '</i><span id="rgAlive">0</span></div><div class="c gl" title="Your eliminations"><i>' + ico('skull') + '</i><span id="rgKills">0</span></div></div>' +
       '<div id="rgStorm" class="gl"><span id="rgStormT"></span><div class="bar"><i id="rgStormB"></i></div></div><div id="rgWarn" class="hidden"></div>' +
-      '<div id="rgBars" class="gl"><div class="rgRow"><span class="ic">🛡️</span><div class="rgBar" id="rgSh"><i></i><u></u></div><span class="num" id="rgShN">0</span></div><div class="rgRow"><span class="ic">❤️</span><div class="rgBar" id="rgHp"><i></i><u></u></div><span class="num" id="rgHpN">100</span></div></div>' +
+      '<div id="rgBars" class="gl"><div class="rgRow"><span class="ic">' + ico('shield') + '</span><div class="rgBar" id="rgSh"><i></i><u></u></div><span class="num" id="rgShN">0</span></div><div class="rgRow"><span class="ic">' + ico('heart') + '</span><div class="rgBar" id="rgHp"><i></i><u></u></div><span class="num" id="rgHpN">100</span></div></div>' +
       '<div id="rgUse" class="gl hidden"></div>' +
       '<div id="rgInv"><div id="rgHeld"></div><div id="rgAmmoList"></div><div id="rgSlots"></div></div>' +
-      '<div id="rgBus" class="hidden"><button id="rgJump">🪂 JUMP</button><div class="t">Jump out over where you want to land!</div></div>' +
+      '<div id="rgBus" class="hidden"><button id="rgJump">JUMP</button><div class="t">Jump out over where you want to land!</div></div>' +
       '<div id="rgWin" class="hidden"><div class="a">#1 VICTORY ROYALE</div><div class="b" id="rgWinSub"></div></div>';
     document.body.appendChild(d);
     $('rgJump').onclick = function () { X.send({ t: 'rj' }); };
@@ -824,11 +837,11 @@
     if (!it) return '';
     var w = RW(it.k);
     if (w.cls === 'gun') return '<canvas width="140" height="76" data-g="' + it.k + '" data-r="' + it.r + '"></canvas>';
-    return '<span>' + w.icon + '</span>';
+    return '<span class="rgIc">' + ico(w.ico) + '</span>';
   }
   function renderSlots() {
     if (!st || !st.me) return;
-    var me = st.me, h = '<div class="rgS pk' + (me.sel < 0 ? ' on' : '') + '" data-s="-1" title="Pickaxe (0)"><span class="k">0</span>⛏️</div>';
+    var me = st.me, h = '<div class="rgS pk' + (me.sel < 0 ? ' on' : '') + '" data-s="-1" title="Pickaxe (0)"><span class="k">0</span><span class="rgIc">' + ico('pickaxe') + '</span></div>';
     for (var i = 0; i < MG.RSLOTS; i++) {
       var it = me.slots[i], w = it && RW(it.k), col = it ? (w.cls === 'gun' ? rar(it.r).c : w.cls === 'heal' ? (w.sh ? '#3f8fe0' : '#2bb56a') : '#8a6a3a') : '';
       h += '<div class="rgS' + (it ? ' full' : '') + (me.sel === i ? ' on' : '') + '" data-s="' + i + '" style="' + (it ? '--rc:' + col : '') + '" title="' + (it ? (w.cls === 'gun' ? rar(it.r).n + ' ' : '') + w.n : 'Empty') + ' — right-click to drop"><span class="k">' + (i + 1) + '</span>' + slotIcon(it) + (it ? '<span class="n">' + (w.cls === 'gun' ? it.a : '×' + it.n) + '</span>' : '') + '</div>';
@@ -837,7 +850,7 @@
     [].forEach.call(document.querySelectorAll('#rgSlots canvas'), function (cv) { var cx = cv.getContext('2d'); cx.translate(70, 40); cx.rotate(-0.1); cx.scale(1.55, 1.55); gunArt(cx, cv.dataset.g, '#ffffff'); });
     var it2 = heldItem(), w2 = it2 && RW(it2.k);
     $('rgHeld').innerHTML = it2 && w2.cls === 'gun' ? '<div class="nm" style="color:' + rar(it2.r).c + '">' + rar(it2.r).n + ' ' + w2.n + '</div><div class="mag">' + (me.rl ? '<small>reloading…</small>' : it2.a + ' <small>/ ' + me.am[w2.am] + '</small>') + '</div>'
-      : it2 ? '<div class="nm">' + w2.n + ' ×' + it2.n + '</div><div class="mag"><small>' + (w2.cls === 'heal' ? 'click to use' : 'click to throw') + '</small></div>' : '<div class="nm">⛏️ Pickaxe</div>';
+      : it2 ? '<div class="nm">' + w2.n + ' ×' + it2.n + '</div><div class="mag"><small>' + (w2.cls === 'heal' ? 'click to use' : 'click to throw') + '</small></div>' : '<div class="nm">Pickaxe</div>';
     $('rgAmmoList').innerHTML = Object.keys(MG.RAMMO).filter(function (a) { return me.am[a] > 0; }).map(function (a) { return '<span style="color:' + MG.RAMMO[a].c + '">' + MG.RAMMO[a].n.split(' ')[0] + ' ' + me.am[a] + '</span>'; }).join('');
   }
   function renderBars() {
@@ -852,13 +865,13 @@
     $('rgAlive').textContent = st.alive; $('rgKills').textContent = (st.me && st.me.kills) || 0;
     if (z) {
       var mm = Math.floor(z.left / 60000), ss = Math.floor((z.left % 60000) / 1000), tot = z.shrink ? ((MG.R_STORM[z.i] || {}).s || 30) * 1000 : ((MG.R_STORM[z.i] || {}).w || 30) * 1000;
-      $('rgStormT').textContent = (z.shrink ? '🌪️ Closing ' : '⏳ Storm in ') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+      $('rgStormT').textContent = (z.shrink ? 'Storm closing ' : 'Storm in ') + mm + ':' + (ss < 10 ? '0' : '') + ss;
       $('rgStormB').style.width = Math.max(0, Math.min(100, 100 - z.left / tot * 100)) + '%';
     }
     var warn = $('rgWarn'), inS = st.inStorm && s === 'ground';
-    warn.classList.toggle('hidden', !inS && !(z && z.shrink && z.left > 0 && z.left < 4000 && false)); if (inS) warn.textContent = '⚠️ YOU ARE IN THE STORM  −' + ((z && z.d) || 1) + '/s';
+    warn.classList.toggle('hidden', !inS && !(z && z.shrink && z.left > 0 && z.left < 4000 && false)); if (inS) warn.textContent = 'YOU ARE IN THE STORM  −' + ((z && z.d) || 1) + '/s';
     var mvh = myVeh(), use = $('rgUse');
-    if (mvh) { use.classList.remove('hidden'); use.textContent = (VDEF(mvh).icon || '🚙') + ' ' + VDEF(mvh).n + ' · ' + Math.max(0, Math.round(mvh.hp)) + ' / ' + VDEF(mvh).hp; }
+    if (mvh) { use.classList.remove('hidden'); use.textContent = VDEF(mvh).n + ' · ' + Math.max(0, Math.round(mvh.hp)) + ' / ' + VDEF(mvh).hp; }
     else use.classList.add('hidden');
     $('rgBus').classList.toggle('hidden', s !== 'bus' || snow() < (st.bus ? st.bus.t0 : 0));
   }
@@ -900,16 +913,16 @@
   RG.death = function (d, killer, kind) {
     if (!st) return false;
     var o = st.out || {}, place = o.place || (st.alive + 1), total = o.total || st.total || S.ents.size;
-    d.innerHTML = '<div class="big" style="color:#ff5c6c">#' + place + ' <span style="font-size:.55em;color:#fff">of ' + total + '</span></div><div class="sub">' + (kind === 'storm' ? '🌪️ The storm got you' : killer ? 'Eliminated by <span style="color:#ffd166">' + esc(killer.nick) + '</span>' : 'Eliminated') + ' · 🎯 ' + ((st.me && st.me.kills) || 0) + ' eliminations</div>' +
-      '<div class="row" style="display:flex;gap:10px;justify-content:center;margin-top:12px;pointer-events:auto"><button class="btn" id="dSpec">👀 Spectate</button><button class="btn gold" id="dAgain">🔁 Play again</button><button class="btn" id="dHub">🏠 Hub</button></div>';
+    d.innerHTML = '<div class="big" style="color:#ff5c6c">#' + place + ' <span style="font-size:.55em;color:#fff">of ' + total + '</span></div><div class="sub">' + (kind === 'storm' ? 'The storm got you' : killer ? 'Eliminated by <span style="color:#ffd166">' + esc(killer.nick) + '</span>' : 'Eliminated') + ' · ' + ((st.me && st.me.kills) || 0) + ' eliminations</div>' +
+      '<div class="row" style="display:flex;gap:10px;justify-content:center;margin-top:12px;pointer-events:auto"><button class="btn" id="dSpec">Spectate</button><button class="btn gold" id="dAgain">Play again</button><button class="btn" id="dHub">Back to hub</button></div>';
     $('dAgain').onclick = X.playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); if (killer) S.specId = killer.id; }; $('dHub').onclick = function () { X.send({ t: 'hub' }); };
     d.style.pointerEvents = 'auto';
     return true;
   };
   RG.end = function (m) {
     if (!st) return; var meWon = m && m.winner === S.team;
-    if (meWon) { $('rgWin').classList.remove('hidden'); $('rgWinSub').textContent = '🎯 ' + ((st.me && st.me.kills) || 0) + ' eliminations'; snd('chest'); setTimeout(function () { snd('chest'); }, 350); }
-    else { var w = (m.stats || []).find(function (s) { return s.team === m.winner; }); if (w) X.toastBig('👑 ' + w.nick + ' wins!', '#ffd166'); }
+    if (meWon) { $('rgWin').classList.remove('hidden'); $('rgWinSub').textContent = ((st.me && st.me.kills) || 0) + ' eliminations'; snd('chest'); setTimeout(function () { snd('chest'); }, 350); }
+    else { var w = (m.stats || []).find(function (s) { return s.team === m.winner; }); if (w) X.toastBig(w.nick + ' wins!', '#ffd166'); }
     setTimeout(function () { $('rgWin').classList.add('hidden'); }, 4200);
   };
   RG.reset = function () { st = null; RG.show(false); };

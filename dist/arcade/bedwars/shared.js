@@ -272,7 +272,7 @@
     // ---- map builder hut (south-east)
     fill(m, 52, 52, 58, 56, G2.FLOOR);
     obj(m, { kind: 'npc', tx: 55, ty: 56, act: 'sprites', game: 'bw', mode: 'bw', label: 'SPRITE STUDIO', sub: 'draw gims & hats', look: { skin: 'gim', body: '#ffd166', hat: 'wizard' } });
-    obj(m, { kind: 'board', tx: 55, ty: 53, act: 'builder', title: '🛠️ MAP BUILDER', lines: ['Make your own maps!', 'Owner: Scrollreader11'], dy: 14 }, [[53, 53], [54, 53], [55, 53], [56, 53], [57, 53]]);
+    obj(m, { kind: 'board', tx: 55, ty: 53, act: 'builder', title: 'MAP BUILDER', lines: ['Make your own maps!', 'Owner: Scrollreader11'], dy: 14 }, [[53, 53], [54, 53], [55, 53], [56, 53], [57, 53]]);
     // ---- park (south-west): crystal pond + goodies
     disc(m, 22, 55, 4, G2.MID);
     disc(m, 22, 55, 2, G2.SNOW);
@@ -294,23 +294,23 @@
     ban1: [[10, 20]], ban2: [[62, 20]], wreath: [[30, 29], [42, 29]], lantern: [[24, 43], [48, 42]],
   };
   B.SEASONS = {
-    xmas: { name: 'Christmas', emoji: '🎄', hat: 'santa', fall: 'snow', ground: 'frost', lights: ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'],
+    xmas: { name: 'Christmas', emoji: '', hat: 'santa', fall: 'snow', ground: 'frost', lights: ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'],
       map: { tree: 'xtree', gift: 'presents', gift2: 'present', cane: 'candycane', ginger: 'gingerbread', statue: 'snowman', pile: 'snowpile', deer: 'reindeer', sleigh: 'sleigh', guard: 'toysoldier', crystal: 'icecrystal', orn: 'ornament', ban1: 'bannerred', ban2: 'bannergold', wreath: 'wreath', lantern: 'lanternpost' } },
-    halloween: { name: 'Halloween', emoji: '🎃', hat: 'wizard', fall: 'bats', ground: 'spooky', lights: ['#ff7a1a', '#8a3ffc', '#7dff9e'],
+    halloween: { name: 'Halloween', emoji: '', hat: 'wizard', fall: 'bats', ground: 'spooky', lights: ['#ff7a1a', '#8a3ffc', '#7dff9e'],
       map: { tree: 'deadtree', gift: 'jacklantern', gift2: 'cauldron', cane: 'gravestone', ginger: 'ghostprop', statue: 'scarecrow', pile: 'leafpile', deer: 'gravestone', sleigh: 'cauldron', guard: 'ghostprop', crystal: 'spiderweb', orn: 'jacklantern', ban1: 'bannerorange', ban2: 'bannerpurple', wreath: 'spiderweb', lantern: 'jacklantern' } },
-    thanksgiving: { name: 'Fall / Thanksgiving', emoji: '🦃', hat: 'cowboy', fall: 'leaves', ground: 'autumn', lights: ['#ff8a3d', '#e0a400', '#d62839'],
+    thanksgiving: { name: 'Fall / Thanksgiving', emoji: '', hat: 'cowboy', fall: 'leaves', ground: 'autumn', lights: ['#ff8a3d', '#e0a400', '#d62839'],
       map: { tree: 'cornstalk', gift: 'pumpkin', gift2: 'hay', cane: 'cornstalk', ginger: 'turkey', statue: 'scarecrow', pile: 'leafpile', deer: 'turkey', sleigh: 'hay', guard: 'scarecrow', crystal: 'pumpkin', orn: 'leafpile', ban1: 'bannerorange', ban2: 'bannergold', wreath: 'cornstalk', lantern: 'lanternpost' } },
-    newyear: { name: 'New Year', emoji: '🎉', hat: 'party', fall: 'confetti', fireworks: true, ground: '', lights: ['#ffd166', '#ffffff', '#c8b6ff', '#5cf2ff'],
+    newyear: { name: 'New Year', emoji: '', hat: 'party', fall: 'confetti', fireworks: true, ground: '', lights: ['#ffd166', '#ffffff', '#c8b6ff', '#5cf2ff'],
       map: { tree: 'balloons', gift: 'presents', gift2: 'balloons', cane: 'firework', ginger: 'balloons', statue: 'firework', pile: 'present', deer: 'balloons', sleigh: 'presents', guard: 'firework', crystal: 'balloons', orn: 'firework', ban1: 'bannergold', ban2: 'bannerpurple', wreath: 'balloons', lantern: 'lanternpost' } },
-    valentines: { name: "Valentine's Day", emoji: '💘', hat: '', fall: 'hearts', ground: 'pink', lights: ['#ff3d6e', '#ff9ec7', '#ffffff'],
+    valentines: { name: "Valentine's Day", emoji: '', hat: '', fall: 'hearts', ground: 'pink', lights: ['#ff3d6e', '#ff9ec7', '#ffffff'],
       map: { tree: 'rosebush', gift: 'heartballoon', gift2: 'loveletter', cane: 'heartballoon', ginger: 'loveletter', statue: 'rosebush', pile: 'rosebush', deer: 'heartballoon', sleigh: 'presents', guard: 'heartballoon', crystal: 'loveletter', orn: 'heartballoon', ban1: 'bannerpink', ban2: 'bannerred', wreath: 'rosebush', lantern: 'lanternpost' } },
-    stpatricks: { name: "St. Patrick's Day", emoji: '☘️', hat: 'top', fall: 'clovers', ground: 'green', lights: ['#2bd576', '#ffd166', '#ffffff'],
+    stpatricks: { name: "St. Patrick's Day", emoji: '', hat: 'top', fall: 'clovers', ground: 'green', lights: ['#2bd576', '#ffd166', '#ffffff'],
       map: { tree: 'clover', gift: 'potofgold', gift2: 'clover', cane: 'clover', ginger: 'potofgold', statue: 'clover', pile: 'clover', deer: 'potofgold', sleigh: 'potofgold', guard: 'clover', crystal: 'potofgold', orn: 'clover', ban1: 'bannergreen', ban2: 'bannergold', wreath: 'clover', lantern: 'lanternpost' } },
-    easter: { name: 'Easter / Spring', emoji: '🐣', hat: 'flowers', fall: 'petals', ground: 'spring', lights: ['#ffb7d5', '#b5f5cf', '#c8b6ff', '#fff27a'],
+    easter: { name: 'Easter / Spring', emoji: '', hat: 'flowers', fall: 'petals', ground: 'spring', lights: ['#ffb7d5', '#b5f5cf', '#c8b6ff', '#fff27a'],
       map: { tree: 'flowerbed', gift: 'egg', gift2: 'egg', cane: 'flowerbed', ginger: 'bunnyprop', statue: 'bunnyprop', pile: 'egg', deer: 'bunnyprop', sleigh: 'flowerbed', guard: 'bunnyprop', crystal: 'egg', orn: 'egg', ban1: 'bannerpink', ban2: 'bannergreen', wreath: 'flowerbed', lantern: 'lanternpost' } },
-    july4: { name: '4th of July', emoji: '🎆', hat: 'top', fall: 'confetti', fireworks: true, ground: '', lights: ['#ff4b5c', '#ffffff', '#3a6dff'],
+    july4: { name: '4th of July', emoji: '', hat: 'top', fall: 'confetti', fireworks: true, ground: '', lights: ['#ff4b5c', '#ffffff', '#3a6dff'],
       map: { tree: 'balloons', gift: 'firework', gift2: 'balloons', cane: 'firework', ginger: 'beachball', statue: 'firework', pile: 'balloons', deer: 'firework', sleigh: 'beachball', guard: 'firework', crystal: 'balloons', orn: 'firework', ban1: 'bannerred', ban2: 'bannerblue', wreath: 'balloons', lantern: 'lanternpost' } },
-    summer: { name: 'Summer', emoji: '☀️', hat: 'cap', fall: 'sun', ground: 'sunny', lights: [],
+    summer: { name: 'Summer', emoji: '', hat: 'cap', fall: 'sun', ground: 'sunny', lights: [],
       map: { tree: 'umbrella', gift: 'beachball', gift2: 'sandcastle', cane: 'umbrella', ginger: 'sandcastle', statue: 'sandcastle', pile: 'beachball', deer: 'umbrella', sleigh: 'sandcastle', guard: 'beachball', crystal: 'beachball', orn: 'beachball', ban1: 'bannerblue', ban2: 'bannergold', wreath: 'umbrella', lantern: 'lanternpost' } },
   };
   B.SEASON_ORDER = ['xmas', 'newyear', 'valentines', 'stpatricks', 'easter', 'july4', 'summer', 'halloween', 'thanksgiving'];

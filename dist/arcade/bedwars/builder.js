@@ -67,7 +67,7 @@
   function palIcon(it) {
     var x = document.createElement('canvas'); x.width = x.height = 88; var g = x.getContext('2d'); g.translate(44, 50);
     try {
-      if (it.ic === 'erase') { g.font = '700 44px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(it.id === 'g0' ? '⬛' : '🧽', 0, 0); }
+      if (it.ic === 'erase') { g.font = '700 44px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(it.id === 'g0' ? 'X' : '', 0, 0); }
       else if (it.ic === 'void') { g.fillStyle = '#120c33'; g.fillRect(-28, -28, 56, 56); g.strokeStyle = '#ff5c6c'; g.lineWidth = 5; g.strokeRect(-28, -28, 56, 56); }
       else if (it.v != null) { var m = { g: new Uint8Array(N), bases: [] }; m.g[37 * W + 37] = it.v; var ch = D.chunk(m, 3, 3); if (ch) g.drawImage(ch, (37 - 36) * T, (37 - 36) * T, T, T + 30, -28, -28, 56, 66); if (it.v === G.ROCK) D.rock(g, 0, 26, 0); D.resetChunks(); }
       else if (it.b) { g.scale(1.6, 1.6); D.drawItem(g, ['', 'wool', 'wood', 'end', 'obby'][it.b], 1, { team: S.team }); }
@@ -86,9 +86,9 @@
     else if (k === 'dia' || k === 'em') D.res(g, k, 0, 0, 2.6);
     else if (k === 'flag') { g.translate(-8, 30); D.flag(g, 0, 0, S.team, 0); }
     else if (k === 'pick') { D.drawItem(g, 'gapple', 1.6); }
-    else if (k === 'seek') { g.font = '700 46px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🔒', 0, 0); }
+    else if (k === 'seek') { g.font = '700 46px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('x', 0, 0); }
   }
-  function tabsFor(game) { var t = [['ground', '🌱 Ground'], ['blocks', '🧱 Blocks'], ['props', '🛢️ Props'], ['markers', '📍 Markers']]; if (game === 'spleef') t.splice(1, 0, ['floors', '❄️ Floors']); return t; }
+  function tabsFor(game) { var t = [['ground', 'Ground'], ['blocks', 'Blocks'], ['props', 'Props'], ['markers', 'Markers']]; if (game === 'spleef') t.splice(1, 0, ['floors', 'Floors']); return t; }
   function renderSide() {
     $('tabs').innerHTML = tabsFor(E.game).map(function (q) { return '<button data-tab="' + q[0] + '"' + (q[0] === S.tab ? ' class="on"' : '') + '>' + q[1] + '</button>'; }).join('');
     var list = S.tab === 'markers' ? MARKERS[E.game] : TABS[S.tab];
@@ -252,13 +252,13 @@
   $('layerSeg').onclick = function (e) { var b = e.target.closest('[data-z]'); if (b) { S.layer = +b.dataset.z; renderSide(); } };
   $('rotDir').onclick = rotBed;
   $('sideTog').onclick = function () { $('side').classList.toggle('mini'); };
-  $('gameSeg').onclick = function (e) { var b = e.target.closest('[data-g]'); if (!b || b.dataset.g === E.game) return; pushUndo(); E.game = b.dataset.g; if (E.game === 'spleef' && !E.L[0].some(Boolean)) { var bl = fromCm(M.blankCustom('spleef')); E.L = bl.L; } S.tab = 'ground'; afterLoad(); toast('This map is now for ' + M.GAMES[E.game].name + '. Place its markers from 📍 Markers', 2400); };
+  $('gameSeg').onclick = function (e) { var b = e.target.closest('[data-g]'); if (!b || b.dataset.g === E.game) return; pushUndo(); E.game = b.dataset.g; if (E.game === 'spleef' && !E.L[0].some(Boolean)) { var bl = fromCm(M.blankCustom('spleef')); E.L = bl.L; } S.tab = 'ground'; afterLoad(); toast('This map is now for ' + M.GAMES[E.game].name + '. Place its markers from Markers', 2400); };
   $('name').oninput = function () { E.name = this.value; S.dirty = true; validate(); };
   $('undo').onclick = doUndo; $('redo').onclick = doRedo;
   $('grid').onclick = function () { S.grid = !S.grid; };
   $('status').onclick = function () { $('probs').classList.toggle('hidden'); };
   $('save').onclick = function () { save(); };
-  $('test').onclick = function () { save(function (id) { if (S.problems.length) { toast('⚠️ Fix the problems first (tap the yellow badge)', 2400); $('probs').classList.remove('hidden'); return; } window.open('/arcade?test=' + id + '&g=' + E.game, '_blank'); toast('▶ Opening a practice match on your map…', 2000); }); };
+  $('test').onclick = function () { save(function (id) { if (S.problems.length) { toast('Fix the problems first (tap the yellow badge)', 2400); $('probs').classList.remove('hidden'); return; } window.open('/arcade?test=' + id + '&g=' + E.game, '_blank'); toast('▶ Opening a practice match on your map…', 2000); }); };
   $('openMaps').onclick = function () { send({ t: 'mb', a: 'list' }); $('maps').classList.remove('hidden'); };
   [].forEach.call(document.querySelectorAll('[data-x]'), function (b) { b.onclick = function () { b.closest('.modal').classList.add('hidden'); }; });
   var newGame = 'bw';
@@ -274,14 +274,14 @@
   function validate() {
     S.problems = M.validateCustom(toCm(E));
     var st = $('status'); st.className = S.problems.length ? 'bad' : 'ok';
-    st.textContent = S.problems.length ? '⚠️ ' + S.problems.length + ' to fix' : '✅ Ready to play';
-    $('probs').innerHTML = '<h4>' + (S.problems.length ? 'Before this map can be played:' : '✅ This map is ready!') + '</h4>' + (S.problems.length ? '<ul>' + S.problems.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' : '<div class="hint">Save it, test it ▶, then add it to the rotation in 📂 Maps.</div>');
+    st.textContent = S.problems.length ? '' + S.problems.length + ' to fix' : 'Ready to play';
+    $('probs').innerHTML = '<h4>' + (S.problems.length ? 'Before this map can be played:' : 'This map is ready!') + '</h4>' + (S.problems.length ? '<ul>' + S.problems.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' : '<div class="hint">Save it, test it ▶, then add it to the rotation in Maps.</div>');
   }
   function afterLoad() { D.resetChunks(); $('name').value = E.name || ''; renderSide(); validate(); }
   function loadCm(cm) { E = fromCm(cm); undo.length = 0; redo.length = 0; S.dirty = false; S.tab = 'ground'; S.item = null; afterLoad(); cam.x = 36 * T; cam.y = 36 * T; }
   var saveCb = null;
   function save(cb) {
-    if (!S.mapper) { toast('🔒 Only the map maker can save maps', 2000); return; }
+    if (!S.mapper) { toast('Only the map maker can save maps', 2000); return; }
     if (!E.name.trim()) { E.name = M.GAMES[E.game].name + ' map'; $('name').value = E.name; }
     saveCb = cb || null; send({ t: 'mb', a: 'save', map: toCm(E) }); toast('Saving…', 900);
   }
@@ -290,7 +290,7 @@
     $('mapList').innerHTML = list.length ? list.map(function (m) {
       return '<tr><td>' + M.GAMES[m.game].icon + '</td><td><b>' + esc(m.name) + '</b><br><span class="hint">' + esc(m.author || '') + ' · ' + new Date(m.at).toLocaleDateString() + '</span></td><td>' + (m.ok ? '<span class="tg" style="background:#2bd576;color:#05240f">ready</span>' : '<span class="tg" style="background:#ffd166;color:#2a1300">unfinished</span>') + '</td>' +
         '<td>' + (m.ok ? '<label class="sw"><input type="checkbox" data-rot="' + m.id + '" data-g="' + m.game + '"' + (m.rot ? ' checked' : '') + '> in rotation</label>' : '') + '</td>' +
-        '<td style="text-align:right;white-space:nowrap"><button class="b" data-open="' + m.id + '">✏️ Edit</button> ' + (m.ok ? '<button class="b green" data-test="' + m.id + '" data-g="' + m.game + '">▶</button> ' : '') + '<button class="b red" data-del="' + m.id + '">🗑️</button></td></tr>';
+        '<td style="text-align:right;white-space:nowrap"><button class="b" data-open="' + m.id + '">Edit</button> ' + (m.ok ? '<button class="b green" data-test="' + m.id + '" data-g="' + m.game + '">▶</button> ' : '') + '<button class="b red" data-del="' + m.id + '"></button></td></tr>';
     }).join('') : '<tr><td class="hint">No maps yet — make one!</td></tr>';
   }
   $('maps').addEventListener('change', function (e) {
@@ -318,9 +318,9 @@
       if (m.t === 'mbl') renderMaps(m.maps, m.rot);
       if (m.t === 'mbg' && m.map) { loadCm(m.map); toast('Opened "' + esc(m.map.name) + '"', 1400); }
       if (m.t === 'mbs') {
-        if (!m.ok) { toast('⚠️ ' + esc(m.msg || 'Couldn’t save'), 2400); return; }
+        if (!m.ok) { toast('' + esc(m.msg || 'Couldn’t save'), 2400); return; }
         E.id = m.id; S.dirty = false;
-        toast(m.problems && m.problems.length ? '💾 Saved as a draft — ' + m.problems.length + ' thing(s) to fix before it can be played' : '💾 Saved! It’s ready to play', 2400);
+        toast(m.problems && m.problems.length ? 'Saved as a draft — ' + m.problems.length + ' thing(s) to fix before it can be played' : 'Saved! It’s ready to play', 2400);
         var cb = saveCb; saveCb = null; if (cb) cb(m.id);
       }
     };
@@ -403,11 +403,11 @@
     }
     if (g === 'ctf') {
       (mk.flag || []).forEach(function (q) { var p = tc(q[1]); push(p.y, function () { D.flagStand(c, p.x, p.y, q[0], t, true); D.flag(c, p.x, p.y, q[0], t); }); });
-      (mk.pick || []).forEach(function (i) { var p = tc(i); push(p.y, function () { D.pad(c, p.x, p.y, t); label('✨ PICKUP', p.x, p.y - 34); }); });
+      (mk.pick || []).forEach(function (i) { var p = tc(i); push(p.y, function () { D.pad(c, p.x, p.y, t); label('PICKUP', p.x, p.y - 34); }); });
     }
     if (g === 'hide') {
       (mk.hs || []).forEach(function (i) { var p = tc(i); push(p.y, function () { c.save(); c.globalAlpha = 0.8; A.drawGim(c, p.x, p.y + 6, { skin: 'gim', body: '#2bd576' }, { t: t, dir: 0 }); c.restore(); label('HIDER SPAWN', p.x, p.y - 52, '#14874a'); }); });
-      (mk.seek || []).forEach(function (i) { var p = tc(i), x0 = ((i % W) - 3) * T, y0 = (((i / W) | 0) - 3) * T; push(p.y + 200, function () { c.strokeStyle = '#ff5c6c'; c.lineWidth = 4; c.setLineDash([10, 8]); c.strokeRect(x0, y0, 7 * T, 7 * T); c.setLineDash([]); A.drawGim(c, p.x, p.y + 6, { skin: 'ninja', body: '#ff4b5c' }, { t: t, dir: 0 }); label('🔒 SEEKER CAGE', p.x, y0 - 14, '#c1121f'); }); });
+      (mk.seek || []).forEach(function (i) { var p = tc(i), x0 = ((i % W) - 3) * T, y0 = (((i / W) | 0) - 3) * T; push(p.y + 200, function () { c.strokeStyle = '#ff5c6c'; c.lineWidth = 4; c.setLineDash([10, 8]); c.strokeRect(x0, y0, 7 * T, 7 * T); c.setLineDash([]); A.drawGim(c, p.x, p.y + 6, { skin: 'ninja', body: '#ff4b5c' }, { t: t, dir: 0 }); label('SEEKER CAGE', p.x, y0 - 14, '#c1121f'); }); });
     }
   }
 

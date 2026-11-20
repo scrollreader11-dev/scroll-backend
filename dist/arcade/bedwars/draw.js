@@ -481,7 +481,7 @@
       var sw2 = e.swingT != null ? D.ease.out(Math.min(1, e.swingT / 0.17)) : 1, rot2 = e.swingT != null && e.swingT < 0.3 ? a - 1.2 + 2.4 * sw2 : a + 0.4;
       c.rotate(rot2 + Math.PI / 2); c.translate(0, -4); pickaxe(c, 0.9, '#b8c2d6');
     } else if (window.MG && window.MG.RW && window.MG.RW[it]) {
-      c.rotate(a * 0.2); c.font = '16px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(window.MG.RW[it].icon || '❔', 6, 0);
+      c.rotate(a * 0.2); c.font = '16px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; (function () { try { var q = new Path2D(window.MG.RICO[window.MG.RW[it].ico] || window.MG.RICO.gun); c.save(); c.translate(-6, -12); c.scale(1, 1); c.fill(q, 'evenodd'); c.restore(); } catch (e) {} })();
     } else {
       D.drawItem(c, it, 0.62, { team: e.team, tier: it === 'pick' ? e.pick : 1 });
     }
@@ -542,7 +542,7 @@
       else if (kind === 'fire') D.spawn({ k: 'fire', x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, size: 6 + Math.random() * 9, life: 0.35 + Math.random() * 0.35, drag: 4, grow: 10 });
       else if (kind === 'feather') D.spawn({ k: 'feather', x: x, y: y, vx: Math.cos(a) * sp * 0.6, vy: Math.sin(a) * sp * 0.6, z: 20, vz: 90 + Math.random() * 120, col: col || '#fff', size: 5, life: 1.6 + Math.random() * 0.8, g: 90, vr: (Math.random() - 0.5) * 6, drag: 1.2, sway: Math.random() * 6 });
       else if (kind === 'dust') D.spawn({ k: 'smoke', x: x + (Math.random() - 0.5) * 10, y: y, vx: Math.cos(a) * 18, vy: Math.sin(a) * 8, col: 'rgba(235,230,215,', size: 3 + Math.random() * 3, life: 0.45, drag: 3, grow: 9 });
-      else if (kind === 'heart') D.spawn({ k: 'text', x: x + (Math.random() - 0.5) * 24, y: y, vx: 0, vy: -30, text: '❤', col: '#ff5c8a', size: 12, life: 0.9 });
+      else if (kind === 'heart') D.spawn({ k: 'text', x: x + (Math.random() - 0.5) * 24, y: y, vx: 0, vy: -30, text: '+', col: '#ff5c8a', size: 14, life: 0.9 });
       else if (kind === 'magic') D.spawn({ k: 'spark', x: x + (Math.random() - 0.5) * 30, y: y + (Math.random() - 0.5) * 30, vx: Math.cos(a) * sp * 0.4, vy: -40 - Math.random() * 60, col: col || '#c4b5fd', size: 2.5 + Math.random() * 2.5, life: 0.6 + Math.random() * 0.5, drag: 1.5 });
     }
   };
@@ -686,7 +686,7 @@
   // A game gateway: a glowing colored arch with the game's icon floating inside.
   D.gport = function (c, o, t, count) {
     var px = o.x, py = o.y + 14, col = D.GCOL[o.game] || '#7b5cff';
-    var icon = (window.MG && MG.GAMES[o.game] ? MG.GAMES[o.game].icon : '🎮');
+    var icon = '';
     c.fillStyle = 'rgba(10,6,30,.3)'; ell(c, px, py + 2, 62, 15); c.fill();
     ell(c, px, py, 56, 13); fs(c, '#58617a', OL, 3); ell(c, px, py - 3, 50, 10); fs(c, '#6c768e', null);
     // vortex
@@ -712,14 +712,14 @@
       c.fillStyle = '#1b1636'; c.font = '700 14px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(q[4], x + q[0], y - q[2] / 2);
     });
     var gl = (Math.sin(t * 2) + 1) / 2;
-    c.save(); c.globalAlpha = 0.5 + gl * 0.5; c.font = '22px system-ui'; c.textAlign = 'center'; c.fillText('👑', x, y - 56 + Math.sin(t * 2) * 3); c.restore();
+    c.save(); c.globalAlpha = 0.5 + gl * 0.5; c.font = '22px system-ui'; c.textAlign = 'center'; c.fillStyle = '#ffd166'; c.beginPath(); c.moveTo(x - 12, y - 46 + Math.sin(t * 2) * 3); c.lineTo(x - 12, y - 62 + Math.sin(t * 2) * 3); c.lineTo(x - 6, y - 54 + Math.sin(t * 2) * 3); c.lineTo(x, y - 66 + Math.sin(t * 2) * 3); c.lineTo(x + 6, y - 54 + Math.sin(t * 2) * 3); c.lineTo(x + 12, y - 62 + Math.sin(t * 2) * 3); c.lineTo(x + 12, y - 46 + Math.sin(t * 2) * 3); c.fill(); c.restore();
   };
   D.board = function (c, o, t, rows, me) { // the hub leaderboard
     var x = o.x, y = o.y, w = 210, h = 184;
     [-90, 90].forEach(function (dx) { rr(c, x + dx - 5, y - 30, 10, 34, 3); fs(c, '#5a331b', OL, 3); });
     rr(c, x - w / 2, y - h - 20, w, h, 14); fs(c, '#1a1446', OL, 4);
     rr(c, x - w / 2 + 6, y - h - 14, w - 12, 30, 9); c.fillStyle = '#ffd166'; c.fill();
-    c.font = '700 15px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#2a1300'; c.fillText(o.title || '🏆 LEADERBOARDS', x, y - h + 1);
+    c.font = '700 15px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#2a1300'; c.fillText(o.title || 'LEADERBOARDS', x, y - h + 1);
     rows = o.lines ? [] : rows || [];
     if (o.lines) { c.fillStyle = '#e6e2ff'; c.font = '600 13px Fredoka, sans-serif'; o.lines.forEach(function (ln, k) { c.fillText(ln, x, y - h + 52 + k * 22); }); c.fillStyle = '#ffd166'; c.fillText('Click to open', x, y - 36); }
     else if (!rows.length) { c.fillStyle = '#bdb6ee'; c.font = '600 12px Fredoka, sans-serif'; c.fillText('Win a game to get on the board!', x, y - h + 60); }
@@ -736,7 +736,7 @@
     for (var k = -2; k <= 2; k++) { rr(c, x + k * 22 - 3, y - 34, 6, 38, 2); fs(c, '#d9dce6', OL, 2); }
     rr(c, x - 52, y - 28, 104, 9, 3); fs(c, '#ffb703', OL, 2); rr(c, x - 52, y - 14, 104, 9, 3); fs(c, '#ffb703', OL, 2);
     c.save(); c.beginPath(); rr(c, x - 52, y - 28, 104, 9, 3); c.clip(); c.fillStyle = '#1b1636'; for (k = -6; k < 6; k++) { c.beginPath(); c.moveTo(x + k * 16, y - 28); c.lineTo(x + k * 16 + 8, y - 28); c.lineTo(x + k * 16, y - 19); c.lineTo(x + k * 16 - 8, y - 19); c.fill(); } c.restore();
-    D.tag(c, '🚧 ' + o.label, x, y - 64, { size: 14, color: '#fff', bg: '#3b2f8f' });
+    D.tag(c, o.label, x, y - 64, { size: 14, color: '#fff', bg: '#3b2f8f' });
     D.tag(c, o.sub, x, y - 44, { size: 11, color: '#ffd166' });
   };
   D.hubNpc = function (c, o, t, near, count) {

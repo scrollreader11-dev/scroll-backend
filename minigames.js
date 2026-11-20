@@ -364,7 +364,7 @@ function die(r, v, kind, att) {
   }
   // Murder Mystery: never say who did it — the kill feed would give the murderer away
   r.ev(['die', v.id, r.game === 'murder' ? 'murder' : kind, att && r.game !== 'murder' ? att.id : 0, final, Math.round(v.x), Math.round(v.y)]);
-  if (r.game === 'murder' && att && att.conn && att.mrole === 'm') A.send(att.conn, { t: 'toast', msg: '🔪 You eliminated ' + v.nick + ' — nobody saw who did it…' });
+  if (r.game === 'murder' && att && att.conn && att.mrole === 'm') A.send(att.conn, { t: 'toast', msg: 'You eliminated ' + v.nick + ' — nobody saw who did it…' });
   v.dirty = true; r.teamsDirty = true;
   if (v.ai) { v.ai.goal = null; v.ai.path = null; v.ai.enemy = null; }
   checkEnd(r, now);
@@ -758,7 +758,7 @@ function murderTick(r, now) {
     if (!e.inv.arrows && now >= (e.arrowAt || 0)) {
       if (!e.arrowAt) { e.arrowAt = now + 9000; continue; }
       e.inv.arrows = 1; e.arrowAt = 0; e.dirty = true;
-      if (e.conn) A.send(e.conn, { t: 'ann2', text: '🏹 Arrow ready' });
+      if (e.conn) A.send(e.conn, { t: 'ann2', text: 'Arrow ready' });
     }
   }
 }

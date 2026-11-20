@@ -232,15 +232,15 @@ function partyOf(c) { return c && c.party ? parties.get(c.party) || null : null;
 function gameName(g) { return g === 'bw' ? 'Bedwars' : (MG.GAMES[g] || {}).name || g; }
 function whereOf(o) {
   if (!o) return { s: 'off' };
-  if (o.watch) return { s: 'watch', game: o.watch.game, room: o.watch.id, txt: '👀 Watching ' + gameName(o.watch.game) };
+  if (o.watch) return { s: 'watch', game: o.watch.game, room: o.watch.id, txt: 'Watching ' + gameName(o.watch.game) };
   const r = o.room;
   if (r) {
     const full = r.members.length >= capOf(r);
-    if (r.state === 'lobby') return { s: 'lobby', game: r.game, room: r.id, kind: r.kind, join: r.kind !== 'practice' && !full, txt: (r.kind === 'practice' ? '🤖 Practice ' : '⏳ Waiting for ') + gameName(r.game) };
-    if (r.state === 'play') return { s: 'play', game: r.game, room: r.id, kind: r.kind, watch: true, txt: '🎮 Playing ' + gameName(r.game) + (r.kind === 'practice' ? ' (practice)' : '') };
-    return { s: 'end', game: r.game, txt: '🏁 Finishing ' + gameName(r.game) };
+    if (r.state === 'lobby') return { s: 'lobby', game: r.game, room: r.id, kind: r.kind, join: r.kind !== 'practice' && !full, txt: (r.kind === 'practice' ? 'Practice ' : 'Waiting for ') + gameName(r.game) };
+    if (r.state === 'play') return { s: 'play', game: r.game, room: r.id, kind: r.kind, watch: true, txt: 'Playing ' + gameName(r.game) + (r.kind === 'practice' ? ' (practice)' : '') };
+    return { s: 'end', game: r.game, txt: 'Finishing ' + gameName(r.game) };
   }
-  return { s: 'hub', txt: '🏠 In the hub' };
+  return { s: 'hub', txt: 'In the hub' };
 }
 function partyInfo(p) {
   return { t: 'party', id: p.id, leader: p.leader, members: p.members.map((cid) => { const o = connByCid(cid); return { cid, nick: p.nicks[cid] || '?', look: o ? o.look : null, on: !!o, where: whereOf(o), talk: !!(o && o.voice && Date.now() - (o.vTalkAt || 0) < 400) }; }) };
@@ -251,11 +251,11 @@ function partyLeave(c, why) {
   if (!p) return;
   p.members = p.members.filter((x) => x !== c.cid);
   if (p.members.length <= 1) {
-    for (const cid of p.members) { const o = connByCid(cid); if (o) { o.party = 0; send(o, { t: 'party', id: 0 }); send(o, { t: 'toast', msg: '👥 Your party closed — ' + c.nick + ' ' + (why || 'left') + '.' }); } }
+    for (const cid of p.members) { const o = connByCid(cid); if (o) { o.party = 0; send(o, { t: 'party', id: 0 }); send(o, { t: 'toast', msg: 'Your party closed — ' + c.nick + ' ' + (why || 'left') + '.' }); } }
     parties.delete(p.id); return;
   }
   if (p.leader === c.cid) p.leader = p.members[0];
-  for (const cid of p.members) { const o = connByCid(cid); if (o) send(o, { t: 'toast', msg: '👥 ' + c.nick + ' ' + (why || 'left') + ' the party.' }); }
+  for (const cid of p.members) { const o = connByCid(cid); if (o) send(o, { t: 'toast', msg: '' + c.nick + ' ' + (why || 'left') + ' the party.' }); }
   pushParty(p);
 }
 function partyMates(c) { // members the leader brings along (not stuck mid-match)
@@ -276,7 +276,7 @@ function joinWithParty(c, room, team) {
   for (const o of mates) {
     if (o.watch) stopWatch(o, true);
     joinLobby(o, room, mine);
-    if (o.room === room) send(o, { t: 'toast', msg: '👥 ' + c.nick + ' brought the party into ' + gameName(room.game) + '!' });
+    if (o.room === room) send(o, { t: 'toast', msg: '' + c.nick + ' brought the party into ' + gameName(room.game) + '!' });
   }
   const p = partyOf(c); if (p) pushParty(p);
 }
@@ -311,7 +311,7 @@ function socialMsg(c, m, now) {
     let o = m.cid ? connByCid(String(m.cid)) : null;
     if (!o && m.name) { const n = String(m.name).toLowerCase().trim(); for (const x of conns) if (x.nick.toLowerCase() === n) { o = x; break; } }
     if (!o) return send(c, { t: 'err', msg: 'They’re not in Games right now — they need to open the arcade first.' }), true;
-    if (o === c) return send(c, { t: 'err', msg: 'You can’t invite yourself 🙂' }), true;
+    if (o === c) return send(c, { t: 'err', msg: 'You can’t invite yourself' }), true;
     let p = partyOf(c);
     if (!p) { p = { id: nextParty++, leader: c.cid, members: [c.cid], nicks: { [c.cid]: c.nick } }; parties.set(p.id, p); c.party = p.id; }
     if (p.members.includes(o.cid)) return send(c, { t: 'err', msg: o.nick + ' is already in your party.' }), true;
@@ -319,20 +319,20 @@ function socialMsg(c, m, now) {
     const list = (invites.get(o.cid) || []).filter((x) => now - x.at < 120000 && x.id !== p.id);
     list.push({ id: p.id, from: c.nick, at: now }); invites.set(o.cid, list);
     send(o, { t: 'pinvite', id: p.id, from: c.nick });
-    send(c, { t: 'toast', msg: '📨 Party invite sent to ' + o.nick });
+    send(c, { t: 'toast', msg: 'Party invite sent to ' + o.nick });
     pushParty(p); return true;
   }
   if (t === 'pacc' || t === 'pdec') {
     const id = m.id | 0, list = invites.get(c.cid) || [], inv = list.find((x) => x.id === id);
     invites.set(c.cid, list.filter((x) => x.id !== id));
     const p = parties.get(id);
-    if (t === 'pdec') { if (p) { const l = connByCid(p.leader); if (l) send(l, { t: 'toast', msg: '👥 ' + c.nick + ' declined your party invite.' }); } return true; }
+    if (t === 'pdec') { if (p) { const l = connByCid(p.leader); if (l) send(l, { t: 'toast', msg: '' + c.nick + ' declined your party invite.' }); } return true; }
     if (!inv || !p) return send(c, { t: 'err', msg: 'That invite expired.' }), true;
     if (p.members.length >= PARTY_MAX) return send(c, { t: 'err', msg: 'That party is full.' }), true;
     if (c.party && c.party !== p.id) partyLeave(c);
     p.members.push(c.cid); p.nicks[c.cid] = c.nick; c.party = p.id;
-    for (const cid of p.members) { const o = connByCid(cid); if (o && o !== c) send(o, { t: 'toast', msg: '👥 ' + c.nick + ' joined the party!' }); }
-    send(c, { t: 'toast', msg: '👥 You joined the party! The leader picks the games — you’ll always be on their team. Party voice works anywhere on the map.' });
+    for (const cid of p.members) { const o = connByCid(cid); if (o && o !== c) send(o, { t: 'toast', msg: '' + c.nick + ' joined the party!' }); }
+    send(c, { t: 'toast', msg: 'You joined the party! The leader picks the games — you’ll always be on their team. Party voice works anywhere on the map.' });
     pushParty(p);
     // jump into the leader's lobby if they are waiting in one
     const l = connByCid(p.leader); if (!schoolCfg() && l && l.room && l.room.state === 'lobby' && l.room.kind !== 'practice' && !(c.room && c.room.state === 'play')) joinLobby(c, l.room, (l.room.members.find((x) => x.conn === l) || {}).team);
@@ -356,16 +356,16 @@ function socialMsg(c, m, now) {
     if (!r) { // they're in the hub — walk over to them
       if (c.room) leaveRoom(c); else if (c.watch) stopWatch(c); 
       if (c.space === HUB) { c.sx = o.sx; c.sy = o.sy; send(c, { t: 'pos', x: Math.round(o.sx), y: Math.round(o.sy) }); }
-      send(c, { t: 'toast', msg: '🏠 ' + o.nick + ' is in the hub — teleported you next to them!' }); return true;
+      send(c, { t: 'toast', msg: '' + o.nick + ' is in the hub — teleported you next to them!' }); return true;
     }
-    if (r.state === 'lobby' && t === 'fjoin' && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: '🔒 Games are locked in School Mode — wait for your teacher’s vote.' }), true;
+    if (r.state === 'lobby' && t === 'fjoin' && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: 'Games are locked in School Mode — wait for your teacher’s vote.' }), true;
     if (r.state === 'lobby' && t === 'fjoin') {
       if (r.kind === 'practice') return send(c, { t: 'err', msg: o.nick + ' is in a solo practice match.' }), true;
       if (r.members.length >= capOf(r)) return send(c, { t: 'err', msg: 'Their lobby is full.' }), true;
       if (c.watch) stopWatch(c, true);
       joinWithParty(c, r, (r.members.find((x) => x.conn === o) || {}).team); return true;
     }
-    if (r.state === 'play') { if (c.room === r) return true; if (c.room && c.room.state === 'play') return send(c, { t: 'err', msg: 'Finish (or leave) your own match first.' }), true; startWatch(c, r); send(c, { t: 'toast', msg: '👀 Spectating ' + o.nick + ' — press Leave to go back.' }); return true; }
+    if (r.state === 'play') { if (c.room === r) return true; if (c.room && c.room.state === 'play') return send(c, { t: 'err', msg: 'Finish (or leave) your own match first.' }), true; startWatch(c, r); send(c, { t: 'toast', msg: 'Spectating ' + o.nick + ' — press Leave to go back.' }); return true; }
     return send(c, { t: 'err', msg: 'Their match is just finishing — try again in a moment.' }), true;
   }
   return false;
@@ -403,7 +403,7 @@ function resolveMap(r) {
 }
 function startMatch(r) {
   r.custom = resolveMap(r);
-  GMS.log('▶️ ' + (r.game === 'bw' ? 'Bedwars ' + r.mode : MG.GAMES[r.game].name) + ' #' + r.id + ' started (' + r.members.length + ' players' + (r.custom ? ', map "' + r.custom.name + '"' : '') + ')');
+  GMS.log('' + (r.game === 'bw' ? 'Bedwars ' + r.mode : MG.GAMES[r.game].name) + ' #' + r.id + ' started (' + r.members.length + ' players' + (r.custom ? ', map "' + r.custom.name + '"' : '') + ')');
   if (r.game !== 'bw') return MINI.start(r);
   r.state = 'play';
   r.map = r.custom ? MG.buildCustom(r.custom) : BW.genMap();
@@ -499,7 +499,7 @@ function classInfo() {
   if (CLASS.cq) { const c = CLASS.cq; const ans = [...c.answers.values()]; cq = { id: c.id, q: c.q, a: c.a, open: Date.now() < c.until, left: Math.max(0, Math.ceil((c.until - Date.now()) / 1000)), sent: c.sent, answered: ans.length, right: ans.filter((x) => x.ok).length, wrongNames: ans.filter((x) => !x.ok).map((x) => x.nick).slice(0, 30), counts: c.counts, choices: c.choices }; }
   let vote = null;
   if (CLASS.vote) { const v = CLASS.vote; vote = { left: Math.max(0, Math.ceil((v.endAt - Date.now()) / 1000)), counts: voteCounts(), voters: v.votes.size }; }
-  const online = [...conns].filter((x) => !x.spectator && !x.owner).map((x) => ({ pid: x.pid, nick: x.nick, where: x.room ? (x.room.state === 'play' ? '🎮 ' + (x.room.game === 'bw' ? 'Bedwars' : MG.GAMES[x.room.game].name) : '⏳ waiting') : x.watch ? '👀 watching' : '🏠 hub' })).sort((a, b) => a.nick.localeCompare(b.nick));
+  const online = [...conns].filter((x) => !x.spectator && !x.owner).map((x) => ({ pid: x.pid, nick: x.nick, where: x.room ? (x.room.state === 'play' ? '' + (x.room.game === 'bw' ? 'Bedwars' : MG.GAMES[x.room.game].name) : 'waiting') : x.watch ? 'watching' : 'hub' })).sort((a, b) => a.nick.localeCompare(b.nick));
   const live = [...rooms.values()].filter((r) => r.state === 'play' && r.ents).map((r) => ({ id: r.id, game: r.game, n: [...r.ents.values()].filter((e) => e.conn).length, mins: Math.floor((Date.now() - r.goAt) / 60000) }));
   const bannedNames = (GMS.store.nameBans || []).slice(-30);
   return { online, live, bannedNames, since: CLASS.since, kids, miss, set: set.items.map((it, i) => ({ i, q: it.q.slice(0, 90) })), setName: set.name, cq, vote, until: sc && sc.until || 0 };
@@ -512,7 +512,7 @@ function sendClassQuestion(by, qi) {
   const id = Date.now();
   CLASS.cq = { id, i, q: q.q, a: set.items[i].a, choices: q.choices, ans: st.cur.ans, until: Date.now() + 45000, answers: new Map(), counts: [0, 0, 0, 0], sent: 0, set: key };
   for (const c of conns) { if (c.spectator) continue; send(c, { t: 'cq', id, q: q.q, choices: q.choices, secs: 45, from: by.nick }); CLASS.cq.sent++; }
-  GMS.log('📣 ' + by.nick + ' sent a class question');
+  GMS.log('' + by.nick + ' sent a class question');
 }
 function classAnswer(c, m) {
   const cq = CLASS.cq; if (!cq || cq.id !== Number(m.id) || Date.now() > cq.until || !c.cid || cq.answers.has(c.cid)) return;
@@ -533,7 +533,7 @@ function startVote(by, secs, games) {
   const list = (Array.isArray(games) && games.length ? games : VOTE_GAMES).filter((g) => VOTE_GAMES.includes(g));
   CLASS.vote = { endAt: Date.now() + (secs || 20) * 1000, votes: new Map(), games: list.length >= 2 ? list : VOTE_GAMES, by: by.nick };
   CLASS.vote.total = voteTargets().length;
-  voteBroadcast(); GMS.log('🗳️ ' + by.nick + ' started a game vote');
+  voteBroadcast(); GMS.log('' + by.nick + ' started a game vote');
   clearTimeout(CLASS.voteT); CLASS.voteT = setTimeout(endVote, (secs || 20) * 1000 + 200);
 }
 function endVote(cancel) {
@@ -553,7 +553,7 @@ function endVote(cancel) {
     for (const c of players) { if (room.members.length >= capOf(room)) { room.startAt = Date.now() + 6000; pushRoom(room); room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', g); } joinLobby(c, room); }
     room.startAt = Date.now() + 8000; pushRoom(room);
   }
-  GMS.log('🗳️ Vote winner: ' + g + ' (' + top + ' votes, ' + players.length + ' players)');
+  GMS.log('Vote winner: ' + g + ' (' + top + ' votes, ' + players.length + ' players)');
 }
 setInterval(() => { // live vote counts + School Mode timer
   if (CLASS.vote) voteBroadcast();
@@ -563,7 +563,7 @@ setInterval(() => { // live vote counts + School Mode timer
   if (qOn !== CLASS.lastQuiz) { const first = CLASS.lastQuiz === undefined; CLASS.lastQuiz = qOn; if (!first) for (const r of rooms.values()) if (r.school) { r.quiz = qOn; if (r.ents) for (const e of r.ents.values()) if (!e.bot) { e.quiz = qOn; if (qOn && !(e.energy > 0)) e.energy = 100; e.dirty = true; } } }
   const gam = !!(sc && sc.gamble);
   if (!!sc !== CLASS.lastSchool || gam !== CLASS.lastGamble || qOn !== CLASS.lastQz) { CLASS.lastSchool = !!sc; CLASS.lastGamble = gam; CLASS.lastQz = qOn; for (const c of conns) send(c, { t: 'school', on: !!sc, gamble: gam, quiz: qOn }); }
-  if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('🏫 School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: '🏫 Class time is over — School Mode is off!' }); }
+  if (sc && sc.until && Date.now() > sc.until && globalThis.SH_SET_SCHOOL) { globalThis.SH_SET_SCHOOL(false, null, 0); GMS.log('School mode timer ended — school mode OFF'); for (const c of conns) send(c, { t: 'toast', msg: 'Class time is over — School Mode is off!' }); }
 }, 1000);
 function teamsInfo(r) {
   return r.teams.map((tm, t) => {
@@ -817,7 +817,7 @@ function checkWin(r) {
 function endMatch(r, winner) {
   if (r.state !== 'play') return;
   r.state = 'end'; r.winner = winner; flush(r);
-  GMS.log('🏁 ' + (r.game === 'bw' ? 'Bedwars' : MG.GAMES[r.game].name) + ' #' + r.id + ' ended — ' + (winner >= 0 ? (r.game === 'hide' ? (winner ? 'seekers' : 'hiders') : (BW.TEAMS[winner] || {}).name) + ' won' : 'draw'));
+  GMS.log('' + (r.game === 'bw' ? 'Bedwars' : MG.GAMES[r.game].name) + ' #' + r.id + ' ended — ' + (winner >= 0 ? (r.game === 'hide' ? (winner ? 'seekers' : 'hiders') : (BW.TEAMS[winner] || {}).name) + ' won' : 'draw'));
   const stats = [...r.ents.values()].map((e) => ({ id: e.id, nick: e.nick, team: e.team, bot: e.bot, look: e.look, ...e.stats }));
   const mult = r.kind === 'public' ? 1 : 0.5;
   const extra = r.game !== 'bw' ? MINI.endInfo(r) : {};
@@ -1348,7 +1348,7 @@ function onMsg(c, m, now) {
   if (t === 'vc') { c.voice = !!m.on; send(c, { t: 'vcstate', on: c.voice, off: VOICE_OFF, muted: !!c.vmuted, range: VOICE_R }); return; }
   if (t === 'adm' && !c.owner && c.teacher) { const TA = ['info', 'class', 'classreset', 'cq', 'cqclose', 'vote', 'skick', 'sban', 'srename', 'swatch', 'sunban']; if (TA.includes(String(m.a))) { try { if (m.a === 'info') send(c, { t: 'adminfo', teacher: true, school: schoolCfg(), rooms: [], conns: [], bans: [], logs: [], maps: [], rot: {}, mega: [], settings: {}, now: Date.now() }); else adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
   if (t === 'adm') { if (c.owner) { try { adminMsg(c, m, now); } catch (err) { send(c, { t: 'admres', ok: false, msg: 'Error: ' + (err && err.message) }); } } return; }
-  if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: '🔒 New Bedwars matches are paused by the owners. Try again soon!' });
+  if (LOCKED && !c.owner && (t === 'quick' || t === 'practice' || t === 'create' || t === 'join')) return send(c, { t: 'err', msg: 'New Bedwars matches are paused by the owners. Try again soon!' });
   if (t === 'cqa') { classAnswer(c, m); return; }
   if (t === 'vote') { if (CLASS.vote && Date.now() < CLASS.vote.endAt && c.cid && CLASS.vote.games.includes(String(m.g))) { CLASS.vote.votes.set(c.cid, String(m.g)); voteBroadcast(); } return; }
   if (t === 'soc' || t === 'pinv' || t === 'pacc' || t === 'pdec' || t === 'pleave' || t === 'pkick' || t === 'plead' || t === 'fjoin' || t === 'fwatch') { socialMsg(c, m, now); return; }
@@ -1356,13 +1356,13 @@ function onMsg(c, m, now) {
   if (c.watch) return;
   // ---- menus
   const game = MG.isMini(m.game) ? m.game : 'bw';
-  if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && c.spectator) return send(c, { t: 'err', msg: '👀 You’re watching as the teacher — use Teacher Tools to spectate a match.' });
-  if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: '🔒 Games are locked in School Mode — your teacher starts the next game with a vote.' });
+  if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && c.spectator) return send(c, { t: 'err', msg: 'You’re watching as the teacher — use Teacher Tools to spectate a match.' });
+  if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: 'Games are locked in School Mode — your teacher starts the next game with a vote.' });
   if (t === 'quick') {
     const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
     let room = null;
     const pp = partyOf(c);
-    if (pp && pp.leader !== c.cid && pp.members.length > 1) return send(c, { t: 'err', msg: '👥 Your party leader (' + (pp.nicks[pp.leader] || '?') + ') picks the game. Leave the party to queue alone.' });
+    if (pp && pp.leader !== c.cid && pp.members.length > 1) return send(c, { t: 'err', msg: 'Your party leader (' + (pp.nicks[pp.leader] || '?') + ') picks the game. Leave the party to queue alone.' });
     const size = 1 + partyMates(c).length;
     for (const x of rooms.values()) if (x.kind === 'public' && x.state === 'lobby' && x.game === game && (game === 'bw' || x.mode === mode) && x.members.length + size <= capOf(x) && (!x.startAt || x.startAt - now > 2500)) { room = x; break; }
     if (!room) room = makeRoom('public', mode, GMS.store.settings.publicDiff, '', game);
@@ -1484,71 +1484,71 @@ function mbMsg(c, m) {
   if (a === 'rot') { GMS.setRotation(String(m.game), String(m.id), !!m.on); return list(); }
 }
 
-// ============================================================ ⚡ owner powers (Scrollreader11 only)
+// ============================================================ owner powers (Scrollreader11 only)
 // scope: 'p' = the picked player, 'r' = the picked match, 'g' = everyone
 function megaEnt(x) { return x && x.room && x.room.state === 'play' && x.ent ? x.ent : null; }
 function megaFx(x, kind, extra) { send(x, { t: 'fx', kind, ...(extra || {}) }); }
 const MEGA = [
-  { id: 'heal', icon: '❤️', label: 'Full heal', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.hp = BW.MAX_HP; e.dead = false; e.dirty = true; return 'Healed ' + e.nick; } },
-  { id: 'onehp', icon: '💔', label: 'Set to 1 HP', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); if (!e.god) e.hp = 1; e.dirty = true; return e.nick + ' is on 1 HP'; } },
-  { id: 'kill', icon: '☠️', label: 'Kill', cat: 'Player', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); e.god = false; die(k.x.room, e, 'void', null); return 'Killed ' + e.nick; } },
-  { id: 'pgod', icon: '🛡️', label: 'Toggle god mode', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.god = !e.god; if (e.god) e.hp = BW.MAX_HP; e.dirty = true; if (k.x) send(k.x, { t: 'god', on: e.god }); return e.nick + (e.god ? ' is a god now' : ' is mortal again'); } },
-  { id: 'pspeed', icon: '⚡', label: 'Speed 60s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.speedUntil = Date.now() + 60000; e.dirty = true; return e.nick + ' is fast'; } },
-  { id: 'pslow', icon: '🐌', label: 'Slow 30s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.slowUntil = Date.now() + 30000; e.dirty = true; return e.nick + ' is slow'; } },
-  { id: 'pgiant', icon: '🐘', label: 'Make giant', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.giant = !e.giant; e.tiny = false; return e.nick + (e.giant ? ' is GIANT' : ' is normal size'); } },
-  { id: 'ptiny', icon: '🐜', label: 'Make tiny', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.tiny = !e.tiny; e.giant = false; return e.nick + (e.tiny ? ' is tiny' : ' is normal size'); } },
-  { id: 'shake', icon: '📳', label: 'Shake their screen', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'shake'); return 'Shook ' + k.x.nick + '’s screen'; } },
-  { id: 'flip', icon: '🙃', label: 'Upside-down screen 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flip', { ms: 15000 }); return k.x.nick + ' is upside down 🙃'; } },
-  { id: 'pvanish', icon: '👻', label: 'Toggle invisible', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.vanish = !e.vanish; return e.nick + (e.vanish ? ' is invisible' : ' is visible'); } },
-  { id: 'ponehit', icon: '💥', label: 'Toggle one-hit kills', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.onehit = !e.onehit; return e.nick + (e.onehit ? ' one-shots now' : ' hits normally'); } },
-  { id: 'pregen', icon: '💖', label: 'Regen 30s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.regenUntil = Date.now() + 30000; e.dirty = true; return e.nick + ' is regenerating'; } },
-  { id: 'pabsorb', icon: '💛', label: '+10 golden hearts', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.absorb = (e.absorb || 0) + 10; e.dirty = true; return e.nick + ' got golden hearts'; } },
-  { id: 'prespawn', icon: '🔁', label: 'Respawn now', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); if (!e.dead || e.elim) throw new Error(e.nick + ' isn’t waiting to respawn.'); respawn(k.x.room, e); return e.nick + ' respawned'; } },
-  { id: 'plaunch', icon: '🚀', label: 'Launch', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(), an = rnd() * Math.PI * 2; knock(k.x.room, e, Math.cos(an), Math.sin(an), 1100); return 'Launched ' + e.nick; } },
-  { id: 'prandtp', icon: '🎲', label: 'Teleport somewhere random', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(), rr = k.x.room; for (let t = 0; t < 80; t++) { const i = (rnd() * N) | 0; if (rr.map.g[i] && rr.map.g[i] !== G.ROCK && !BW.solidAt(rr.map, i % W, (i / W) | 0)) { e.x = (i % W) * T + T / 2; e.y = ((i / W) | 0) * T + T / 2; e.kbBudget += 2000; send(k.x, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) }); return e.nick + ' was teleported'; } } throw new Error('No free spot found.'); } },
-  { id: 'pcenter', icon: '🎯', label: 'Teleport to map middle', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.x = W * T / 2; e.y = H * T / 2; e.kbBudget += 2000; send(k.x, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) }); return e.nick + ' is in the middle'; } },
-  { id: 'gsword', icon: '⚔️', label: 'Diamond sword', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.sword = 4; e.dirty = true; k.x.room.ev(['gear', e.id, e.sword, e.armor, e.pick]); return e.nick + ' got a diamond sword'; } },
-  { id: 'garmor', icon: '🦺', label: 'Diamond armor', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.armor = 4; e.dirty = true; k.x.room.ev(['gear', e.id, e.sword, e.armor, e.pick]); return e.nick + ' got diamond armor'; } },
-  { id: 'gstrip', icon: '🩲', label: 'Strip gear (wood + leather)', cat: 'Gear', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); e.sword = 1; e.armor = 1; e.dirty = true; k.x.room.ev(['gear', e.id, e.sword, e.armor, e.pick]); return e.nick + ' lost their gear'; } },
-  { id: 'gbow', icon: '🏹', label: 'Bow + 64 arrows', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.bow = 1; e.inv.arrows = (e.inv.arrows || 0) + 64; e.dirty = true; return e.nick + ' got a bow'; } },
-  { id: 'gtnt', icon: '🧨', label: '+5 TNT', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.tnt = (e.inv.tnt || 0) + 5; e.dirty = true; return '+5 TNT for ' + e.nick; } },
-  { id: 'gfire', icon: '🔥', label: '+10 fireballs', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.fireball = (e.inv.fireball || 0) + 10; e.dirty = true; return '+10 fireballs for ' + e.nick; } },
-  { id: 'gpearl', icon: '🟣', label: '+5 ender pearls', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.pearl = (e.inv.pearl || 0) + 5; e.dirty = true; return '+5 pearls for ' + e.nick; } },
-  { id: 'gapple', icon: '🍎', label: '+5 golden apples', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.gapple = (e.inv.gapple || 0) + 5; e.dirty = true; return '+5 golden apples for ' + e.nick; } },
-  { id: 'gwool', icon: '🧶', label: '+128 wool', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.wool = (e.inv.wool || 0) + 128; e.dirty = true; return '+128 wool for ' + e.nick; } },
-  { id: 'gclear', icon: '🗑️', label: 'Empty inventory', cat: 'Gear', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); for (const q in e.inv) e.inv[q] = 0; e.dirty = true; return e.nick + '’s inventory is empty'; } },
-  { id: 'c1k', icon: '📜', label: '+1,000 Scrolls', cat: 'Account', scope: 'p', fn: (k) => { grantCoins(k.x.cid, 1000); send(k.x, { t: 'ann', text: '🎁 +1,000 Scrolls!', from: k.c.nick }); return '+1,000 Scrolls for ' + k.x.nick; } },
-  { id: 'c10k', icon: '💰', label: '+10,000 Scrolls', cat: 'Account', scope: 'p', fn: (k) => { grantCoins(k.x.cid, 10000); send(k.x, { t: 'ann', text: '🎁 +10,000 Scrolls!', from: k.c.nick }); return '+10,000 Scrolls for ' + k.x.nick; } },
-  { id: 'eloup', icon: '📈', label: 'Duel rank +100', cat: 'Account', scope: 'p', fn: (k) => { const q = GMS.store.elo[k.x.cid] || (GMS.store.elo[k.x.cid] = { r: 1000, w: 0, l: 0, nick: k.x.nick }); q.r += 100; GMS.save(); return k.x.nick + ' is now ' + q.r; } },
-  { id: 'elodown', icon: '📉', label: 'Duel rank -100', cat: 'Account', scope: 'p', fn: (k) => { const q = GMS.store.elo[k.x.cid] || (GMS.store.elo[k.x.cid] = { r: 1000, w: 0, l: 0, nick: k.x.nick }); q.r = Math.max(0, q.r - 100); GMS.save(); return k.x.nick + ' is now ' + q.r; } },
-  { id: 'phub', icon: '🏠', label: 'Send to hub', cat: 'Account', scope: 'p', fn: (k) => { if (k.x.watch) stopWatch(k.x); else if (k.x.room) leaveRoom(k.x); else goHub(k.x); return k.x.nick + ' sent to the hub'; } },
-  { id: 'whisper', icon: '💌', label: 'Private message (uses text box)', cat: 'Account', scope: 'p', fn: (k) => { const t = String(k.m.text || '').slice(0, 140).trim(); if (!t) throw new Error('Type a message in the text box.'); send(k.x, { t: 'ann', text: '💌 ' + t, from: k.c.nick + ' (private)' }); return 'Whispered to ' + k.x.nick; } },
-  { id: 'spin', icon: '🌀', label: 'Spin their screen', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'spin'); return 'Spun ' + k.x.nick; } },
-  { id: 'mirror', icon: '🪞', label: 'Mirror screen 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'mirror', { ms: 15000 }); return k.x.nick + ' sees backwards'; } },
-  { id: 'invert', icon: '🎨', label: 'Invert colors 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'invert', { ms: 15000 }); return 'Colors inverted for ' + k.x.nick; } },
-  { id: 'dark', icon: '🌑', label: 'Lights out 10s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'dark', { ms: 10000 }); return 'Lights out for ' + k.x.nick; } },
-  { id: 'blurp', icon: '😵‍💫', label: 'Blurry vision 8s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'blur', { ms: 8000 }); return k.x.nick + ' needs glasses'; } },
-  { id: 'jumpscare', icon: '👹', label: 'Jumpscare', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flash', { col: '#000' }); megaFx(k.x, 'big', { text: '👹 BOO!', col: '#ff3b5c', sfx: 'no' }); megaFx(k.x, 'shake'); return 'Spooked ' + k.x.nick; } },
-  { id: 'fakewin', icon: '🏆', label: 'Fake “YOU WIN” banner', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'big', { text: '🏆 YOU WIN!', sub: '…just kidding', sfx: 'level' }); return 'Pranked ' + k.x.nick; } },
-  { id: 'gray', icon: '🩶', label: 'Black & white 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'gray', { ms: 15000 }); return k.x.nick + ' lost all color'; } },
-  { id: 'zoom', icon: '🔍', label: 'Zoomed way in 10s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'zoom', { ms: 10000 }); return k.x.nick + ' is zoomed in'; } },
-  { id: 'clown', icon: '🤡', label: 'Clown rain', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'rain', { em: '🤡', sfx: 'no' }); return 'Clowned ' + k.x.nick; } },
-  { id: 'poop', icon: '💩', label: 'Poop rain', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'rain', { em: '💩' }); return k.x.nick + ' got pooped on'; } },
-  { id: 'fakeban', icon: '🚫', label: 'Fake “you’re banned”', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flash', { col: '#ff3b5c' }); megaFx(k.x, 'big', { text: '🚫 YOU ARE BANNED', sub: 'jk 😜', col: '#ff3b5c', sfx: 'no' }); return 'Fake-banned ' + k.x.nick; } },
-  { id: 'fakerich', icon: '🤑', label: 'Fake +1,000,000 Scrolls', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'rain', { em: '💸' }); megaFx(k.x, 'big', { text: '🤑 +1,000,000 SCROLLS!', sub: '(not really)', sfx: 'level' }); return 'Got ' + k.x.nick + '’s hopes up'; } },
-  { id: 'tntdrop', icon: '💣', label: 'Drop TNT on them', cat: 'Trolls', scope: 'p', fn: (k) => { const e = k.ent(), r = k.x.room; const tn = { id: nextProj++, x: e.x, y: e.y, at: Date.now() + 1500, owner: 0, team: -9 }; r.tnts.push(tn); r.ev(['tnt', tn.id, Math.round(tn.x), Math.round(tn.y), 1500]); return '💣 TNT dropped on ' + e.nick; } },
-  { id: 'freeze5', icon: '🧊', label: 'Freeze 5 seconds', cat: 'Trolls', scope: 'p', fn: (k) => { const x = k.x; x.frozen = true; send(x, { t: 'frozen', on: true }); setTimeout(() => { x.frozen = false; send(x, { t: 'frozen', on: false }); }, 5000); return x.nick + ' frozen for 5s'; } },
-  { id: 'swap', icon: '🔄', label: 'Swap places with a random player', cat: 'Trolls', scope: 'p', fn: (k) => { const e = k.ent(), r = k.x.room; const o = [...r.ents.values()].filter((q) => q !== e && !q.dead && !q.elim); if (!o.length) throw new Error('Nobody to swap with.'); const q = o[(rnd() * o.length) | 0]; const ex = e.x, ey = e.y; e.x = q.x; e.y = q.y; q.x = ex; q.y = ey; for (const z of [e, q]) { z.kbBudget += 2000; if (z.conn) send(z.conn, { t: 'pos', x: Math.round(z.x), y: Math.round(z.y) }); } return e.nick + ' swapped with ' + q.nick; } },
-  { id: 'turtle', icon: '🐢', label: 'Turtle mode (tiny + slow)', cat: 'Trolls', scope: 'p', fn: (k) => { const e = k.ent(); e.tiny = true; e.giant = false; e.slowUntil = Date.now() + 30000; e.dirty = true; megaFx(k.x, 'big', { text: '🐢 TURTLE MODE', col: '#2bd576' }); return e.nick + ' is a turtle'; } },
-  { id: 'rconfetti', icon: '🎉', label: 'Confetti for the match', cat: 'Match', scope: 'r', fn: (k) => { for (const x of humans(k.room())) megaFx(x, 'confetti', { sfx: 'level' }); return 'Confetti!'; } },
-  { id: 'rmoney', icon: '💸', label: 'Money rain for the match', cat: 'Match', scope: 'r', fn: (k) => { for (const x of humans(k.room())) megaFx(x, 'rain', { em: '💸' }); return 'Making it rain'; } },
-  { id: 'rkit', icon: '🎒', label: 'Max gear for everyone', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); for (const e of k.live()) { e.sword = 4; e.armor = 4; e.pick = 4; e.dirty = true; r.ev(['gear', e.id, 4, 4, 4]); } return 'Everyone is fully geared'; } },
-  { id: 'rtnt', icon: '🧨', label: '5 TNT for everyone', cat: 'Match', scope: 'r', fn: (k) => { for (const e of k.live()) { e.inv.tnt = (e.inv.tnt || 0) + 5; e.dirty = true; } return 'TNT for everyone 💣'; } },
-  { id: 'rshuffle', icon: '🔀', label: 'Shuffle everyone’s spots', cat: 'Match', scope: 'r', fn: (k) => { const L = k.live(), pos = L.map((e) => [e.x, e.y]).sort(() => rnd() - 0.5); L.forEach((e, i) => { e.x = pos[i][0]; e.y = pos[i][1]; e.kbBudget += 2000; if (e.conn) send(e.conn, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) }); }); return 'Shuffled ' + L.length + ' players'; } },
-  { id: 'rgens', icon: '💎', label: 'Overflow every generator', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); if (!r.gens) throw new Error('This game has no generators.'); for (const g of r.gens) g.n = (g.n || 0) + 16; return 'Generators overflowing 💎'; } },
-  { id: 'rups', icon: '⬆️', label: 'Max all team upgrades', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); if (r.game !== 'bw') throw new Error('Bedwars only.'); for (const tm of r.teams) Object.assign(tm.up, { sharp: 1, prot: 4, forge: 4, haste: 2, heal: 1 }); r.teamsDirty = true; return 'Every team is maxed'; } },
-  { id: 'gparty', icon: '🥳', label: 'Confetti for EVERYONE online', cat: 'Everyone', scope: 'g', fn: () => { for (const x of conns) megaFx(x, 'confetti', { sfx: 'level' }); return 'Confetti for ' + conns.size + ' players'; } },
-  { id: 'rbots3', icon: '🤖', label: 'Add 3 bots', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); let n = 0; for (let i = 0; i < 3; i++) { adminMsg(k.c, { a: 'fun', op: 'addbot', room: r.id }); n++; } return 'Added bots'; } },
+  { id: 'heal', icon: '', label: 'Full heal', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.hp = BW.MAX_HP; e.dead = false; e.dirty = true; return 'Healed ' + e.nick; } },
+  { id: 'onehp', icon: '', label: 'Set to 1 HP', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); if (!e.god) e.hp = 1; e.dirty = true; return e.nick + ' is on 1 HP'; } },
+  { id: 'kill', icon: '', label: 'Kill', cat: 'Player', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); e.god = false; die(k.x.room, e, 'void', null); return 'Killed ' + e.nick; } },
+  { id: 'pgod', icon: '', label: 'Toggle god mode', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.god = !e.god; if (e.god) e.hp = BW.MAX_HP; e.dirty = true; if (k.x) send(k.x, { t: 'god', on: e.god }); return e.nick + (e.god ? ' is a god now' : ' is mortal again'); } },
+  { id: 'pspeed', icon: '', label: 'Speed 60s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.speedUntil = Date.now() + 60000; e.dirty = true; return e.nick + ' is fast'; } },
+  { id: 'pslow', icon: '', label: 'Slow 30s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.slowUntil = Date.now() + 30000; e.dirty = true; return e.nick + ' is slow'; } },
+  { id: 'pgiant', icon: '', label: 'Make giant', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.giant = !e.giant; e.tiny = false; return e.nick + (e.giant ? ' is GIANT' : ' is normal size'); } },
+  { id: 'ptiny', icon: '', label: 'Make tiny', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.tiny = !e.tiny; e.giant = false; return e.nick + (e.tiny ? ' is tiny' : ' is normal size'); } },
+  { id: 'shake', icon: '', label: 'Shake their screen', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'shake'); return 'Shook ' + k.x.nick + '’s screen'; } },
+  { id: 'flip', icon: '', label: 'Upside-down screen 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flip', { ms: 15000 }); return k.x.nick + ' is upside down'; } },
+  { id: 'pvanish', icon: '', label: 'Toggle invisible', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.vanish = !e.vanish; return e.nick + (e.vanish ? ' is invisible' : ' is visible'); } },
+  { id: 'ponehit', icon: '', label: 'Toggle one-hit kills', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.onehit = !e.onehit; return e.nick + (e.onehit ? ' one-shots now' : ' hits normally'); } },
+  { id: 'pregen', icon: '', label: 'Regen 30s', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.regenUntil = Date.now() + 30000; e.dirty = true; return e.nick + ' is regenerating'; } },
+  { id: 'pabsorb', icon: '', label: '+10 golden hearts', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.absorb = (e.absorb || 0) + 10; e.dirty = true; return e.nick + ' got golden hearts'; } },
+  { id: 'prespawn', icon: '', label: 'Respawn now', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); if (!e.dead || e.elim) throw new Error(e.nick + ' isn’t waiting to respawn.'); respawn(k.x.room, e); return e.nick + ' respawned'; } },
+  { id: 'plaunch', icon: '', label: 'Launch', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(), an = rnd() * Math.PI * 2; knock(k.x.room, e, Math.cos(an), Math.sin(an), 1100); return 'Launched ' + e.nick; } },
+  { id: 'prandtp', icon: '', label: 'Teleport somewhere random', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(), rr = k.x.room; for (let t = 0; t < 80; t++) { const i = (rnd() * N) | 0; if (rr.map.g[i] && rr.map.g[i] !== G.ROCK && !BW.solidAt(rr.map, i % W, (i / W) | 0)) { e.x = (i % W) * T + T / 2; e.y = ((i / W) | 0) * T + T / 2; e.kbBudget += 2000; send(k.x, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) }); return e.nick + ' was teleported'; } } throw new Error('No free spot found.'); } },
+  { id: 'pcenter', icon: '', label: 'Teleport to map middle', cat: 'Player', scope: 'p', fn: (k) => { const e = k.ent(); e.x = W * T / 2; e.y = H * T / 2; e.kbBudget += 2000; send(k.x, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) }); return e.nick + ' is in the middle'; } },
+  { id: 'gsword', icon: '', label: 'Diamond sword', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.sword = 4; e.dirty = true; k.x.room.ev(['gear', e.id, e.sword, e.armor, e.pick]); return e.nick + ' got a diamond sword'; } },
+  { id: 'garmor', icon: '', label: 'Diamond armor', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.armor = 4; e.dirty = true; k.x.room.ev(['gear', e.id, e.sword, e.armor, e.pick]); return e.nick + ' got diamond armor'; } },
+  { id: 'gstrip', icon: '', label: 'Strip gear (wood + leather)', cat: 'Gear', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); e.sword = 1; e.armor = 1; e.dirty = true; k.x.room.ev(['gear', e.id, e.sword, e.armor, e.pick]); return e.nick + ' lost their gear'; } },
+  { id: 'gbow', icon: '', label: 'Bow + 64 arrows', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.bow = 1; e.inv.arrows = (e.inv.arrows || 0) + 64; e.dirty = true; return e.nick + ' got a bow'; } },
+  { id: 'gtnt', icon: '', label: '+5 TNT', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.tnt = (e.inv.tnt || 0) + 5; e.dirty = true; return '+5 TNT for ' + e.nick; } },
+  { id: 'gfire', icon: '', label: '+10 fireballs', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.fireball = (e.inv.fireball || 0) + 10; e.dirty = true; return '+10 fireballs for ' + e.nick; } },
+  { id: 'gpearl', icon: '', label: '+5 ender pearls', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.pearl = (e.inv.pearl || 0) + 5; e.dirty = true; return '+5 pearls for ' + e.nick; } },
+  { id: 'gapple', icon: '', label: '+5 golden apples', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.gapple = (e.inv.gapple || 0) + 5; e.dirty = true; return '+5 golden apples for ' + e.nick; } },
+  { id: 'gwool', icon: '', label: '+128 wool', cat: 'Gear', scope: 'p', fn: (k) => { const e = k.ent(); e.inv.wool = (e.inv.wool || 0) + 128; e.dirty = true; return '+128 wool for ' + e.nick; } },
+  { id: 'gclear', icon: '', label: 'Empty inventory', cat: 'Gear', scope: 'p', danger: true, fn: (k) => { const e = k.ent(); for (const q in e.inv) e.inv[q] = 0; e.dirty = true; return e.nick + '’s inventory is empty'; } },
+  { id: 'c1k', icon: '', label: '+1,000 Scrolls', cat: 'Account', scope: 'p', fn: (k) => { grantCoins(k.x.cid, 1000); send(k.x, { t: 'ann', text: '+1,000 Scrolls!', from: k.c.nick }); return '+1,000 Scrolls for ' + k.x.nick; } },
+  { id: 'c10k', icon: '', label: '+10,000 Scrolls', cat: 'Account', scope: 'p', fn: (k) => { grantCoins(k.x.cid, 10000); send(k.x, { t: 'ann', text: '+10,000 Scrolls!', from: k.c.nick }); return '+10,000 Scrolls for ' + k.x.nick; } },
+  { id: 'eloup', icon: '', label: 'Duel rank +100', cat: 'Account', scope: 'p', fn: (k) => { const q = GMS.store.elo[k.x.cid] || (GMS.store.elo[k.x.cid] = { r: 1000, w: 0, l: 0, nick: k.x.nick }); q.r += 100; GMS.save(); return k.x.nick + ' is now ' + q.r; } },
+  { id: 'elodown', icon: '', label: 'Duel rank -100', cat: 'Account', scope: 'p', fn: (k) => { const q = GMS.store.elo[k.x.cid] || (GMS.store.elo[k.x.cid] = { r: 1000, w: 0, l: 0, nick: k.x.nick }); q.r = Math.max(0, q.r - 100); GMS.save(); return k.x.nick + ' is now ' + q.r; } },
+  { id: 'phub', icon: '', label: 'Send to hub', cat: 'Account', scope: 'p', fn: (k) => { if (k.x.watch) stopWatch(k.x); else if (k.x.room) leaveRoom(k.x); else goHub(k.x); return k.x.nick + ' sent to the hub'; } },
+  { id: 'whisper', icon: '', label: 'Private message (uses text box)', cat: 'Account', scope: 'p', fn: (k) => { const t = String(k.m.text || '').slice(0, 140).trim(); if (!t) throw new Error('Type a message in the text box.'); send(k.x, { t: 'ann', text: '' + t, from: k.c.nick + ' (private)' }); return 'Whispered to ' + k.x.nick; } },
+  { id: 'spin', icon: '', label: 'Spin their screen', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'spin'); return 'Spun ' + k.x.nick; } },
+  { id: 'mirror', icon: '', label: 'Mirror screen 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'mirror', { ms: 15000 }); return k.x.nick + ' sees backwards'; } },
+  { id: 'invert', icon: '', label: 'Invert colors 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'invert', { ms: 15000 }); return 'Colors inverted for ' + k.x.nick; } },
+  { id: 'dark', icon: '', label: 'Lights out 10s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'dark', { ms: 10000 }); return 'Lights out for ' + k.x.nick; } },
+  { id: 'blurp', icon: '', label: 'Blurry vision 8s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'blur', { ms: 8000 }); return k.x.nick + ' needs glasses'; } },
+  { id: 'jumpscare', icon: '', label: 'Jumpscare', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flash', { col: '#000' }); megaFx(k.x, 'big', { text: 'BOO!', col: '#ff3b5c', sfx: 'no' }); megaFx(k.x, 'shake'); return 'Spooked ' + k.x.nick; } },
+  { id: 'fakewin', icon: '', label: 'Fake “YOU WIN” banner', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'big', { text: 'YOU WIN!', sub: '…just kidding', sfx: 'level' }); return 'Pranked ' + k.x.nick; } },
+  { id: 'gray', icon: '', label: 'Black & white 15s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'gray', { ms: 15000 }); return k.x.nick + ' lost all color'; } },
+  { id: 'zoom', icon: '', label: 'Zoomed way in 10s', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'zoom', { ms: 10000 }); return k.x.nick + ' is zoomed in'; } },
+  { id: 'clown', icon: '', label: 'Clown rain', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'rain', { em: 'HA', sfx: 'no' }); return 'Clowned ' + k.x.nick; } },
+  { id: 'poop', icon: '', label: 'Poop rain', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'rain', { em: '#' }); return k.x.nick + ' got pooped on'; } },
+  { id: 'fakeban', icon: '', label: 'Fake “you’re banned”', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'flash', { col: '#ff3b5c' }); megaFx(k.x, 'big', { text: 'YOU ARE BANNED', sub: 'jk', col: '#ff3b5c', sfx: 'no' }); return 'Fake-banned ' + k.x.nick; } },
+  { id: 'fakerich', icon: '', label: 'Fake +1,000,000 Scrolls', cat: 'Trolls', scope: 'p', fn: (k) => { megaFx(k.x, 'rain', { em: '$' }); megaFx(k.x, 'big', { text: '+1,000,000 SCROLLS!', sub: '(not really)', sfx: 'level' }); return 'Got ' + k.x.nick + '’s hopes up'; } },
+  { id: 'tntdrop', icon: '', label: 'Drop TNT on them', cat: 'Trolls', scope: 'p', fn: (k) => { const e = k.ent(), r = k.x.room; const tn = { id: nextProj++, x: e.x, y: e.y, at: Date.now() + 1500, owner: 0, team: -9 }; r.tnts.push(tn); r.ev(['tnt', tn.id, Math.round(tn.x), Math.round(tn.y), 1500]); return 'TNT dropped on ' + e.nick; } },
+  { id: 'freeze5', icon: '', label: 'Freeze 5 seconds', cat: 'Trolls', scope: 'p', fn: (k) => { const x = k.x; x.frozen = true; send(x, { t: 'frozen', on: true }); setTimeout(() => { x.frozen = false; send(x, { t: 'frozen', on: false }); }, 5000); return x.nick + ' frozen for 5s'; } },
+  { id: 'swap', icon: '', label: 'Swap places with a random player', cat: 'Trolls', scope: 'p', fn: (k) => { const e = k.ent(), r = k.x.room; const o = [...r.ents.values()].filter((q) => q !== e && !q.dead && !q.elim); if (!o.length) throw new Error('Nobody to swap with.'); const q = o[(rnd() * o.length) | 0]; const ex = e.x, ey = e.y; e.x = q.x; e.y = q.y; q.x = ex; q.y = ey; for (const z of [e, q]) { z.kbBudget += 2000; if (z.conn) send(z.conn, { t: 'pos', x: Math.round(z.x), y: Math.round(z.y) }); } return e.nick + ' swapped with ' + q.nick; } },
+  { id: 'turtle', icon: '', label: 'Turtle mode (tiny + slow)', cat: 'Trolls', scope: 'p', fn: (k) => { const e = k.ent(); e.tiny = true; e.giant = false; e.slowUntil = Date.now() + 30000; e.dirty = true; megaFx(k.x, 'big', { text: 'TURTLE MODE', col: '#2bd576' }); return e.nick + ' is a turtle'; } },
+  { id: 'rconfetti', icon: '', label: 'Confetti for the match', cat: 'Match', scope: 'r', fn: (k) => { for (const x of humans(k.room())) megaFx(x, 'confetti', { sfx: 'level' }); return 'Confetti!'; } },
+  { id: 'rmoney', icon: '', label: 'Money rain for the match', cat: 'Match', scope: 'r', fn: (k) => { for (const x of humans(k.room())) megaFx(x, 'rain', { em: '$' }); return 'Making it rain'; } },
+  { id: 'rkit', icon: '', label: 'Max gear for everyone', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); for (const e of k.live()) { e.sword = 4; e.armor = 4; e.pick = 4; e.dirty = true; r.ev(['gear', e.id, 4, 4, 4]); } return 'Everyone is fully geared'; } },
+  { id: 'rtnt', icon: '', label: '5 TNT for everyone', cat: 'Match', scope: 'r', fn: (k) => { for (const e of k.live()) { e.inv.tnt = (e.inv.tnt || 0) + 5; e.dirty = true; } return 'TNT for everyone'; } },
+  { id: 'rshuffle', icon: '', label: 'Shuffle everyone’s spots', cat: 'Match', scope: 'r', fn: (k) => { const L = k.live(), pos = L.map((e) => [e.x, e.y]).sort(() => rnd() - 0.5); L.forEach((e, i) => { e.x = pos[i][0]; e.y = pos[i][1]; e.kbBudget += 2000; if (e.conn) send(e.conn, { t: 'pos', x: Math.round(e.x), y: Math.round(e.y) }); }); return 'Shuffled ' + L.length + ' players'; } },
+  { id: 'rgens', icon: '', label: 'Overflow every generator', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); if (!r.gens) throw new Error('This game has no generators.'); for (const g of r.gens) g.n = (g.n || 0) + 16; return 'Generators overflowing'; } },
+  { id: 'rups', icon: '', label: 'Max all team upgrades', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); if (r.game !== 'bw') throw new Error('Bedwars only.'); for (const tm of r.teams) Object.assign(tm.up, { sharp: 1, prot: 4, forge: 4, haste: 2, heal: 1 }); r.teamsDirty = true; return 'Every team is maxed'; } },
+  { id: 'gparty', icon: '', label: 'Confetti for EVERYONE online', cat: 'Everyone', scope: 'g', fn: () => { for (const x of conns) megaFx(x, 'confetti', { sfx: 'level' }); return 'Confetti for ' + conns.size + ' players'; } },
+  { id: 'rbots3', icon: '', label: 'Add 3 bots', cat: 'Match', scope: 'r', fn: (k) => { const r = k.room(); let n = 0; for (let i = 0; i < 3; i++) { adminMsg(k.c, { a: 'fun', op: 'addbot', room: r.id }); n++; } return 'Added bots'; } },
 ];
 function megaRun(c, m) {
   const op = MEGA.find((o) => o.id === String(m.op));
@@ -1563,7 +1563,7 @@ function megaRun(c, m) {
   };
   if (op.scope === 'p' && !x) return { ok: false, msg: 'Pick a player first.' };
   if (op.scope === 'r' && (!r || r.state !== 'play')) return { ok: false, msg: 'Pick a running match first.' };
-  try { const msg = op.fn(k); GMS.log('⚡ ' + c.nick + ': ' + op.label + (x && op.scope === 'p' ? ' → ' + x.nick : r && op.scope === 'r' ? ' → #' + r.id : '')); return { ok: true, msg: msg || op.label + ' done.' }; }
+  try { const msg = op.fn(k); GMS.log('' + c.nick + ': ' + op.label + (x && op.scope === 'p' ? ' → ' + x.nick : r && op.scope === 'r' ? ' → #' + r.id : '')); return { ok: true, msg: msg || op.label + ' done.' }; }
   catch (err) { return { ok: false, msg: err.message || 'Didn’t work.' }; }
 }
 function adminMsg(c, m, now) {
@@ -1578,15 +1578,15 @@ function adminMsg(c, m, now) {
   if (a === 'newteacher' && c.owner) { if (globalThis.SH_NEW_TEACHER_KEY) globalThis.SH_NEW_TEACHER_KEY(); return ok('New teacher link made — the old one stopped working.'); }
   if (a === 'skick' || a === 'sban' || a === 'srename' || a === 'swatch' || a === 'sunban') {
     if (a === 'sunban') { const n = String(m.name || '').toLowerCase(); GMS.store.nameBans = (GMS.store.nameBans || []).filter((x) => x !== n); for (const [cid, b] of Object.entries(GMS.store.bans)) if ((b.nick || '').toLowerCase() === n) GMS.unban(cid); GMS.save(); return ok('Unbanned ' + (m.name || '')); }
-    if (a === 'swatch') { const r = rooms.get(Number(m.room)); if (!r || r.state !== 'play') return no('That match isn’t running.'); startWatch(c, r); return ok('👀 Watching match #' + r.id); }
+    if (a === 'swatch') { const r = rooms.get(Number(m.room)); if (!r || r.state !== 'play') return no('That match isn’t running.'); startWatch(c, r); return ok('Watching match #' + r.id); }
     const x = [...conns].find((y) => y.pid === Number(m.pid)); if (!x) return no('Student not found.');
     if (x.owner || x.teacher) return no('You can’t do that to them.');
-    if (a === 'skick') { send(x, { t: 'err', code: 'kicked', msg: 'Your teacher removed you from the game.' }); setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150); GMS.log('🚪 ' + c.nick + ' kicked ' + x.nick); return ok('Kicked ' + x.nick); }
+    if (a === 'skick') { send(x, { t: 'err', code: 'kicked', msg: 'Your teacher removed you from the game.' }); setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150); GMS.log('' + c.nick + ' kicked ' + x.nick); return ok('Kicked ' + x.nick); }
     if (a === 'sban') {
       const n = x.nick.toLowerCase(); GMS.store.nameBans = [...new Set([...(GMS.store.nameBans || []), n])];
       GMS.ban(x.cid, x.nick, 0, c.nick); GMS.save();
       send(x, { t: 'err', code: 'kicked', msg: 'That name is banned by your teacher.' }); setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
-      GMS.log('⛔ ' + c.nick + ' banned the name ' + x.nick); return ok('Banned “' + x.nick + '”');
+      GMS.log('' + c.nick + ' banned the name ' + x.nick); return ok('Banned “' + x.nick + '”');
     }
     if (a === 'srename') {
       let nn = String(m.nick || '').replace(/[^\w .-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);
@@ -1594,20 +1594,20 @@ function adminMsg(c, m, now) {
       const old = x.nick; x.nick = nn; if (x.ent) x.ent.nick = nn;
       (GMS.store.renames || (GMS.store.renames = {}))[x.cid] = nn; GMS.save();
       if (CLASS.kids.has(x.cid)) CLASS.kids.get(x.cid).nick = nn;
-      send(x, { t: 'toast', msg: '✏️ Your teacher changed your name to ' + nn });
+      send(x, { t: 'toast', msg: 'Your teacher changed your name to ' + nn });
       if (x.space && !x.room) goHub(x);
-      GMS.log('✏️ ' + c.nick + ' renamed ' + old + ' → ' + nn); return ok('Renamed ' + old + ' → ' + nn);
+      GMS.log('' + c.nick + ' renamed ' + old + ' → ' + nn); return ok('Renamed ' + old + ' → ' + nn);
     }
   }
   if (a === 'classreset') { classReset(); return send(c, { t: 'admres', ok: true, msg: 'Class stats reset' }); }
-  if (a === 'cq') { sendClassQuestion(c, m.i == null || m.i === '' ? -1 : m.i | 0); return send(c, { t: 'admres', ok: true, msg: 'Question sent to everyone 📣' }); }
+  if (a === 'cq') { sendClassQuestion(c, m.i == null || m.i === '' ? -1 : m.i | 0); return send(c, { t: 'admres', ok: true, msg: 'Question sent to everyone' }); }
   if (a === 'cqclose') { if (CLASS.cq) CLASS.cq.until = Date.now(); for (const x of conns) send(x, { t: 'cqend' }); return send(c, { t: 'admres', ok: true, msg: 'Class question closed' }); }
-  if (a === 'vote') { if (m.op === 'stop') { endVote(false); return send(c, { t: 'admres', ok: true, msg: 'Vote ended early' }); } if (m.op === 'cancel') { endVote(true); return send(c, { t: 'admres', ok: true, msg: 'Vote cancelled' }); } startVote(c, Math.max(10, Math.min(60, m.sec | 0 || 20))); return send(c, { t: 'admres', ok: true, msg: 'Game vote started 🗳️' }); }
-  if (a === 'schooltimer') { const mins = Math.max(0, Math.min(240, Number(m.mins) || 0)); if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(mins > 0 ? true : undefined, null, mins > 0 ? Date.now() + mins * 60000 : 0); if (mins > 0) classReset(); return send(c, { t: 'admres', ok: true, msg: mins > 0 ? '🏫 School mode ON for ' + mins + ' min' : 'Timer cleared' }); }
-  if (a === 'season') { const sv = typeof m.v === 'string' && ['', 'xmas', 'halloween', 'thanksgiving', 'newyear', 'valentines', 'stpatricks', 'easter', 'july4', 'summer'].includes(m.v) ? m.v : (m.v ? 'xmas' : ''); if (globalThis.SH_SET_SEASON) globalThis.SH_SET_SEASON(sv); GMS.log('🎉 ' + c.nick + ' set holiday decorations: ' + (sv || 'off')); return send(c, { t: 'admres', ok: true, msg: sv ? '🎉 Holiday: ' + sv : 'Holiday decorations off' }); }
-  if (a === 'squiz') { if (globalThis.SH_SET_SQUIZ) globalThis.SH_SET_SQUIZ(!!m.v); GMS.log('📝 ' + c.nick + ' turned School Mode questions ' + (m.v ? 'ON' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: m.v ? '📝 Questions ON' : '📝 Questions OFF — School Mode stays locked' }); }
-  if (a === 'gamble') { if (globalThis.SH_SET_GAMBLE) globalThis.SH_SET_GAMBLE(!!m.v); GMS.log('🎰 ' + c.nick + ' ' + (m.v ? 'unlocked' : 'locked') + ' the casino for School Mode'); return send(c, { t: 'admres', ok: true, msg: m.v ? '🎰 Casino unlocked for School Mode' : '🔒 Casino locked again' }); }
-  if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('🏫 ' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
+  if (a === 'vote') { if (m.op === 'stop') { endVote(false); return send(c, { t: 'admres', ok: true, msg: 'Vote ended early' }); } if (m.op === 'cancel') { endVote(true); return send(c, { t: 'admres', ok: true, msg: 'Vote cancelled' }); } startVote(c, Math.max(10, Math.min(60, m.sec | 0 || 20))); return send(c, { t: 'admres', ok: true, msg: 'Game vote started' }); }
+  if (a === 'schooltimer') { const mins = Math.max(0, Math.min(240, Number(m.mins) || 0)); if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(mins > 0 ? true : undefined, null, mins > 0 ? Date.now() + mins * 60000 : 0); if (mins > 0) classReset(); return send(c, { t: 'admres', ok: true, msg: mins > 0 ? 'School mode ON for ' + mins + ' min' : 'Timer cleared' }); }
+  if (a === 'season') { const sv = typeof m.v === 'string' && ['', 'xmas', 'halloween', 'thanksgiving', 'newyear', 'valentines', 'stpatricks', 'easter', 'july4', 'summer'].includes(m.v) ? m.v : (m.v ? 'xmas' : ''); if (globalThis.SH_SET_SEASON) globalThis.SH_SET_SEASON(sv); GMS.log('' + c.nick + ' set holiday decorations: ' + (sv || 'off')); return send(c, { t: 'admres', ok: true, msg: sv ? 'Holiday: ' + sv : 'Holiday decorations off' }); }
+  if (a === 'squiz') { if (globalThis.SH_SET_SQUIZ) globalThis.SH_SET_SQUIZ(!!m.v); GMS.log('' + c.nick + ' turned School Mode questions ' + (m.v ? 'ON' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: m.v ? 'Questions ON' : 'Questions OFF — School Mode stays locked' }); }
+  if (a === 'gamble') { if (globalThis.SH_SET_GAMBLE) globalThis.SH_SET_GAMBLE(!!m.v); GMS.log('' + c.nick + ' ' + (m.v ? 'unlocked' : 'locked') + ' the casino for School Mode'); return send(c, { t: 'admres', ok: true, msg: m.v ? 'Casino unlocked for School Mode' : 'Casino locked again' }); }
+  if (a === 'school') { if (globalThis.SH_SET_SCHOOL) globalThis.SH_SET_SCHOOL(m.on === undefined ? undefined : !!m.on, m.set || m.v ? String(m.set || m.v) : null); GMS.log('' + c.nick + ' set school mode ' + (schoolCfg() ? 'ON (' + schoolCfg().set + ')' : 'OFF')); return send(c, { t: 'admres', ok: true, msg: 'School mode ' + (schoolCfg() ? 'ON' : 'OFF') }); }
   if (a === 'announce') {
     const text = String(m.text || '').trim().slice(0, 140); if (!text) return no('Type a message first.');
     for (const x of conns) send(x, { t: 'ann', text, from: c.nick });
@@ -1624,24 +1624,24 @@ function adminMsg(c, m, now) {
   if (a === 'coins') {
     const x = who(); if (!x) return no('Player not found.');
     const amt = clamp(Math.round(Number(m.amount) || 0), -1000000, 1000000); if (!amt) return no('Pick an amount.');
-    const bal = grantCoins(x.cid, amt); send(x, { t: 'ann', text: (amt > 0 ? '🎁 You got ' + amt.toLocaleString() + ' Scrolls!' : amt.toLocaleString() + ' Scrolls taken away.') + ' Balance: ' + (bal || 0).toLocaleString(), from: c.nick });
-    GMS.log('📜 ' + c.nick + ' gave ' + amt + ' Scrolls to ' + x.nick); return ok((amt > 0 ? 'Gave ' : 'Took ') + Math.abs(amt).toLocaleString() + ' Scrolls ' + (amt > 0 ? 'to ' : 'from ') + x.nick + '.');
+    const bal = grantCoins(x.cid, amt); send(x, { t: 'ann', text: (amt > 0 ? 'You got ' + amt.toLocaleString() + ' Scrolls!' : amt.toLocaleString() + ' Scrolls taken away.') + ' Balance: ' + (bal || 0).toLocaleString(), from: c.nick });
+    GMS.log('' + c.nick + ' gave ' + amt + ' Scrolls to ' + x.nick); return ok((amt > 0 ? 'Gave ' : 'Took ') + Math.abs(amt).toLocaleString() + ' Scrolls ' + (amt > 0 ? 'to ' : 'from ') + x.nick + '.');
   }
   if (a === 'ban') {
     const x = who(); if (!x) return no('Player not found.'); if (x.owner) return no('You can’t ban an owner.');
     const mins = clamp(Math.round(Number(m.mins) || 0), 0, 60 * 24 * 365);
-    GMS.ban(x.cid, x.nick, mins, c.nick); GMS.log('⛔ ' + c.nick + ' banned ' + x.nick + (mins ? ' for ' + mins + ' min' : ' forever'));
+    GMS.ban(x.cid, x.nick, mins, c.nick); GMS.log('' + c.nick + ' banned ' + x.nick + (mins ? ' for ' + mins + ' min' : ' forever'));
     send(x, { t: 'err', code: 'kicked', msg: 'You were banned from Games' + (mins ? ' for ' + (mins >= 1440 ? Math.round(mins / 1440) + ' day(s)' : mins >= 60 ? Math.round(mins / 60) + ' hour(s)' : mins + ' minutes') : '') + '.' });
     setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
     return ok('Banned ' + x.nick + '.');
   }
-  if (a === 'unban') { GMS.unban(String(m.cid)); GMS.log('✅ ' + c.nick + ' unbanned someone'); return ok('Unbanned.'); }
-  if (a === 'freeze') { const x = who(); if (!x) return no('Player not found.'); if (x.owner && x !== c) return no('You can’t freeze an owner.'); x.frozen = !x.frozen; send(x, { t: 'frozen', on: x.frozen }); return ok(x.frozen ? x.nick + ' is frozen ❄️' : x.nick + ' can move again.'); }
+  if (a === 'unban') { GMS.unban(String(m.cid)); GMS.log('' + c.nick + ' unbanned someone'); return ok('Unbanned.'); }
+  if (a === 'freeze') { const x = who(); if (!x) return no('Player not found.'); if (x.owner && x !== c) return no('You can’t freeze an owner.'); x.frozen = !x.frozen; send(x, { t: 'frozen', on: x.frozen }); return ok(x.frozen ? x.nick + ' is frozen' : x.nick + ' can move again.'); }
   if (a === 'slap') {
     const x = who(); if (!x) return no('Player not found.');
     const r2 = x.room, e2 = x.ent;
     if (r2 && r2.state === 'play' && e2 && !e2.dead) { const an = Math.random() * Math.PI * 2; knock(r2, e2, Math.cos(an), Math.sin(an), 1100); r2.ev(['hit', e2.id, 0, 1, 0, 'punch']); }
-    send(x, { t: 'ann', text: '👋 SLAPPED!', from: c.nick }); return ok('Slapped ' + x.nick + ' 👋');
+    send(x, { t: 'ann', text: 'SLAPPED!', from: c.nick }); return ok('Slapped ' + x.nick + '');
   }
   if (a === 'tpto' || a === 'bringp') {
     const x = who(); if (!x || x === c) return no('Player not found.');
@@ -1663,12 +1663,12 @@ function adminMsg(c, m, now) {
     c.room = r2; c.ent = e; r2.teamsDirty = true;
     r2.ev(['spawn', e.id, Math.round(e.x), Math.round(e.y)]);
     for (const x of humans(r2)) if (x !== c) send(x, { t: 'join', ent: entPub(e) });
-    send(c, fullState(r2, e)); GMS.log('👑 ' + c.nick + ' joined match #' + r2.id);
+    send(c, fullState(r2, e)); GMS.log('' + c.nick + ' joined match #' + r2.id);
     return ok('You joined match #' + r2.id + '.');
   }
-  if (a === 'double') { const mins = clamp(Math.round(Number(m.mins) || 0), 0, 24 * 60); GMS.store.settings.doubleUntil = mins ? Date.now() + mins * 60000 : 0; GMS.save(); GMS.log('✨ ' + c.nick + (mins ? ' started 2× Scrolls for ' + mins + ' min' : ' ended 2× Scrolls')); if (mins) for (const x of conns) send(x, { t: 'ann', text: '✨ DOUBLE SCROLLS for the next ' + mins + ' minutes! Every game pays 2×', from: c.nick }); return ok(mins ? '2× Scrolls on for ' + mins + ' minutes.' : '2× Scrolls ended.'); }
-  if (a === 'setting') { if (!GMS.setSetting(String(m.k), m.v)) return no('Bad value.'); GMS.log('⚙️ ' + c.nick + ' set ' + m.k + ' = ' + m.v); if (m.k === 'motd' && m.v) for (const x of conns) send(x, { t: 'motd', text: GMS.store.settings.motd }); return ok('Saved. New matches use it.'); }
-  if (a === 'endall') { let n = 0; for (const r2 of rooms.values()) if (r2.state === 'play') { endMatch(r2, -1); n++; } GMS.log('⏹️ ' + c.nick + ' ended all matches'); return ok('Ended ' + n + ' match(es).'); }
+  if (a === 'double') { const mins = clamp(Math.round(Number(m.mins) || 0), 0, 24 * 60); GMS.store.settings.doubleUntil = mins ? Date.now() + mins * 60000 : 0; GMS.save(); GMS.log('' + c.nick + (mins ? ' started 2× Scrolls for ' + mins + ' min' : ' ended 2× Scrolls')); if (mins) for (const x of conns) send(x, { t: 'ann', text: 'DOUBLE SCROLLS for the next ' + mins + ' minutes! Every game pays 2×', from: c.nick }); return ok(mins ? '2× Scrolls on for ' + mins + ' minutes.' : '2× Scrolls ended.'); }
+  if (a === 'setting') { if (!GMS.setSetting(String(m.k), m.v)) return no('Bad value.'); GMS.log('' + c.nick + ' set ' + m.k + ' = ' + m.v); if (m.k === 'motd' && m.v) for (const x of conns) send(x, { t: 'motd', text: GMS.store.settings.motd }); return ok('Saved. New matches use it.'); }
+  if (a === 'endall') { let n = 0; for (const r2 of rooms.values()) if (r2.state === 'play') { endMatch(r2, -1); n++; } GMS.log('' + c.nick + ' ended all matches'); return ok('Ended ' + n + ' match(es).'); }
   if (a === 'maprot' || a === 'mapdel') {
     if (!c.mapper) return no('Only the map maker can change maps.');
     if (a === 'mapdel') return GMS.deleteMap(String(m.id), c.nick) ? ok('Map deleted.') : no('Map not found.');
@@ -1677,7 +1677,7 @@ function adminMsg(c, m, now) {
   if (a === 'kick') {
     const x = [...conns].find((y) => y.pid === Number(m.pid)); if (!x) return no('Player not found.');
     if (x.owner) return no('You can’t kick an owner.');
-    send(x, { t: 'err', code: 'kicked', msg: String(m.reason || 'You were removed from Games by an owner.').slice(0, 120) }); GMS.log('🚪 ' + c.nick + ' kicked ' + x.nick);
+    send(x, { t: 'err', code: 'kicked', msg: String(m.reason || 'You were removed from Games by an owner.').slice(0, 120) }); GMS.log('' + c.nick + ' kicked ' + x.nick);
     setTimeout(() => { try { x.ws.close(4001); } catch (e) {} }, 150);
     return ok('Kicked ' + x.nick + '.');
   }
@@ -1688,9 +1688,9 @@ function adminMsg(c, m, now) {
     if (op === 'god') { e.god = !e.god; if (e.god) { e.hp = BW.MAX_HP; e.dead = false; } e.dirty = true; send(c, { t: 'god', on: e.god }); return ok(e.god ? 'God mode ON — no damage, no void, walk on air.' : 'God mode OFF.'); }
     if (op === 'res') { e.res.iron += 64; e.res.gold += 32; e.res.dia += 16; e.res.em += 16; e.dirty = true; return ok('+64 iron, +32 gold, +16 diamonds, +16 emeralds'); }
     if (op === 'kit' && r.game !== 'bw') { MINI.kit(r, e); return ok('Max kit given.'); }
-    if (op === 'vanish') { e.vanish = !e.vanish; return ok(e.vanish ? '👻 You’re invisible to players and bots.' : 'You’re visible again.'); }
-    if (op === 'speed') { const on = !(Date.now() < e.speedUntil); e.speedUntil = on ? Date.now() + 15 * 60000 : 0; e.dirty = true; return ok(on ? '⚡ Speed boost on (15 min).' : 'Speed boost off.'); }
-    if (op === 'onehit') { e.onehit = !e.onehit; return ok(e.onehit ? '💥 One-hit kills ON.' : 'One-hit kills off.'); }
+    if (op === 'vanish') { e.vanish = !e.vanish; return ok(e.vanish ? 'You’re invisible to players and bots.' : 'You’re visible again.'); }
+    if (op === 'speed') { const on = !(Date.now() < e.speedUntil); e.speedUntil = on ? Date.now() + 15 * 60000 : 0; e.dirty = true; return ok(on ? 'Speed boost on (15 min).' : 'Speed boost off.'); }
+    if (op === 'onehit') { e.onehit = !e.onehit; return ok(e.onehit ? 'One-hit kills ON.' : 'One-hit kills off.'); }
     if (op === 'blocks') { e.inv.wool += 999; e.inv.end += 99; e.dirty = true; return ok('+999 wool, +99 end stone.'); }
     if (op === 'kit') { e.sword = 4; e.armor = 4; e.pick = 4; e.inv.wool += 64; e.inv.end += 32; e.inv.fireball += 5; e.inv.tnt += 3; e.inv.pearl += 3; e.inv.gapple += 3; e.inv.bow = 1; e.inv.arrows += 32; e.inv.kbstick = 1; e.dirty = true; r.ev(['gear', e.id, e.sword, e.armor, e.pick]); return ok('Max kit given.'); }
     return no('Unknown power.');
@@ -1731,36 +1731,36 @@ function adminMsg(c, m, now) {
     if (op === 'bringall') {
       const cx = c.room === r && c.ent && !c.ent.dead ? c.ent.x : W * T / 2, cy = c.room === r && c.ent && !c.ent.dead ? c.ent.y : H * T / 2;
       let k = 0; for (const e of live) { if (e === c.ent) continue; const an = k / Math.max(1, live.length - 1) * Math.PI * 2; tpEnt(e, cx + Math.cos(an) * 70, cy + Math.sin(an) * 70); k++; }
-      GMS.log('👑 ' + c.nick + ' pulled everyone together in #' + r.id);
+      GMS.log('' + c.nick + ' pulled everyone together in #' + r.id);
       return ok('Everyone teleported to you.');
     }
-    if (op === 'scatter') { for (const e of live) { const i = freeTile(e); if (i >= 0) tpEnt(e, (i % W) * T + T / 2, ((i / W) | 0) * T + T / 2); } return ok('Everyone scattered! 🎲'); }
-    if (op === 'launchall') { for (const e of live) { const an = rnd() * Math.PI * 2; knock(r, e, Math.cos(an), Math.sin(an), 1100); } roomSend(r, { t: 'ann', text: '🚀 WHEEE!', from: c.nick }); return ok('Launched them all 🚀'); }
-    if (op === 'healall') { for (const e of live) { e.hp = BW.MAX_HP; e.dirty = true; } r.ev(['drink', live[0] ? live[0].id : 0]); return ok('Everyone healed ❤️'); }
-    if (op === 'hurtall') { for (const e of live) { if (!e.god) { e.hp = 1; e.lastDmgAt = Date.now(); e.dirty = true; } } roomSend(r, { t: 'ann', text: '💔 Half a heart. Good luck.', from: c.nick }); return ok('Everyone is on 1 HP 💔'); }
+    if (op === 'scatter') { for (const e of live) { const i = freeTile(e); if (i >= 0) tpEnt(e, (i % W) * T + T / 2, ((i / W) | 0) * T + T / 2); } return ok('Everyone scattered!'); }
+    if (op === 'launchall') { for (const e of live) { const an = rnd() * Math.PI * 2; knock(r, e, Math.cos(an), Math.sin(an), 1100); } roomSend(r, { t: 'ann', text: 'WHEEE!', from: c.nick }); return ok('Launched them all'); }
+    if (op === 'healall') { for (const e of live) { e.hp = BW.MAX_HP; e.dirty = true; } r.ev(['drink', live[0] ? live[0].id : 0]); return ok('Everyone healed'); }
+    if (op === 'hurtall') { for (const e of live) { if (!e.god) { e.hp = 1; e.lastDmgAt = Date.now(); e.dirty = true; } } roomSend(r, { t: 'ann', text: 'Half a heart. Good luck.', from: c.nick }); return ok('Everyone is on 1 HP'); }
     if (op === 'speedall' || op === 'slowall') {
       for (const e of live) { if (op === 'speedall') e.speedUntil = Date.now() + 30000; else e.slowUntil = Date.now() + 30000; e.dirty = true; }
-      roomSend(r, { t: 'ann', text: op === 'speedall' ? '⚡ SPEED BOOST for 30s!' : '🐌 Sloooow mode for 30s', from: c.nick });
-      return ok(op === 'speedall' ? 'Everyone is fast for 30s ⚡' : 'Everyone is slow for 30s 🐌');
+      roomSend(r, { t: 'ann', text: op === 'speedall' ? 'SPEED BOOST for 30s!' : 'Sloooow mode for 30s', from: c.nick });
+      return ok(op === 'speedall' ? 'Everyone is fast for 30s' : 'Everyone is slow for 30s');
     }
     if (op === 'giant' || op === 'tiny' || op === 'normal') {
       for (const e of r.ents.values()) { e.giant = op === 'giant'; e.tiny = op === 'tiny'; }
-      roomSend(r, { t: 'ann', text: op === 'giant' ? '🐘 GIANT MODE' : op === 'tiny' ? '🐜 tiny mode' : 'Back to normal size', from: c.nick });
-      return ok(op === 'giant' ? 'Everyone is GIANT 🐘' : op === 'tiny' ? 'Everyone is tiny 🐜' : 'Sizes reset.');
+      roomSend(r, { t: 'ann', text: op === 'giant' ? 'GIANT MODE' : op === 'tiny' ? 'tiny mode' : 'Back to normal size', from: c.nick });
+      return ok(op === 'giant' ? 'Everyone is GIANT' : op === 'tiny' ? 'Everyone is tiny' : 'Sizes reset.');
     }
-    if (op === 'disco') { roomSend(r, { t: 'disco', ms: 30000 }); GMS.log('🪩 ' + c.nick + ' started a disco in #' + r.id); return ok('🪩 Disco for 30 seconds!'); }
+    if (op === 'disco') { roomSend(r, { t: 'disco', ms: 30000 }); GMS.log('' + c.nick + ' started a disco in #' + r.id); return ok('Disco for 30 seconds!'); }
     if (op === 'chaos') {
       if (r.game === 'build') return no('Not while they’re building!');
-      if (r.game === 'spleef') { for (let k = 0; k < 50; k++) { const z = (rnd() * MG.SP_LAYERS) | 0, L = r.map.L[z]; for (let t2 = 0; t2 < 30; t2++) { const i = (rnd() * N) | 0; if (L[i] === 1) { MINI.snowLand(r, { z, x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2 - 16, owner: 0 }); break; } } } roomSend(r, { t: 'ann', text: '🌨️ FLOOR STORM!', from: c.nick }); return ok('Floor storm! ❄️'); }
+      if (r.game === 'spleef') { for (let k = 0; k < 50; k++) { const z = (rnd() * MG.SP_LAYERS) | 0, L = r.map.L[z]; for (let t2 = 0; t2 < 30; t2++) { const i = (rnd() * N) | 0; if (L[i] === 1) { MINI.snowLand(r, { z, x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2 - 16, owner: 0 }); break; } } } roomSend(r, { t: 'ann', text: 'FLOOR STORM!', from: c.nick }); return ok('Floor storm!'); }
       let n2 = 0;
       for (let k = 0; k < 14; k++) {
         const i = (rnd() * N) | 0; if (!r.map.g[i] || r.map.g[i] === G.ROCK) continue;
         const tn = { id: nextProj++, x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2, at: Date.now() + 1000 + rnd() * 2600, owner: 0, team: -9 };
         r.tnts.push(tn); r.ev(['tnt', tn.id, Math.round(tn.x), Math.round(tn.y), tn.at - Date.now()]); n2++;
       }
-      roomSend(r, { t: 'ann', text: '💣 TNT RAIN! RUN!', from: c.nick });
-      GMS.log('💣 ' + c.nick + ' dropped TNT rain on #' + r.id);
-      return ok('TNT rain incoming 💣 (' + n2 + ')');
+      roomSend(r, { t: 'ann', text: 'TNT RAIN! RUN!', from: c.nick });
+      GMS.log('' + c.nick + ' dropped TNT rain on #' + r.id);
+      return ok('TNT rain incoming (' + n2 + ')');
     }
     if (op === 'addbot') {
       if (r.game === 'spleef' || r.game === 'duel' || r.game === 'build' || r.game === 'royale') return no('Bots can’t join a running ' + MG.GAMES[r.game].name + ' match.');
@@ -1774,7 +1774,7 @@ function adminMsg(c, m, now) {
       if (r.game !== 'bw') MINI.lateJoin(r, e);
       r.teamsDirty = true; r.ev(['spawn', e.id, Math.round(e.x), Math.round(e.y)]);
       for (const x of humans(r)) send(x, { t: 'join', ent: entPub(e) });
-      return ok('🤖 ' + name + ' joined' + (r.game === 'hide' ? ' as a seeker' : '') + '.');
+      return ok('' + name + ' joined' + (r.game === 'hide' ? ' as a seeker' : '') + '.');
     }
     if (op === 'clearbots') {
       let n3 = 0;
@@ -1790,13 +1790,13 @@ function adminMsg(c, m, now) {
         if (r.crum) for (const [k, v] of r.crum) r.crum.set(k, v + d);
         for (const e of r.ents.values()) { if (e.respawnAt) e.respawnAt += d; if (e.arrowAt) e.arrowAt += d; }
         for (const x of humans(r)) { if (x.pausedFroze) { x.frozen = false; x.pausedFroze = false; send(x, { t: 'frozen', on: false }); } }
-        roomSend(r, { t: 'ann', text: '▶️ Unpaused!', from: c.nick }); roomSend(r, { t: 'goat', goAt: r.goAt });
-        return ok('Match unpaused ▶️');
+        roomSend(r, { t: 'ann', text: 'Unpaused!', from: c.nick }); roomSend(r, { t: 'goat', goAt: r.goAt });
+        return ok('Match unpaused');
       }
       r.paused = true; r.pausedAt = Date.now();
       for (const x of humans(r)) { if (!x.frozen) { x.frozen = true; x.pausedFroze = true; send(x, { t: 'frozen', on: true }); } }
-      roomSend(r, { t: 'ann', text: '⏸️ Match paused by ' + c.nick, from: c.nick });
-      return ok('Match paused ⏸️');
+      roomSend(r, { t: 'ann', text: 'Match paused by ' + c.nick, from: c.nick });
+      return ok('Match paused');
     }
     if (op === 'restart') {
       if (r.state !== 'play' && r.state !== 'end') return no('Nothing to restart.');
@@ -1805,8 +1805,8 @@ function adminMsg(c, m, now) {
       r.members = players.map((x, k) => ({ cid: x.cid, nick: x.nick, look: x.look, team: r.game === 'bw' || r.game === 'ctf' ? k % (r.game === 'ctf' ? 2 : 4) : k, conn: x, pid: x.pid }));
       r.paused = false; r.winner = null; r.projs = []; r.tnts = []; r.events = [];
       startMatch(r);
-      GMS.log('🔄 ' + c.nick + ' restarted match #' + r.id);
-      return ok('Match restarted with a fresh map 🔄');
+      GMS.log('' + c.nick + ' restarted match #' + r.id);
+      return ok('Match restarted with a fresh map');
     }
     return no('Unknown fun action.');
   }

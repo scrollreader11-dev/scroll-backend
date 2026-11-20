@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ScrollHub</title>
+<meta name="description" content="ScrollHub: every game in one launcher.">
+<meta name="theme-color" content="#04070e">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ScrollHub">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="/hub/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/hub/icon-192.png">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="preload" href="/hub/logo-mark.png" as="image">
+<link rel="stylesheet" href="/hub/hub.css?v=6">
+</head>
+<body>
+<video id="bgv" muted loop playsinline webkit-playsinline preload="auto" poster="/hub/bg-poster.jpg" disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
+<div id="bgfx"></div>
+
+<section id="boot" aria-label="Launching ScrollHub">
+  <div class="gloss" id="bootLogo"></div>
+  <p class="boot-text">Launching <b>SCROLLHUB</b></p>
+  <div class="boot-bar"><i></i></div>
+</section>
+
+<section id="login" hidden></section>
+
+<div id="app">
+  <aside class="side" id="side"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="scroll" id="scroll" tabindex="-1"><div class="view" id="view"></div></main>
+  </div>
+  <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+</div>
+<div id="layer"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="/hub/icons.js?v=1"></script>
+<script src="/hub/hub-core.js?v=1"></script>
+<script src="/hub/hub-data.js?v=1"></script>
+<script src="/hub/hub-ui.js?v=3"></script>
+<script src="/hub/hub-boot.js?v=1"></script>
+<script src="/scrollhub-presence.js" defer></script>
+</body>
+</html>

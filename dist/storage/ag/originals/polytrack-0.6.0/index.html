@@ -1,0 +1,208 @@
+﻿<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="theme-color" content="#000000">
+
+    <title>PolyTrack Version 0.6.0</title>
+
+    <link rel="icon" type="image/png" href="./favicon.ico">
+    <link rel="shortcut icon" type="image/png" href="./favicon.ico">
+    <link rel="apple-touch-icon" href="./favicon.ico">
+
+    <link rel="preload" href="./forced_square.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="./images/logo.svg" as="image" type="image/svg+xml">
+    <link rel="preload" href="./images/discord.svg" as="image" type="image/svg+xml">
+    <link rel="manifest" href="./manifest.json">
+
+    <style>
+      :root{
+        --brand:#5ee1ff;
+        --glow:0 0 12px rgba(94,225,255,.65), 0 0 32px rgba(155,255,183,.35);
+        --shadow:0 10px 30px rgba(0,0,0,.4);
+      }
+      html, body{ margin:0; height:100%; background:#000; color:#eaf4ff; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+      body{ overflow:hidden; }
+
+      #staticMenu{
+        position:fixed; left:12px; top:12px; z-index:9999;
+        display:flex; gap:10px; align-items:center; user-select:none;
+        padding:10px 14px; border-radius:12px;
+        background:linear-gradient(135deg, rgba(20,20,28,.9), rgba(20,20,28,.6));
+        border:1px solid rgba(94,225,255,.35);
+        color:#e8f3ff; box-shadow:var(--glow), var(--shadow);
+        font-size:14px; animation:menuEnter .6s ease .15s both;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif !important;
+        font-weight: 700 !important;
+        letter-spacing: .1px;
+        text-rendering: geometricPrecision;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      #staticMenu a{
+        color:#5ee1ff;
+        font-weight:800 !important;
+        text-decoration:none;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif !important;
+      }
+      #closeStaticMenu{
+        color:#f55; cursor:pointer; padding:2px 6px; border-radius:6px;
+        border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif !important;
+        font-weight: 800 !important;
+      }
+      @keyframes menuEnter{ from{opacity:0; transform:translateY(-8px)} to{opacity:1; transform:translateY(0)} }
+
+      #staticSlideMenu{
+        position:fixed; bottom:24px; right:24px; z-index:9999;
+        width:100px; height:100px; pointer-events:none; opacity:0;
+        transform:translateX(140px) scale(.96);
+      }
+      #staticSlideMenu a{ display:block; width:100%; height:100% }
+      #staticSlideMenu img{
+        width:100%; height:100%; object-fit:contain;
+        border:0; border-radius:0; background:transparent; box-shadow:none;
+        transition:opacity .25s ease;
+      }
+      .slide-in{ animation:slideIn 2s ease forwards }
+      .slide-out{ animation:slideOut 2s ease forwards }
+      @keyframes slideIn{ from{opacity:0; transform:translateX(140px) scale(.96)} to{opacity:1; transform:translateX(0) scale(1)} }
+      @keyframes slideOut{ from{opacity:1; transform:translateX(0) scale(1)} to{opacity:0; transform:translateX(140px) scale(.96)} }
+
+      .seo-hidden{
+        position:absolute; width:1px; height:1px; overflow:hidden;
+        clip:rect(1px,1px,1px,1px); white-space:nowrap;
+      }
+
+      @media (max-width:600px){
+        #staticMenu{ font-size:13px; padding:8px 12px }
+        #staticSlideMenu{ width:88px; height:88px }
+      }
+    </style>
+
+    <script defer="defer" src="./error_screen.bundle.js"></script>
+    <script defer="defer" src="./main.bundle.js"></script>
+  </head>
+
+  <body>
+    <canvas id="screen"></canvas>
+    <div id="ui"></div>
+    <div id="transition-layer"></div>
+
+    <div id="staticMenu" role="region" aria-label="StaticQuasar menu">
+      <a href="https://sites.google.com/view/staticquasar931/gm3z" target="_blank" rel="noopener">More Unblocked Games by Static</a>
+      <span id="closeStaticMenu" title="Hide temporarily">✕</span>
+    </div>
+
+    <div id="staticSlideMenu" aria-live="polite">
+      <a id="staticSlideLink" href="https://sites.google.com/view/staticquasar931/google-form" target="_blank" rel="noopener" aria-label="Open Google Form">
+        <img id="staticSlideImg" src="https://cdn.jsdelivr.net/gh/StaticQuasar931/Images@main/GoogleForm.png" alt="StaticQuasar931 Google Form for feedback and requests">
+      </a>
+    </div>
+
+    <script>
+      window.onbeforeunload = () => "Are you sure you want to leave? Your session may be interrupted.";
+
+      (function(){
+        const menu = document.getElementById("staticMenu");
+        const btn = document.getElementById("closeStaticMenu");
+        const KEY = "sq931_staticMenu_hidden_until";
+        const show = () => { if (menu) menu.style.display = "flex"; };
+        const hideFor3m = () => {
+          if (!menu) return;
+          menu.style.display = "none";
+          const until = Date.now() + 180000;
+          localStorage.setItem(KEY, String(until));
+          setTimeout(show, 180000);
+        };
+        const until = parseInt(localStorage.getItem(KEY) || "0", 10);
+        if (until && Date.now() < until){
+          if (menu) menu.style.display = "none";
+          setTimeout(show, until - Date.now());
+        } else {
+          show();
+        }
+        if (btn) btn.onclick = hideFor3m;
+      })();
+
+      (function(){
+        const wrap = document.getElementById("staticSlideMenu");
+        const a = document.getElementById("staticSlideLink");
+        const img = document.getElementById("staticSlideImg");
+
+        const FORM = {
+          src: "https://cdn.jsdelivr.net/gh/StaticQuasar931/Images@main/GoogleForm.png",
+          alt: "StaticQuasar931 Google Form for feedback and requests",
+          link: "https://sites.google.com/view/staticquasar931/google-form"
+        };
+        const DISCORD = {
+          src: "https://cdn.jsdelivr.net/gh/StaticQuasar931/Images@main/Join_Our_DC_StaticQuassar931_lcplrf.png",
+          alt: "Join the StaticQuasar931 Discord",
+          link: "https://discord.gg/DP2hM7RRhR"
+        };
+        const INSTA = {
+          src: "https://cdn.jsdelivr.net/gh/StaticQuasar931/Images@main/Follow-us--IG",
+          alt: "StaticQuasar931 Instagram",
+          link: "https://www.instagram.com/freeschoolgamepage/"
+        };
+        const ROTATION = [FORM, DISCORD, INSTA];
+
+        ROTATION.forEach(o => { const p = new Image(); p.src = o.src; });
+
+        const T_IN = 2000, T_SHOW = 5000, T_OUT = 2000, T_HIDDEN = 20000;
+        let idx = 0;
+
+        function apply(state){
+          a.href = state.link;
+          img.alt = state.alt;
+          img.style.opacity = "0";
+          setTimeout(() => { img.src = state.src; }, 80);
+          img.onload = () => { img.style.opacity = "1"; };
+        }
+        function delay(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+        (async function cycle(){
+          for(;;){
+            apply(ROTATION[idx]);
+            wrap.style.pointerEvents = "auto";
+            wrap.classList.remove("slide-out");
+            wrap.classList.add("slide-in");
+            await delay(T_IN + T_SHOW);
+            wrap.classList.remove("slide-in");
+            wrap.classList.add("slide-out");
+            await delay(T_OUT);
+            wrap.style.pointerEvents = "none";
+            await delay(T_HIDDEN);
+            idx = (idx + 1) % ROTATION.length;
+          }
+        })();
+      })();
+
+      (function(){
+        const idsToToggle = ["staticMenu", "staticSlideMenu"];
+        let seq = [];
+        const target = ["y","u","i"];
+        function toggle(){
+          idsToToggle.forEach(id => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            const isHidden = (el.style.display === "none" || getComputedStyle(el).display === "none");
+            el.style.display = isHidden ? (id === "staticMenu" ? "flex" : "block") : "none";
+          });
+        }
+        window.addEventListener("keydown", e => {
+          seq.push(String(e.key || "").toLowerCase());
+          if (seq.length > 3) seq.shift();
+          if (seq.join("") === target.join("")) toggle();
+        });
+      })();
+    </script>
+
+    <div class="seo-hidden" aria-hidden="true">
+      <h1>PolyTrack Version 0.6.0</h1>
+      <p>Top-left Static Menu and bottom-right rotating widget by StaticQuasar931. Unblocked games, school safe games, StaticQuasar931, staticquasar931, static 931, staticq, staticq931.</p>
+    </div>
+  </body>
+</html>

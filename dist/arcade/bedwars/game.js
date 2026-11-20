@@ -103,8 +103,8 @@
     if (t === 'cq') { openCq(m); return; }
     if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
     if (t === 'vote') { onVote(m); return; }
-    if (t === 'season') { applySeason(m.v); var se2 = B.SEASONS[S.season]; if (S.screen === 'hub') toast(se2 ? se2.emoji + ' Happy ' + se2.name + '! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
-    if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; var qWas = S.squiz; S.squiz = m.quiz !== false; if (S.school === !!m.on && gWas === S.gamble && qWas !== S.squiz) { if (S.screen === 'game' && !S.squiz) closeQuiz(true); quizHud(); if (S.owner) { try { renderAdmin(); } catch (e2) {} } return; } if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? '🎰 The casino is OPEN! Walk through the casino portal to gamble & play.' : '🔒 The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
+    if (t === 'season') { applySeason(m.v); var se2 = B.SEASONS[S.season]; if (S.screen === 'hub') toast(se2 ? 'Happy ' + se2.name + '! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
+    if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; var qWas = S.squiz; S.squiz = m.quiz !== false; if (S.school === !!m.on && gWas === S.gamble && qWas !== S.squiz) { if (S.screen === 'game' && !S.squiz) closeQuiz(true); quizHud(); if (S.owner) { try { renderAdmin(); } catch (e2) {} } return; } if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? 'The casino is OPEN! Walk through the casino portal to gamble & play.' : 'The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? 'School Mode is ON — portals are locked, your teacher picks the games!' : 'School Mode is off — portals are open!', 3000); return; }
     if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if (t === 's') return onSnap(m);
@@ -113,21 +113,21 @@
     if ((t === 'rgme' || t === 'rgmsg' || t === 'rgout' || t === 'kb') && S.game === 'royale' && RG.msg(m)) return;
     if (t === 'kb') { if (P && !P.dead) { P.vx += m.vx; P.vy += m.vy; } return; }
     if (t === 'pos') { if (P) { P.x = m.x; P.y = m.y; if (m.spawn) { P.dead = false; P.falling = 0; P.vx = P.vy = 0; } } return; }
-    if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
+    if (t === 'slow') { S.slowUntil = now() + m.ms; toast('You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; S.squiz = m.squiz !== false; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; S.squiz = m.squiz !== false; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('Welcome! Click Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
-    if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
-    if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
+    if (t === 'admres') { toast((m.ok ? '' : '') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
+    if (t === 'ann') { banner('' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
     if (t === 'god') { S.god = !!m.on; return; }
     if (t === 'goat') { S.goAt = m.goAt; lastTimerS = -1; return; }
-    if (t === 'join') { if (S.screen === 'game' && m.ent && !S.ents.has(m.ent.id)) { S.ents.set(m.ent.id, mkEnt(m.ent)); feed('👑 ' + nameHtml(S.ents.get(m.ent.id)) + ' joined the match'); } return; }
-    if (t === 'frozen') { S.frozen = !!m.on; toast(m.on ? '❄️ An owner froze you' : '✅ You can move again', 2000); return; }
-    if (t === 'motd') { S.motd = m.text; if (m.text) banner('📢 ' + esc(m.text), '', '#ffd166'); updateOnline(); return; }
-    if (t === 'z') { if (P) { P.z = m.z; P.falling = 0; P.vx = P.vy = 0; if (m.x != null) { P.x = m.x; P.y = m.y; } } var mz = S.ents.get(S.myId); if (mz) mz.z = m.z; D.burst('dust', P.x, P.y, 10); S.shake = Math.max(S.shake, 6); SC.sfx('place'); toast('⬇️ Floor ' + (m.z + 1) + ' of ' + MG.SP_LAYERS + (m.z === MG.SP_LAYERS - 1 ? ' — the LAST one!' : ''), 1500); return; }
-    if (t === 'role') { S.team = m.role; var mr = S.ents.get(S.myId); if (mr) { mr.team = m.role; mr.prop = ''; } S.held = 'sword'; renderHotbar(); mgHudInit(); banner('🔍 YOU’RE A SEEKER NOW', 'Find the hiders that are left!', '#ff5c6c'); tutStart(); return; }
-    if (t === 'radar') { if (m.none) { toast('No hiders left to find', 1400); return; } S.radar = { x: m.x, y: m.y, d: m.d, t: now() }; SC.sfx('level'); toast('📡 ' + (m.d < 6 * T ? 'HOT! A hider is really close' : m.d < 14 * T ? 'Warm — a hider is nearby' : 'Cold — the nearest hider is far away'), 2200); return; }
+    if (t === 'join') { if (S.screen === 'game' && m.ent && !S.ents.has(m.ent.id)) { S.ents.set(m.ent.id, mkEnt(m.ent)); feed('' + nameHtml(S.ents.get(m.ent.id)) + ' joined the match'); } return; }
+    if (t === 'frozen') { S.frozen = !!m.on; toast(m.on ? 'An owner froze you' : 'You can move again', 2000); return; }
+    if (t === 'motd') { S.motd = m.text; if (m.text) banner('' + esc(m.text), '', '#ffd166'); updateOnline(); return; }
+    if (t === 'z') { if (P) { P.z = m.z; P.falling = 0; P.vx = P.vy = 0; if (m.x != null) { P.x = m.x; P.y = m.y; } } var mz = S.ents.get(S.myId); if (mz) mz.z = m.z; D.burst('dust', P.x, P.y, 10); S.shake = Math.max(S.shake, 6); SC.sfx('place'); toast('Floor ' + (m.z + 1) + ' of ' + MG.SP_LAYERS + (m.z === MG.SP_LAYERS - 1 ? ' — the LAST one!' : ''), 1500); return; }
+    if (t === 'role') { S.team = m.role; var mr = S.ents.get(S.myId); if (mr) { mr.team = m.role; mr.prop = ''; } S.held = 'sword'; renderHotbar(); mgHudInit(); banner('YOU’RE A SEEKER NOW', 'Find the hiders that are left!', '#ff5c6c'); tutStart(); return; }
+    if (t === 'radar') { if (m.none) { toast('No hiders left to find', 1400); return; } S.radar = { x: m.x, y: m.y, d: m.d, t: now() }; SC.sfx('level'); toast('' + (m.d < 6 * T ? 'HOT! A hider is really close' : m.d < 14 * T ? 'Warm — a hider is nearby' : 'Cold — the nearest hider is far away'), 2200); return; }
     if (t === 'mgt') { if (m.endAt) S.endAt = m.endAt; if (m.seekAt) S.seekAt = m.seekAt; if (m.sdAt) S.sdAt = m.sdAt; return; }
     if (t === 'ann2') { toast(esc(m.text), 1600); return; }
     if (t === 'disco') {
@@ -136,13 +136,13 @@
       clearTimeout(S.discoT); S.discoT = setTimeout(function () { document.body.classList.remove('disco'); clearInterval(S.discoI); }, m.ms || 30000);
       clearInterval(S.discoI);
       S.discoI = setInterval(function () { if (S.screen !== 'game' || !P) return; var cols = ['#ff4b5c', '#ffd166', '#2bd576', '#3fa9ff', '#9b6bff', '#ff6ec7']; D.burst('star', P.x + (Math.random() - 0.5) * 500, P.y + (Math.random() - 0.5) * 320, 4, cols[(Math.random() * 6) | 0]); }, 450);
-      banner('🪩 DISCO TIME!', '', '#9b6bff'); SC.sfx('level');
+      banner('DISCO TIME!', '', '#9b6bff'); SC.sfx('level');
       return;
     }
     if (t === 'lb2') { S.lb2[m.game] = m.rows || []; if (m.myElo != null) S.myElo = m.myElo; renderLb(); return; }
     if (t === 'bbv') { S.phase = 'vote'; S.votePlot = m.plot; S.voteUntil = m.until; S.voted = false; banner('JUDGE THIS BUILD', (m.owner === S.nick ? 'This one is YOURS!' : 'Built by ' + esc(m.owner)) + ' · ' + (m.idx + 1) + ' of ' + m.of, '#ffd166'); SC.sfx('go'); bbUISync(); return; }
-    if (t === 'bbr') { S.phase = 'podium'; S.votePlot = -1; var w = m.results && m.results[0]; if (w) banner('🏆 ' + esc(w.nick) + ' WINS!', 'Theme: ' + esc(m.theme) + ' · scored ' + w.avg + ' ⭐', '#ffd166'); SC.sfx('final'); bbUISync(); return; }
-    if (t === 'vcstate') { if (window.BWV) BWV.range = m.range || BWV.range; if (m.off && BWV.on) toast('🔇 Voice chat is turned off right now', 2400); if (m.muted && BWV.on) toast('🔇 An owner muted your voice', 2400); S.vcOff = !!m.off; S.vcMuted = !!m.muted; voiceSync(); return; }
+    if (t === 'bbr') { S.phase = 'podium'; S.votePlot = -1; var w = m.results && m.results[0]; if (w) banner('' + esc(w.nick) + ' WINS!', 'Theme: ' + esc(m.theme) + ' · scored ' + w.avg + '', '#ffd166'); SC.sfx('final'); bbUISync(); return; }
+    if (t === 'vcstate') { if (window.BWV) BWV.range = m.range || BWV.range; if (m.off && BWV.on) toast('Voice chat is turned off right now', 2400); if (m.muted && BWV.on) toast('An owner muted your voice', 2400); S.vcOff = !!m.off; S.vcMuted = !!m.muted; voiceSync(); return; }
     if (t === 'space') { enterSpace(m); helloArrived(); return; }
     if (t === 'room') { S.room = m; m._at = Date.now(); if (S.screen === 'wait') renderWait(); return; }
     if (t === 'game') { helloArrived(); return startGame(m); }
@@ -154,7 +154,7 @@
   }
   function fatal(msg, code) {
     var d = document.createElement('div'); d.className = 'modal'; d.style.zIndex = 90;
-    d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + (code === 'login' ? '🎮' : code === 'kicked' ? '🚫' : '🪟') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
+    d.innerHTML = '<div class="mwrap" style="width:min(460px,100%);padding:22px;text-align:center;gap:12px"><div style="font-size:46px">' + UI(code === 'login' ? 'gamepad-2' : code === 'kicked' ? 'ban' : 'link') + '</div><h2 style="margin:0">' + esc(msg) + '</h2>' +
       (code === 'login' ? '<div class="lgform" style="display:flex;flex-direction:column;gap:10px"><input id="lgU" class="admin-in" placeholder="Your nickname" maxlength="16" autocomplete="nickname" style="font-size:20px;padding:12px;text-align:center;font-weight:700"><button class="btn green" id="lgIn" style="font-size:19px;padding:12px">Play ▶</button><div id="lgMsg" style="color:#ff8a95;font-weight:700;min-height:20px;text-align:center"></div></div>' : code === 'kicked' ? '<a class="btn green" href="/casino">Go to the casino</a>' : '<button class="btn green" onclick="location.reload()">Play here instead</button>') + '</div>';
     document.body.appendChild(d);
     if (code === 'login') {
@@ -185,7 +185,7 @@
     $('touch').classList.toggle('hidden', !(touch && name !== 'end' && name !== 'loading'));
     $('qcMenu').classList.add('hidden');
     if (name !== 'game') { $('death').classList.add('hidden'); $('score').classList.add('hidden'); $('tutor').classList.add('hidden'); $('blind').classList.add('hidden'); $('bbPal').classList.add('hidden'); $('bbVote').classList.add('hidden'); }
-    if (name === 'hub' || name === 'wait') { document.body.classList.remove('mg', 'g-ctf', 'g-spleef', 'g-hide'); S.game = 'bw'; ['tAtk', 'tPlace', 'tUse'].forEach(function (id, k) { $(id).textContent = ['⚔️', '🧱', '✨'][k]; $(id).style.visibility = ''; }); }
+    if (name === 'hub' || name === 'wait') { document.body.classList.remove('mg', 'g-ctf', 'g-spleef', 'g-hide'); S.game = 'bw'; ['tAtk', 'tPlace', 'tUse'].forEach(function (id, k) { $(id).innerHTML = UI(['swords', 'brick-wall', 'sparkles'][k]); $(id).style.visibility = ''; }); }
   }
 
   // ------------------------------------------------------------------ loading screen
@@ -196,7 +196,7 @@
     'Kill someone and you <b>steal all their resources</b>.',
     'Diamonds buy <b>team upgrades</b>: sharper swords, tougher armor, faster gens.',
     'A <b>Knockback Stick</b> barely hurts… but sends people flying.',
-    'Break the block someone is standing on and watch them fall. 😈',
+    'Break the block someone is standing on and watch them fall.',
     'Throw a <b>Bridge Egg</b> to instantly build a wool bridge.',
     'Fireballs blow up wool and wood bridges — great for stopping rushers.',
     'Once your bed is gone, your next death is <b>final</b>. Play safe!',
@@ -204,7 +204,7 @@
     'Your <b>casino outfit</b> is your fighter — hats, skins and all.',
   ];
   var tipI = Math.floor(Math.random() * TIPS.length);
-  function nextTip() { $('ldTip').innerHTML = '💡 ' + TIPS[tipI++ % TIPS.length]; }
+  function nextTip() { $('ldTip').innerHTML = '' + TIPS[tipI++ % TIPS.length]; }
   nextTip(); var tipTimer = setInterval(nextTip, 3200);
   function ldStep(p, text) { $('ldBar').style.width = Math.round(p * 100) + '%'; $('ldStep').textContent = text; }
   var helloWaiters = [];
@@ -258,18 +258,26 @@
   MODALS.forEach(function (k) { $(k).addEventListener('mousedown', function (e) { if (e.target === $(k)) closeModals(); }); });
   $('pGo').onclick = function () { S.lastQueue = { t: 'practice', game: pGame, mode: pGame === 'bw' ? pMode : pGame, diff: pDiff }; send(S.lastQueue); closeModals(); SC.sfx('go'); };
   $('cGo').onclick = function () { send({ t: 'create', game: cGame, mode: cGame === 'bw' ? cMode : cGame, diff: cDiff }); closeModals(); SC.sfx('go'); };
-  function openPractice(g) { pGame = g || 'bw'; var G2 = MG.GAMES[pGame]; $('pTitle').textContent = 'Practice ' + G2.name; $('pIco').textContent = G2.icon || '🤖'; $('pModeRow').classList.toggle('hidden', pGame !== 'bw'); openModal('mPractice'); }
-  function openPrivate(g) { cGame = g || 'bw'; var G2 = MG.GAMES[cGame]; $('cTitle').textContent = 'Private ' + G2.name; $('cIco').textContent = G2.icon || '👥'; $('cMode').classList.toggle('hidden', cGame !== 'bw'); $('cHint').textContent = cGame === 'bw' ? '' : G2.tag + ' · empty spots get bots'; openModal('mPrivate'); }
+  function openPractice(g) { pGame = g || 'bw'; var G2 = MG.GAMES[pGame]; $('pTitle').textContent = 'Practice ' + G2.name; $('pIco').innerHTML = UI(GAME_ICON[pGame] || 'bot'); $('pModeRow').classList.toggle('hidden', pGame !== 'bw'); openModal('mPractice'); }
+  function openPrivate(g) { cGame = g || 'bw'; var G2 = MG.GAMES[cGame]; $('cTitle').textContent = 'Private ' + G2.name; $('cIco').innerHTML = UI(GAME_ICON[cGame] || 'users'); $('cMode').classList.toggle('hidden', cGame !== 'bw'); $('cHint').textContent = cGame === 'bw' ? '' : G2.tag + ' · empty spots get bots'; openModal('mPrivate'); }
   $('jGo').onclick = function () { var code = $('jCode').value.trim(); if (code.length < 4) { toast('Enter a 4-letter room code', 1800); return; } send({ t: 'join', code: code }); closeModals(); };
   $('jCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('jGo').click(); e.stopPropagation(); });
-  function muteSync() { var m = SC.sfxMuted(); [].forEach.call(document.querySelectorAll('.muteBtn'), function (b) { b.textContent = m ? '🔇' : '🔊'; }); }
+  function muteSync() { var m = SC.sfxMuted(); [].forEach.call(document.querySelectorAll('.muteBtn'), function (b) { b.innerHTML = UI(m ? 'volume-x' : 'volume-2'); }); }
   [].forEach.call(document.querySelectorAll('.muteBtn'), function (b) { b.onclick = function () { SC.sfxToggle(); muteSync(); }; });
   muteSync();
   function musicSync() { var o = window.SHMusic && SHMusic.isOff(); [].forEach.call(document.querySelectorAll('.musicBtn'), function (b) { b.style.opacity = o ? '.45' : '1'; b.title = o ? 'Music: off' : 'Music: on'; }); }
-  [].forEach.call(document.querySelectorAll('.musicBtn'), function (b) { b.onclick = function () { if (!window.SHMusic) return; toast(SHMusic.toggle() ? '🎵 Music off' : '🎵 Music on', 1200); musicSync(); }; });
+  [].forEach.call(document.querySelectorAll('.musicBtn'), function (b) { b.onclick = function () { if (!window.SHMusic) return; toast(SHMusic.toggle() ? 'Music off' : 'Music on', 1200); musicSync(); }; });
   musicSync();
   var qs = new URLSearchParams(location.search); if (qs.get('room')) $('jCode').value = qs.get('room').toUpperCase().slice(0, 4);
   var roomLinkUsed = false;
+  // Launcher deep link: /arcade?play=royale (or bw&mode=solo|duos|squads) drops straight into a quick match.
+  var playLinkUsed = false;
+  helloWaiters.push(function () {
+    var pg = qs.get('play'); if (!pg || playLinkUsed || qs.get('room')) return; playLinkUsed = true;
+    if (!MG.GAMES[pg] || S.school) return;
+    var pm = pg === 'bw' ? (['solo', 'duos', 'squads'].indexOf(qs.get('mode')) >= 0 ? qs.get('mode') : 'solo') : pg;
+    setTimeout(function () { if (S.screen === 'loading') return; S.lastQueue = { t: 'quick', game: pg, mode: pm }; send(S.lastQueue); toast('Joining ' + (pg === 'bw' ? 'Bedwars ' + B.MODES[pm].name : gname(pg)) + '...', 1800); }, 700);
+  });
   helloWaiters.push(function () { if (qs.get('room') && !roomLinkUsed) { roomLinkUsed = true; setTimeout(function () { send({ t: 'join', code: qs.get('room') }); }, 300); } });
 
   function newBody(x, y) { return { x: x, y: y, vx: 0, vy: 0, cvx: 0, cvy: 0, dead: false, falling: 0, mv: false, sprint: false, ang: Math.PI / 2, lastSend: 0, hopT: -9e9, auto: null }; }
@@ -342,30 +350,30 @@
     var myCid = S.myCid;
     if (S.socTab === 'party') {
       (so.invites || []).forEach(function (iv) {
-        body.appendChild(srow(null, '📨 ' + iv.from + ' invited you', 'Join their party to queue together', '', [sbtn('✓ Join', 'green', function () { send({ t: 'pacc', id: iv.id }); setTimeout(function () { send({ t: 'soc' }); }, 300); }), sbtn('✕', 'red', function () { send({ t: 'pdec', id: iv.id }); so.invites = so.invites.filter(function (x) { return x !== iv; }); renderSoc(); })]));
+        body.appendChild(srow(null, '' + iv.from + ' invited you', 'Join their party to queue together', '', [sbtn('✓ Join', 'green', function () { send({ t: 'pacc', id: iv.id }); setTimeout(function () { send({ t: 'soc' }); }, 300); }), sbtn('✕', 'red', function () { send({ t: 'pdec', id: iv.id }); so.invites = so.invites.filter(function (x) { return x !== iv; }); renderSoc(); })]));
       });
       if (!p) {
-        var e1 = document.createElement('div'); e1.className = 'sempty'; e1.innerHTML = '🎉 You’re not in a party.<br>Invite friends — you’ll queue together, <b>always land on the same team</b>, and hear each other on <b>party voice</b> anywhere on the map.'; body.appendChild(e1);
+        var e1 = document.createElement('div'); e1.className = 'sempty'; e1.innerHTML = 'You’re not in a party.<br>Invite friends — you’ll queue together, <b>always land on the same team</b>, and hear each other on <b>party voice</b> anywhere on the map.'; body.appendChild(e1);
       } else {
         var lead = p.leader === myCid;
         body.appendChild(slab('Your party · ' + p.members.length + '/4' + (lead ? ' · you’re the leader' : '')));
         p.members.forEach(function (mb) {
           var w = mb.where || {}, isMe = mb.cid === myCid;
           var btns = [];
-          if (!isMe && lead) { btns.push(sbtn('👑', '', function () { send({ t: 'plead', cid: mb.cid }); })); btns.push(sbtn('Kick', 'red', function () { send({ t: 'pkick', cid: mb.cid }); })); }
-          if (!isMe && w.s === 'play') btns.push(sbtn('👀 Watch', '', function () { send({ t: 'fwatch', cid: mb.cid }); closeModals(); }));
+          if (!isMe && lead) { btns.push(sbtn('', '', function () { send({ t: 'plead', cid: mb.cid }); })); btns.push(sbtn('Kick', 'red', function () { send({ t: 'pkick', cid: mb.cid }); })); }
+          if (!isMe && w.s === 'play') btns.push(sbtn('Watch', '', function () { send({ t: 'fwatch', cid: mb.cid }); closeModals(); }));
           if (!isMe && w.s === 'lobby' && w.join) btns.push(sbtn('▶ Join', 'green', function () { send({ t: 'fjoin', cid: mb.cid }); closeModals(); }));
-          body.appendChild(srow(mb.look, (p.leader === mb.cid ? '👑 ' : '') + mb.nick + (isMe ? ' (you)' : '') + (mb.talk ? ' 🎙️' : ''), mb.on ? esc(w.txt || '') : 'Offline', mb.on ? 'on' : '', btns));
+          body.appendChild(srow(mb.look, (p.leader === mb.cid ? '' : '') + mb.nick + (isMe ? ' (you)' : '') + (mb.talk ? '' : ''), mb.on ? esc(w.txt || '') : 'Offline', mb.on ? 'on' : '', btns));
         });
         var tip = document.createElement('div'); tip.className = 'sw'; tip.style.cssText = 'color:var(--mut);font-size:13px;font-weight:600;text-align:center';
-        tip.innerHTML = lead ? 'Pick any game from a portal — your whole party comes with you, on your team. 🎙️ Turn on Talk to use party voice.' : 'The leader picks the games. 🎙️ Turn on Talk to hear your party anywhere on the map.';
+        tip.innerHTML = lead ? 'Pick any game from a portal — your whole party comes with you, on your team. Turn on Talk to use party voice.' : 'The leader picks the games. Turn on Talk to hear your party anywhere on the map.';
         body.appendChild(tip);
-        body.appendChild(sbtn('🚪 Leave party', 'red', function () { send({ t: 'pleave' }); }));
+        body.appendChild(sbtn('Leave party', 'red', function () { send({ t: 'pleave' }); }));
       }
       body.appendChild(slab('Invite a player by name'));
-      body.appendChild(sInput('Username…', '📨 Invite', function (v) { send({ t: 'pinv', name: v }); setTimeout(function () { send({ t: 'soc' }); }, 400); }));
+      body.appendChild(sInput('Username…', 'Invite', function (v) { send({ t: 'pinv', name: v }); setTimeout(function () { send({ t: 'soc' }); }, 400); }));
       var on = (so.friends || []).filter(function (f) { return f.arcade && !f.inParty; });
-      if (on.length) { body.appendChild(slab('Friends in Games')); on.forEach(function (f) { body.appendChild(srow(f.look, f.nick, esc((f.where || {}).txt || ''), 'on', [sbtn('📨 Invite', 'green', function () { send({ t: 'pinv', cid: f.cid }); })])); }); }
+      if (on.length) { body.appendChild(slab('Friends in Games')); on.forEach(function (f) { body.appendChild(srow(f.look, f.nick, esc((f.where || {}).txt || ''), 'on', [sbtn('Invite', 'green', function () { send({ t: 'pinv', cid: f.cid }); })])); }); }
     } else {
       (so.incoming || []).forEach(function (rq) {
         body.appendChild(srow(null, rq.nick + ' wants to be friends', 'Friend request', '', [sbtn('✓ Accept', 'green', function () { api('/api/friends/accept', { id: rq.id }); }), sbtn('✕', 'red', function () { api('/api/friends/decline', { id: rq.id }); })]));
@@ -377,14 +385,14 @@
         var w = f.where || {}, btns = [];
         if (f.arcade) {
           if (w.s === 'lobby' && w.join) btns.push(sbtn('▶ Join', 'green', function () { send({ t: 'fjoin', cid: f.cid }); closeModals(); }));
-          if (w.s === 'play') { btns.push(sbtn('👀 Spectate', '', function () { send({ t: 'fwatch', cid: f.cid }); closeModals(); })); }
-          if (w.s === 'hub') btns.push(sbtn('📍 Go to', '', function () { send({ t: 'fjoin', cid: f.cid }); closeModals(); }));
-          if (!f.inParty) btns.push(sbtn('📨', '', function () { send({ t: 'pinv', cid: f.cid }); }));
+          if (w.s === 'play') { btns.push(sbtn('Spectate', '', function () { send({ t: 'fwatch', cid: f.cid }); closeModals(); })); }
+          if (w.s === 'hub') btns.push(sbtn('Go to', '', function () { send({ t: 'fjoin', cid: f.cid }); closeModals(); }));
+          if (!f.inParty) btns.push(sbtn('', '', function () { send({ t: 'pinv', cid: f.cid }); }));
         }
-        body.appendChild(srow(f.look, f.nick + (f.inParty ? ' 🎉' : ''), f.arcade ? esc(w.txt || '') : f.site ? 'On ScrollHub (not in Games)' : 'Offline', f.arcade ? 'on' : f.site ? 'site' : '', btns));
+        body.appendChild(srow(f.look, f.nick + (f.inParty ? '' : ''), f.arcade ? esc(w.txt || '') : f.site ? 'On ScrollHub (not in Games)' : 'Offline', f.arcade ? 'on' : f.site ? 'site' : '', btns));
       });
       body.appendChild(slab('Add a friend'));
-      body.appendChild(sInput('ScrollHub username…', '➕ Add', function (v) { api('/api/friends/add', { username: v }, function (r) { toast(r.accepted ? '🤝 You’re now friends with ' + v + '!' : r.sent ? '📨 Friend request sent to ' + v : (r.message || 'Couldn’t add them'), 2600); }); }));
+      body.appendChild(sInput('ScrollHub username…', 'Add', function (v) { api('/api/friends/add', { username: v }, function (r) { toast(r.accepted ? 'You’re now friends with ' + v + '!' : r.sent ? 'Friend request sent to ' + v : (r.message || 'Couldn’t add them'), 2600); }); }));
     }
     var dots = (so.invites || []).length + (so.incoming || []).length;
     [].forEach.call(document.querySelectorAll('.socDot'), function (d) { d.classList.toggle('hidden', !dots); d.textContent = dots; });
@@ -398,19 +406,19 @@
     var bar = $('partyBar'), p = S.party;
     if (!p || !p.members || p.members.length < 2) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
-    var h = '<div class="ph">🎉 PARTY' + (window.BWV && BWV.on ? ' · 🎙️ voice on' : '') + '</div>';
-    p.members.forEach(function (mb) { var w = mb.where || {}; h += '<div class="pb' + (mb.talk ? ' talk' : '') + '"><span class="sdot ' + (mb.on ? 'on' : '') + '"></span><div style="min-width:0"><div>' + (p.leader === mb.cid ? '👑 ' : '') + esc(mb.nick) + '</div><div class="pw">' + (mb.on ? esc(w.txt || '') : 'Offline') + '</div></div></div>'; });
+    var h = '<div class="ph"><svg class="ui-i" aria-hidden="true"><use href="#ui-party-popper"/></svg> PARTY' + (window.BWV && BWV.on ? ' · voice on' : '') + '</div>';
+    p.members.forEach(function (mb) { var w = mb.where || {}; h += '<div class="pb' + (mb.talk ? ' talk' : '') + '"><span class="sdot ' + (mb.on ? 'on' : '') + '"></span><div style="min-width:0"><div>' + (p.leader === mb.cid ? '' : '') + esc(mb.nick) + '</div><div class="pw">' + (mb.on ? esc(w.txt || '') : 'Offline') + '</div></div></div>'; });
     bar.innerHTML = h;
   }
   function showInvite(m) {
     var d = $('pInvite'); d.classList.remove('hidden'); SC.sfx('level');
-    d.innerHTML = '<div>📨 <b>' + esc(m.from) + '</b> invited you to their party!</div><div style="display:flex;gap:8px"></div>';
+    d.innerHTML = '<div><b>' + esc(m.from) + '</b> invited you to their party!</div><div style="display:flex;gap:8px"></div>';
     var row = d.lastChild;
     row.appendChild(sbtn('✓ Join party', 'green', function () { send({ t: 'pacc', id: m.id }); d.classList.add('hidden'); }));
     row.appendChild(sbtn('No thanks', 'red', function () { send({ t: 'pdec', id: m.id }); d.classList.add('hidden'); }));
     clearTimeout(S.invT); S.invT = setTimeout(function () { d.classList.add('hidden'); }, 30000);
   }
-  function watchTxt() { var e = S.ents && S.ents.get(S.specId); $('watchTxt').textContent = '👀 Spectating ' + (MG.GAMES[S.game] ? MG.GAMES[S.game].name : 'Bedwars') + (e ? ' · ' + e.nick : ''); }
+  function watchTxt() { var e = S.ents && S.ents.get(S.specId); $('watchTxt').textContent = 'Spectating ' + (MG.GAMES[S.game] ? MG.GAMES[S.game].name : 'Bedwars') + (e ? ' · ' + e.nick : ''); }
   $('watchLeave').onclick = function () { send({ t: 'leave' }); };
   $('watchNext').onclick = function () {
     var list = []; S.ents.forEach(function (e) { if (!e.dead && !e.elim) list.push(e.id); });
@@ -420,12 +428,12 @@
     var x = $('hubCv').getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 96, 96);
     x.save(); x.translate(48, 86); x.scale(1.6, 1.6); A.drawGim(x, 0, 0, (S.hello && S.hello.look) || { skin: 'gim', body: '#3fa9ff' }, { t: 0, dir: 0, shadow: false }); x.restore();
   }
-  function updateOnline() { if (S.screen !== 'hub') return; var o = S.online || {}; $('hubOnline').textContent = (S.x2 ? '✨ 2× SCROLLS · ' : '') + S.ents.size + ' in the hub' + (o.playing ? ' · ' + o.playing + ' in games' : '') + (S.motd ? ' · 📢 ' + S.motd : ''); }
+  function updateOnline() { if (S.screen !== 'hub') return; var o = S.online || {}; $('hubOnline').textContent = (S.x2 ? '2× SCROLLS · ' : '') + S.ents.size + ' in the hub' + (o.playing ? ' · ' + o.playing + ' in games' : '') + (S.motd ? ' · ' + S.motd : ''); }
   var testUsed = false;
   function testFromBuilder() {
     var id = qs.get('test'); if (!id || testUsed) return; testUsed = true;
     var g = qs.get('g') || 'bw';
-    setTimeout(function () { S.lastQueue = { t: 'practice', game: g, mode: g === 'bw' ? 'solo' : g, diff: 'normal', map: id }; send(S.lastQueue); toast('🗺️ Test-playing your map…', 2000); }, 500);
+    setTimeout(function () { S.lastQueue = { t: 'practice', game: g, mode: g === 'bw' ? 'solo' : g, diff: 'normal', map: id }; send(S.lastQueue); toast('Test-playing your map…', 2000); }, 500);
   }
   function interactables() { return ((S.map && S.map.objs) || []).filter(function (o) { return o.act; }); }
   function objRange(o) { return (o.kind === 'portal' || o.kind === 'board' || o.kind === 'soon' ? 3.3 : 2.4) * T; }
@@ -441,12 +449,12 @@
   function objGame(o) { return o.game && o.game !== 'bedwars' ? o.game : 'bw'; }
   function openGameMenu(g) {
     var GM2 = MG.GAMES[g]; S.gmGame = g;
-    $('gmIco').textContent = GM2.icon; $('gmTitle').textContent = GM2.name;
+    $('gmIco').innerHTML = UI(GAME_ICON[g] || 'gamepad-2'); $('gmTitle').textContent = GM2.name;
     $('gmDesc').innerHTML = esc(GM2.desc || 'The classic.') + ' <span class="tag2">' + esc(GM2.tag || (g === 'bw' ? '4 teams' : '')) + '</span>';
     var o = S.online || {}, inQ = g === 'bw' ? (o.solo || 0) + (o.duos || 0) + (o.squads || 0) : o[g] || 0, inG = o.inGame ? o.inGame[g] || 0 : 0;
     var extra2 = '';
     if (g === 'duel') { var rk4 = MG.rankOf(S.myElo); extra2 = ' · your rank: <b style="color:' + rk4.color + '">' + rk4.name + ' ' + S.myElo + '</b>'; }
-    $('gmLive').innerHTML = (inQ ? '🟢 ' + inQ + ' waiting to play' : '') + (inQ && inG ? ' · ' : '') + (inG ? '🎮 ' + inG + ' in matches' : '') + ((inQ || inG) ? '' : '🤖 nobody waiting — bots fill in!') + extra2;
+    $('gmLive').innerHTML = (inQ ? '' + inQ + ' waiting to play' : '') + (inQ && inG ? ' · ' : '') + (inG ? '' + inG + ' in matches' : '') + ((inQ || inG) ? '' : 'nobody waiting — bots fill in!') + extra2;
     $('gmPlay').innerHTML = g === 'bw'
       ? '<button class="btn green" data-gm="solo">▶ Solo</button><button class="btn green" data-gm="duos">▶ Duos</button><button class="btn green" data-gm="squads">▶ Squads</button>'
       : '<button class="btn green big" data-gm="' + esc(g) + '">▶ PLAY</button>';
@@ -464,12 +472,12 @@
   function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'sprites' ? 'Sprite Studio' : o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
-    if (o.act === 'casino' && S.school && !S.gamble) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
+    if (o.act === 'casino' && S.school && !S.gamble) { toast('The casino is closed during School Mode — pick a game portal!', 2400); return; }
     var g = objGame(o);
-    if (o.act === 'gmenu' && schoolLocked()) { toast('🔒 Portals are locked in School Mode — wait for your teacher’s vote!', 2400); return; }
+    if (o.act === 'gmenu' && schoolLocked()) { toast('Portals are locked in School Mode — wait for your teacher’s vote!', 2400); return; }
     if (o.act === 'gmenu') { openGameMenu(g); }
-    else if (o.act === 'sprites') { if (S.mapper) location.href = '/arcade/sprites'; else toast('🎨 Only Scrollreader11 can draw new gims & hats — his creations show up in the Skin Shop!', 2800); }
-    else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('🔒 Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
+    else if (o.act === 'sprites') { if (S.mapper) location.href = '/arcade/sprites'; else toast('Only Scrollreader11 can draw new gims & hats — his creations show up in the Skin Shop!', 2800); }
+    else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
     else if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
     else if (o.act === 'practice') openPractice(g);
     else if (o.act === 'private') openPrivate(g);
@@ -477,7 +485,7 @@
     else if (o.act === 'how') openHelp(g);
     else if (o.act === 'lb') { renderLb(); openModal('mLb'); }
     else if (o.act === 'casino') { toast('Heading to the casino…', 1500); D.burst('magic', P.x, P.y - 20, 20, '#ffd166'); setTimeout(function () { location.href = '/casino'; }, 350); }
-    else if (o.act === 'soon') toast('🚧 A new game is coming to this island soon!', 2200);
+    else if (o.act === 'soon') toast('A new game is coming to this island soon!', 2200);
   }
   // Click an NPC far away: walk there around obstacles (BFS over tiles).
   function findPathNear(o) {
@@ -503,22 +511,22 @@
   }
   function renderLb() {
     var st = S.mystats || {};
-    $('lbTabs').innerHTML = ['quiz', 'bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build'].map(function (g) { return '<button data-lbg="' + g + '"' + (g === lbTab ? ' class="on"' : '') + '>' + (g === 'quiz' ? '📝 QUIZ' : MG.GAMES[g].icon + ' ' + (MG.GAMES[g].short || 'BEDWARS')) + '</button>'; }).join('');
+    $('lbTabs').innerHTML = ['quiz', 'bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build'].map(function (g) { return '<button data-lbg="' + g + '"' + (g === lbTab ? ' class="on"' : '') + '>' + (g === 'quiz' ? 'QUIZ' : MG.GAMES[g].icon + ' ' + (MG.GAMES[g].short || 'BEDWARS')) + '</button>'; }).join('');
     var none = '<tr><td colspan="5" style="color:var(--mut)">No winners yet — be the first!</td></tr>';
     if (lbTab === 'bw') {
       var rows = S.lb || [];
-      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Finals</th><th>Beds</th></tr>' + (rows.length ? rows.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.wins + '</td><td>' + r.finals + '</td><td>' + r.beds + '</td></tr>'; }).join('') : none);
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Finals</th><th>Beds</th></tr>' + (rows.length ? rows.map(function (r, i) { return '<tr><td>' + (['1st', '2nd', '3rd'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.wins + '</td><td>' + r.finals + '</td><td>' + r.beds + '</td></tr>'; }).join('') : none);
     } else if (lbTab === 'quiz') {
       var rq = S.lb2.quiz;
-      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>✅ Correct</th><th>Accuracy</th><th>🔥 Best streak</th></tr>' + (rq == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rq.length ? rq.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.w + '</td><td>' + (r.g ? Math.round(r.w / r.g * 100) : 0) + '%</td><td>' + r.x + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">No answers yet — play in School Mode!</td></tr>');
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> Correct</th><th>Accuracy</th><th>Best streak</th></tr>' + (rq == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rq.length ? rq.map(function (r, i) { return '<tr><td>' + (['1st', '2nd', '3rd'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.w + '</td><td>' + (r.g ? Math.round(r.w / r.g * 100) : 0) + '%</td><td>' + r.x + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">No answers yet — play in School Mode!</td></tr>');
     } else if (lbTab === 'duel') {
       var rd = S.lb2.duel;
-      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Rank</th><th>Rating</th><th>W – L</th></tr>' + (rd == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rd.length ? rd.map(function (r, i) { var rk = MG.rankOf(r.r); return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td style="color:' + rk.color + ';font-weight:700">' + rk.name + '</td><td>' + r.r + '</td><td>' + r.w + ' – ' + r.l + '</td></tr>'; }).join('') : none);
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Rank</th><th>Rating</th><th>W – L</th></tr>' + (rd == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rd.length ? rd.map(function (r, i) { var rk = MG.rankOf(r.r); return '<tr><td>' + (['1st', '2nd', '3rd'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td style="color:' + rk.color + ';font-weight:700">' + rk.name + '</td><td>' + r.r + '</td><td>' + r.w + ' – ' + r.l + '</td></tr>'; }).join('') : none);
     } else {
-      var rg2 = S.lb2[lbTab], xl = { ctf: 'Captures', spleef: '🥇 Wins', hide: 'Finds', murder: 'Kills', build: '🥇 Wins' }[lbTab];
-      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Games</th><th>' + xl + '</th></tr>' + (rg2 == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rg2.length ? rg2.map(function (r, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.w + '</td><td>' + r.g + '</td><td>' + r.x + '</td></tr>'; }).join('') : none);
+      var rg2 = S.lb2[lbTab], xl = { ctf: 'Captures', spleef: 'Wins', hide: 'Finds', murder: 'Kills', build: 'Wins' }[lbTab];
+      $('lbRows').innerHTML = '<tr><th>#</th><th>Player</th><th>Wins</th><th>Games</th><th>' + xl + '</th></tr>' + (rg2 == null ? '<tr><td colspan="5" style="color:var(--mut)">Loading…</td></tr>' : rg2.length ? rg2.map(function (r, i) { return '<tr><td>' + (['1st', '2nd', '3rd'][i] || (i + 1)) + '</td><td>' + esc(r.nick) + '</td><td>' + r.w + '</td><td>' + r.g + '</td><td>' + r.x + '</td></tr>'; }).join('') : none);
     }
-    $('lbMe').innerHTML = [['Wins', st.wins], ['Finals', st.finals], ['Beds', st.beds], ['Kills', st.kills], ['Games', st.games], ['📜 today', (st.earnedToday || 0) + '/' + (st.cap || 1500)]].map(function (x) { return '<div class="stat"><b>' + (x[1] || 0) + '</b><span>' + x[0] + '</span></div>'; }).join('');
+    $('lbMe').innerHTML = [['Wins', st.wins], ['Finals', st.finals], ['Beds', st.beds], ['Kills', st.kills], ['Games', st.games], ['today', (st.earnedToday || 0) + '/' + (st.cap || 1500)]].map(function (x) { return '<div class="stat"><b>' + (x[1] || 0) + '</b><span>' + x[0] + '</span></div>'; }).join('');
   }
   function renderWait() {
     var r = S.room; if (!r || S.screen !== 'wait') return;
@@ -529,21 +537,21 @@
     $('wHost').classList.toggle('hidden', !host);
     if (host) { [].forEach.call($('hMode').children, function (b) { b.classList.toggle('on', b.dataset.v === r.mode); }); [].forEach.call($('hDiff').children, function (b) { b.classList.toggle('on', b.dataset.v === r.diff); }); }
     $('hMode').classList.add('hidden');
-    if ($('hBots')) { $('hBots').textContent = r.bots === false ? '🤖 Bots: OFF' : '🤖 Bots: ON'; $('hBots').classList.toggle('green', r.bots !== false); $('hDiff').classList.toggle('hidden', r.bots === false); }
+    if ($('hBots')) { $('hBots').textContent = r.bots === false ? 'Bots: OFF' : 'Bots: ON'; $('hBots').classList.toggle('green', r.bots !== false); $('hDiff').classList.toggle('hidden', r.bots === false); }
     var ms = $('hMap'), maps = r.maps || [];
-    if (ms) { ms.classList.toggle('hidden', !host || !maps.length); if (host && maps.length) { var opts = '<option value="">🎲 Random map</option><option value="default">' + (rg === 'bw' ? 'Classic Bedwars map' : 'Classic ' + md.name + ' map') + '</option>' + maps.map(function (mp) { return '<option value="' + esc(mp.id) + '">🗺️ ' + esc(mp.name) + '</option>'; }).join(''); if (ms.dataset.k !== opts) { ms.innerHTML = opts; ms.dataset.k = opts; } ms.value = r.mapId || ''; } }
-    if (!host && r.mapName) $('wHint').innerHTML += '<br>🗺️ Map: <b>' + esc(r.mapName) + '</b>';
-    $('wHint').innerHTML = (rg !== 'bw' ? '<b>' + md.icon + ' ' + esc(md.desc) + '</b><br>' : '') + (r.kind === 'private' && (rg === 'bw' || rg === 'ctf') ? '🟥🟦 Stand on a colored pad to join that team' : r.kind === 'practice' ? '🤖 Bots are getting ready…' : '🤖 Empty slots get filled with bots');
+    if (ms) { ms.classList.toggle('hidden', !host || !maps.length); if (host && maps.length) { var opts = '<option value="">Random map</option><option value="default">' + (rg === 'bw' ? 'Classic Bedwars map' : 'Classic ' + md.name + ' map') + '</option>' + maps.map(function (mp) { return '<option value="' + esc(mp.id) + '"><svg class="ui-i" aria-hidden="true"><use href="#ui-map"/></svg> ' + esc(mp.name) + '</option>'; }).join(''); if (ms.dataset.k !== opts) { ms.innerHTML = opts; ms.dataset.k = opts; } ms.value = r.mapId || ''; } }
+    if (!host && r.mapName) $('wHint').innerHTML += '<br><svg class="ui-i" aria-hidden="true"><use href="#ui-map"/></svg> Map: <b>' + esc(r.mapName) + '</b>';
+    $('wHint').innerHTML = (rg !== 'bw' ? '<b>' + md.icon + ' ' + esc(md.desc) + '</b><br>' : '') + (r.kind === 'private' && (rg === 'bw' || rg === 'ctf') ? 'Stand on a colored pad to join that team' : r.kind === 'practice' ? 'Bots are getting ready…' : 'Empty slots get filled with bots');
     var html = '';
     if (rg === 'spleef' || rg === 'hide' || rg === 'duel' || rg === 'murder' || rg === 'build' || rg === 'royale') {
-      var row2 = ''; for (var k2 = 0; k2 < (r.slots || r.cap || 8); k2++) { var mm = r.members[k2]; row2 += mm ? '<span class="wp' + (mm.cid === r.you ? ' you' : '') + '">' + esc(mm.nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '🤖') + '</span>'; }
-      $('wRoster').innerHTML = '<div class="wt">' + row2 + '</div>' + (rg === 'hide' ? '<div class="whint">🎲 Seekers are picked at random when the round starts</div>' : rg === 'murder' ? '<div class="whint">🎲 The murderer and detective are secret!</div>' : '');
+      var row2 = ''; for (var k2 = 0; k2 < (r.slots || r.cap || 8); k2++) { var mm = r.members[k2]; row2 += mm ? '<span class="wp' + (mm.cid === r.you ? ' you' : '') + '">' + esc(mm.nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '') + '</span>'; }
+      $('wRoster').innerHTML = '<div class="wt">' + row2 + '</div>' + (rg === 'hide' ? '<div class="whint">Seekers are picked at random when the round starts</div>' : rg === 'murder' ? '<div class="whint">The murderer and detective are secret!</div>' : '');
       r.members.forEach(function (m) { var e = S.ents.get(m.pid); if (e) e.team = rg === 'spleef' || rg === 'duel' ? m.team : -1; });
       updateWaitCount(); return;
     }
     for (var t = 0; t < (r.teams || 4); t++) {
       var mem = r.members.filter(function (m) { return m.team === t; }), row = '';
-      for (var k = 0; k < Math.max(mem.length, r.slots || r.per); k++) row += mem[k] ? '<span class="wp' + (mem[k].cid === r.you ? ' you' : '') + '">' + esc(mem[k].nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '🤖') + '</span>';
+      for (var k = 0; k < Math.max(mem.length, r.slots || r.per); k++) row += mem[k] ? '<span class="wp' + (mem[k].cid === r.you ? ' you' : '') + '">' + esc(mem[k].nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '') + '</span>';
       html += '<div class="wt"><i style="background:' + teamCol(t) + '"></i>' + row + '</div>';
     }
     $('wRoster').innerHTML = html;
@@ -582,7 +590,7 @@
     m.blocks.forEach(function (b) { map.f[b[0]] = b[1]; map.fc[b[0]] = b[2]; map.w[b[0]] = b[3]; map.wc[b[0]] = b[4]; });
     m.beds.forEach(function (a, t) { if (!a && map.beds[t]) { map.beds[t].alive = false; map.obj[map.beds[t].foot] = 0; map.obj[map.beds[t].head] = 0; } });
     S.crk = {}; S.propWob = {}; S.radar = null; S.did = {};
-    if (S.custom) setTimeout(function () { toast('🗺️ Map: <b>' + esc(S.custom.name) + '</b>' + (S.custom.author ? ' by ' + esc(S.custom.author) : ''), 2600, true); }, 600);
+    if (S.custom) setTimeout(function () { toast('Map: <b>' + esc(S.custom.name) + '</b>' + (S.custom.author ? ' by ' + esc(S.custom.author) : ''), 2600, true); }, 600);
     if (S.game === 'spleef') { (m.sp || []).forEach(function (q) { map.L[q[0]][q[1]] = q[2]; if (q[2] === 2) S.crk[q[0] * NN + q[1]] = now(); }); S.sdAt = m.sdAt; S.spCv = null; }
     if (S.game === 'ctf') { S.flags = m.flags; S.score = m.score; S.endAt = m.endAt; S.pickups = m.pick || []; }
     if (S.game === 'hide') { S.seekAt = m.seekAt; S.endAt = m.endAt; S.phase = m.phase; }
@@ -721,9 +729,9 @@
     if (k === 'tp') { D.burst('magic', ev[2], ev[3] - 20, 16, '#2ec4b6'); D.burst('magic', ev[4], ev[5] - 20, 16, '#2ec4b6'); D.ring(ev[4], ev[5], '#2ec4b6', 40, 0.5, 4); sfxAt('warp', ev[4], ev[5]); e = S.ents.get(ev[1]); if (e) { e.x = ev[4]; e.y = ev[5]; e.buf = []; } return; }
     if (k === 'eat') { e = S.ents.get(ev[1]); if (!e) return; p = entPos(e); D.burst('heart', p.x, p.y - 40, 5); sfxAt('eat', p.x, p.y); return; }
     if (k === 'drink') { e = S.ents.get(ev[1]); if (!e) return; p = entPos(e); D.burst('magic', p.x, p.y - 20, 14, '#7dd3fc'); sfxAt('level', p.x, p.y); return; }
-    if (k === 'up') { if (ev[1] === S.team) { e = S.ents.get(ev[4]); var u = B.UP_BY_ID[ev[2]]; toast('⬆️ ' + (e ? esc(e.nick) : 'Teammate') + ' bought ' + u.name + (u.costs.length > 1 ? ' ' + ['I', 'II', 'III', 'IV'][ev[3] - 1] : ''), 2600, true); SC.sfx('level'); } return; }
+    if (k === 'up') { if (ev[1] === S.team) { e = S.ents.get(ev[4]); var u = B.UP_BY_ID[ev[2]]; toast('' + (e ? esc(e.nick) : 'Teammate') + ' bought ' + u.name + (u.costs.length > 1 ? ' ' + ['I', 'II', 'III', 'IV'][ev[3] - 1] : ''), 2600, true); SC.sfx('level'); } return; }
     if (k === 'trap') { if (ev[1] === S.team) { e = S.ents.get(ev[2]); banner('TRAP TRIGGERED!', (e ? esc(e.nick) : 'Someone') + ' is in your base!', '#ffd166'); SC.sfx('alarm'); } return; }
-    if (k === 'tl') { var tl = B.TIMELINE[ev[1]]; S.tl = ev[1] + 1; if (tl.ev === 'dia2') S.tier.dia = 1; if (tl.ev === 'em2') S.tier.em = 1; if (tl.ev === 'dia3') S.tier.dia = 2; if (tl.ev === 'em3') S.tier.em = 2; if (tl.ev !== 'beds' && tl.ev !== 'end') { banner(tl.ev.indexOf('dia') === 0 ? '💎 DIAMOND ' + (tl.ev === 'dia2' ? 'II' : 'III') : '💚 EMERALD ' + (tl.ev === 'em2' ? 'II' : 'III'), tl.text, tl.ev.indexOf('dia') === 0 ? '#5ff0e6' : '#2bd576'); SC.sfx('level'); } return; }
+    if (k === 'tl') { var tl = B.TIMELINE[ev[1]]; S.tl = ev[1] + 1; if (tl.ev === 'dia2') S.tier.dia = 1; if (tl.ev === 'em2') S.tier.em = 1; if (tl.ev === 'dia3') S.tier.dia = 2; if (tl.ev === 'em3') S.tier.em = 2; if (tl.ev !== 'beds' && tl.ev !== 'end') { banner(tl.ev.indexOf('dia') === 0 ? 'DIAMOND ' + (tl.ev === 'dia2' ? 'II' : 'III') : 'EMERALD ' + (tl.ev === 'em2' ? 'II' : 'III'), tl.text, tl.ev.indexOf('dia') === 0 ? '#5ff0e6' : '#2bd576'); SC.sfx('level'); } return; }
     if (k === 'elim') { feed('<b style="color:' + teamCol(ev[1]) + '">' + tname(ev[1]) + ' team</b> has been <b style="color:#ff5c6c">ELIMINATED</b>', true); if (ev[1] !== S.team) toastBig(tname(ev[1]).toUpperCase() + ' TEAM ELIMINATED', teamCol(ev[1])); return; }
     if (k === 'qc') { e = S.ents.get(ev[1]); if (e) { e.bubble = { text: S.qc[ev[2]] || '', t: now() }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
     if (mgEvent(k, ev)) return;
@@ -759,7 +767,7 @@
     SC.sfx('bed');
     if (team === S.team) banner('YOUR BED WAS DESTROYED!', 'You will no longer respawn' + (e ? ' · ' + esc(e.nick) + ' did it' : ''), '#ff5c6c');
     else banner(tname(team).toUpperCase() + ' BED DESTROYED', e ? 'by ' + esc(e.nick) + (by === S.myId ? ' (you!)' : '') : 'All beds are gone!', teamCol(team));
-    feed('🛏️ <b style="color:' + teamCol(team) + '">' + tname(team) + ' bed</b> was destroyed' + (e ? ' by ' + nameHtml(e) : ''), true);
+    feed('<b style="color:' + teamCol(team) + '">' + tname(team) + ' bed</b> was destroyed' + (e ? ' by ' + nameHtml(e) : ''), true);
     renderTeams();
   }
   function died(ev) {
@@ -769,9 +777,9 @@
     if (e.id === S.myId && P) { x = P.x; y = P.y; }
     if (kind === 'void') { e.fallT = now(); e.fallX = x; e.fallY = y; sfxAt('fall', x, y); }
     else { D.burst('smoke', x, y - 16, 10); D.burst('cube', x, y - 16, 6, teamCol(e.team), { speed: 120 }); D.spawn({ k: 'soul', x: x, y: y - 20, life: 1.4 }); sfxAt('die', x, y); }
-    var how = kind === 'void' ? (killer ? 'knocked ' + nameHtml(e) + ' into the void' : '') : kind === 'arrow' ? '🏹' : kind === 'gun' ? '🔫' : kind === 'fireball' ? '🔥' : kind === 'tnt' ? '💥' : '⚔️';
-    if (kind === 'storm') { feed('🌪️ ' + nameHtml(e) + ' was swallowed by the storm', final); if (e.id === S.myId) { S.dead = true; if (P) P.dead = true; showDeath(null, final, kind); } return; }
-    if (kind === 'murder') { feed('💀 ' + nameHtml(e) + ' was found eliminated…', final); if (e.id === S.myId) { S.dead = true; if (P) P.dead = true; showDeath(null, final, kind); } return; }
+    var how = kind === 'void' ? (killer ? 'knocked ' + nameHtml(e) + ' into the void' : '') : kind === 'arrow' ? '' : kind === 'gun' ? '' : kind === 'fireball' ? '' : kind === 'tnt' ? '' : '';
+    if (kind === 'storm') { feed('' + nameHtml(e) + ' was swallowed by the storm', final); if (e.id === S.myId) { S.dead = true; if (P) P.dead = true; showDeath(null, final, kind); } return; }
+    if (kind === 'murder') { feed('' + nameHtml(e) + ' was found eliminated…', final); if (e.id === S.myId) { S.dead = true; if (P) P.dead = true; showDeath(null, final, kind); } return; }
     var line = killer ? (kind === 'void' ? nameHtml(killer) + ' ' + how : nameHtml(killer) + ' ' + how + ' ' + nameHtml(e)) : nameHtml(e) + (kind === 'void' ? ' fell into the void' : ' died');
     feed(line + (final ? ' <span class="fk">' + (S.game === 'royale' ? 'ELIMINATED' : 'FINAL KILL') + '</span>' : ''), final);
     if (killer && killer.id === S.myId) { SC.sfx(final ? 'final' : 'kill'); toastBig(S.game === 'royale' ? '+1 ELIMINATION' : final ? 'FINAL KILL!' : '+1 KILL', final ? '#ff5c6c' : '#ffd166'); }
@@ -791,7 +799,7 @@
     var oldRes = S.res, oldInv = S.inv;
     if (m.role != null && isMini()) { var mmr = S.ents.get(S.myId); S.team = m.role; if (mmr) { mmr.team = m.role; mmr.prop = m.prop; } }
     S.prop = m.prop; if (m.mr != null) S.mrole = m.mr; S.gold = m.gold | 0;
-    if (m.en != null) { var wasEn = S.en; S.en = m.en; if (m.qz) S.qz = m.qz; quizHud(); if (wasEn === -1 && m.en >= 0) toast(S.game === 'bw' ? '🏫 School Mode: answer questions (G) to earn iron, gold, diamonds & energy — generators are off!' : '🏫 School Mode: walking uses ⚡ energy. Press G or tap Answer to earn more!', 4200); if (m.en === 0 && wasEn > 0 && !S.quizOpen && !S.ended) { toast('⚡ Out of energy! Answer questions to keep moving.', 2600); openQuiz(); } }
+    if (m.en != null) { var wasEn = S.en; S.en = m.en; if (m.qz) S.qz = m.qz; quizHud(); if (wasEn === -1 && m.en >= 0) toast(S.game === 'bw' ? 'School Mode: answer questions (G) to earn iron, gold, diamonds & energy — generators are off!' : 'School Mode: walking uses energy. Press G or tap Answer to earn more!', 4200); if (m.en === 0 && wasEn > 0 && !S.quizOpen && !S.ended) { toast('Out of energy! Answer questions to keep moving.', 2600); openQuiz(); } }
     S.hp = m.hp; S.absorb = m.absorb; S.inv = m.inv; S.res = m.res; S.sword = m.sword; S.armor = m.armor; S.pick = m.pick; S.stats = m.stats;
     S.dead = m.dead; S.elim = m.elim; if (m.dead && !m.elim) S.respawnAt = now() + m.respawn; S.speedUntil = now() + m.speed; S.slowUntil = now() + (m.slow || 0);
     var me = S.ents.get(S.myId); if (me) { me.sword = m.sword; me.armor = m.armor; me.pick = m.pick; }
@@ -828,7 +836,7 @@
     } else if (k === 'e') { var o = nearObj(); if (o) useObj(o); }
     if (k === 'q') toggleQc();
     if (k === 'p') openSoc();
-    if (k === 'v' && window.BWV && BWV.on) { BWV.setMuted(!BWV.muted); voiceSync(); toast(BWV.muted ? '🔇 Mic muted (press V to talk again)' : '🎙️ Mic on', 1300); }
+    if (k === 'v' && window.BWV && BWV.on) { BWV.setMuted(!BWV.muted); voiceSync(); toast(BWV.muted ? 'Mic muted (press V to talk again)' : 'Mic on', 1300); }
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k) >= 0) e.preventDefault();
   });
   addEventListener('keyup', function (e) { var k = e.key.toLowerCase(); keys[k] = false; if (k === 'tab') showScore(false); });
@@ -914,8 +922,8 @@
     if (!touch || S.screen !== 'game' || !P) return;
     if (S.game === 'spleef' || S.game === 'hide') { S.autoMine = -1; return; }
     S.autoMine = !P.dead && !S.dead && (S.held === 'sword' || S.held === 'kbstick' || S.held === 'pick') && !enemyInMelee() ? autoMineTile() : -1;
-    var ic = S.autoMine >= 0 ? '⛏️' : '⚔️';
-    if (ic !== atkIcon) { atkIcon = ic; $('tAtk').textContent = ic; }
+    var ic = S.autoMine >= 0 ? 'pickaxe' : 'swords';
+    if (ic !== atkIcon) { atkIcon = ic; $('tAtk').innerHTML = UI(ic); }
   }
   function touchAim() {
     if (!P) return;
@@ -1193,8 +1201,8 @@
     S.map.objs.forEach(function (o) { if (o.kind === 'gport' && o.walk && Math.abs(P.x - o.x) < T * 1.25 && P.y > o.y - T * 0.9 && P.y < o.y + T * 1.1) hit = o; });
     if (!hit) { S.portLock = null; S.portIn = 0; return; }
     if (S.portLock === hit) return;
-    if (schoolLocked()) { S.portLock = hit; toast('🔒 Portals are locked in School Mode — your teacher starts the next game with a vote!', 2600); SC.sfx('no'); return; }
-    if (!S.portIn) { S.portIn = now(); SC.sfx('open'); D.burst('magic', P.x, P.y - 20, 14, D.GCOL[hit.game] || '#9b6bff'); toast('🌀 Entering ' + gname(objGame(hit)) + '…', 1200); }
+    if (schoolLocked()) { S.portLock = hit; toast('Portals are locked in School Mode — your teacher starts the next game with a vote!', 2600); SC.sfx('no'); return; }
+    if (!S.portIn) { S.portIn = now(); SC.sfx('open'); D.burst('magic', P.x, P.y - 20, 14, D.GCOL[hit.game] || '#9b6bff'); toast('Entering ' + gname(objGame(hit)) + '…', 1200); }
     if (now() - S.portIn < 650) return;
     S.portLock = hit; S.portIn = 0;
     var g = objGame(hit), mode = g;
@@ -1207,7 +1215,7 @@
     if (S.screen !== 'hub' && S.screen !== 'wait') return;
     if (S.screen === 'hub') portalWalk();
     var o = nearObj(), pr = $('prompt');
-    if (o && !anyModal()) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap · ' : 'E · ') + objLabel(o); } else pr.classList.add('hidden');
+    if (o && !anyModal()) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap USE · ' : 'E · ') + objLabel(o); } else pr.classList.add('hidden');
     if (S.screen === 'wait' && now() - (S.wcAt || 0) > 250) { S.wcAt = now(); updateWaitCount(); }
   }
 
@@ -1555,7 +1563,7 @@
     var dead = e.dead || e.elim || (e.id === S.myId && (P.dead || S.dead));
     var falling = e.fallT && tn - e.fallT < 1100 ? (tn - e.fallT) / 1100 : (e.id === S.myId && P && P.falling && !S.dead ? Math.min(1, (tn - P.falling) / 1100) : -1);
     if (S.game === 'spleef' && !dead) { var fu = e.id === S.myId ? (P && P.falling ? Math.min(1, (tn - P.falling) / 420) : -1) : e.spFall ? Math.min(1, (tn - (e.spFallT || tn)) / 420) : -1; falling = -1; if (fu >= 0) { sc = 1 - fu * 0.4; alpha = 1 - fu * 0.55; y += fu * 18; } }
-    if (S.game === 'hide' && e.prop && !dead) { drawDisguised(e, x, y, t); if (S.reveal && S.owner && e.id !== S.myId) D.tag(c, '👁️ ' + e.nick, x, y - 50, { size: 11, color: '#fff', bg: '#c1121f' }); return; }
+    if (S.game === 'hide' && e.prop && !dead) { drawDisguised(e, x, y, t); if (S.reveal && S.owner && e.id !== S.myId) D.tag(c, '' + e.nick, x, y - 50, { size: 11, color: '#fff', bg: '#c1121f' }); return; }
     if ((e.flags || 0) & 1024 && e.id !== S.myId) { if (!S.owner) return; alpha *= 0.35; }
     if ((e.flags || 0) & 2048) sc *= 1.65; else if ((e.flags || 0) & 4096) sc *= 0.58;
     if (falling >= 0) { if (e.fallX != null && e.id !== S.myId) { x = e.fallX; y = e.fallY; } else if (e.id === S.myId && P.fallX != null) { x = P.fallX; y = P.fallY; } sc = Math.max(0.05, 1 - falling * 0.95); rot = falling * 5; alpha = 1 - falling * 0.6; y += falling * 40; if (Math.random() < 0.4) D.burst('magic', x, y - 10, 1, '#3b2a8a'); }
@@ -1616,7 +1624,7 @@
   function drawTag(e, t) {
     var dead = e.dead || e.elim; if (dead) return;
     if (S.game === 'royale' && S.screen === 'game' && RG.hideTag(e)) return;
-    if (S.game === 'murder' && e.id === S.det) D.tag(c, '🕵️ DETECTIVE', e.x, e.y - 74, { size: 10, color: '#fff', bg: '#1d5fa8' });
+    if (S.game === 'murder' && e.id === S.det) D.tag(c, 'DETECTIVE', e.x, e.y - 74, { size: 10, color: '#fff', bg: '#1d5fa8' });
     if ((e.flags || 0) & 1024 && e.id !== S.myId && !S.owner) return;
     if (S.game === 'hide' && S.screen === 'game' && e.prop) { if (S.team === 0 && e.id !== S.myId) D.tag(c, e.nick, e.x, e.y - 50, { size: 11, color: 'rgba(181,245,207,.85)' }); if (!(window.BWV && BWV.hearing && BWV.isTalking(e.id))) return; }
     var x = e.x, y = e.y; if (e.id === S.myId && P) { if (P.falling) return; x = P.x; y = P.y; }
@@ -1630,7 +1638,7 @@
     if (S.screen === 'hub' || S.screen === 'wait') {
       D.tag(c, e.nick, x, y - 66, { size: 12, color: e.team >= 0 ? teamCol(e.team) : mine ? '#ffd166' : '#fff' });
     } else if (!mine) {
-      var tag = (e.bot ? '🤖 ' : '') + e.nick + (e.dc ? ' (AFK)' : '');
+      var tag = (e.bot ? '' : '') + e.nick + (e.dc ? ' (AFK)' : '');
       D.tag(c, tag, x, y - 72, { size: 12, color: teamCol(e.team) });
       var hp = clamp(e.hp / 20, 0, 1);
       if (S.game === 'spleef') return;
@@ -1731,7 +1739,7 @@
     var html = '';
     for (var t = 0; t < 4; t++) {
       var tm = S.teams[t] || { bed: true, alive: 0, total: 0 }, me = t === S.team;
-      html += '<div class="trow' + (me ? ' me' : '') + (tm.elim ? ' dead' : '') + '"><div class="sq" style="background:' + teamCol(t) + '">' + tname(t)[0] + '</div><span class="tn">' + tname(t) + (me ? ' <span style="color:var(--gold);font-size:11px">YOU</span>' : '') + '</span><span class="bed">' + (tm.elim ? '💀' : tm.bed ? '🛏️' : '❌') + '</span><span class="al">' + (tm.alive != null ? tm.alive : '') + '</span></div>';
+      html += '<div class="trow' + (me ? ' me' : '') + (tm.elim ? ' dead' : '') + '"><div class="sq" style="background:' + teamCol(t) + '">' + tname(t)[0] + '</div><span class="tn">' + tname(t) + (me ? ' <span style="color:var(--gold);font-size:11px">YOU</span>' : '') + '</span><span class="bed">' + (tm.elim ? 'OUT' : tm.bed ? 'BED' : 'X') + '</span><span class="al">' + (tm.alive != null ? tm.alive : '') + '</span></div>';
     }
     $('teamsP').innerHTML = html;
   }
@@ -1798,7 +1806,7 @@
     var d = $('death'); d.classList.remove('hidden');
     if (isMini() && mgDeath(d, killer, final, kind)) return;
     if (final) {
-      d.innerHTML = '<div class="big">ELIMINATED</div><div class="sub">' + (killer ? 'Final kill by <span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span>' : 'Your bed was gone — no more respawns') + '</div><div class="sub" style="font-size:15px;color:#cfc8ff">You’re spectating. Stick around or jump into a new game.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dSpec">👀 Keep watching</button><button class="btn" id="dHub">🏠 Hub</button></div>';
+      d.innerHTML = '<div class="big">ELIMINATED</div><div class="sub">' + (killer ? 'Final kill by <span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span>' : 'Your bed was gone — no more respawns') + '</div><div class="sub" style="font-size:15px;color:#cfc8ff">You’re spectating. Stick around or jump into a new game.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dSpec"><svg class="ui-i" aria-hidden="true"><use href="#ui-eye"/></svg> Keep watching</button><button class="btn" id="dHub"><svg class="ui-i" aria-hidden="true"><use href="#ui-house"/></svg> Hub</button></div>';
       $('dAgain').onclick = playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); }; $('dHub').onclick = function () { send({ t: 'hub' }); };
     } else {
       d.innerHTML = '<div class="big">YOU DIED!</div><div class="sub">' + (killer ? (kind === 'void' ? 'Knocked into the void by ' : 'Killed by ') + '<span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span>' : kind === 'void' ? 'You fell into the void' : '') + '</div><div class="sub" style="margin:0">Respawning in</div><div class="cd" id="deathCd">5</div>';
@@ -1812,8 +1820,8 @@
     var rows = '<table><tr><th></th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>';
     for (var t = 0; t < 4; t++) {
       var tm = S.teams[t] || {};
-      rows += '<tr class="tm"><td colspan="6" style="color:' + teamCol(t) + '">' + tname(t) + ' ' + (tm.elim ? '💀' : tm.bed ? '🛏️' : '❌') + '</td></tr>';
-      S.ents.forEach(function (e) { if (e.team !== t) return; var st = e.id === S.myId ? S.stats : (e.stats || {}); rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.elim ? '💀' : e.dead ? '⏳' : '') + '</td><td>' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (e.id === S.myId ? st.kills || 0 : '–') + '</td><td>' + (e.id === S.myId ? st.finals || 0 : '–') + '</td><td>' + (e.id === S.myId ? st.beds || 0 : '–') + '</td><td>' + (e.id === S.myId ? st.deaths || 0 : '–') + '</td></tr>'; });
+      rows += '<tr class="tm"><td colspan="6" style="color:' + teamCol(t) + '">' + tname(t) + ' ' + (tm.elim ? 'OUT' : tm.bed ? 'BED' : 'X') + '</td></tr>';
+      S.ents.forEach(function (e) { if (e.team !== t) return; var st = e.id === S.myId ? S.stats : (e.stats || {}); rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.elim ? 'OUT' : e.dead ? '...' : '') + '</td><td>' + (e.bot ? '' : '') + esc(e.nick) + '</td><td>' + (e.id === S.myId ? st.kills || 0 : '–') + '</td><td>' + (e.id === S.myId ? st.finals || 0 : '–') + '</td><td>' + (e.id === S.myId ? st.beds || 0 : '–') + '</td><td>' + (e.id === S.myId ? st.deaths || 0 : '–') + '</td></tr>'; });
     }
     el.innerHTML = rows + '</table><div style="text-align:center;color:var(--mut);font-size:12px;margin-top:6px">Everyone’s full stats appear at the end of the match</div>';
     el.classList.remove('hidden');
@@ -1826,7 +1834,7 @@
   $('gQc').onclick = toggleQc;
   $('qcMenu').addEventListener('click', function (e) { var b = e.target.closest('[data-q]'); if (b) { send({ t: 'qc', i: +b.dataset.q }); $('qcMenu').classList.add('hidden'); } });
   var leaveArm = 0;
-  $('gLeave').onclick = function () { if (now() - leaveArm < 2500) { send({ t: 'leave' }); return; } leaveArm = now(); toast('Click 🚪 again to leave (a bot will take your place)', 2500); };
+  $('gLeave').onclick = function () { if (now() - leaveArm < 2500) { send({ t: 'leave' }); return; } leaveArm = now(); toast('Click again to leave (a bot will take your place)', 2500); };
 
   // minimap
   var miniBase = null;
@@ -1854,7 +1862,7 @@
   function openShop(kind) {
     if (S.dead) return;
     shopKind = kind; S.did.shop = true; $('shop').classList.remove('hidden'); mouse.l = mouse.r = false; SC.sfx('open');
-    $('shTitle').textContent = kind === 'shop' ? 'Item Shop' : 'Team Upgrades'; $('shIco').textContent = kind === 'shop' ? '🛒' : '⬆️';
+    $('shTitle').textContent = kind === 'shop' ? 'Item Shop' : 'Team Upgrades'; $('shIco').innerHTML = UI(kind === 'shop' ? 'shopping-cart' : 'arrow-up');
     $('shCats').style.display = kind === 'shop' ? '' : 'none';
     renderShop();
   }
@@ -1903,18 +1911,18 @@
   function onEnd(m) { if (!m.watch && potgStart(m)) return; onEndReal(m); }
   function onEndReal(m) {
     S.ended = m; mouse.l = mouse.r = false; closeShop();
-    if (m.watch) { $('watchBar').classList.add('hidden'); var wn = m.winner >= 0 ? (S.game === 'murder' ? (m.winner ? 'The murderer' : 'The innocents') : S.game === 'hide' ? (m.winner ? 'Seekers' : 'Hiders') : tname(m.winner) + ' team') + ' won!' : 'It’s a draw!'; banner('🏁 MATCH OVER', wn + ' Heading back to the hub…', '#9b6bff'); return; }
+    if (m.watch) { $('watchBar').classList.add('hidden'); var wn = m.winner >= 0 ? (S.game === 'murder' ? (m.winner ? 'The murderer' : 'The innocents') : S.game === 'hide' ? (m.winner ? 'Seekers' : 'Hiders') : tname(m.winner) + ' team') + ' won!' : 'It’s a draw!'; banner('MATCH OVER', wn + ' Heading back to the hub…', '#9b6bff'); return; }
     var win = m.win != null ? m.win : m.winner === m.team;
     $('eTitle').textContent = win ? 'VICTORY!' : m.winner < 0 ? 'DRAW' : 'GAME OVER';
     $('eTitle').style.color = win ? '#ffd166' : '#ff5c6c';
     $('eSub').innerHTML = m.winner >= 0 ? '<span style="color:' + teamCol(m.winner) + '">' + tname(m.winner) + ' team</span> wins!' : 'Nobody wins this time';
     if (m.game && m.game !== 'bw') mgEndSub(m, win);
     var rw = m.reward;
-    $('eReward').innerHTML = rw ? '+' + rw.give + ' 📜 Scrolls' + (rw.capped ? '<small>Daily Bedwars reward limit reached</small>' : '<small>' + ('Match length ' + B.fmtTime((m.mins || 0) * 60)) + '</small>') : '';
+    $('eReward').innerHTML = rw ? '+' + rw.give + ' Scrolls' + (rw.capped ? '<small>Daily Bedwars reward limit reached</small>' : '<small>' + ('Match length ' + B.fmtTime((m.mins || 0) * 60)) + '</small>') : '';
     $('eReward').classList.toggle('hidden', !rw);
     var st = m.stats.slice().sort(function (a, b) { return (b.finals * 3 + b.kills + b.beds * 4) - (a.finals * 3 + a.kills + a.beds * 4); });
-    if (m.game && m.game !== 'bw') $('eTable').innerHTML = mgEndTable(m); else $('eTable').innerHTML = '<tr><th>#</th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + teamCol(s.team) + '">' + (s.bot ? '🤖 ' : '') + esc(s.nick) + '</b></td><td>' + s.kills + '</td><td>' + s.finals + '</td><td>' + s.beds + '</td><td>' + s.deaths + '</td></tr>'; }).join('');
-    if (m.quiz && m.quiz.length) $('eTable').innerHTML += '<tr><th colspan="6" style="padding-top:14px;color:#ffd166">📝 Quiz standings</th></tr><tr><th>#</th><th>Player</th><th>✅ Right</th><th>❌ Wrong</th><th>🔥 Best</th><th></th></tr>' + m.quiz.map(function (q, i) { return '<tr><td>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</td><td>' + esc(q.nick) + '</td><td>' + q.right + '</td><td>' + q.wrong + '</td><td>' + q.best + '</td><td></td></tr>'; }).join('');
+    if (m.game && m.game !== 'bw') $('eTable').innerHTML = mgEndTable(m); else $('eTable').innerHTML = '<tr><th>#</th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + teamCol(s.team) + '">' + (s.bot ? '' : '') + esc(s.nick) + '</b></td><td>' + s.kills + '</td><td>' + s.finals + '</td><td>' + s.beds + '</td><td>' + s.deaths + '</td></tr>'; }).join('');
+    if (m.quiz && m.quiz.length) $('eTable').innerHTML += '<tr><th colspan="6" style="padding-top:14px;color:#ffd166"><svg class="ui-i" aria-hidden="true"><use href="#ui-pen-line"/></svg> Quiz standings</th></tr><tr><th>#</th><th>Player</th><th><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> Right</th><th>Wrong</th><th>Best</th><th></th></tr>' + m.quiz.map(function (q, i) { return '<tr><td>' + (['1st', '2nd', '3rd'][i] || (i + 1)) + '</td><td>' + esc(q.nick) + '</td><td>' + q.right + '</td><td>' + q.wrong + '</td><td>' + q.best + '</td><td></td></tr>'; }).join('');
     closeQuiz(true); $('qHud').classList.add('hidden');
     podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now(), label: m.game === 'hide' ? (m.winner === 0 ? 'HIDERS' : 'SEEKERS') : m.game === 'spleef' ? 'LAST ONE STANDING' : null };
     if (m.game === 'hide') podium.team = m.winner === 0 ? 2 : 0;
@@ -1935,7 +1943,7 @@
     A.rr(x, px0, top + 18, pw, 64, 18); x.fillStyle = A.shade(col, -0.35); x.fill(); x.strokeStyle = '#1b1636'; x.lineWidth = 6; x.stroke();
     A.ell(x, w / 2, top + 20, pw / 2, 26); x.fillStyle = col; x.fill(); x.stroke();
     A.ell(x, w / 2, top + 16, pw / 2 - 26, 16); x.fillStyle = 'rgba(255,255,255,.18)'; x.fill();
-    x.font = '700 28px Fredoka, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(255,255,255,.9)'; x.fillText('🏆 ' + (podium.label || (podium.team >= 0 ? tname(podium.team).toUpperCase() + ' TEAM' : 'DRAW')), w / 2, top + 58);
+    x.font = '700 28px Fredoka, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(255,255,255,.9)'; x.fillText('' + (podium.label || (podium.team >= 0 ? tname(podium.team).toUpperCase() + ' TEAM' : 'DRAW')), w / 2, top + 58);
     podium.players.forEach(function (p, i) {
       var ppx = w / 2 + (i - (n - 1) / 2) * Math.min(200, (pw - 120) / Math.max(1, n - 1 || 1));
       if (n === 1) ppx = w / 2;
@@ -1943,7 +1951,7 @@
       A.drawGim(x, 0, 0, p.look, { t: t + i, dir: 0, dance: true, shadow: true });
       D.armor(x, { team: p.team, armor: 1 }, 0, 0, t, -Math.abs(Math.sin((t + i) * 7)) * 7);
       x.restore();
-      D.tag(x, (p.bot ? '🤖 ' : '') + p.nick, ppx, top - 150, { size: 22, color: '#fff', bg: 'rgba(20,16,50,.85)' });
+      D.tag(x, (p.bot ? '' : '') + p.nick, ppx, top - 150, { size: 22, color: '#fff', bg: 'rgba(20,16,50,.85)' });
     });
     var winMe = S.ended && S.ended.winner === S.ended.team;
     if (winMe && Math.random() < 0.6) podium.conf.push({ x: Math.random() * w, y: -10, vx: (Math.random() - 0.5) * 60, vy: 90 + Math.random() * 130, r: Math.random() * 6, col: ['#ffd166', '#ff6ec7', '#5cf2ff', '#b8ff5c', '#ff5c6c', '#9b6bff'][Math.random() * 6 | 0] });
@@ -1955,7 +1963,7 @@
 
   // ------------------------------------------------------------------ proximity voice button
   function voiceSync() {
-    var V = window.BWV, label = !V || !V.on ? '🎙️ Talk' : V.muted ? '🔇 Muted' : V.talking ? '🎙️ Talking' : '🎙️ On';
+    var V = window.BWV, label = !V || !V.on ? 'Talk' : V.muted ? 'Muted' : V.talking ? 'Talking' : 'On';
     [].forEach.call(document.querySelectorAll('.voiceBtn'), function (b) {
       b.textContent = label;
       b.classList.toggle('von', !!(V && V.on && !V.muted)); b.classList.toggle('vmute', !!(V && V.on && V.muted)); b.classList.toggle('vtalk', !!(V && V.on && V.talking));
@@ -1966,16 +1974,16 @@
       var V = window.BWV; if (!V) return;
       if (!V.supported()) { toast('Voice chat isn’t supported in this browser', 2200); return; }
       if (!V.on) {
-        b.textContent = '🎙️ …';
-        V.start(sendBin).then(function () { send({ t: 'vc', on: true }); voiceSync(); toast('🎙️ Mic on — players near you can hear you. V = mute', 2600); })
-          .catch(function () { voiceSync(); toast('🎙️ Allow microphone access to use voice chat', 2600); SC.sfx('no'); });
-      } else { V.setMuted(!V.muted); voiceSync(); toast(V.muted ? '🔇 Mic muted — you still hear people nearby' : '🎙️ Mic on', 1600); }
+        b.textContent = '…';
+        V.start(sendBin).then(function () { send({ t: 'vc', on: true }); voiceSync(); toast('Mic on — players near you can hear you. V = mute', 2600); })
+          .catch(function () { voiceSync(); toast('Allow microphone access to use voice chat', 2600); SC.sfx('no'); });
+      } else { V.setMuted(!V.muted); voiceSync(); toast(V.muted ? 'Mic muted — you still hear people nearby' : 'Mic on', 1600); }
     };
   });
 
   // ------------------------------------------------------------------ owner panel
   var admTab = 'matches', admPoll = 0, admArm = null;
-  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner && !S.teacher); b.textContent = S.owner ? '👑 Owner' : '🏫 Teacher'; b.title = S.owner ? 'Owner panel' : 'Teacher tools'; }); $('hubBuild').classList.toggle('hidden', !S.mapper); }
+  function ownerSync() { [].forEach.call(document.querySelectorAll('.ownerBtn'), function (b) { b.classList.toggle('hidden', !S.owner && !S.teacher); b.textContent = S.owner ? 'Owner' : 'Teacher'; b.title = S.owner ? 'Owner panel' : 'Teacher tools'; }); $('hubBuild').classList.toggle('hidden', !S.mapper); }
   [].forEach.call(document.querySelectorAll('.menuBtn'), function (b) { b.onclick = function () { var box = b.parentElement; box.classList.toggle('open'); b.textContent = box.classList.contains('open') ? '✕' : '☰'; SC.sfx('click'); }; });
   document.addEventListener('click', function (e) { if (e.target.closest('.menuBtn')) return; [].forEach.call(document.querySelectorAll('.hbtns.open,#hudBtns.open'), function (box) { if (e.target.closest('.hbtn') && box.contains(e.target)) { box.classList.remove('open'); var mb = box.querySelector('.menuBtn'); if (mb) mb.textContent = '☰'; } }); });
   $('hMap').onchange = function () { send({ t: 'cfg', map: this.value }); SC.sfx('click'); };
@@ -1993,9 +2001,9 @@
     var pct = Math.max(0, Math.min(100, S.en));
     $('qBar').style.width = pct + '%';
     $('qBar').style.background = S.en <= 15 ? '#ff4b5c' : S.en <= 40 ? '#ffd166' : '#2bd576';
-    $('qEn').textContent = '⚡ ' + S.en;
+    $('qEn').textContent = '' + S.en;
     $('qHud').classList.toggle('empty', S.en === 0);
-    var z = S.qz || {}; $('qSt').textContent = '✅ ' + (z.right || 0) + (z.streak ? '  🔥 ' + z.streak : '');
+    var z = S.qz || {}; $('qSt').textContent = '' + (z.right || 0) + (z.streak ? '  ' + z.streak : '');
   }
   function quizAllowed() { return S.en >= 0; }
   function openQuiz() {
@@ -2035,10 +2043,10 @@
     [].forEach.call(bs, function (b, k) { if (k === m.ans) b.classList.add('right'); else if (k === S.qPick && !m.ok) b.classList.add('wrong'); else b.classList.add('dim'); });
     var f = $('qFeed');
     if (m.ok) {
-      var g = m.gain || {}, parts = m.hub ? ['+' + (g.coins || 0) + ' 📜 Scrolls'] : [g.en > 0 ? '+' + g.en + ' ⚡' : '⚡ full'];
-      if (g.iron) parts.push('+' + g.iron + ' iron'); if (g.gold) parts.push('+' + g.gold + ' gold'); if (g.dia) parts.push('+1 diamond 💎'); if (g.em) parts.push('+1 emerald 🟩'); if (g.speed) parts.push('speed boost ⚡');
-      f.textContent = '✅ Correct!  ' + parts.join('  ·  ') + (m.qz.streak >= 2 ? '   🔥 ' + m.qz.streak + ' in a row' : ''); f.className = 'ok'; SC.sfx('level');
-    } else { f.textContent = '❌ Not quite — the answer is highlighted.'; f.className = 'bad'; SC.sfx('no'); }
+      var g = m.gain || {}, parts = m.hub ? ['+' + (g.coins || 0) + ' Scrolls'] : [g.en > 0 ? '+' + g.en + '' : 'full'];
+      if (g.iron) parts.push('+' + g.iron + ' iron'); if (g.gold) parts.push('+' + g.gold + ' gold'); if (g.dia) parts.push('+1 diamond'); if (g.em) parts.push('+1 emerald'); if (g.speed) parts.push('speed boost');
+      f.textContent = 'Correct!  ' + parts.join('  ·  ') + (m.qz.streak >= 2 ? '   ' + m.qz.streak + ' in a row' : ''); f.className = 'ok'; SC.sfx('level');
+    } else { f.textContent = 'Not quite — the answer is highlighted.'; f.className = 'bad'; SC.sfx('no'); }
     if (m.hub) S.hqz = m.qz; else if (m.en != null && m.en >= 0) { S.en = m.en; S.qz = m.qz; } quizHud();
     if (m.cq) { clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, 2600); return; }
     // random pause before the next question so nobody can memorize a rhythm
@@ -2051,7 +2059,7 @@
 
   // ------------------------------------------------------------------ Skin shop (in the games hub)
   var SH = { tab: 'skin', data: null, busy: false };
-  var SH_TABS = [['skin', '🐾 Skins'], ['body', '🎨 Colors'], ['hat', '🎩 Hats'], ['acc', '✨ Accessories'], ['trail', '🌈 Trails']];
+  var SH_TABS = [['skin', 'Skins'], ['body', 'Colors'], ['hat', 'Hats'], ['acc', 'Accessories'], ['trail', 'Trails']];
   var RAR = { common: '#9aa3b5', rare: '#3fa9ff', epic: '#b185ff', legendary: '#ffc93c', mythic: '#ff6ec7' };
   function shopFetch(cb) { fetch('/api/casino/me', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) { if (d && d.profile) { SH.data = d; if (cb) cb(); } else $('shGrid').innerHTML = '<div class="sempty">' + esc((d && d.message) || 'Couldn’t load the shop.') + '</div>'; }).catch(function () { $('shGrid').innerHTML = '<div class="sempty">Couldn’t load the shop.</div>'; }); }
   function openSkinShop() { openModal('mShop2'); $('shGrid').innerHTML = '<div class="sempty">Opening the shop…</div>'; shopFetch(renderSkinShop); SH.on = true; requestAnimationFrame(shopDraw); }
@@ -2059,15 +2067,15 @@
   function renderSkinShop() {
     var d = SH.data; if (!d) return;
     var pr = d.profile, inv = pr.inventory || [], look = pr.look || {};
-    $('shCoins').textContent = '📜 ' + (pr.coins || 0).toLocaleString();
+    $('shCoins').textContent = '' + (pr.coins || 0).toLocaleString();
     $('shSchool').classList.toggle('hidden', !d.school);
     $('shTabs').innerHTML = SH_TABS.map(function (tb) { return '<button data-sht="' + tb[0] + '"' + (SH.tab === tb[0] ? ' class="on"' : '') + '>' + tb[1] + '</button>'; }).join('');
     var items = d.store.filter(function (it) { return it.type === SH.tab; });
     items.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
     $('shGrid').innerHTML = items.map(function (it) {
       var owned = it.price === 0 || inv.indexOf(it.id) >= 0, on = look[it.type] === it.id || (!look[it.type] && it.price === 0 && /gim$|sky$/.test(it.id));
-      var btn = on ? '<button class="shb on" disabled>✓ Wearing</button>' : owned ? '<button class="shb eq" data-eq="' + it.id + '">Wear</button>' : '<button class="shb buy" data-buy="' + it.id + '"' + (pr.coins < it.price ? ' disabled' : '') + '>' + (it.was ? '<s>' + it.was.toLocaleString() + '</s> ' : '') + '📜 ' + it.price.toLocaleString() + '</button>';
-      return '<div class="shc' + (on ? ' wearing' : '') + '" style="--r:' + (RAR[it.rarity] || '#9aa3b5') + '"><canvas width="220" height="200" data-it="' + it.id + '"></canvas><div class="shn">' + esc(it.label.replace(' (animated)', '')) + (/animated/.test(it.label) ? ' <span class="sha">✨</span>' : '') + '</div><div class="shr">' + esc(it.rarity || 'common') + '</div>' + btn + '</div>';
+      var btn = on ? '<button class="shb on" disabled>✓ Wearing</button>' : owned ? '<button class="shb eq" data-eq="' + it.id + '">Wear</button>' : '<button class="shb buy" data-buy="' + it.id + '"' + (pr.coins < it.price ? ' disabled' : '') + '>' + (it.was ? '<s>' + it.was.toLocaleString() + '</s> ' : '') + '' + it.price.toLocaleString() + '</button>';
+      return '<div class="shc' + (on ? ' wearing' : '') + '" style="--r:' + (RAR[it.rarity] || '#9aa3b5') + '"><canvas width="220" height="200" data-it="' + it.id + '"></canvas><div class="shn">' + esc(it.label.replace(' (animated)', '')) + (/animated/.test(it.label) ? ' <span class="sha"><svg class="ui-i" aria-hidden="true"><use href="#ui-sparkles"/></svg></span>' : '') + '</div><div class="shr">' + esc(it.rarity || 'common') + '</div>' + btn + '</div>';
     }).join('') || '<div class="sempty">Nothing here yet.</div>';
   }
   function shopLook(it) { var d = SH.data, lv = (d && d.profile.lookValues) || (S.hello && S.hello.look) || {}; var lk = { skin: lv.skin || 'gim', body: lv.body || '#3fa9ff', hat: lv.hat || '', acc: lv.acc || '', trail: '' }; if (it) lk[it.type] = it.value; if (it && it.type !== 'trail') lk.trail = ''; return lk; }
@@ -2092,15 +2100,15 @@
     SH.busy = true;
     var wear = function () { shopPost('/api/casino/equip', { itemId: id }, function (r) { SH.busy = false; if (r && r.profile) { SH.data.profile = r.profile; renderSkinShop(); send({ t: 'look' }); SC.sfx('pop'); } }); };
     if (b.dataset.buy) shopPost('/api/casino/buy', { itemId: id }, function (r) {
-      if (r && r.ok) { SH.data.profile = r.profile; SC.sfx('bigwin'); toast('🛍️ Bought! Putting it on…', 1500); wear(); }
-      else { SH.busy = false; toast(r && r.error === 'broke' ? '📜 Not enough Scrolls yet — win games to earn more!' : 'Couldn’t buy that.', 2200); if (r && r.profile) { SH.data.profile = r.profile; renderSkinShop(); } }
+      if (r && r.ok) { SH.data.profile = r.profile; SC.sfx('bigwin'); toast('Bought! Putting it on…', 1500); wear(); }
+      else { SH.busy = false; toast(r && r.error === 'broke' ? 'Not enough Scrolls yet — win games to earn more!' : 'Couldn’t buy that.', 2200); if (r && r.profile) { SH.data.profile = r.profile; renderSkinShop(); } }
     }); else wear();
   });
   // ---- class question from the teacher (pops up for everyone, any screen)
   function openCq(m) {
     S.qMode = 'cq'; S.quizOpen = true; keys = {}; mouse.l = mouse.r = false;
     $('quiz').classList.remove('hidden');
-    showQuestion({ q: m.q, choices: m.choices, set: '📣 Class question from ' + m.from + ' — everyone answers!' });
+    showQuestion({ q: m.q, choices: m.choices, set: 'Class question from ' + m.from + ' — everyone answers!' });
     S.qCur.id = m.id; SC.sfx('level');
     clearTimeout(S.cqT); S.cqT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, (m.secs || 45) * 1000);
   }
@@ -2111,7 +2119,7 @@
     var box = $('voteBox');
     if (m.done) {
       clearInterval(S.voteIv);
-      if (m.cancel) { box.classList.add('hidden'); S.voteOn = false; toast('🗳️ The vote was cancelled', 1800); return; }
+      if (m.cancel) { box.classList.add('hidden'); S.voteOn = false; toast('The vote was cancelled', 1800); return; }
       box.classList.add('done');
       [].forEach.call($('voteGrid').children, function (x) { x.classList.toggle('win', x.dataset.vg === m.winner); });
       $('voteTitle').innerHTML = '<b>' + (m.winner === 'bw' ? 'BEDWARS' : MG.GAMES[m.winner].name.toUpperCase()) + '</b> WINS!';
@@ -2132,7 +2140,7 @@
       S.voteCards = games.slice();
       $('voteGrid').innerHTML = games.map(function (g) {
         var nm = VNAME[g] || ['', g];
-        return '<button class="vopt" data-vg="' + g + '" style="--c:' + (D.GCOL[g] || '#6c4dff') + '"><span class="sticker">YOUR VOTE ✓</span><span class="crown">👑</span><canvas width="460" height="300"></canvas><div class="vn">' + (nm[0] ? '<em>' + nm[0] + '</em> ' : '') + nm[1] + '</div><div class="vrow"><div class="vbar"><i style="width:0%"></i></div><div class="vc">0</div></div></button>';
+        return '<button class="vopt" data-vg="' + g + '" style="--c:' + (D.GCOL[g] || '#6c4dff') + '"><span class="sticker">YOUR VOTE ✓</span><span class="crown"><svg class="ui-i" aria-hidden="true"><use href="#ui-crown"/></svg></span><canvas width="460" height="300"></canvas><div class="vn">' + (nm[0] ? '<em>' + nm[0] + '</em> ' : '') + nm[1] + '</div><div class="vrow"><div class="vbar"><i style="width:0%"></i></div><div class="vc">0</div></div></button>';
       }).join('');
     }
     var total = Math.max(1, m.total || 1);
@@ -2194,8 +2202,8 @@
     else if (k === 'zoom') css('transform', 'scale(1.6)');
     else if (k === 'dark') css('filter', 'brightness(0.25)');
     else if (k === 'flash') { var f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;z-index:80;background:' + (m.col || '#fff') + ';opacity:1;transition:opacity 1.2s;pointer-events:none'; document.body.appendChild(f); requestAnimationFrame(function () { f.style.opacity = '0'; }); setTimeout(function () { f.remove(); }, 1300); }
-    else if (k === 'rain' || k === 'confetti') { var em = m.em || '🎉'; for (var i = 0; i < 40; i++) (function (i) { var d = document.createElement('div'); d.textContent = k === 'confetti' ? ['🎉', '🎊', '✨', '⭐'][i % 4] : em; d.style.cssText = 'position:fixed;top:-40px;left:' + (Math.random() * 100) + 'vw;font-size:' + (20 + Math.random() * 18) + 'px;z-index:80;pointer-events:none;transition:transform ' + (2 + Math.random() * 2) + 's linear'; document.body.appendChild(d); setTimeout(function () { d.style.transform = 'translateY(' + (innerHeight + 80) + 'px) rotate(' + (Math.random() * 720 - 360) + 'deg)'; }, 30 + i * 40); setTimeout(function () { d.remove(); }, 5000); })(i); }
-    else if (k === 'big') { banner(m.text || '👀', m.sub || '', m.col || '#ffd166'); }
+    else if (k === 'rain' || k === 'confetti') { var em = m.em || ''; for (var i = 0; i < 40; i++) (function (i) { var d = document.createElement('div'); d.textContent = k === 'confetti' ? ['*', '+', 'o', 'x'][i % 4] : em; d.style.cssText = 'position:fixed;top:-40px;left:' + (Math.random() * 100) + 'vw;font-size:' + (20 + Math.random() * 18) + 'px;z-index:80;pointer-events:none;transition:transform ' + (2 + Math.random() * 2) + 's linear'; document.body.appendChild(d); setTimeout(function () { d.style.transform = 'translateY(' + (innerHeight + 80) + 'px) rotate(' + (Math.random() * 720 - 360) + 'deg)'; }, 30 + i * 40); setTimeout(function () { d.remove(); }, 5000); })(i); }
+    else if (k === 'big') { banner(m.text || '', m.sub || '', m.col || '#ffd166'); }
     if (m.sfx) SC.sfx(m.sfx);
   }
   function openAdmin() {
@@ -2229,8 +2237,8 @@
         if (r.state === 'play') {
           html += ab('+1 min', { act: 'time', room: r.id, sec: 60 }) + ab('+5 min', { act: 'time', room: r.id, sec: 300 });
           html += '<span class="lbl" style="margin-left:6px">End:</span>' + ab('Draw', { act: 'end', room: r.id, winner: -1 }, '', true);
-          if (r.game === 'ctf' || r.game === 'hide') [0, 1].forEach(function (t3) { html += ab('🏆 ' + (r.game === 'hide' ? (t3 ? 'Seekers' : 'Hiders') : B.TEAMS[t3].name), { act: 'end', room: r.id, winner: t3 }, '', true).replace('class="ab ', 'style="background:' + teamCol(t3) + '" class="ab '); });
-          for (var t = 0; t < 4; t++) if (r.teams && !r.teams[t].elim) html += ab('🏆 ' + B.TEAMS[t].name, { act: 'end', room: r.id, winner: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ');
+          if (r.game === 'ctf' || r.game === 'hide') [0, 1].forEach(function (t3) { html += ab('' + (r.game === 'hide' ? (t3 ? 'Seekers' : 'Hiders') : B.TEAMS[t3].name), { act: 'end', room: r.id, winner: t3 }, '', true).replace('class="ab ', 'style="background:' + teamCol(t3) + '" class="ab '); });
+          for (var t = 0; t < 4; t++) if (r.teams && !r.teams[t].elim) html += ab('' + B.TEAMS[t].name, { act: 'end', room: r.id, winner: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ');
         }
         if (r.state === 'play' && r.id !== d.myRoom) {
           if (r.game === 'bw') [0, 1, 2, 3].forEach(function (t4) { if (r.teams && r.teams[t4].bed) html += ab('Join ' + B.TEAMS[t4].name, { act: 'joinmatch', room: r.id, team: t4 }).replace('class="ab ', 'style="background:' + teamCol(t4) + '" class="ab '); });
@@ -2238,35 +2246,35 @@
           else if (r.game === 'hide') html += ab('Join as seeker', { act: 'joinmatch', room: r.id, team: 1 }, 'blue');
         }
         if (r.state === 'play' || r.state === 'end') {
-          html += '</div><div class="admhead" style="margin-top:8px">✨ Fun & chaos</div><div class="acts">' +
-            ab('🧲 Bring all', { act: 'fun', room: r.id, op: 'bringall' }) + ab('🎲 Scatter', { act: 'fun', room: r.id, op: 'scatter' }) + ab('🚀 Launch', { act: 'fun', room: r.id, op: 'launchall' }) +
-            ab('❤️ Heal all', { act: 'fun', room: r.id, op: 'healall' }, 'green') + ab('💔 1 HP all', { act: 'fun', room: r.id, op: 'hurtall' }, 'red', true) +
-            ab('⚡ Speed all', { act: 'fun', room: r.id, op: 'speedall' }) + ab('🐌 Slow all', { act: 'fun', room: r.id, op: 'slowall' }) +
-            ab('🐘 Giant', { act: 'fun', room: r.id, op: 'giant' }) + ab('🐜 Tiny', { act: 'fun', room: r.id, op: 'tiny' }) + ab('↩ Normal', { act: 'fun', room: r.id, op: 'normal' }) +
-            ab('🪩 Disco', { act: 'fun', room: r.id, op: 'disco' }, 'gold') + ab('💣 Chaos', { act: 'fun', room: r.id, op: 'chaos' }, 'red', true) +
-            ab('🤖 +Bot', { act: 'fun', room: r.id, op: 'addbot' }) + ab('🧹 Clear bots', { act: 'fun', room: r.id, op: 'clearbots' }, '', true) +
-            ab(r.paused ? '▶️ Unpause' : '⏸️ Pause', { act: 'fun', room: r.id, op: 'pause' }, r.paused ? 'green' : 'blue') + ab('🔄 Restart', { act: 'fun', room: r.id, op: 'restart' }, '', true);
+          html += '</div><div class="admhead" style="margin-top:8px"><svg class="ui-i" aria-hidden="true"><use href="#ui-sparkles"/></svg> Fun & chaos</div><div class="acts">' +
+            ab('Bring all', { act: 'fun', room: r.id, op: 'bringall' }) + ab('Scatter', { act: 'fun', room: r.id, op: 'scatter' }) + ab('Launch', { act: 'fun', room: r.id, op: 'launchall' }) +
+            ab('Heal all', { act: 'fun', room: r.id, op: 'healall' }, 'green') + ab('1 HP all', { act: 'fun', room: r.id, op: 'hurtall' }, 'red', true) +
+            ab('Speed all', { act: 'fun', room: r.id, op: 'speedall' }) + ab('Slow all', { act: 'fun', room: r.id, op: 'slowall' }) +
+            ab('Giant', { act: 'fun', room: r.id, op: 'giant' }) + ab('Tiny', { act: 'fun', room: r.id, op: 'tiny' }) + ab('↩ Normal', { act: 'fun', room: r.id, op: 'normal' }) +
+            ab('Disco', { act: 'fun', room: r.id, op: 'disco' }, 'gold') + ab('Chaos', { act: 'fun', room: r.id, op: 'chaos' }, 'red', true) +
+            ab('+Bot', { act: 'fun', room: r.id, op: 'addbot' }) + ab('Clear bots', { act: 'fun', room: r.id, op: 'clearbots' }, '', true) +
+            ab(r.paused ? 'Unpause' : 'Pause', { act: 'fun', room: r.id, op: 'pause' }, r.paused ? 'green' : 'blue') + ab('Restart', { act: 'fun', room: r.id, op: 'restart' }, '', true);
         }
-        if (r.state === 'play' && r.game === 'ctf') html += ab('+1 Red', { act: 'mini', room: r.id, op: 'score', team: 0 }) + ab('+1 Blue', { act: 'mini', room: r.id, op: 'score', team: 1 }) + ab('🏠 Flags home', { act: 'mini', room: r.id, op: 'retflags' });
-        if (r.state === 'play' && r.game === 'spleef') html += ab('💥 Sudden death', { act: 'mini', room: r.id, op: 'sd' }, 'red', true);
-        if (r.state === 'play' && r.game === 'hide') html += ab('🔓 Release seekers', { act: 'mini', room: r.id, op: 'release' }, 'gold') + (r.id === d.myRoom ? '<button class="ab' + (S.reveal ? ' gold' : '') + '" data-local="reveal">' + (S.reveal ? '👁️ Hiders shown' : '👁️ Show hiders (only you)') + '</button>' : '');
+        if (r.state === 'play' && r.game === 'ctf') html += ab('+1 Red', { act: 'mini', room: r.id, op: 'score', team: 0 }) + ab('+1 Blue', { act: 'mini', room: r.id, op: 'score', team: 1 }) + ab('Flags home', { act: 'mini', room: r.id, op: 'retflags' });
+        if (r.state === 'play' && r.game === 'spleef') html += ab('Sudden death', { act: 'mini', room: r.id, op: 'sd' }, 'red', true);
+        if (r.state === 'play' && r.game === 'hide') html += ab('Release seekers', { act: 'mini', room: r.id, op: 'release' }, 'gold') + (r.id === d.myRoom ? '<button class="ab' + (S.reveal ? ' gold' : '') + '" data-local="reveal">' + (S.reveal ? 'Hiders shown' : 'Show hiders (only you)') + '</button>' : '');
         html += ab('✖ Close', { act: 'delete', room: r.id }, 'red', true) + '</div>';
         if (r.state === 'play' && r.teams) {
           html += '<div class="admrow"><span class="lbl">Beds:</span>';
-          r.teams.forEach(function (tm, t) { html += tm.bed ? ab('🛏️ Break ' + B.TEAMS[t].name, { act: 'bed', room: r.id, team: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ') : '<span class="tag2" style="opacity:.6">' + B.TEAMS[t].name + (tm.elim ? ' 💀' : ' ❌') + '</span>'; });
+          r.teams.forEach(function (tm, t) { html += tm.bed ? ab('Break ' + B.TEAMS[t].name, { act: 'bed', room: r.id, team: t }, '', true).replace('class="ab ', 'style="background:' + teamCol(t) + '" class="ab ') : '<span class="tag2" style="opacity:.6">' + B.TEAMS[t].name + (tm.elim ? '' : '') + '</span>'; });
           html += '</div>';
         }
         if (r.players && r.players.length) {
           html += '<table class="admp">';
           r.players.forEach(function (p) {
-            var status = r.state === 'lobby' ? '' : p.elim ? '💀 out' : p.dead ? '⏳ respawning' : '❤️ ' + p.hp + (p.god ? ' <span class="tag2" style="background:#ffd166;color:#2a1300">GOD</span>' : '');
+            var status = r.state === 'lobby' ? '' : p.elim ? 'out' : p.dead ? 'respawning' : '' + p.hp + (p.god ? ' <span class="tag2" style="background:#ffd166;color:#2a1300">GOD</span>' : '');
             var acts = '';
             if (r.state === 'play') {
               acts += ab('Kill', { act: 'ent', room: r.id, id: p.id, op: 'kill' }, 'red') + ab('Heal', { act: 'ent', room: r.id, id: p.id, op: 'heal' }, 'green') + ab('+Res', { act: 'ent', room: r.id, id: p.id, op: 'res' }, 'gold');
               acts += p.elim || p.dead ? ab('Revive', { act: 'ent', room: r.id, id: p.id, op: 'revive' }, 'blue') : ab('Eliminate', { act: 'ent', room: r.id, id: p.id, op: 'elim' }, 'red', true);
               if (r.id === d.myRoom && p.id !== d.myEnt) acts += ab('TP to', { act: 'ent', room: r.id, id: p.id, op: 'tpme' }) + ab('Bring', { act: 'ent', room: r.id, id: p.id, op: 'bring' });
             }
-            html += '<tr><td><b style="color:' + teamCol(p.team) + '">' + (p.bot ? '🤖 ' : '') + esc(p.nick) + '</b>' + (p.human && !p.online ? '<span class="tag2">AFK</span>' : '') + '</td><td>' + status + '</td><td style="color:var(--mut);font-size:12px">' + (p.res ? p.res.iron + '⚪ ' + p.res.gold + '🟡 ' + p.res.dia + '💎 ' + p.res.em + '💚' : '') + '</td><td><div class="acts">' + acts + '</div></td></tr>';
+            html += '<tr><td><b style="color:' + teamCol(p.team) + '">' + (p.bot ? '' : '') + esc(p.nick) + '</b>' + (p.human && !p.online ? '<span class="tag2">AFK</span>' : '') + '</td><td>' + status + '</td><td style="color:var(--mut);font-size:12px">' + (p.res ? p.res.iron + '' + p.res.gold + '' + p.res.dia + '' + p.res.em + '' : '') + '</td><td><div class="acts">' + acts + '</div></td></tr>';
           });
           html += '</table>';
         }
@@ -2274,82 +2282,82 @@
       });
     } else if (admTab === 'players') {
       var playing = d.rooms.filter(function (r) { return r.state === 'play'; }).length;
-      html += '<div class="admcard"><div class="admhead">👥 ' + d.conns.length + ' connected · ' + playing + ' match(es) running · ' + d.rooms.filter(function (r) { return r.state === 'lobby'; }).length + ' waiting</div>';
-      html += '<div class="admrow"><input class="admin-in" id="admFind" placeholder="🔎 Find a player…" value="' + esc(S.admFind || '') + '" style="min-width:140px"><span class="lbl">Scrolls amount</span><input class="admin-in" id="admAmt" type="number" value="' + esc(S.admAmt || 500) + '" style="max-width:110px;min-width:80px"></div><table class="admp">';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-users"/></svg> ' + d.conns.length + ' connected · ' + playing + ' match(es) running · ' + d.rooms.filter(function (r) { return r.state === 'lobby'; }).length + ' waiting</div>';
+      html += '<div class="admrow"><input class="admin-in" id="admFind" placeholder="Find a player…" value="' + esc(S.admFind || '') + '" style="min-width:140px"><span class="lbl">Scrolls amount</span><input class="admin-in" id="admAmt" type="number" value="' + esc(S.admAmt || 500) + '" style="max-width:110px;min-width:80px"></div><table class="admp">';
       d.conns.filter(function (x) { return !S.admFind || x.nick.toLowerCase().indexOf(S.admFind.toLowerCase()) >= 0; }).forEach(function (x) {
-        var vc = x.voice ? (x.vmuted ? '<span class="tag2" style="background:#ff5c6c">🔇 muted</span>' : x.talking ? '<span class="tag2" style="background:#2bd576;color:#05240f">🎙️ talking</span>' : '<span class="tag2">🎙️ voice</span>') : '';
-        var acts = ab('📜 Give', { act: 'coins', pid: x.pid, amount: 'amt' }, 'gold') + ab('Take', { act: 'coins', pid: x.pid, amount: '-amt' }, '', true) + ab('TP to', { act: 'tpto', pid: x.pid }) + ab('Bring', { act: 'bringp', pid: x.pid });
-        if (!x.owner) acts += ab(x.frozen ? '🔥 Unfreeze' : '❄️ Freeze', { act: 'freeze', pid: x.pid }, x.frozen ? 'green' : 'blue') + ab('👋 Slap', { act: 'slap', pid: x.pid }) + ab(x.vmuted ? '🎙️ Unmute' : '🔇 Mute', { act: 'vmute', pid: x.pid }, x.vmuted ? 'green' : '') + ab('Kick', { act: 'kick', pid: x.pid }, 'red', true) + ab('Ban 1h', { act: 'ban', pid: x.pid, mins: 60 }, 'red', true) + ab('Ban 1d', { act: 'ban', pid: x.pid, mins: 1440 }, 'red', true) + ab('Ban ∞', { act: 'ban', pid: x.pid, mins: 0 }, 'red', true);
-        html += '<tr><td><b>' + esc(x.nick) + '</b>' + (x.owner ? '<span class="tag2" style="background:#ffd166;color:#2a1300">OWNER</span>' : '') + vc + (x.frozen ? '<span class="tag2" style="background:#3a86ff">❄️ frozen</span>' : '') + '<br><span style="color:var(--mut);font-size:12px">' + esc(x.where) + ' · 📜 ' + (x.coins || 0).toLocaleString() + '</span></td><td><div class="acts">' + acts + '</div></td></tr>';
+        var vc = x.voice ? (x.vmuted ? '<span class="tag2" style="background:#ff5c6c"><svg class="ui-i" aria-hidden="true"><use href="#ui-volume-x"/></svg> muted</span>' : x.talking ? '<span class="tag2" style="background:#2bd576;color:#05240f"><svg class="ui-i" aria-hidden="true"><use href="#ui-mic"/></svg> talking</span>' : '<span class="tag2"><svg class="ui-i" aria-hidden="true"><use href="#ui-mic"/></svg> voice</span>') : '';
+        var acts = ab('Give', { act: 'coins', pid: x.pid, amount: 'amt' }, 'gold') + ab('Take', { act: 'coins', pid: x.pid, amount: '-amt' }, '', true) + ab('TP to', { act: 'tpto', pid: x.pid }) + ab('Bring', { act: 'bringp', pid: x.pid });
+        if (!x.owner) acts += ab(x.frozen ? 'Unfreeze' : 'Freeze', { act: 'freeze', pid: x.pid }, x.frozen ? 'green' : 'blue') + ab('Slap', { act: 'slap', pid: x.pid }) + ab(x.vmuted ? 'Unmute' : 'Mute', { act: 'vmute', pid: x.pid }, x.vmuted ? 'green' : '') + ab('Kick', { act: 'kick', pid: x.pid }, 'red', true) + ab('Ban 1h', { act: 'ban', pid: x.pid, mins: 60 }, 'red', true) + ab('Ban 1d', { act: 'ban', pid: x.pid, mins: 1440 }, 'red', true) + ab('Ban ∞', { act: 'ban', pid: x.pid, mins: 0 }, 'red', true);
+        html += '<tr><td><b>' + esc(x.nick) + '</b>' + (x.owner ? '<span class="tag2" style="background:#ffd166;color:#2a1300">OWNER</span>' : '') + vc + (x.frozen ? '<span class="tag2" style="background:#3a86ff">frozen</span>' : '') + '<br><span style="color:var(--mut);font-size:12px">' + esc(x.where) + ' · ' + (x.coins || 0).toLocaleString() + '</span></td><td><div class="acts">' + acts + '</div></td></tr>';
       });
       html += '</table></div>';
-      if (d.bans && d.bans.length) { html += '<div class="admcard"><div class="admhead">⛔ Banned (' + d.bans.length + ')</div><table class="admp">'; d.bans.forEach(function (b) { html += '<tr><td><b>' + esc(b.nick || '?') + '</b><br><span style="color:var(--mut);font-size:12px">' + (b.until ? 'until ' + new Date(b.until).toLocaleString() : 'forever') + ' · by ' + esc(b.by || '?') + '</span></td><td><div class="acts">' + ab('Unban', { act: 'unban', cid: b.cid }, 'green') + '</div></td></tr>'; }); html += '</table></div>'; }
+      if (d.bans && d.bans.length) { html += '<div class="admcard"><div class="admhead">Banned (' + d.bans.length + ')</div><table class="admp">'; d.bans.forEach(function (b) { html += '<tr><td><b>' + esc(b.nick || '?') + '</b><br><span style="color:var(--mut);font-size:12px">' + (b.until ? 'until ' + new Date(b.until).toLocaleString() : 'forever') + ' · by ' + esc(b.by || '?') + '</span></td><td><div class="acts">' + ab('Unban', { act: 'unban', cid: b.cid }, 'green') + '</div></td></tr>'; }); html += '</table></div>'; }
     } else if (admTab === 'server') {
       var st = d.settings || {};
       var num = function (k, label, unit) { return '<div class="admrow"><span class="lbl" style="min-width:150px">' + label + '</span><input class="admin-in" data-set="' + k + '" type="number" value="' + esc(st[k]) + '" style="max-width:90px;min-width:70px"><span style="color:var(--mut);font-size:12px">' + (unit || '') + '</span></div>'; };
-      html += '<div class="admcard"><div class="admhead">✨ Double Scrolls event ' + (d.x2Left ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON · ' + Math.ceil(d.x2Left / 60000) + ' min left</span>' : '') + '</div><div class="admrow">' + ab('30 min', { act: 'double', mins: 30 }, 'gold') + ab('1 hour', { act: 'double', mins: 60 }, 'gold') + ab('3 hours', { act: 'double', mins: 180 }, 'gold') + (d.x2Left ? ab('Stop', { act: 'double', mins: 0 }, 'red') : '') + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Every game pays 2× Scrolls while it’s on. Everyone gets an announcement.</div></div>';
-      html += '<div class="admcard"><div class="admhead">📢 Hub message (shows at the top of the hub)</div><div class="admrow"><input class="admin-in" id="admMotd" maxlength="120" placeholder="e.g. Tournament at 7pm!" value="' + esc(S.admMotdDraft != null ? S.admMotdDraft : st.motd || '') + '">' + ab('Set', { act: 'setting', k: 'motd' }, 'gold') + ab('Clear', { act: 'setting', k: 'motd', v: '' }) + '</div></div>';
-      html += '<div class="admcard"><div class="admhead">🎮 Game settings <span class="tag2">new matches</span></div>' + num('ctfCaps', '🚩 CTF captures to win', 'captures') + num('ctfMins', '🚩 CTF time limit', 'minutes') + num('hideSec', '🎃 Prop Hunt hiding time', 'seconds') + num('seekSec', '🎃 Prop Hunt seeking time', 'seconds') + num('spleefMins', '❄️ Spleef sudden death after', 'minutes') +
-        '<div class="admrow"><span class="lbl" style="min-width:150px">🤖 Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('💾 Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-sparkles"/></svg> Double Scrolls event ' + (d.x2Left ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON · ' + Math.ceil(d.x2Left / 60000) + ' min left</span>' : '') + '</div><div class="admrow">' + ab('30 min', { act: 'double', mins: 30 }, 'gold') + ab('1 hour', { act: 'double', mins: 60 }, 'gold') + ab('3 hours', { act: 'double', mins: 180 }, 'gold') + (d.x2Left ? ab('Stop', { act: 'double', mins: 0 }, 'red') : '') + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Every game pays 2× Scrolls while it’s on. Everyone gets an announcement.</div></div>';
+      html += '<div class="admcard"><div class="admhead">Hub message (shows at the top of the hub)</div><div class="admrow"><input class="admin-in" id="admMotd" maxlength="120" placeholder="e.g. Tournament at 7pm!" value="' + esc(S.admMotdDraft != null ? S.admMotdDraft : st.motd || '') + '">' + ab('Set', { act: 'setting', k: 'motd' }, 'gold') + ab('Clear', { act: 'setting', k: 'motd', v: '' }) + '</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-gamepad-2"/></svg> Game settings <span class="tag2">new matches</span></div>' + num('ctfCaps', 'CTF captures to win', 'captures') + num('ctfMins', 'CTF time limit', 'minutes') + num('hideSec', 'Prop Hunt hiding time', 'seconds') + num('seekSec', 'Prop Hunt seeking time', 'seconds') + num('spleefMins', 'Spleef sudden death after', 'minutes') +
+        '<div class="admrow"><span class="lbl" style="min-width:150px"><svg class="ui-i" aria-hidden="true"><use href="#ui-bot"/></svg> Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
       var sc = d.school;
-      html += '<div class="admcard"><div class="admhead">🏫 School mode ' + (sc ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (sc ? ab('Turn school mode off', { act: 'school', on: 0 }, 'red', true) : ab('🏫 Turn school mode on', { act: 'school', on: 1 }, 'green', true)) + '</div><div class="admrow"><span class="lbl">Questions:</span>' + [['blooket', 'Class Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9+10']].map(function (q) { return ab(q[1], { act: 'school', v: q[0] }, sc && sc.set === q[0] ? 'gold' : ''); }).join('') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Site goes to the games hub only · 30 players per game · walking uses ⚡ energy, answers refill it · Bedwars resources come from answers.</div></div>';
-      html += '<div class="admcard"><div class="admhead">📝 School questions ' + (S.squiz !== false ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.squiz !== false ? ab('Turn questions off', { act: 'squiz', v: 0 }, 'red') : ab('📝 Turn questions on', { act: 'squiz', v: 1 }, 'green')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Off = School Mode stays locked (portals, games, sites) but there are no questions or energy, and Bedwars generators work normally.</div></div>';
-      html += '<div class="admcard"><div class="admhead">🎰 Gamble switch ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('🔒 Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('🎰 Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">During School Mode, opens the casino too — students walk between the games hub and the casino through the portals.</div></div>';
-      html += '<div class="admcard"><div class="admhead">🎉 Holiday decorations ' + (B.SEASONS[S.season] ? '<span class="tag2" style="background:#2bd576;color:#05240f">' + B.SEASONS[S.season].emoji + ' ' + B.SEASONS[S.season].name + '</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow" style="flex-wrap:wrap">' + B.SEASON_ORDER.map(function (id) { var se3 = B.SEASONS[id]; return ab(se3.emoji + ' ' + se3.name, { act: 'season', v: id }, S.season === id ? 'green' : ''); }).join('') + ab('Off', { act: 'season', v: '' }, !S.season ? 'red' : '') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Decorations, falling effects, string lights, a default hat and (for some) special music.</div></div>';
-      html += '<div class="admcard"><div class="admhead">⏹️ Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-school"/></svg> School mode ' + (sc ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (sc ? ab('Turn school mode off', { act: 'school', on: 0 }, 'red', true) : ab('Turn school mode on', { act: 'school', on: 1 }, 'green', true)) + '</div><div class="admrow"><span class="lbl">Questions:</span>' + [['blooket', 'Class Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9+10']].map(function (q) { return ab(q[1], { act: 'school', v: q[0] }, sc && sc.set === q[0] ? 'gold' : ''); }).join('') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Site goes to the games hub only · 30 players per game · walking uses energy, answers refill it · Bedwars resources come from answers.</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-pen-line"/></svg> School questions ' + (S.squiz !== false ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.squiz !== false ? ab('Turn questions off', { act: 'squiz', v: 0 }, 'red') : ab('Turn questions on', { act: 'squiz', v: 1 }, 'green')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Off = School Mode stays locked (portals, games, sites) but there are no questions or energy, and Bedwars generators work normally.</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-dices"/></svg> Gamble switch ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">During School Mode, opens the casino too — students walk between the games hub and the casino through the portals.</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-party-popper"/></svg> Holiday decorations ' + (B.SEASONS[S.season] ? '<span class="tag2" style="background:#2bd576;color:#05240f">' + B.SEASONS[S.season].emoji + ' ' + B.SEASONS[S.season].name + '</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow" style="flex-wrap:wrap">' + B.SEASON_ORDER.map(function (id) { var se3 = B.SEASONS[id]; return ab(se3.emoji + ' ' + se3.name, { act: 'season', v: id }, S.season === id ? 'green' : ''); }).join('') + ab('Off', { act: 'season', v: '' }, !S.season ? 'red' : '') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Decorations, falling effects, string lights, a default hat and (for some) special music.</div></div>';
+      html += '<div class="admcard"><div class="admhead">Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
     } else if (admTab === 'maps') {
       var mp = d.maps || [], rot = d.rot || {};
-      html += '<div class="admcard"><div class="admhead">🗺️ Custom maps ' + (d.mapper ? '<a class="ab gold" href="/arcade/builder" style="text-decoration:none">🛠️ Open map builder</a>' : '<span class="tag2">only Scrollreader11 can make or change maps</span>') + '</div>';
-      if (d.mapper) html += '<div class="admrow"><span class="lbl">Built-in maps in rotation:</span>' + ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { var on = rot[g] && rot[g].def; return ab((on ? '✅ ' : '⬜ ') + MG.GAMES[g].icon + ' ' + MG.GAMES[g].name, { act: 'maprot', game: g, id: 'default', on: on ? 0 : 1 }, on ? 'green' : ''); }).join('') + '</div>';
-      html += '<table class="admp">' + (mp.length ? mp.map(function (m) { return '<tr><td>' + MG.GAMES[m.game].icon + ' <b>' + esc(m.name) + '</b><br><span style="color:var(--mut);font-size:12px">by ' + esc(m.author || '?') + ' · ' + new Date(m.at).toLocaleDateString() + (m.ok ? '' : ' · unfinished') + '</span></td><td><div class="acts">' + (m.ok ? ab('▶ Test', { act: 'testmap', id: m.id, game: m.game }, 'green') : '') + (d.mapper && m.ok ? ab(m.rot ? '✅ In rotation' : '⬜ Add to rotation', { act: 'maprot', game: m.game, id: m.id, on: m.rot ? 0 : 1 }, m.rot ? 'green' : '') : '') + (d.mapper ? ab('🗑️', { act: 'mapdel', id: m.id }, 'red', true) : '') + '</div></td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No custom maps yet.</td></tr>') + '</table></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-map"/></svg> Custom maps ' + (d.mapper ? '<a class="ab gold" href="/arcade/builder" style="text-decoration:none"><svg class="ui-i" aria-hidden="true"><use href="#ui-hammer"/></svg> Open map builder</a>' : '<span class="tag2">only Scrollreader11 can make or change maps</span>') + '</div>';
+      if (d.mapper) html += '<div class="admrow"><span class="lbl">Built-in maps in rotation:</span>' + ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { var on = rot[g] && rot[g].def; return ab((on ? '' : '') + MG.GAMES[g].icon + ' ' + MG.GAMES[g].name, { act: 'maprot', game: g, id: 'default', on: on ? 0 : 1 }, on ? 'green' : ''); }).join('') + '</div>';
+      html += '<table class="admp">' + (mp.length ? mp.map(function (m) { return '<tr><td>' + MG.GAMES[m.game].icon + ' <b>' + esc(m.name) + '</b><br><span style="color:var(--mut);font-size:12px">by ' + esc(m.author || '?') + ' · ' + new Date(m.at).toLocaleDateString() + (m.ok ? '' : ' · unfinished') + '</span></td><td><div class="acts">' + (m.ok ? ab('▶ Test', { act: 'testmap', id: m.id, game: m.game }, 'green') : '') + (d.mapper && m.ok ? ab(m.rot ? 'In rotation' : 'Add to rotation', { act: 'maprot', game: m.game, id: m.id, on: m.rot ? 0 : 1 }, m.rot ? 'green' : '') : '') + (d.mapper ? ab('', { act: 'mapdel', id: m.id }, 'red', true) : '') + '</div></td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No custom maps yet.</td></tr>') + '</table></div>';
     } else if (admTab === 'class') {
       var cl = S.cls;
       if (!cl) html = '<div class="admempty">Loading class info…</div>';
       else {
         var sc2 = d.school, left = cl.until ? Math.max(0, Math.ceil((cl.until - Date.now()) / 60000)) : 0;
-        html += '<div class="admcard"><div class="admhead">🏫 School Mode ' + (sc2 ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON' + (left ? ' · ' + left + ' min left' : '') + '</span>' : '<span class="tag2">Off</span>') + '</div>' + (S.owner ? '<div class="admrow"><span class="lbl">Turn on for a class period:</span>' + [30, 45, 50, 60, 90].map(function (mn) { return ab(mn + ' min', { act: 'schooltimer', mins: mn }, 'green'); }).join('') + (sc2 ? ab('Turn off now', { act: 'school', on: 0 }, 'red', true) : '') + (cl.until ? ab('No timer', { act: 'schooltimer', mins: 0 }) : '') + '</div>' : '') + '</div>';
-        if (S.owner && sc2) html += '<div class="admcard"><div class="admhead">📝 Questions ' + (S.squiz !== false ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.squiz !== false ? ab('Turn questions off', { act: 'squiz', v: 0 }, 'red') : ab('📝 Turn questions on', { act: 'squiz', v: 1 }, 'green')) + '<span style="color:var(--mut);font-size:12px">School Mode stays locked either way.</span></div></div>';
-        if (S.owner && sc2) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">🎰 Gamble ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('🔒 Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('🎰 Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '<span style="color:var(--mut);font-size:12px">Students can walk between the games hub and the casino through the portals.</span></div></div>';
+        html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-school"/></svg> School Mode ' + (sc2 ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON' + (left ? ' · ' + left + ' min left' : '') + '</span>' : '<span class="tag2">Off</span>') + '</div>' + (S.owner ? '<div class="admrow"><span class="lbl">Turn on for a class period:</span>' + [30, 45, 50, 60, 90].map(function (mn) { return ab(mn + ' min', { act: 'schooltimer', mins: mn }, 'green'); }).join('') + (sc2 ? ab('Turn off now', { act: 'school', on: 0 }, 'red', true) : '') + (cl.until ? ab('No timer', { act: 'schooltimer', mins: 0 }) : '') + '</div>' : '') + '</div>';
+        if (S.owner && sc2) html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-pen-line"/></svg> Questions ' + (S.squiz !== false ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.squiz !== false ? ab('Turn questions off', { act: 'squiz', v: 0 }, 'red') : ab('Turn questions on', { act: 'squiz', v: 1 }, 'green')) + '<span style="color:var(--mut);font-size:12px">School Mode stays locked either way.</span></div></div>';
+        if (S.owner && sc2) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-dices"/></svg> Gamble ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '<span style="color:var(--mut);font-size:12px">Students can walk between the games hub and the casino through the portals.</span></div></div>';
         var vt = cl.vote;
-        if (S.owner && cl.tkey) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">🔗 Teacher link <span style="color:var(--mut);font-weight:600;font-size:12px">only you can see this — send it to the teacher privately</span></div><div class="admrow"><input class="admin-in" id="tLink" readonly value="' + esc(location.origin + '/teacher/' + cl.tkey) + '" style="flex:1;min-width:0">' + ab('📋 Copy', { act: 'tcopy' }, 'gold') + ab('🔄 New link', { act: 'newteacher' }, 'red', true) + '</div></div>';
-        if (S.teacher && !S.owner) html += '<div class="admrow" style="justify-content:flex-end"><a class="ab" href="/teacher/leave" style="text-decoration:none">🚪 Leave teacher mode on this computer</a></div>';
-        html += '<div class="admcard"><div class="admhead">🗳️ Game vote</div><div class="admrow">' + (vt ? '<span class="tag2" style="background:#ffd166;color:#2a1300">' + vt.left + 's left · ' + vt.voters + ' voted</span>' + Object.keys(vt.counts).map(function (g) { return '<span class="tag2">' + (g === 'bw' ? '🛏️' : MG.GAMES[g].icon) + ' ' + vt.counts[g] + '</span>'; }).join('') + ab('End now & start', { act: 'vote', op: 'stop' }, 'green') + ab('Cancel', { act: 'vote', op: 'cancel' }, 'red') : ab('🗳️ Start a 20s vote', { act: 'vote', sec: 20 }, 'gold') + ab('30s vote', { act: 'vote', sec: 30 })) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Everyone in the hub gets a big vote screen. When it ends, the winning game starts with everyone in it.</div></div>';
+        if (S.owner && cl.tkey) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">Teacher link <span style="color:var(--mut);font-weight:600;font-size:12px">only you can see this — send it to the teacher privately</span></div><div class="admrow"><input class="admin-in" id="tLink" readonly value="' + esc(location.origin + '/teacher/' + cl.tkey) + '" style="flex:1;min-width:0">' + ab('Copy', { act: 'tcopy' }, 'gold') + ab('New link', { act: 'newteacher' }, 'red', true) + '</div></div>';
+        if (S.teacher && !S.owner) html += '<div class="admrow" style="justify-content:flex-end"><a class="ab" href="/teacher/leave" style="text-decoration:none"><svg class="ui-i" aria-hidden="true"><use href="#ui-log-out"/></svg> Leave teacher mode on this computer</a></div>';
+        html += '<div class="admcard"><div class="admhead">Game vote</div><div class="admrow">' + (vt ? '<span class="tag2" style="background:#ffd166;color:#2a1300">' + vt.left + 's left · ' + vt.voters + ' voted</span>' + Object.keys(vt.counts).map(function (g) { return '<span class="tag2">' + (g === 'bw' ? 'BED' : MG.GAMES[g].icon) + ' ' + vt.counts[g] + '</span>'; }).join('') + ab('End now & start', { act: 'vote', op: 'stop' }, 'green') + ab('Cancel', { act: 'vote', op: 'cancel' }, 'red') : ab('Start a 20s vote', { act: 'vote', sec: 20 }, 'gold') + ab('30s vote', { act: 'vote', sec: 30 })) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Everyone in the hub gets a big vote screen. When it ends, the winning game starts with everyone in it.</div></div>';
         var cq = cl.cq;
-        html += '<div class="admcard"><div class="admhead">📣 Ask the whole class a question</div><div class="admrow"><select class="admin-in" id="cqPick" style="flex:1;min-width:0"><option value="">🎲 Random question from ' + esc(cl.setName) + '</option>' + cl.set.map(function (q) { return '<option value="' + q.i + '"' + (String(S.cqPick) === String(q.i) ? ' selected' : '') + '>' + esc(q.q) + '</option>'; }).join('') + '</select>' + ab('📣 Send to everyone', { act: 'cq', cqsend: 1 }, 'gold') + '</div>';
+        html += '<div class="admcard"><div class="admhead">Ask the whole class a question</div><div class="admrow"><select class="admin-in" id="cqPick" style="flex:1;min-width:0"><option value="">Random question from ' + esc(cl.setName) + '</option>' + cl.set.map(function (q) { return '<option value="' + q.i + '"' + (String(S.cqPick) === String(q.i) ? ' selected' : '') + '>' + esc(q.q) + '</option>'; }).join('') + '</select>' + ab('Send to everyone', { act: 'cq', cqsend: 1 }, 'gold') + '</div>';
         if (cq) {
           var pct = cq.answered ? Math.round(cq.right / cq.answered * 100) : 0;
-          html += '<div class="admrow" style="flex-direction:column;align-items:stretch;gap:4px"><div style="font-weight:700">' + esc(cq.q) + '</div><div>✅ Answer: <b>' + esc(cq.a) + '</b></div><div><span class="tag2" style="background:' + (cq.open ? '#2bd576;color:#05240f' : '#4a4f6a') + '">' + (cq.open ? 'Open · ' + cq.left + 's' : 'Closed') + '</span> <b>' + cq.answered + '</b> / ' + cq.sent + ' answered · <b>' + pct + '%</b> correct</div>' +
+          html += '<div class="admrow" style="flex-direction:column;align-items:stretch;gap:4px"><div style="font-weight:700">' + esc(cq.q) + '</div><div><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> Answer: <b>' + esc(cq.a) + '</b></div><div><span class="tag2" style="background:' + (cq.open ? '#2bd576;color:#05240f' : '#4a4f6a') + '">' + (cq.open ? 'Open · ' + cq.left + 's' : 'Closed') + '</span> <b>' + cq.answered + '</b> / ' + cq.sent + ' answered · <b>' + pct + '%</b> correct</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cq.choices.map(function (ch, k) { return '<span class="tag2" style="background:' + ['#f0a531', '#4d7cff', '#5dcc6b', '#e8473b'][k] + '">' + esc(ch) + ': ' + cq.counts[k] + '</span>'; }).join('') + '</div>' + (cq.wrongNames.length ? '<div style="color:var(--mut);font-size:12px">Missed it: ' + cq.wrongNames.map(esc).join(', ') + '</div>' : '') + (cq.open ? '<div>' + ab('Close question', { act: 'cqclose' }) + '</div>' : '') + '</div>';
         }
         html += '</div>';
-        var gn = function (g) { return g === 'bw' ? '🛏️ Bedwars' : MG.GAMES[g].icon + ' ' + MG.GAMES[g].name; };
-        html += '<div class="admcard"><div class="admhead">📺 Watch a match</div><div class="admrow">' + (cl.live.length ? cl.live.map(function (r) { return ab('👀 ' + gn(r.game) + ' · ' + r.n + (r.n === 1 ? ' player · ' : ' players · ') + r.mins + 'm', { act: 'swatch', room: r.id }, 'blue'); }).join('') : '<span style="color:var(--mut)">No matches running right now.</span>') + '</div></div>';
-        html += '<div class="admcard"><div class="admhead">🧑‍🤝‍🧑 In the game now (' + cl.online.length + ')</div><table class="admp">' + (cl.online.length ? cl.online.map(function (o) { return '<tr><td><b>' + esc(o.nick) + '</b><br><span style="color:var(--mut);font-size:12px">' + o.where + '</span></td><td style="text-align:right;white-space:nowrap">' + ab('✏️ Rename', { act: 'srename', pid: o.pid, old: o.nick }) + ab('🚪 Kick', { act: 'skick', pid: o.pid }, '', true) + ab('⛔ Ban name', { act: 'sban', pid: o.pid }, 'red', true) + '</td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">Nobody is in the game yet.</td></tr>') + '</table>' + (cl.bannedNames.length ? '<div class="admrow"><span class="lbl">Banned names:</span>' + cl.bannedNames.map(function (n) { return '<span class="tag2">' + esc(n) + '</span>' + ab('Unban', { act: 'sunban', name: n }); }).join(' ') + '</div>' : '') + '</div>';
-        html += '<div class="admcard"><div class="admhead">❗ Most-missed questions</div><table class="admp">' + (cl.miss.length ? cl.miss.map(function (q) { return '<tr><td style="font-size:13px">' + esc(q.q) + '<br><span style="color:#2bd576;font-size:12px">✅ ' + esc(q.a) + '</span></td><td style="white-space:nowrap;color:#ff5c6c;font-weight:800">' + q.pct + '% missed</td><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + q.miss + ' / ' + q.total + '</td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No misses yet.</td></tr>') + '</table></div>';
-        html += '<div class="admcard"><div class="admhead">👩‍🎓 Students (' + cl.kids.length + ') <span style="color:var(--mut);font-weight:600;font-size:12px">since ' + new Date(cl.since).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</span> ' + ab('Reset stats', { act: 'classreset' }, '', true) + '</div><table class="admp"><tr><th style="text-align:left">Student</th><th>✅ Right</th><th>❌ Wrong</th><th>Accuracy</th><th>Last answer</th></tr>' + (cl.kids.length ? cl.kids.map(function (k) { return '<tr><td><b>' + esc(k.nick) + '</b></td><td>' + k.right + '</td><td>' + k.wrong + '</td><td style="font-weight:800;color:' + (k.acc >= 80 ? '#2bd576' : k.acc >= 60 ? '#ffd166' : '#ff5c6c') + '">' + k.acc + '%</td><td style="color:var(--mut);font-size:12px">' + (k.ago < 60 ? k.ago + 's ago' : Math.round(k.ago / 60) + 'm ago') + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">Nobody has answered yet.</td></tr>') + '</table></div>';
+        var gn = function (g) { return g === 'bw' ? 'Bedwars' : MG.GAMES[g].icon + ' ' + MG.GAMES[g].name; };
+        html += '<div class="admcard"><div class="admhead">Watch a match</div><div class="admrow">' + (cl.live.length ? cl.live.map(function (r) { return ab('' + gn(r.game) + ' · ' + r.n + (r.n === 1 ? ' player · ' : ' players · ') + r.mins + 'm', { act: 'swatch', room: r.id }, 'blue'); }).join('') : '<span style="color:var(--mut)">No matches running right now.</span>') + '</div></div>';
+        html += '<div class="admcard"><div class="admhead">In the game now (' + cl.online.length + ')</div><table class="admp">' + (cl.online.length ? cl.online.map(function (o) { return '<tr><td><b>' + esc(o.nick) + '</b><br><span style="color:var(--mut);font-size:12px">' + o.where + '</span></td><td style="text-align:right;white-space:nowrap">' + ab('Rename', { act: 'srename', pid: o.pid, old: o.nick }) + ab('Kick', { act: 'skick', pid: o.pid }, '', true) + ab('Ban name', { act: 'sban', pid: o.pid }, 'red', true) + '</td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">Nobody is in the game yet.</td></tr>') + '</table>' + (cl.bannedNames.length ? '<div class="admrow"><span class="lbl">Banned names:</span>' + cl.bannedNames.map(function (n) { return '<span class="tag2">' + esc(n) + '</span>' + ab('Unban', { act: 'sunban', name: n }); }).join(' ') + '</div>' : '') + '</div>';
+        html += '<div class="admcard"><div class="admhead">Most-missed questions</div><table class="admp">' + (cl.miss.length ? cl.miss.map(function (q) { return '<tr><td style="font-size:13px">' + esc(q.q) + '<br><span style="color:#2bd576;font-size:12px"><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> ' + esc(q.a) + '</span></td><td style="white-space:nowrap;color:#ff5c6c;font-weight:800">' + q.pct + '% missed</td><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + q.miss + ' / ' + q.total + '</td></tr>'; }).join('') : '<tr><td style="color:var(--mut)">No misses yet.</td></tr>') + '</table></div>';
+        html += '<div class="admcard"><div class="admhead">Students (' + cl.kids.length + ') <span style="color:var(--mut);font-weight:600;font-size:12px">since ' + new Date(cl.since).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</span> ' + ab('Reset stats', { act: 'classreset' }, '', true) + '</div><table class="admp"><tr><th style="text-align:left">Student</th><th><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> Right</th><th>Wrong</th><th>Accuracy</th><th>Last answer</th></tr>' + (cl.kids.length ? cl.kids.map(function (k) { return '<tr><td><b>' + esc(k.nick) + '</b></td><td>' + k.right + '</td><td>' + k.wrong + '</td><td style="font-weight:800;color:' + (k.acc >= 80 ? '#2bd576' : k.acc >= 60 ? '#ffd166' : '#ff5c6c') + '">' + k.acc + '%</td><td style="color:var(--mut);font-size:12px">' + (k.ago < 60 ? k.ago + 's ago' : Math.round(k.ago / 60) + 'm ago') + '</td></tr>'; }).join('') : '<tr><td colspan="5" style="color:var(--mut)">Nobody has answered yet.</td></tr>') + '</table></div>';
       }
     } else if (admTab === 'mega') {
       var mg = d.mega || [];
       var popts = '<option value="">— pick a player —</option>' + d.conns.map(function (x) { return '<option value="' + x.pid + '"' + (String(S.megaP) === String(x.pid) ? ' selected' : '') + '>' + esc(x.nick) + ' · ' + esc(x.where) + '</option>'; }).join('');
       var ropts = '<option value="">— pick a match —</option>' + d.rooms.filter(function (r) { return r.state === 'play'; }).map(function (r) { return '<option value="' + r.id + '"' + (String(S.megaR) === String(r.id) ? ' selected' : '') + '>#' + r.id + ' ' + (r.game && r.game !== 'bw' ? MG.GAMES[r.game].name : 'Bedwars') + '</option>'; }).join('');
-      html += '<div class="admcard"><div class="admhead">⚡ ' + mg.length + ' owner powers</div><div class="admrow"><span class="lbl">Player</span><select class="admin-in" id="megaP">' + popts + '</select><span class="lbl">Match</span><select class="admin-in" id="megaR">' + ropts + '</select></div><div class="admrow"><input class="admin-in" id="megaTxt" placeholder="Text / number for powers that need it" value="' + esc(S.megaTxt || '') + '"></div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-zap"/></svg> ' + mg.length + ' owner powers</div><div class="admrow"><span class="lbl">Player</span><select class="admin-in" id="megaP">' + popts + '</select><span class="lbl">Match</span><select class="admin-in" id="megaR">' + ropts + '</select></div><div class="admrow"><input class="admin-in" id="megaTxt" placeholder="Text / number for powers that need it" value="' + esc(S.megaTxt || '') + '"></div></div>';
       var cats = []; mg.forEach(function (o) { if (cats.indexOf(o.cat) < 0) cats.push(o.cat); });
       cats.forEach(function (ct) {
         html += '<div class="admcard"><div class="admhead">' + esc(ct) + '</div><div class="acts">';
-        mg.filter(function (o) { return o.cat === ct; }).forEach(function (o) { html += ab(o.icon + ' ' + o.label + (o.scope === 'p' ? ' 👤' : o.scope === 'r' ? ' 🎮' : ' 🌍'), { act: 'x', op: o.id, mega: 1 }, o.danger ? 'red' : '', o.danger); });
+        mg.filter(function (o) { return o.cat === ct; }).forEach(function (o) { html += ab(o.icon + ' ' + o.label + (o.scope === 'p' ? '' : o.scope === 'r' ? '' : ''), { act: 'x', op: o.id, mega: 1 }, o.danger ? 'red' : '', o.danger); });
         html += '</div></div>';
       });
-      html += '<div style="color:var(--mut);font-size:12px;padding:4px 8px">👤 = picked player · 🎮 = picked match · 🌍 = everyone</div>';
+      html += '<div style="color:var(--mut);font-size:12px;padding:4px 8px">= picked player · = picked match · = everyone</div>';
     } else if (admTab === 'log') {
-      html += '<div class="admcard"><div class="admhead">📜 Recent activity</div><table class="admp">' + (d.logs || []).map(function (l) { return '<tr><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</td><td>' + esc(l.text) + '</td></tr>'; }).join('') + '</table></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-scroll"/></svg> Recent activity</div><table class="admp">' + (d.logs || []).map(function (l) { return '<tr><td style="color:var(--mut);font-size:12px;white-space:nowrap">' + new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</td><td>' + esc(l.text) + '</td></tr>'; }).join('') + '</table></div>';
     } else {
-      html += '<div class="admcard"><div class="admhead">📢 Announcement</div><div class="admrow"><input class="admin-in" id="admAnn" maxlength="140" placeholder="Message everyone in Bedwars…" value="' + esc(S.admDraft || '') + '">' + ab('Send', { act: 'announce' }, 'gold') + '</div></div>';
-      html += '<div class="admcard"><div class="admhead">🔒 New matches</div><div class="admrow">' + (d.locked ? '<span class="tag2" style="background:#ff5c6c">Paused</span>' + ab('Open matches again', { act: 'lock', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">Open</span>' + ab('Pause new matches', { act: 'lock', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Pausing stops anyone except owners from starting or joining matches. Games already running keep going.</div></div>';
-      html += '<div class="admcard"><div class="admhead">🎙️ Proximity voice chat</div><div class="admrow">' + (d.voiceOff ? '<span class="tag2" style="background:#ff5c6c">Off for everyone</span>' + ab('Turn voice on', { act: 'voiceoff', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">On</span>' + ab('Turn voice off for everyone', { act: 'voiceoff', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Mute one person from the Players tab.</div></div>';
+      html += '<div class="admcard"><div class="admhead">Announcement</div><div class="admrow"><input class="admin-in" id="admAnn" maxlength="140" placeholder="Message everyone in Bedwars…" value="' + esc(S.admDraft || '') + '">' + ab('Send', { act: 'announce' }, 'gold') + '</div></div>';
+      html += '<div class="admcard"><div class="admhead">New matches</div><div class="admrow">' + (d.locked ? '<span class="tag2" style="background:#ff5c6c">Paused</span>' + ab('Open matches again', { act: 'lock', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">Open</span>' + ab('Pause new matches', { act: 'lock', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Pausing stops anyone except owners from starting or joining matches. Games already running keep going.</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-mic"/></svg> Proximity voice chat</div><div class="admrow">' + (d.voiceOff ? '<span class="tag2" style="background:#ff5c6c">Off for everyone</span>' + ab('Turn voice on', { act: 'voiceoff', on: 0 }, 'green') : '<span class="tag2" style="background:#2bd576;color:#05240f">On</span>' + ab('Turn voice off for everyone', { act: 'voiceoff', on: 1 }, 'red', true)) + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Mute one person from the Players tab.</div></div>';
       var inMatch = !!d.myEnt;
-      html += '<div class="admcard"><div class="admhead">✨ Your powers ' + (inMatch ? '' : '<span class="tag2">join a match to use these</span>') + '</div><div class="admrow">' +
-        ab(S.god ? '😇 God mode: ON' : '😇 God mode', { act: 'self', op: 'god' }, S.god ? 'gold' : '') + ab((d.my && d.my.vanish ? '✅ ' : '') + '👻 Vanish', { act: 'self', op: 'vanish' }, d.my && d.my.vanish ? 'gold' : '') + ab((d.my && d.my.speed ? '✅ ' : '') + '⚡ Speed', { act: 'self', op: 'speed' }, d.my && d.my.speed ? 'gold' : '') + ab((d.my && d.my.onehit ? '✅ ' : '') + '💥 One-hit kills', { act: 'self', op: 'onehit' }, d.my && d.my.onehit ? 'gold' : '') +
-        ab('💰 +Resources', { act: 'self', op: 'res' }) + ab('⚔️ Max kit', { act: 'self', op: 'kit' }) + ab('🧱 Infinite blocks', { act: 'self', op: 'blocks' }) +
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-sparkles"/></svg> Your powers ' + (inMatch ? '' : '<span class="tag2">join a match to use these</span>') + '</div><div class="admrow">' +
+        ab(S.god ? 'God mode: ON' : 'God mode', { act: 'self', op: 'god' }, S.god ? 'gold' : '') + ab((d.my && d.my.vanish ? '' : '') + 'Vanish', { act: 'self', op: 'vanish' }, d.my && d.my.vanish ? 'gold' : '') + ab((d.my && d.my.speed ? '' : '') + 'Speed', { act: 'self', op: 'speed' }, d.my && d.my.speed ? 'gold' : '') + ab((d.my && d.my.onehit ? '' : '') + 'One-hit kills', { act: 'self', op: 'onehit' }, d.my && d.my.onehit ? 'gold' : '') +
+        ab('+Resources', { act: 'self', op: 'res' }) + ab('Max kit', { act: 'self', op: 'kit' }) + ab('Infinite blocks', { act: 'self', op: 'blocks' }) +
         '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">God: no damage, no void. Vanish: players and bots can’t see you (owners see a ghost). Join any running match from the Matches tab.</div></div>';
     }
     var focused = document.activeElement && (document.activeElement.tagName === 'INPUT') && $('admBody').contains(document.activeElement);
@@ -2373,7 +2381,7 @@
     if (b.dataset.act === 'testmap') { closeModals(); S.lastQueue = { t: 'practice', game: b.dataset.game, mode: b.dataset.game === 'bw' ? 'solo' : b.dataset.game, diff: 'normal', map: b.dataset.id }; send(S.lastQueue); return; }
     if (b.dataset.act === 'saveset') { [].forEach.call($('admBody').querySelectorAll('[data-set]'), function (inp) { if (String(S.adm.settings[inp.dataset.set]) !== inp.value) send({ t: 'adm', a: 'setting', k: inp.dataset.set, v: inp.value }); }); SC.sfx('click'); return; }
     var m = { t: 'adm', a: b.dataset.act };
-    if (b.dataset.act === 'tcopy') { var tl = $('tLink'); try { navigator.clipboard.writeText(tl.value); } catch (e) { tl.select(); document.execCommand('copy'); } toast('📋 Teacher link copied', 1500); return; }
+    if (b.dataset.act === 'tcopy') { var tl = $('tLink'); try { navigator.clipboard.writeText(tl.value); } catch (e) { tl.select(); document.execCommand('copy'); } toast('Teacher link copied', 1500); return; }
     if (b.dataset.act === 'srename') { var nn = window.prompt('New name for ' + (b.dataset.old || 'this student') + ':', b.dataset.old || ''); if (nn && nn.trim()) { send({ t: 'adm', a: 'srename', pid: +b.dataset.pid, nick: nn.trim() }); setTimeout(function () { send({ t: 'adm', a: 'class' }); }, 400); } return; }
     if (b.dataset.act === 'sunban') { send({ t: 'adm', a: 'sunban', name: b.dataset.name }); setTimeout(function () { send({ t: 'adm', a: 'class' }); }, 400); return; }
     if (b.dataset.act === 'swatch') { send({ t: 'adm', a: 'swatch', room: +b.dataset.room }); closeModals(); return; }
@@ -2474,7 +2482,7 @@
         c.strokeStyle = '#1b1636'; c.lineWidth = 7; c.strokeRect(x0, y0, x1 - x0, y1 - y0); c.strokeStyle = '#9aa3b5'; c.lineWidth = 4; c.strokeRect(x0, y0, x1 - x0, y1 - y0);
         for (var bx = x0; bx <= x1; bx += 20) { c.fillStyle = '#1b1636'; c.fillRect(bx - 2.5, y0 - 30, 5, 34); c.fillRect(bx - 2.5, y1 - 30, 5, 34); c.fillStyle = '#c5cfe2'; c.fillRect(bx - 1, y0 - 29, 2, 32); c.fillRect(bx - 1, y1 - 29, 2, 32); }
         for (var by = y0; by <= y1; by += 20) { c.fillStyle = '#1b1636'; c.fillRect(x0 - 2.5, by - 30, 5, 34); c.fillRect(x1 - 2.5, by - 30, 5, 34); c.fillStyle = '#c5cfe2'; c.fillRect(x0 - 1, by - 29, 2, 32); c.fillRect(x1 - 1, by - 29, 2, 32); }
-        D.tag(c, '🔒 SEEKERS RELEASED IN ' + Math.max(0, Math.ceil((S.seekAt - snow()) / 1000)), (x0 + x1) / 2, y0 - 50, { size: 16, color: '#fff', bg: '#c1121f' });
+        D.tag(c, 'SEEKERS RELEASED IN ' + Math.max(0, Math.ceil((S.seekAt - snow()) / 1000)), (x0 + x1) / 2, y0 - 50, { size: 16, color: '#fff', bg: '#c1121f' });
       }
       if (S.radar && tn - S.radar.t < 3000) { var u = (tn - S.radar.t) / 3000; for (var k = 0; k < 3; k++) { var uu = (u * 2 + k / 3) % 1; c.strokeStyle = 'rgba(43,213,118,' + (1 - uu) * (1 - u) + ')'; c.lineWidth = 4; A.circ(c, S.radar.x, S.radar.y, 30 + uu * 160); c.stroke(); } }
     }
@@ -2513,7 +2521,7 @@
       if (my && my[0] === 1) { var th = S.ents.get(my[1]); if (th) edgeArrow(th.x, th.y, '#ff5c6c', 'FLAG THIEF!', z); }
       else if (my && my[0] === 2) edgeArrow(my[2], my[3], teamCol(S.team), 'RETURN YOUR FLAG', z);
     }
-    if (S.game === 'hide' && S.radar && now() - S.radar.t < 3500) edgeArrow(S.radar.x, S.radar.y, '#2bd576', '📡 HIDER NEAR HERE', z);
+    if (S.game === 'hide' && S.radar && now() - S.radar.t < 3500) edgeArrow(S.radar.x, S.radar.y, '#2bd576', 'HIDER NEAR HERE', z);
   }
   function cursorTileFloor() { var tx = Math.floor(mouse.wx / T), ty = Math.floor(mouse.wy / T); return B.inb(tx, ty) ? ty * W + tx : -1; }
   function frontDigTile() { if (!P) return -1; var x = P.x + Math.cos(P.ang) * 58, y = P.y + Math.sin(P.ang) * 58, tx = Math.floor(x / T), ty = Math.floor(y / T); return B.inb(tx, ty) ? ty * W + tx : -1; }
@@ -2542,21 +2550,21 @@
     P.ang = Math.atan2(cp.y - P.y, cp.x - P.x); SC.sfx('mine');
   }
   function throwSnow(tx, ty) {
-    if (!(S.inv.snow > 0)) { toast('Dig blocks with your shovel to get snowballs ❄️', 1600); SC.sfx('no'); return; }
+    if (!(S.inv.snow > 0)) { toast('Dig blocks with your shovel to get snowballs', 1600); SC.sfx('no'); return; }
     send({ t: 'use', it: 'snow', x: Math.round(tx), y: Math.round(ty) }); S.did.snow = true; SC.sfx('throw');
     var me = S.ents.get(S.myId); if (me) { me.swingT = 0; me.swingDir = 1; }
   }
   function disguiseNear(wx, wy) {
     var pr = nearProp(wx, wy);
-    if (!pr) { toast('🎭 Walk right up to a prop (barrel, crate, bush…) to copy it', 1800); SC.sfx('no'); return; }
+    if (!pr) { toast('Walk right up to a prop (barrel, crate, bush…) to copy it', 1800); SC.sfx('no'); return; }
     send({ t: 'dis', p: pr.id }); var me = S.ents.get(S.myId); if (me) me.prop = pr.kind;
     D.burst('smoke', P.x, P.y - 10, 10); D.burst('magic', P.x, P.y - 20, 10, '#ffd166'); SC.sfx('pop'); S.did.dis = true;
-    toast('🎭 You’re a ' + MG.PROPS[pr.kind].name + '! Stand still to blend in', 1800);
+    toast('You’re a ' + MG.PROPS[pr.kind].name + '! Stand still to blend in', 1800);
   }
   function doTaunt() { if (now() - (S.tauntT || 0) < 5000) { toast('Taunt is recharging…', 1000); return; } S.tauntT = now(); send({ t: 'taunt' }); S.did.taunt = true; }
   function doRadar() {
     if (snow() < S.seekAt) { toast('You’re still blindfolded!', 1200); return; }
-    var left = 20000 - (now() - (S.radarT || -1e9)); if (left > 0) { toast('📡 Radar ready in ' + Math.ceil(left / 1000) + 's', 1200); return; }
+    var left = 20000 - (now() - (S.radarT || -1e9)); if (left > 0) { toast('Radar ready in ' + Math.ceil(left / 1000) + 's', 1200); return; }
     S.radarT = now(); send({ t: 'radar' }); S.did.radar = true;
   }
   function mgPrimary(it) {
@@ -2626,57 +2634,57 @@
   function mgHudInit() {
     $('mgTop').classList.toggle('hidden', !isMini());
     $('blind').classList.add('hidden');
-    var ic = { bw: ['⚔️', '🧱', '✨'], ctf: ['⚔️', '🧱', '✨'], spleef: ['⛏️', '⤴️', '❄️'], hide: S.team === 0 ? ['🎭', '🎵', ''] : ['⚔️', '', '📡'],
-      duel: ['⚔️', '', ''], murder: S.mrole === 'm' ? ['🔪', '✊', ''] : ['🤜', '', '🏹'], build: ['🧱', '🧽', ''], royale: ['🔫', '📦', '🔄'] }[S.game];
-    if (S.game === 'murder' && S.mrole === 'm') ic = ['🔪', '✊', ''];
+    var ic = { bw: ['swords', 'brick-wall', 'sparkles'], ctf: ['swords', 'brick-wall', 'sparkles'], spleef: ['pickaxe', 'arrow-up', 'snowflake'], hide: S.team === 0 ? ['drama', 'music', ''] : ['swords', '', 'radar'],
+      duel: ['swords', '', ''], murder: S.mrole === 'm' ? ['sword', 'hand', ''] : ['hand', '', 'target'], build: ['brick-wall', 'eraser', ''], royale: ['crosshair', 'package', 'refresh-cw'] }[S.game];
+    if (S.game === 'murder' && S.mrole === 'm') ic = ['sword', 'hand', ''];
     $('mgRole').classList.toggle('hidden', S.game !== 'hide' && S.game !== 'murder');
-    if (S.game === 'murder') $('mgRole').innerHTML = S.mrole === 'm' ? '<span class="ic">🔪</span><div>MURDERER<small>Hold the knife to strike · don’t get seen</small></div>' : S.mrole === 'd' ? '<span class="ic">🕵️</span><div>DETECTIVE<small>Shoot the murderer · don’t miss</small></div>' : '<span class="ic">😇</span><div>INNOCENT<small>Collect 10 🪙 for a bow · survive</small></div>';
-    $('tAtk').textContent = ic[0]; $('tPlace').textContent = ic[1]; $('tUse').textContent = ic[2];
+    if (S.game === 'murder') $('mgRole').innerHTML = S.mrole === 'm' ? '<span class="ic"></span><div>MURDERER<small>Hold the knife to strike · don’t get seen</small></div>' : S.mrole === 'd' ? '<span class="ic"></span><div>DETECTIVE<small>Shoot the murderer · don’t miss</small></div>' : '<span class="ic"></span><div>INNOCENT<small>Collect 10 for a bow · survive</small></div>';
+    $('tAtk').innerHTML = ic[0] ? UI(ic[0]) : ''; $('tPlace').innerHTML = ic[1] ? UI(ic[1]) : ''; $('tUse').innerHTML = ic[2] ? UI(ic[2]) : '';
     $('tPlace').style.visibility = ic[1] ? '' : 'hidden'; $('tUse').style.visibility = ic[2] ? '' : 'hidden';
-    if (S.game === 'hide') $('mgRole').innerHTML = S.team === 0 ? '<span class="ic">🎭</span><div>HIDER<small>Copy a prop · stand still · survive</small></div>' : '<span class="ic">🔍</span><div>SEEKER<small>Hit the fake props · F = radar</small></div>';
+    if (S.game === 'hide') $('mgRole').innerHTML = S.team === 0 ? '<span class="ic"></span><div>HIDER<small>Copy a prop · stand still · survive</small></div>' : '<span class="ic"></span><div>SEEKER<small>Hit the fake props · F = radar</small></div>';
     renderHotbar(); mgHudTick(true); bbUISync();
   }
   function mgTimer(el) {
     var sn = snow(), tm = $('tmT'), nx = $('tmN');
     if (S.game === 'ctf') { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'First to ' + MG.GAMES.ctf.caps + ' captures'; }
     else if (S.game === 'hide') { if (sn < S.seekAt) { tm.textContent = B.fmtTime((S.seekAt - sn) / 1000); nx.textContent = 'Hiding time'; } else { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'Hiders survive in'; } }
-    else if (S.game === 'spleef') { tm.textContent = B.fmtTime(el); nx.textContent = sn < S.sdAt ? 'Sudden death in ' + B.fmtTime((S.sdAt - sn) / 1000) : '💥 SUDDEN DEATH'; }
+    else if (S.game === 'spleef') { tm.textContent = B.fmtTime(el); nx.textContent = sn < S.sdAt ? 'Sudden death in ' + B.fmtTime((S.sdAt - sn) / 1000) : 'SUDDEN DEATH'; }
     else if (S.game === 'duel') { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'First to ' + MG.GAMES.duel.wins + ' kills'; }
     else if (S.game === 'murder') { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'Innocents survive in'; }
-    else if (S.game === 'royale') { var zt = RG.zone(); if (zt) { tm.textContent = B.fmtTime(zt.left / 1000); nx.textContent = zt.shrink ? '🌪️ Storm closing' : 'Storm closes in'; } }
-    else if (S.game === 'build') { if (S.phase === 'build') { tm.textContent = B.fmtTime((S.buildEnd - sn) / 1000); nx.textContent = '🏗️ ' + S.theme; } else { tm.textContent = S.phase === 'vote' ? 'VOTE' : 'DONE'; nx.textContent = S.theme; } }
+    else if (S.game === 'royale') { var zt = RG.zone(); if (zt) { tm.textContent = B.fmtTime(zt.left / 1000); nx.textContent = zt.shrink ? 'Storm closing' : 'Storm closes in'; } }
+    else if (S.game === 'build') { if (S.phase === 'build') { tm.textContent = B.fmtTime((S.buildEnd - sn) / 1000); nx.textContent = '' + S.theme; } else { tm.textContent = S.phase === 'vote' ? 'VOTE' : 'DONE'; nx.textContent = S.theme; } }
   }
   function mgHudTick(force) {
     if (!force && now() - (S.mgTopT || 0) < 200) { tutTick(); return; } S.mgTopT = now();
     var h = '';
     if (S.game === 'ctf') {
       var fl = S.flags || [];
-      var fs2 = function (t2) { var f = fl[t2] || [0]; return f[0] === 0 ? '🏠 home' : f[0] === 1 ? '🏃 taken!' : '⚠️ dropped'; };
-      h = '<div class="sc"><span class="sq" style="background:' + teamCol(0) + '">🚩</span>' + (S.score[0] || 0) + '</div><div class="fs"><b style="color:' + teamCol(0) + '">' + fs2(0) + '</b><b style="color:' + teamCol(1) + '">' + fs2(1) + '</b></div><div class="sc">' + (S.score[1] || 0) + '<span class="sq" style="background:' + teamCol(1) + '">🚩</span></div>';
+      var fs2 = function (t2) { var f = fl[t2] || [0]; return f[0] === 0 ? 'home' : f[0] === 1 ? 'taken!' : 'dropped'; };
+      h = '<div class="sc"><span class="sq" style="background:' + teamCol(0) + '"></span>' + (S.score[0] || 0) + '</div><div class="fs"><b style="color:' + teamCol(0) + '">' + fs2(0) + '</b><b style="color:' + teamCol(1) + '">' + fs2(1) + '</b></div><div class="sc">' + (S.score[1] || 0) + '<span class="sq" style="background:' + teamCol(1) + '"></span></div>';
     } else if (S.game === 'spleef') {
       var al = 0, tot = 0; S.ents.forEach(function (e) { tot++; if (!e.elim) al++; });
-      h = '<span class="pill">👥 ' + al + '/' + tot + ' left</span><span class="pill">⬇️ Floor ' + ((P ? P.z || 0 : 0) + 1) + '/' + MG.SP_LAYERS + '</span>' + (snow() >= S.sdAt ? '<span class="pill hot">💥 SUDDEN DEATH</span>' : '') + '<span class="pill">❄️ ' + (S.inv.snow || 0) + '</span>';
+      h = '<span class="pill"><svg class="ui-i" aria-hidden="true"><use href="#ui-users"/></svg> ' + al + '/' + tot + ' left</span><span class="pill">Floor ' + ((P ? P.z || 0 : 0) + 1) + '/' + MG.SP_LAYERS + '</span>' + (snow() >= S.sdAt ? '<span class="pill hot">SUDDEN DEATH</span>' : '') + '<span class="pill">' + (S.inv.snow || 0) + '</span>';
     } else if (S.game === 'hide') {
       var hd = 0, sk = 0; S.ents.forEach(function (e) { if (e.dead && e.team === 0) return; if (e.team === 0) hd++; else sk++; });
-      h = '<span class="pill" style="color:#2bd576">🎭 ' + hd + ' hiding</span><span class="pill" style="color:#ff8b98">🔍 ' + sk + ' seeking</span>' + (S.team === 1 ? '<span class="pill">📡 ' + (now() - (S.radarT || -1e9) >= 20000 ? 'ready (F)' : Math.ceil((20000 - (now() - S.radarT)) / 1000) + 's') + '</span>' : '<span class="pill">🎵 ' + (now() - (S.tauntT || -1e9) >= 5000 ? 'taunt (F)' : '…') + '</span>');
+      h = '<span class="pill" style="color:#2bd576">' + hd + ' hiding</span><span class="pill" style="color:#ff8b98">' + sk + ' seeking</span>' + (S.team === 1 ? '<span class="pill">' + (now() - (S.radarT || -1e9) >= 20000 ? 'ready (F)' : Math.ceil((20000 - (now() - S.radarT)) / 1000) + 's') + '</span>' : '<span class="pill"><svg class="ui-i" aria-hidden="true"><use href="#ui-music"/></svg> ' + (now() - (S.tauntT || -1e9) >= 5000 ? 'taunt (F)' : '…') + '</span>');
       var bl = $('blind'), blind = S.team === 1 && snow() < S.seekAt && S.screen === 'game';
       bl.classList.toggle('hidden', !blind);
-      if (blind) bl.innerHTML = '<div class="big">🙈 YOU’RE BLINDFOLDED</div><div class="sub">The hiders are picking their disguises…</div><div class="cd">' + Math.max(0, Math.ceil((S.seekAt - snow()) / 1000)) + '</div><div class="sub">Tip: props that move, taunt or talk are hiders!</div>';
+      if (blind) bl.innerHTML = '<div class="big">YOU’RE BLINDFOLDED</div><div class="sub">The hiders are picking their disguises…</div><div class="cd">' + Math.max(0, Math.ceil((S.seekAt - snow()) / 1000)) + '</div><div class="sub">Tip: props that move, taunt or talk are hiders!</div>';
     } else if (S.game === 'duel') {
       var rk = MG.rankOf(S.myElo);
-      h = '<div class="sc"><span class="sq" style="background:' + teamCol(0) + '">⚔️</span>' + (S.score[0] || 0) + '</div><div class="fs"><b style="color:' + rk.color + '">' + rk.name.toUpperCase() + '</b>' + S.myElo + '</div><div class="sc">' + (S.score[1] || 0) + '<span class="sq" style="background:' + teamCol(1) + '">⚔️</span></div>';
+      h = '<div class="sc"><span class="sq" style="background:' + teamCol(0) + '"><svg class="ui-i" aria-hidden="true"><use href="#ui-swords"/></svg></span>' + (S.score[0] || 0) + '</div><div class="fs"><b style="color:' + rk.color + '">' + rk.name.toUpperCase() + '</b>' + S.myElo + '</div><div class="sc">' + (S.score[1] || 0) + '<span class="sq" style="background:' + teamCol(1) + '"><svg class="ui-i" aria-hidden="true"><use href="#ui-swords"/></svg></span></div>';
     } else if (S.game === 'murder') {
       var alive2 = 0; S.ents.forEach(function (e) { if (!e.dead && !e.elim) alive2++; });
-      h = '<span class="pill">👥 ' + alive2 + ' alive</span>' + (S.mrole === 'm' ? '<span class="pill hot">🔪 you are the murderer</span>' : '<span class="pill" style="color:#ffd166">🪙 ' + (S.gold || 0) + (S.inv && S.inv.bow ? '</span><span class="pill">🏹 ' + (S.inv.arrows || 0) : '/10') + '</span>');
+      h = '<span class="pill"><svg class="ui-i" aria-hidden="true"><use href="#ui-users"/></svg> ' + alive2 + ' alive</span>' + (S.mrole === 'm' ? '<span class="pill hot">you are the murderer</span>' : '<span class="pill" style="color:#ffd166">' + (S.gold || 0) + (S.inv && S.inv.bow ? '</span><span class="pill">' + (S.inv.arrows || 0) : '/10') + '</span>');
     } else if (S.game === 'build') {
-      h = '<span class="pill" style="color:#ffd166">🏗️ ' + esc(S.theme) + '</span>' + (S.phase === 'build' ? '<span class="pill">build on YOUR plot</span>' : S.phase === 'vote' ? '<span class="pill hot">⭐ VOTING</span>' : '<span class="pill">🏆 results</span>');
+      h = '<span class="pill" style="color:#ffd166">' + esc(S.theme) + '</span>' + (S.phase === 'build' ? '<span class="pill">build on YOUR plot</span>' : S.phase === 'vote' ? '<span class="pill hot">VOTING</span>' : '<span class="pill"><svg class="ui-i" aria-hidden="true"><use href="#ui-trophy"/></svg> results</span>');
     }
     if ($('mgTop').innerHTML !== h) $('mgTop').innerHTML = h;
     tutTick();
   }
   function mgPrompt(pr) {
     if (S.game === 'royale' && P && !P.dead) return RG.prompt(pr, touch);
-    if (S.game === 'hide' && S.team === 0 && P && !P.dead) { var p = nearProp(P.x, P.y); if (p) { pr.classList.remove('hidden'); pr.textContent = (touch ? '🎭 Tap to become a ' : 'E · Become a ') + MG.PROPS[p.kind].name; return true; } }
+    if (S.game === 'hide' && S.team === 0 && P && !P.dead) { var p = nearProp(P.x, P.y); if (p) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap to become a ' : 'E · Become a ') + MG.PROPS[p.kind].name; return true; } }
     return false;
   }
   function mgDeath(d, killer, final, kind) {
@@ -2687,18 +2695,18 @@
     }
     if (S.game === 'murder') {
       var who = kind === 'justice' ? 'You shot an innocent! The town turned on you.' : killer ? (S.det && killer.id === S.det ? 'The detective got you' : esc(killer.nick) + ' got you') : 'You’re out';
-      d.innerHTML = '<div class="big" style="color:#ff5c6c">' + (S.mrole === 'm' ? 'CAUGHT!' : kind === 'justice' ? 'JUSTICE!' : 'MURDERED!') + '</div><div class="sub">' + who + '</div><div class="sub" style="font-size:15px;color:#cfc8ff">👻 You can spectate until the round ends — don’t tell anyone who did it!</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn" id="dSpec">👀 Spectate</button><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dHub">🏠 Hub</button></div>';
+      d.innerHTML = '<div class="big" style="color:#ff5c6c">' + (S.mrole === 'm' ? 'CAUGHT!' : kind === 'justice' ? 'JUSTICE!' : 'MURDERED!') + '</div><div class="sub">' + who + '</div><div class="sub" style="font-size:15px;color:#cfc8ff">You can spectate until the round ends — don’t tell anyone who did it!</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn" id="dSpec"><svg class="ui-i" aria-hidden="true"><use href="#ui-eye"/></svg> Spectate</button><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dHub"><svg class="ui-i" aria-hidden="true"><use href="#ui-house"/></svg> Hub</button></div>';
       $('dAgain').onclick = playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); }; $('dHub').onclick = function () { send({ t: 'hub' }); };
       d.style.pointerEvents = 'auto'; return true;
     }
     if (S.game === 'spleef') {
       var left = 0; S.ents.forEach(function (e) { if (!e.elim && e.id !== S.myId) left++; });
-      d.innerHTML = '<div class="big">YOU FELL!</div><div class="sub">' + (killer ? 'Knocked off by <span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span> · ' : '') + 'You placed <b style="color:#ffd166">#' + (left + 1) + '</b></div><div class="sub" style="font-size:15px;color:#cfc8ff">Watch who wins, or jump into another round.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dSpec">👀 Keep watching</button><button class="btn" id="dHub">🏠 Hub</button></div>';
+      d.innerHTML = '<div class="big">YOU FELL!</div><div class="sub">' + (killer ? 'Knocked off by <span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span> · ' : '') + 'You placed <b style="color:#ffd166">#' + (left + 1) + '</b></div><div class="sub" style="font-size:15px;color:#cfc8ff">Watch who wins, or jump into another round.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dSpec"><svg class="ui-i" aria-hidden="true"><use href="#ui-eye"/></svg> Keep watching</button><button class="btn" id="dHub"><svg class="ui-i" aria-hidden="true"><use href="#ui-house"/></svg> Hub</button></div>';
       $('dAgain').onclick = playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); }; $('dHub').onclick = function () { send({ t: 'hub' }); };
       d.style.pointerEvents = 'auto'; return true;
     }
     if (S.game === 'hide' && S.team === 0) {
-      d.innerHTML = '<div class="big" style="color:#ffd166">FOUND!</div><div class="sub">' + (killer ? '<span style="color:#ff8b98">' + esc(killer.nick) + '</span> found you' : 'You were found') + '</div><div class="sub" style="margin:0">You’ll come back as a 🔍 SEEKER in</div><div class="cd" id="deathCd">4</div>';
+      d.innerHTML = '<div class="big" style="color:#ffd166">FOUND!</div><div class="sub">' + (killer ? '<span style="color:#ff8b98">' + esc(killer.nick) + '</span> found you' : 'You were found') + '</div><div class="sub" style="margin:0">You’ll come back as a SEEKER in</div><div class="cd" id="deathCd">4</div>';
       d.style.pointerEvents = 'none'; return true;
     }
     if (S.game === 'hide') { d.innerHTML = '<div class="big">OUCH!</div><div class="sub">' + (kind === 'prop' ? 'Too many wrong props!' : 'You went down') + '</div><div class="sub" style="margin:0">Back in</div><div class="cd" id="deathCd">5</div>'; d.style.pointerEvents = 'none'; return true; }
@@ -2713,27 +2721,27 @@
     if (S.game === 'ctf') {
       rows += '<tr><th></th><th>Player</th><th>Status</th></tr>';
       for (var t2 = 0; t2 < 2; t2++) {
-        rows += '<tr class="tm"><td colspan="3" style="color:' + teamCol(t2) + '">' + tname(t2) + ' · ' + (S.score[t2] || 0) + ' 🚩</td></tr>';
-        S.ents.forEach(function (e) { if (e.team !== t2) return; rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.carry >= 0 ? '🚩' : e.dead ? '⏳' : '') + '</td><td>' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (e.carry >= 0 ? 'has the flag!' : e.dead ? 'respawning' : 'alive') + '</td></tr>'; });
+        rows += '<tr class="tm"><td colspan="3" style="color:' + teamCol(t2) + '">' + tname(t2) + ' · ' + (S.score[t2] || 0) + '</td></tr>';
+        S.ents.forEach(function (e) { if (e.team !== t2) return; rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.carry >= 0 ? '' : e.dead ? '...' : '') + '</td><td>' + (e.bot ? '' : '') + esc(e.nick) + '</td><td>' + (e.carry >= 0 ? 'has the flag!' : e.dead ? 'respawning' : 'alive') + '</td></tr>'; });
       }
     } else if (S.game === 'spleef') {
       rows += '<tr><th></th><th>Player</th><th>Floor</th></tr>';
       var arr = Array.from(S.ents.values()).sort(function (a, b) { return (a.elim - b.elim) || ((a.z || 0) - (b.z || 0)); });
-      arr.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.elim ? '💀' : '❄️') + '</td><td style="color:' + teamCol(e.team) + '">' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (e.elim ? 'out' : ((e.id === S.myId ? P.z : e.z) || 0) + 1) + '</td></tr>'; });
+      arr.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.elim ? 'OUT' : '') + '</td><td style="color:' + teamCol(e.team) + '">' + (e.bot ? '' : '') + esc(e.nick) + '</td><td>' + (e.elim ? 'out' : ((e.id === S.myId ? P.z : e.z) || 0) + 1) + '</td></tr>'; });
     } else if (S.game === 'duel') {
       rows += '<tr><th></th><th>Player</th><th>Kills</th></tr>';
-      S.ents.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>⚔️</td><td style="color:' + teamCol(e.team) + '">' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (S.score[e.team] || 0) + '</td></tr>'; });
+      S.ents.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td><svg class="ui-i" aria-hidden="true"><use href="#ui-swords"/></svg></td><td style="color:' + teamCol(e.team) + '">' + (e.bot ? '' : '') + esc(e.nick) + '</td><td>' + (S.score[e.team] || 0) + '</td></tr>'; });
     } else if (S.game === 'murder') {
       rows += '<tr><th></th><th>Player</th><th></th></tr>';
-      S.ents.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.dead || e.elim ? '💀' : e.id === S.det ? '🕵️' : '😶') + '</td><td>' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (e.dead || e.elim ? 'dead' : 'alive') + '</td></tr>'; });
-      rows += '<tr><td colspan="3" style="color:var(--mut)">Roles are secret until the end 🤫</td></tr>';
+      S.ents.forEach(function (e) { rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (e.dead || e.elim ? 'OUT' : e.id === S.det ? 'DET' : '-') + '</td><td>' + (e.bot ? '' : '') + esc(e.nick) + '</td><td>' + (e.dead || e.elim ? 'dead' : 'alive') + '</td></tr>'; });
+      rows += '<tr><td colspan="3" style="color:var(--mut)">Roles are secret until the end</td></tr>';
     } else if (S.game === 'build') {
       rows += '<tr><th></th><th>Builder</th><th>Plot</th></tr>';
-      (S.plotOwners || []).forEach(function (o, k) { if (o) rows += '<tr' + (o.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>🏗️</td><td>' + (o.bot ? '🤖 ' : '') + esc(o.nick) + '</td><td>' + (k + 1) + '</td></tr>'; });
+      (S.plotOwners || []).forEach(function (o, k) { if (o) rows += '<tr' + (o.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td></td><td>' + (o.bot ? '' : '') + esc(o.nick) + '</td><td>' + (k + 1) + '</td></tr>'; });
     } else {
       rows += '<tr><th></th><th>Player</th><th>Role</th></tr>';
-      S.ents.forEach(function (e) { var hid = e.team === 0; if (hid && S.team !== 0 && e.id !== S.myId) return; rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (hid ? '🎭' : '🔍') + '</td><td>' + (e.bot ? '🤖 ' : '') + esc(e.nick) + '</td><td>' + (hid ? (e.prop ? MG.PROPS[e.prop].name : 'hider') : 'seeker') + '</td></tr>'; });
-      if (S.team !== 0) rows += '<tr><td colspan="3" style="color:var(--mut)">Hiders are secret until the round ends 🤫</td></tr>';
+      S.ents.forEach(function (e) { var hid = e.team === 0; if (hid && S.team !== 0 && e.id !== S.myId) return; rows += '<tr' + (e.id === S.myId ? ' style="color:var(--gold)"' : '') + '><td>' + (hid ? '' : '') + '</td><td>' + (e.bot ? '' : '') + esc(e.nick) + '</td><td>' + (hid ? (e.prop ? MG.PROPS[e.prop].name : 'hider') : 'seeker') + '</td></tr>'; });
+      if (S.team !== 0) rows += '<tr><td colspan="3" style="color:var(--mut)">Hiders are secret until the round ends</td></tr>';
     }
     return rows + '</table>';
   }
@@ -2741,48 +2749,48 @@
     var me = (m.stats || []).find(function (x) { return x.id === m.you; }) || {};
     if (m.game === 'ctf') $('eSub').innerHTML = (m.winner >= 0 ? '<span style="color:' + teamCol(m.winner) + '">' + tname(m.winner) + ' team</span> captures the win! ' : 'It’s a tie! ') + '<b>' + (m.score ? m.score[0] + ' – ' + m.score[1] : '') + '</b>';
     if (m.game === 'spleef') { var w = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (w ? '<span style="color:' + teamCol(w.team) + '">' + esc(w.nick) + '</span> is the last one standing!' : 'Nobody survived!') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
-    if (m.game === 'hide') $('eSub').innerHTML = m.winner === 0 ? '🎭 The hiders survived!' : '🔍 The seekers found everyone!';
+    if (m.game === 'hide') $('eSub').innerHTML = m.winner === 0 ? 'The hiders survived!' : 'The seekers found everyone!';
     if (m.game === 'duel') {
       var eloTxt = '';
       if (m.elo && m.elo[m.you]) { var q = m.elo[m.you]; var rk2 = MG.rankOf(q.r); S.myElo = q.r; eloTxt = ' · <b style="color:' + rk2.color + '">' + rk2.name + ' ' + q.r + '</b> (' + (q.d >= 0 ? '+' : '') + q.d + ')'; }
       $('eSub').innerHTML = (m.winner >= 0 ? '<span style="color:' + teamCol(m.winner) + '">' + tname(m.winner) + '</span> wins <b>' + (m.score ? m.score[0] + ' – ' + m.score[1] : '') + '</b>' : 'Draw!') + eloTxt;
     }
-    if (m.game === 'murder') { var mm2 = (m.stats || []).find(function (x) { return x.id === m.murderer; }); $('eSub').innerHTML = (m.winner === 1 ? '🔪 The murderer wins!' : '😇 The innocents win!') + (mm2 ? ' The murderer was <b style="color:#ff5c6c">' + esc(mm2.nick) + '</b>' : ''); }
+    if (m.game === 'murder') { var mm2 = (m.stats || []).find(function (x) { return x.id === m.murderer; }); $('eSub').innerHTML = (m.winner === 1 ? 'The murderer wins!' : 'The innocents win!') + (mm2 ? ' The murderer was <b style="color:#ff5c6c">' + esc(mm2.nick) + '</b>' : ''); }
     if (m.game === 'royale') { try { RG.end(m); } catch (e9) {} var rw = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (rw ? '<span style="color:' + teamCol(rw.team) + '">' + esc(rw.nick) + '</span> wins the match!' : 'Nobody survived!') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
-    if (m.game === 'build') { var r1 = m.results && m.results[0]; $('eSub').innerHTML = '🏗️ Theme: <b>' + esc(m.theme || '') + '</b>' + (r1 ? ' · <span style="color:#ffd166">' + esc(r1.nick) + '</span> won with ' + r1.avg + ' ⭐' : ''); }
+    if (m.game === 'build') { var r1 = m.results && m.results[0]; $('eSub').innerHTML = 'Theme: <b>' + esc(m.theme || '') + '</b>' + (r1 ? ' · <span style="color:#ffd166">' + esc(r1.nick) + '</span> won with ' + r1.avg + '' : ''); }
     void win;
   }
   function mgEndTable(m) {
     var st = m.stats.slice(), head, row;
     if (m.game === 'ctf') { st.sort(function (a, b) { return (b.caps * 5 + b.kills + b.rets * 2) - (a.caps * 5 + a.kills + a.rets * 2); }); head = '<th>Caps</th><th>Kills</th><th>Returns</th><th>Deaths</th>'; row = function (s) { return '<td>' + (s.caps || 0) + '</td><td>' + s.kills + '</td><td>' + (s.rets || 0) + '</td><td>' + s.deaths + '</td>'; }; }
-    else if (m.game === 'spleef') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Knock-offs</th><th>Blocks dug</th>'; row = function (s) { return '<td>' + (['🥇', '🥈', '🥉'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.knocks || 0) + '</td><td>' + (s.digs || 0) + '</td>'; }; }
+    else if (m.game === 'spleef') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Knock-offs</th><th>Blocks dug</th>'; row = function (s) { return '<td>' + (['1st', '2nd', '3rd'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.knocks || 0) + '</td><td>' + (s.digs || 0) + '</td>'; }; }
     else if (m.game === 'duel') { st.sort(function (a, b) { return b.kills - a.kills; }); head = '<th>Kills</th><th>Best streak</th>'; row = function (s) { return '<td>' + s.kills + '</td><td>' + (s.best || 0) + '</td>'; }; }
-    else if (m.game === 'murder') { st.sort(function (a, b) { return (b.role === 'm' ? 5 : 0) + b.kills - ((a.role === 'm' ? 5 : 0) + a.kills); }); head = '<th>Role</th><th>Kills</th><th>Gold</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.role === 'm' ? '🔪 Murderer' : s.role === 'd' ? '🕵️ Detective' : '😇 Innocent') + '</td><td>' + s.kills + '</td><td>' + (s.gold || 0) + '</td><td>' + (s.survived ? '✅' : '–') + '</td>'; }; }
-    else if (m.game === 'royale') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Eliminations</th><th>Shots</th>'; row = function (s) { return '<td>' + (['🥇', '🥈', '🥉'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + s.kills + '</td><td>' + (s.shots || 0) + '</td>'; }; }
-    else if (m.game === 'build') { st.sort(function (a, b) { return (a.place || 9) - (b.place || 9); }); head = '<th>Place</th><th>Stars</th><th>Pieces</th>'; row = function (s) { return '<td>' + (['🥇', '🥈', '🥉'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.score || '–') + ' ⭐</td><td>' + (s.placed || 0) + '</td>'; }; }
-    else { st.sort(function (a, b) { return (b.finds * 3 + b.taunts + (b.survived ? 5 : 0)) - (a.finds * 3 + a.taunts + (a.survived ? 5 : 0)); }); head = '<th>Started as</th><th>Found</th><th>Taunts</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.team === 0 || s.survived ? '🎭' : '🔍') + '</td><td>' + (s.finds || 0) + '</td><td>' + (s.taunts || 0) + '</td><td>' + (s.survived ? '✅' : '–') + '</td>'; }; }
-    return '<tr><th>#</th><th>Player</th>' + head + '</tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + (m.game === 'hide' ? (s.team === 0 ? '#2bd576' : '#ff8b98') : teamCol(s.team)) + '">' + (s.bot ? '🤖 ' : '') + esc(s.nick) + '</b></td>' + row(s) + '</tr>'; }).join('');
+    else if (m.game === 'murder') { st.sort(function (a, b) { return (b.role === 'm' ? 5 : 0) + b.kills - ((a.role === 'm' ? 5 : 0) + a.kills); }); head = '<th>Role</th><th>Kills</th><th>Gold</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.role === 'm' ? 'Murderer' : s.role === 'd' ? 'Detective' : 'Innocent') + '</td><td>' + s.kills + '</td><td>' + (s.gold || 0) + '</td><td>' + (s.survived ? '' : '–') + '</td>'; }; }
+    else if (m.game === 'royale') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Eliminations</th><th>Shots</th>'; row = function (s) { return '<td>' + (['1st', '2nd', '3rd'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + s.kills + '</td><td>' + (s.shots || 0) + '</td>'; }; }
+    else if (m.game === 'build') { st.sort(function (a, b) { return (a.place || 9) - (b.place || 9); }); head = '<th>Place</th><th>Stars</th><th>Pieces</th>'; row = function (s) { return '<td>' + (['1st', '2nd', '3rd'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.score || '–') + '</td><td>' + (s.placed || 0) + '</td>'; }; }
+    else { st.sort(function (a, b) { return (b.finds * 3 + b.taunts + (b.survived ? 5 : 0)) - (a.finds * 3 + a.taunts + (a.survived ? 5 : 0)); }); head = '<th>Started as</th><th>Found</th><th>Taunts</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.team === 0 || s.survived ? '' : '') + '</td><td>' + (s.finds || 0) + '</td><td>' + (s.taunts || 0) + '</td><td>' + (s.survived ? '' : '–') + '</td>'; }; }
+    return '<tr><th>#</th><th>Player</th>' + head + '</tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + (m.game === 'hide' ? (s.team === 0 ? '#2bd576' : '#ff8b98') : teamCol(s.team)) + '">' + (s.bot ? '' : '') + esc(s.nick) + '</b></td>' + row(s) + '</tr>'; }).join('');
   }
   function introText() {
     var tm = B.TEAMS[S.team] || B.TEAMS[0];
-    if (S.game === 'ctf') return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, '🚩 Steal their flag · bring it home · first to ' + MG.GAMES.ctf.caps];
-    if (S.game === 'spleef') return ['Welcome to', 'TNT SPLEEF', '#7dd3fc', '❄️ Keep moving — the floor crumbles behind you. Last one standing wins!'];
-    if (S.game === 'hide') return S.team === 0 ? ['You are a', 'HIDER 🎭', '#2bd576', 'Copy a prop and hide! The seekers come out in ' + MG.GAMES.hide.hideSec + 's'] : ['You are a', 'SEEKER 🔍', '#ff5c6c', 'Hiders are disguised as props. Hit the fakes!'];
-    if (S.game === 'duel') { var rk3 = MG.rankOf(S.myElo); return ['1v1 · first to ' + MG.GAMES.duel.wins, 'DUEL ⚔️', rk3.color, 'Sprint for knockback, jump for crits. Don’t fall off!']; }
-    if (S.game === 'murder') return S.mrole === 'm' ? ['Shhh… you are the', 'MURDERER 🔪', '#ff5c6c', 'F draws your knife. One hit kills. Don’t get seen!'] : S.mrole === 'd' ? ['You are the', 'DETECTIVE 🕵️', '#3fa9ff', 'You have a bow. Find the murderer and don’t miss!'] : ['You are', 'INNOCENT 😇', '#2bd576', 'Collect 10 🪙 for a bow. Stay with people you trust…'];
-    if (S.game === 'royale') return ['Welcome to', 'SCROLL ROYALE 🪂', '#ffb02e', '🚌 Jump from the bus · 📦 loot chests · 🌪️ beat the storm · last one standing wins!'];
-    if (S.game === 'build') return ['Build this theme:', (S.theme || '???').toUpperCase() + ' 🏗️', '#ffd166', MG.GAMES.build.buildSec + ' seconds on your plot — then everyone votes!'];
-    return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, '🛏 Protect your bed · ⚔️ Destroy the others'];
+    if (S.game === 'ctf') return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, 'Steal their flag · bring it home · first to ' + MG.GAMES.ctf.caps];
+    if (S.game === 'spleef') return ['Welcome to', 'TNT SPLEEF', '#7dd3fc', 'Keep moving — the floor crumbles behind you. Last one standing wins!'];
+    if (S.game === 'hide') return S.team === 0 ? ['You are a', 'HIDER', '#2bd576', 'Copy a prop and hide! The seekers come out in ' + MG.GAMES.hide.hideSec + 's'] : ['You are a', 'SEEKER', '#ff5c6c', 'Hiders are disguised as props. Hit the fakes!'];
+    if (S.game === 'duel') { var rk3 = MG.rankOf(S.myElo); return ['1v1 · first to ' + MG.GAMES.duel.wins, 'DUEL', rk3.color, 'Sprint for knockback, jump for crits. Don’t fall off!']; }
+    if (S.game === 'murder') return S.mrole === 'm' ? ['Shhh… you are the', 'MURDERER', '#ff5c6c', 'F draws your knife. One hit kills. Don’t get seen!'] : S.mrole === 'd' ? ['You are the', 'DETECTIVE', '#3fa9ff', 'You have a bow. Find the murderer and don’t miss!'] : ['You are', 'INNOCENT', '#2bd576', 'Collect 10 for a bow. Stay with people you trust…'];
+    if (S.game === 'royale') return ['Welcome to', 'SCROLL ROYALE', '#ffb02e', 'Jump from the bus · loot chests · beat the storm · last one standing wins!'];
+    if (S.game === 'build') return ['Build this theme:', (S.theme || '???').toUpperCase() + '', '#ffd166', MG.GAMES.build.buildSec + ' seconds on your plot — then everyone votes!'];
+    return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, 'Protect your bed · Destroy the others'];
   }
   function mgEvent(k, ev) {
     var e, p;
     if (S.game === 'royale' && RG.event(k, ev)) return true;
     if (k === 'take') { e = S.ents.get(ev[1]); if (S.flags[ev[2]]) { S.flags[ev[2]][0] = 1; S.flags[ev[2]][1] = ev[1]; } if (e) e.carry = ev[2];
-      feed(nameHtml(e) + ' grabbed the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b> 🚩');
+      feed(nameHtml(e) + ' grabbed the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b>');
       if (ev[1] === S.myId) { banner('YOU HAVE THE FLAG!', 'Run it back to your own flag!', '#ffd166'); SC.sfx('flag'); S.did.take = true; }
       else if (ev[2] === S.team) { banner('YOUR FLAG WAS TAKEN!', 'Stop ' + (e ? esc(e.nick) : 'them') + '!', '#ff5c6c'); SC.sfx('alarm'); }
       else SC.sfx('flag'); return true; }
-    if (k === 'drop') { e = S.ents.get(ev[1]); if (e) e.carry = -1; if (S.flags[ev[2]]) S.flags[ev[2]] = [2, 0, ev[3], ev[4]]; feed(nameHtml(e) + ' dropped the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b>'); if (ev[2] === S.team) toast('⚠️ Your flag is on the ground — touch it to send it home!', 2400); return true; }
+    if (k === 'drop') { e = S.ents.get(ev[1]); if (e) e.carry = -1; if (S.flags[ev[2]]) S.flags[ev[2]] = [2, 0, ev[3], ev[4]]; feed(nameHtml(e) + ' dropped the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b>'); if (ev[2] === S.team) toast('Your flag is on the ground — touch it to send it home!', 2400); return true; }
     if (k === 'ret') { e = S.ents.get(ev[1]); var b = S.map.bases[ev[2]]; if (S.flags[ev[2]] && b) S.flags[ev[2]] = [0, 0, b.fx, b.fy]; S.ents.forEach(function (x) { if (x.carry === ev[2]) x.carry = -1; }); feed('<b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b> went home' + (e ? ' — returned by ' + nameHtml(e) : '')); sfxAt('pop', b ? b.fx : 0, b ? b.fy : 0); return true; }
     if (k === 'cap') {
       e = S.ents.get(ev[1]); S.score = [ev[3], ev[4]]; if (e) e.carry = -1;
@@ -2790,7 +2798,7 @@
       var ct = e ? e.team : 1 - ev[2], hb = S.map.bases[ct];
       banner(tname(ct).toUpperCase() + ' SCORES!', (e ? esc(e.nick) + ' captured the flag · ' : '') + ev[3] + ' – ' + ev[4], teamCol(ct));
       if (hb) { for (var q = 0; q < 4; q++) setTimeout(function () { D.burst('star', hb.fx + (Math.random() - 0.5) * 80, hb.fy - 40, 10, teamCol(ct)); D.ring(hb.fx, hb.fy, teamCol(ct), 120, 0.6, 8); }, q * 180); D.flash(hb.fx, hb.fy, 200, '255,255,255', 0.35); }
-      SC.sfx('score'); S.shake = Math.max(S.shake, 6); feed('🚩 ' + nameHtml(e) + ' <b style="color:#ffd166">CAPTURED</b> the flag!', true);
+      SC.sfx('score'); S.shake = Math.max(S.shake, 6); feed('' + nameHtml(e) + ' <b style="color:#ffd166">CAPTURED</b> the flag!', true);
       if (ev[1] === S.myId) { S.did.cap = true; toastBig('+1 CAPTURE!', '#ffd166'); }
       return true;
     }
@@ -2805,13 +2813,13 @@
     }
     if (k === 'fall') { e = S.ents.get(ev[1]); if (e) { e.spFall = true; e.spFallT = now(); p = entPos(e); sfxAt('fall', p.x, p.y); } return true; }
     if (k === 'land') { e = S.ents.get(ev[1]); if (e) { e.spFall = false; if (e.id !== S.myId) e.z = ev[2]; e.buf = []; p = entPos(e); if (ev[2] === viewZ()) D.burst('dust', p.x, p.y, 8); } return true; }
-    if (k === 'sd') { banner('💥 SUDDEN DEATH!', 'The floors are falling apart on their own!', '#ff5c6c'); SC.sfx('alarm'); return true; }
-    if (k === 'phase') { S.phase = 'seek'; if (S.team === 1) banner('GO FIND THEM! 🔍', 'Hit props that look suspicious', '#ff5c6c'); else banner('THE SEEKERS ARE OUT!', 'Stay still… don’t make a sound 🤫', '#ffd166'); SC.sfx('go'); $('blind').classList.add('hidden'); return true; }
+    if (k === 'sd') { banner('SUDDEN DEATH!', 'The floors are falling apart on their own!', '#ff5c6c'); SC.sfx('alarm'); return true; }
+    if (k === 'phase') { S.phase = 'seek'; if (S.team === 1) banner('GO FIND THEM!', 'Hit props that look suspicious', '#ff5c6c'); else banner('THE SEEKERS ARE OUT!', 'Stay still… don’t make a sound', '#ffd166'); SC.sfx('go'); $('blind').classList.add('hidden'); return true; }
     if (k === 'taunt') {
       e = S.ents.get(ev[1]); var tx = ev[2], ty = ev[3];
       sfxAt('taunt' + (ev[5] % TAUNTS.length), tx, ty);
       for (var n2 = 0; n2 < 4; n2++) setTimeout(function () { D.text(tx + (Math.random() - 0.5) * 40, ty - 40, Math.random() < 0.5 ? '♪' : '♫', '#ffd166', 22, { vy: -60, life: 1.2 }); }, n2 * 120);
-      if (ev[1] === S.myId) { S.did.taunt = true; if (!ev[4]) toast('🎵 Taunted! +3 Scrolls at the end', 1400); else toast('🎵 Auto-taunt! Hiders make a sound every 30 seconds', 1800); }
+      if (ev[1] === S.myId) { S.did.taunt = true; if (!ev[4]) toast('Taunted! +3 Scrolls at the end', 1400); else toast('Auto-taunt! Hiders make a sound every 30 seconds', 1800); }
       return true;
     }
     if (k === 'dis') { e = S.ents.get(ev[1]); if (e) { e.prop = MG.PROP_KINDS[ev[2]]; p = entPos(e); D.burst('smoke', p.x, p.y - 10, 8); } return true; }
@@ -2819,8 +2827,8 @@
       e = S.ents.get(ev[1]); var fa = S.ents.get(ev[2]);
       if (e) { e.team = 1; e.prop = ''; }
       D.burst('star', ev[3], ev[4] - 20, 14, '#ffd166'); D.ring(ev[3], ev[4], '#ffd166', 70, 0.5, 6);
-      feed('🔍 ' + (fa ? nameHtml(fa) : 'Someone') + ' found ' + nameHtml(e) + (ev[5] ? ' (the ' + MG.PROPS[ev[5]].name + ')' : ''), true);
-      if (ev[2] === S.myId) { toastBig('FOUND ONE! 🎉', '#ffd166'); SC.sfx('final'); S.did.find = true; }
+      feed('' + (fa ? nameHtml(fa) : 'Someone') + ' found ' + nameHtml(e) + (ev[5] ? ' (the ' + MG.PROPS[ev[5]].name + ')' : ''), true);
+      if (ev[2] === S.myId) { toastBig('FOUND ONE!', '#ffd166'); SC.sfx('final'); S.did.find = true; }
       return true;
     }
     if (k === 'dscore') {
@@ -2836,13 +2844,13 @@
       else { S.golds.delete(ev[1]); var gc2 = tcen(ev[2]); D.burst('star', gc2.x, gc2.y - 14, 6, '#ffd166'); if (ev[4] === S.myId) { SC.sfx('res'); } else sfxAt('pop2', gc2.x, gc2.y); }
       return true;
     }
-    if (k === 'mbow') { e = S.ents.get(ev[1]); if (ev[1] === S.myId) { toastBig('🏹 BOW UNLOCKED!', '#ffd166'); SC.sfx('level'); } else if (e) feed(nameHtml(e) + ' collected 10 gold and got a 🏹 bow!'); return true; }
-    if (k === 'mdead') { e = S.ents.get(ev[1]); banner('THE MURDERER IS DOWN!', (e ? esc(e.nick) + ' was the murderer. ' : '') + 'The town is safe 🎉', '#2bd576'); SC.sfx('final'); return true; }
+    if (k === 'mbow') { e = S.ents.get(ev[1]); if (ev[1] === S.myId) { toastBig('BOW UNLOCKED!', '#ffd166'); SC.sfx('level'); } else if (e) feed(nameHtml(e) + ' collected 10 gold and got a bow!'); return true; }
+    if (k === 'mdead') { e = S.ents.get(ev[1]); banner('THE MURDERER IS DOWN!', (e ? esc(e.nick) + ' was the murderer. ' : '') + 'The town is safe', '#2bd576'); SC.sfx('final'); return true; }
     if (k === 'justice') { e = S.ents.get(ev[1]); var v2 = S.ents.get(ev[2]); banner('WRONG TARGET!', (e ? esc(e.nick) : 'Someone') + ' shot an innocent' + (v2 ? ' (' + esc(v2.nick) + ')' : '') + '…', '#ff5c6c'); SC.sfx('no'); return true; }
     if (k === 'bb') { bbApplyLocal(ev[1], ev[2], ev[3], ev[4], S.map); return true; }
-    if (k === 'bbphase') { S.phase = 'vote'; banner('⏰ TIME’S UP!', 'Walk through the builds and vote ⭐', '#ffd166'); SC.sfx('alarm'); bbUISync(); return true; }
-    if (k === 'bbvote') { if (ev[1] !== S.myId) { e = S.ents.get(ev[1]); if (e) { p = entPos(e); D.text(p.x, p.y - 56, '⭐', '#ffd166', 18, { vy: -40, life: 0.8 }); } } return true; }
-    if (k === 'miss') { S.propWob[ev[2]] = now(); var pr = S.map.props && S.map.props[ev[2]]; if (pr) D.burst('dust', pr.x, pr.y, 5); if (ev[1] === S.myId) { toast('❌ Just a real prop! (−½ ❤)', 1100); SC.sfx('no'); } return true; }
+    if (k === 'bbphase') { S.phase = 'vote'; banner('TIME’S UP!', 'Walk through the builds and vote', '#ffd166'); SC.sfx('alarm'); bbUISync(); return true; }
+    if (k === 'bbvote') { if (ev[1] !== S.myId) { e = S.ents.get(ev[1]); if (e) { p = entPos(e); D.text(p.x, p.y - 56, '', '#ffd166', 18, { vy: -40, life: 0.8 }); } } return true; }
+    if (k === 'miss') { S.propWob[ev[2]] = now(); var pr = S.map.props && S.map.props[ev[2]]; if (pr) D.burst('dust', pr.x, pr.y, 5); if (ev[1] === S.myId) { toast('Just a real prop! (−½ ❤)', 1100); SC.sfx('no'); } return true; }
     return false;
   }
 
@@ -2851,7 +2859,7 @@
     if (S.mrole !== 'm') return;
     var to = S.held === 'knife' ? 'fists' : 'knife';
     S.held = to; send({ t: 'sel', it: to }); renderHotbar(); SC.sfx(to === 'knife' ? 'draw' : 'click');
-    toast(to === 'knife' ? '🔪 Knife out — one hit kills. Don’t get seen!' : '✊ Knife hidden', 1400);
+    toast(to === 'knife' ? 'Knife out — one hit kills. Don’t get seen!' : 'Knife hidden', 1400);
   }
   function murderDrawables(list, t) {
     if (!S.golds) return;
@@ -2878,14 +2886,14 @@
         c.lineWidth = judging || mine ? 5 : 3;
         if (judging) { c.setLineDash([14, 10]); c.lineDashOffset = -t * 40; }
         c.strokeRect(x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6); c.setLineDash([]);
-        if (o) D.tag(c, (judging ? '⭐ ' : '') + (o.bot ? '🤖 ' : '') + o.nick + (mine ? ' (YOU)' : ''), (x0 + x1) / 2, y0 - 16, { size: 13, color: '#fff', bg: judging ? '#b07d00' : mine ? '#14874a' : 'rgba(20,16,50,.85)' });
+        if (o) D.tag(c, (judging ? '' : '') + (o.bot ? '' : '') + o.nick + (mine ? ' (YOU)' : ''), (x0 + x1) / 2, y0 - 16, { size: 13, color: '#fff', bg: judging ? '#b07d00' : mine ? '#14874a' : 'rgba(20,16,50,.85)' });
       } });
     });
   }
   // what one click builds: the selected palette entry
   function bbPlaceAt(i, erase) {
     if (i < 0 || S.phase !== 'build' || !S.map.plots) return;
-    if (!MG.inPlot(S.map, S.team, i)) { if (now() - (S.bbWarnT || 0) > 1500) { S.bbWarnT = now(); toast('🧱 Build on YOUR plot (the green outline)', 1500); SC.sfx('no'); } return; }
+    if (!MG.inPlot(S.map, S.team, i)) { if (now() - (S.bbWarnT || 0) > 1500) { S.bbWarnT = now(); toast('Build on YOUR plot (the green outline)', 1500); SC.sfx('no'); } return; }
     if (now() - (S.bbT || 0) < 90) return; S.bbT = now();
     var m = S.map, sel = S.bbSel;
     if (erase || sel.lay === 'x') {
@@ -2924,7 +2932,7 @@
       if (it.lay === 'g') { x.fillStyle = BB_GCOL[it.v] || '#555'; x.beginPath(); x.roundRect(10, 10, 52, 52, 10); x.fill(); x.strokeStyle = '#1b1636'; x.lineWidth = 4; x.stroke(); if (!it.v) { x.strokeStyle = '#ff5c6c'; x.beginPath(); x.moveTo(18, 18); x.lineTo(54, 54); x.stroke(); } }
       else if (it.lay === 'w') { x.translate(36, 40); x.scale(1.4, 1.4); D.drawItem(x, ['', 'wool', 'wood', 'end', 'obby'][it.v], 1, { team: S.team & 7 }); }
       else if (it.lay === 'p') { x.translate(36, 58); D.prop(x, it.prop, 0, 0, 0, { face: true }); }
-      else { x.font = '34px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('🧽', 36, 38); }
+      else { x.font = '34px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('', 36, 38); }
     } catch (e) {}
     return cv2;
   }
@@ -2947,16 +2955,16 @@
     vt.classList.toggle('hidden', !(build && S.phase === 'vote' && S.votePlot >= 0));
     if (!vt.classList.contains('hidden')) {
       var own = S.votePlot === S.team;
-      vt.innerHTML = own ? '<div class="bvt">🏗️ Everyone is judging <b>YOUR</b> build!</div>'
-        : S.voted ? '<div class="bvt">✅ Voted! Waiting for the others…</div>'
-        : '<div class="bvt">How good is it?</div><div class="bstars">' + [1, 2, 3, 4, 5].map(function (v) { return '<button data-bv="' + v + '">' + '⭐'.repeat(v) + '</button>'; }).join('') + '</div>';
+      vt.innerHTML = own ? '<div class="bvt">Everyone is judging <b>YOUR</b> build!</div>'
+        : S.voted ? '<div class="bvt"><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> Voted! Waiting for the others…</div>'
+        : '<div class="bvt">How good is it?</div><div class="bstars">' + [1, 2, 3, 4, 5].map(function (v) { return '<button data-bv="' + v + '">' + ''.repeat(v) + '</button>'; }).join('') + '</div>';
       void canVote;
     }
   }
   $('bbVote').addEventListener('click', function (e) {
     var b = e.target.closest('[data-bv]'); if (!b || S.voted) return;
     S.voted = true; send({ t: 'bb', op: 'vote', v: +b.dataset.bv });
-    SC.sfx('buy'); toast('⭐ Voted ' + b.dataset.bv + '/5', 1200); bbUISync();
+    SC.sfx('buy'); toast('Voted ' + b.dataset.bv + '/5', 1200); bbUISync();
   });
 
   // ================================================================== TUTORIALS
@@ -2964,52 +2972,52 @@
   var TUT = {
     bw: [
       { d: 'Walk around with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', t: 'Move with the joystick', ok: function () { return S.did.move; } },
-      { d: 'Stand on your generator to collect <b>iron</b> ⚪', ok: function () { return (S.res.iron || 0) > 0; } },
+      { d: 'Stand on your generator to collect <b>iron</b>', ok: function () { return (S.res.iron || 0) > 0; } },
       { d: 'Walk to the <b>Item Shop</b> NPC and press <kbd>E</kbd>', t: 'Tap the <b>Item Shop</b> NPC', ok: function () { return S.did.shop; } },
       { d: 'Buy <b>Wool</b> — it costs 4 iron', ok: function () { return (S.inv.wool || 0) > 0 || S.did.place; } },
-      { d: 'Hold <b>right click</b> and walk to bridge over the void', t: 'Hold 🧱 while walking to bridge', ok: function () { return S.did.place; } },
+      { d: 'Hold <b>right click</b> and walk to bridge over the void', t: 'Hold while walking to bridge', ok: function () { return S.did.place; } },
       { d: 'Sprint with <kbd>Shift</kbd> (or double-tap) and jump with <kbd>Space</kbd>', t: 'Push the joystick all the way to sprint', ok: function () { return S.did.sprint; } },
-      { d: '🛏 Cover your bed in blocks, then go break everyone else’s!', wait: 7000 }],
+      { d: 'Cover your bed in blocks, then go break everyone else’s!', wait: 7000 }],
     ctf: [
       { d: 'Walk around with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, sprint with <kbd>Shift</kbd>', t: 'Move with the joystick — push it all the way to sprint', ok: function () { return S.did.move; } },
-      { d: 'Follow the arrow to the <b>enemy flag</b> and touch it 🚩', ok: function () { return S.did.take; } },
+      { d: 'Follow the arrow to the <b>enemy flag</b> and touch it', ok: function () { return S.did.take; } },
       { d: 'Carry it back to <b>your own flag</b> to score!', ok: function () { return S.did.cap || (S.score[S.team] || 0) > 0; } },
       { d: 'If your flag gets dropped, touch it to send it home', wait: 6000 },
-      { d: 'Bridge with wool (<b>right click</b>), shoot with the bow. First to 3 wins! 🏆', t: '🧱 bridges, ✨ uses items. First to 3 wins! 🏆', wait: 7000 }],
+      { d: 'Bridge with wool (<b>right click</b>), shoot with the bow. First to 3 wins!', t: 'bridges, uses items. First to 3 wins!', wait: 7000 }],
     spleef: [
       { d: 'Keep moving! The floor crumbles right after you step on it', t: 'Keep moving! The floor crumbles behind you', ok: function () { return S.did.move; } },
-      { d: 'Press <kbd>Space</kbd> to jump over a hole', t: 'Tap ⤴️ to jump over holes', ok: function () { return S.did.hop; } },
-      { d: '<b>Left click</b> a block to dig it — dig under other players! 😈', t: 'Tap ⛏️ to dig the block in front of you 😈', ok: function () { return S.did.dig; } },
-      { d: 'Digging gives snowballs ❄️ — <b>right click</b> to throw one', t: 'Tap ❄️ to throw a snowball', ok: function () { return S.did.snow; } },
+      { d: 'Press <kbd>Space</kbd> to jump over a hole', t: 'Tap to jump over holes', ok: function () { return S.did.hop; } },
+      { d: '<b>Left click</b> a block to dig it — dig under other players!', t: 'Tap to dig the block in front of you', ok: function () { return S.did.dig; } },
+      { d: 'Digging gives snowballs — <b>right click</b> to throw one', t: 'Tap to throw a snowball', ok: function () { return S.did.snow; } },
       { d: 'There are ' + MG.SP_LAYERS + ' floors. Fall through all of them and you’re out. Last one standing wins!', wait: 7000 }],
     hide: [
-      { d: 'Walk up to a prop and press <kbd>E</kbd> to become it', t: 'Stand next to a prop and tap 🎭 to become it', ok: function () { return S.did.dis; } },
+      { d: 'Walk up to a prop and press <kbd>E</kbd> to become it', t: 'Stand next to a prop and tap to become it', ok: function () { return S.did.dis; } },
       { d: 'Find a spot next to matching props and <b>stand still</b> — you snap into place', ok: function () { return P && P.idleT > 1.5 && S.did.dis; } },
-      { d: 'Press <kbd>F</kbd> to taunt 🎵 for bonus Scrolls (seekers can hear it!)', t: 'Tap 🎵 to taunt for bonus Scrolls', ok: function () { return S.did.taunt; } },
-      { d: 'Seekers can hear you talk too 🎙️ Survive until the timer runs out!', wait: 7000 }],
+      { d: 'Press <kbd>F</kbd> to taunt for bonus Scrolls (seekers can hear it!)', t: 'Tap to taunt for bonus Scrolls', ok: function () { return S.did.taunt; } },
+      { d: 'Seekers can hear you talk too Survive until the timer runs out!', wait: 7000 }],
     seek: [
       { d: 'You’re blindfolded while the hiders pick their disguises…', ok: function () { return snow() >= S.seekAt; } },
-      { d: '<b>Left click</b> to hit props that look out of place. Real props hurt you a bit!', t: 'Tap ⚔️ near suspicious props. Real ones hurt you a bit!', ok: function () { return S.did.swingSeek; } },
-      { d: 'Press <kbd>F</kbd> for the 📡 radar — it shows roughly where a hider is', t: 'Tap 📡 for the radar', ok: function () { return S.did.radar; } },
-      { d: 'Listen for taunts 🎵 and voices — and watch for props that move!', wait: 7000 }],
+      { d: '<b>Left click</b> to hit props that look out of place. Real props hurt you a bit!', t: 'Tap near suspicious props. Real ones hurt you a bit!', ok: function () { return S.did.swingSeek; } },
+      { d: 'Press <kbd>F</kbd> for the radar — it shows roughly where a hider is', t: 'Tap for the radar', ok: function () { return S.did.radar; } },
+      { d: 'Listen for taunts and voices — and watch for props that move!', wait: 7000 }],
   };
   TUT.duel = [
-    { d: 'Fight! <kbd>Shift</kbd> sprint = big knockback, <kbd>Space</kbd> + hit = critical', t: 'Full joystick = sprint knockback. ⤴️ + hit = crit', ok: function () { return S.did.move; } },
+    { d: 'Fight! <kbd>Shift</kbd> sprint = big knockback, <kbd>Space</kbd> + hit = critical', t: 'Full joystick = sprint knockback. + hit = crit', ok: function () { return S.did.move; } },
     { d: 'Knock them into the void or cut them down — first to ' + MG.GAMES.duel.wins + ' kills wins', wait: 6000 },
-    { d: 'Win public duels to raise your rank: Bronze → Silver → Gold → Diamond 💎', wait: 6000 }];
+    { d: 'Win public duels to raise your rank: Bronze → Silver → Gold → Diamond', wait: 6000 }];
   TUT.murder = [
     { d: 'Someone here is a murderer. Nobody knows who…', wait: 5000 },
-    { d: 'Collect gold bars 🪙 — 10 gold earns you a bow', ok: function () { return (S.gold || 0) > 0; } },
-    { d: 'If you have a bow, <b>hold left click</b> to shoot. Hit the murderer to win — shoot an innocent and YOU die!', t: 'Tap 🏹 to shoot the nearest player — only when you’re sure!', wait: 7000 },
-    { d: 'Stay near others, listen for screams, and watch who’s holding a knife 🔪', wait: 7000 }];
+    { d: 'Collect gold bars — 10 gold earns you a bow', ok: function () { return (S.gold || 0) > 0; } },
+    { d: 'If you have a bow, <b>hold left click</b> to shoot. Hit the murderer to win — shoot an innocent and YOU die!', t: 'Tap to shoot the nearest player — only when you’re sure!', wait: 7000 },
+    { d: 'Stay near others, listen for screams, and watch who’s holding a knife', wait: 7000 }];
   TUT.murd_m = [
-    { d: 'YOU are the murderer 🔪 Press <kbd>F</kbd> to draw or hide your knife', t: 'Tap ✊ to draw or hide your knife', ok: function () { return S.held === 'knife'; } },
+    { d: 'YOU are the murderer Press <kbd>F</kbd> to draw or hide your knife', t: 'Tap to draw or hide your knife', ok: function () { return S.held === 'knife'; } },
     { d: 'One stab kills. Catch people alone — witnesses will tell the detective!', wait: 6000 },
     { d: 'Hide the knife (<kbd>F</kbd>) when people are watching. Kill everyone before time runs out!', wait: 7000 }];
   TUT.build = [
     { d: 'Build the theme on YOUR plot! Pick blocks from the palette below', t: 'Pick a block below, then tap ahead of you to place it', ok: function () { return S.did.bb; } },
-    { d: '<b>Right click</b> erases. <kbd>R</kbd> cycles the palette', t: 'Tap 🧽 to erase what’s in front of you', wait: 6000 },
-    { d: 'When time runs out everyone tours the plots and votes ⭐ — best build wins!', wait: 7000 }];
+    { d: '<b>Right click</b> erases. <kbd>R</kbd> cycles the palette', t: 'Tap to erase what’s in front of you', wait: 6000 },
+    { d: 'When time runs out everyone tours the plots and votes — best build wins!', wait: 7000 }];
   function tutDone(key) { try { return !!JSON.parse(localStorage.getItem('sh_tut') || '{}')[key]; } catch (e) { return false; } }
   function tutMark(key, v) { try { var o = JSON.parse(localStorage.getItem('sh_tut') || '{}'); if (v) o[key] = 1; else delete o[key]; localStorage.setItem('sh_tut', JSON.stringify(o)); } catch (e) {} }
   function tutStart() { if (S.watching) return;
@@ -3022,8 +3030,8 @@
     var tu = S.tut, el = $('tutor'); if (!tu) { el.classList.add('hidden'); return; }
     var L2 = TUT[tu.key], st = L2[tu.i];
     el.classList.remove('hidden');
-    el.innerHTML = '<div class="th">📘 Tutorial · ' + (tu.i + 1) + '/' + L2.length + '<span class="grow"></span><button id="tutSkip">Skip</button></div><div class="tx">' + (touch && st.t ? st.t : st.d) + '</div><div class="bar"><i style="width:' + Math.round(tu.i / L2.length * 100) + '%"></i></div>';
-    $('tutSkip').onclick = function () { tutMark(tu.key, 1); S.tut = null; el.classList.add('hidden'); toast('Tutorial skipped — open ❓ any time', 1600); };
+    el.innerHTML = '<div class="th">Tutorial · ' + (tu.i + 1) + '/' + L2.length + '<span class="grow"></span><button id="tutSkip">Skip</button></div><div class="tx">' + (touch && st.t ? st.t : st.d) + '</div><div class="bar"><i style="width:' + Math.round(tu.i / L2.length * 100) + '%"></i></div>';
+    $('tutSkip').onclick = function () { tutMark(tu.key, 1); S.tut = null; el.classList.add('hidden'); toast('Tutorial skipped — open the help button any time', 1600); };
   }
   function tutTick() {
     var tu = S.tut; if (!tu || S.screen !== 'game') return;
@@ -3033,7 +3041,7 @@
     if (st.wait ? now() - tu.st > st.wait : st.ok()) {
       tu.i++; tu.st = now(); SC.sfx('pop');
       var el = $('tutor'); el.classList.remove('done'); void el.offsetWidth; el.classList.add('done');
-      if (tu.i >= L2.length) { tutMark(tu.key, 1); S.tut = null; el.innerHTML = '<div class="th">📘 Tutorial</div><div class="tx">🎉 You’ve got it! Have fun!</div><div class="bar"><i style="width:100%"></i></div>'; setTimeout(function () { if (!S.tut) el.classList.add('hidden'); }, 2600); return; }
+      if (tu.i >= L2.length) { tutMark(tu.key, 1); S.tut = null; el.innerHTML = '<div class="th">Tutorial</div><div class="tx"><svg class="ui-i" aria-hidden="true"><use href="#ui-party-popper"/></svg> You’ve got it! Have fun!</div><div class="bar"><i style="width:100%"></i></div>'; setTimeout(function () { if (!S.tut) el.classList.add('hidden'); }, 2600); return; }
       tutRender();
     }
   }
@@ -3045,51 +3053,51 @@
   function itemAt(x, id, cx, cy, s, o) { x.save(); x.translate(cx, cy); D.drawItem(x, id, s, o || {}); x.restore(); }
   var MEL = { skin: 'gim', body: '#3fa9ff' }, YOU = function () { return (S.hello && S.hello.look) || MEL; };
   var HELP = {
-    bw: { name: 'Bedwars', icon: '🛏️', pages: [
-      { h: 'Protect your bed', p: 'Every team has a 🛏 bed. While it stands you respawn. Once it’s broken, your next death is <b style="color:#ff5c6c">final</b>. Last team standing wins.', art: function (x, t) { artBg(x, '#4a2a6a'); D.bed(x, { team: 0, x: 150, y: 170, dir: [0, 1] }, t, true); gimAt(x, 90, 230, YOU(), t); gimAt(x, 220, 230, { skin: 'fox', body: '#ff4b5c' }, t + 1); } },
+    bw: { name: 'Bedwars', icon: 'BED', pages: [
+      { h: 'Protect your bed', p: 'Every team has a bed. While it stands you respawn. Once it’s broken, your next death is <b style="color:#ff5c6c">final</b>. Last team standing wins.', art: function (x, t) { artBg(x, '#4a2a6a'); D.bed(x, { team: 0, x: 150, y: 170, dir: [0, 1] }, t, true); gimAt(x, 90, 230, YOU(), t); gimAt(x, 220, 230, { skin: 'fox', body: '#ff4b5c' }, t + 1); } },
       { h: 'Collect & shop', p: 'Stand on your generator for <b>iron</b> and <b>gold</b>. Diamonds and emeralds spawn on the islands. Spend them at the <b>Item Shop</b> (<kbd>E</kbd>).', keys: '<kbd>E</kbd> talk to shop', art: function (x, t) { artBg(x); ['iron', 'gold', 'dia', 'em'].forEach(function (r, k) { D.res(x, r, 60 + k * 60, 110 + Math.sin(t * 3 + k) * 6, 2); }); itemAt(x, 'wool', 100, 210, 2.2); itemAt(x, 'sword3', 200, 210, 2.2); } },
-      { h: 'Bridge across the void', p: 'Hold <b>right click</b> and walk to lay blocks in front of you. You can’t walk off edges — but knockback can throw you off!', keys: '<kbd>Right click</kbd> place · <kbd>Left click</kbd> mine', tk: '🧱 places blocks · ⚔️ mines', art: function (x, t) { artBg(x, '#1d3a6a'); for (var k = 0; k < 5; k++) itemAt(x, 'wool', 50 + k * 50, 200, 1.5, { team: 1 }); gimAt(x, 50 + ((t * 40) % 200), 170, YOU(), t, { moving: true, walk: t * 10 }); } },
+      { h: 'Bridge across the void', p: 'Hold <b>right click</b> and walk to lay blocks in front of you. You can’t walk off edges — but knockback can throw you off!', keys: '<kbd>Right click</kbd> place · <kbd>Left click</kbd> mine', tk: 'places blocks · mines', art: function (x, t) { artBg(x, '#1d3a6a'); for (var k = 0; k < 5; k++) itemAt(x, 'wool', 50 + k * 50, 200, 1.5, { team: 1 }); gimAt(x, 50 + ((t * 40) % 200), 170, YOU(), t, { moving: true, walk: t * 10 }); } },
       { h: 'Fight like Minecraft', p: '<kbd>Shift</kbd> or double-tap to sprint (big knockback). Jump with <kbd>Space</kbd> and hit while falling for a <b style="color:#ffd166">critical hit</b>.', art: function (x, t) { artBg(x, '#5a1a3a'); gimAt(x, 110, 200, YOU(), t); gimAt(x, 200, 200 - Math.abs(Math.sin(t * 3)) * 30, { skin: 'bear', body: '#2bd576' }, t); itemAt(x, 'sword4', 150, 110, 2.4); } },
     ] },
-    ctf: { name: 'Capture the Flag', icon: '🚩', pages: [
+    ctf: { name: 'Capture the Flag', icon: '', pages: [
       { h: 'Steal their flag', p: 'Two teams, two flags. Run to the <b>enemy flag</b> and touch it to pick it up. Arrows on your screen point the way.', art: function (x, t) { artBg(x, '#1d3a6a'); D.flagStand(x, 80, 220, 0, t, true); D.flag(x, 80, 220, 0, t); D.flagStand(x, 220, 220, 1, t, true); D.flag(x, 220, 220, 1, t); gimAt(x, 150, 180, YOU(), t, { moving: true, walk: t * 10 }); } },
-      { h: 'Bring it home', p: 'Carry it back to <b>your own flag</b> to score a capture. Your flag has to be home to score! First team to <b>3</b> wins.', art: function (x, t) { artBg(x, '#1d4a3a'); x.save(); x.translate(150, 200); x.scale(1.7, 1.7); D.flagBack(x, 1, t, true); A.drawGim(x, 0, 0, YOU(), { t: t, dir: 0, moving: true, walk: t * 10 }); x.restore(); x.fillStyle = '#2bd576'; x.font = '700 30px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('🏠 +1', 150, 70); } },
+      { h: 'Bring it home', p: 'Carry it back to <b>your own flag</b> to score a capture. Your flag has to be home to score! First team to <b>3</b> wins.', art: function (x, t) { artBg(x, '#1d4a3a'); x.save(); x.translate(150, 200); x.scale(1.7, 1.7); D.flagBack(x, 1, t, true); A.drawGim(x, 0, 0, YOU(), { t: t, dir: 0, moving: true, walk: t * 10 }); x.restore(); x.fillStyle = '#2bd576'; x.font = '700 30px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('+1', 150, 70); } },
       { h: 'Stop the thief', p: 'If they take <b>your</b> flag, hunt the carrier down. Kill them and the flag drops — touch it to send it home.', art: function (x, t) { artBg(x, '#5a1a3a'); x.save(); x.translate(200, 200); x.scale(1.7, 1.7); D.flagBack(x, 0, t, true); A.drawGim(x, 0, 0, { skin: 'fox', body: '#3fa9ff' }, { t: t, dir: 0 }); x.restore(); gimAt(x, 100, 200, YOU(), t); itemAt(x, 'sword2', 150, 100, 2.2); } },
-      { h: 'Your kit', p: 'You spawn with a stone sword, chain armor, a bow and wool. Grab ✨ pickups in the middle: golden apples, speed, pearls and fireballs.', keys: '<kbd>Left</kbd> attack · <kbd>Right</kbd> bridge · hold <kbd>Left</kbd> with bow to shoot', tk: '⚔️ attack · 🧱 bridge · ✨ use item', art: function (x, t) { artBg(x); ['sword2', 'armor2', 'bow', 'wool', 'gapple', 'pearl'].forEach(function (id, k) { itemAt(x, id, 70 + (k % 3) * 80, 100 + ((k / 3) | 0) * 100 + Math.sin(t * 3 + k) * 5, 1.8, { team: 0 }); }); } },
+      { h: 'Your kit', p: 'You spawn with a stone sword, chain armor, a bow and wool. Grab pickups in the middle: golden apples, speed, pearls and fireballs.', keys: '<kbd>Left</kbd> attack · <kbd>Right</kbd> bridge · hold <kbd>Left</kbd> with bow to shoot', tk: 'attack · bridge · use item', art: function (x, t) { artBg(x); ['sword2', 'armor2', 'bow', 'wool', 'gapple', 'pearl'].forEach(function (id, k) { itemAt(x, id, 70 + (k % 3) * 80, 100 + ((k / 3) | 0) * 100 + Math.sin(t * 3 + k) * 5, 1.8, { team: 0 }); }); } },
     ] },
-    spleef: { name: 'TNT Spleef', icon: '❄️', pages: [
+    spleef: { name: 'TNT Spleef', icon: '', pages: [
       { h: 'The floor falls away', p: 'Every block you step on crumbles a moment later. <b>Keep moving</b> and don’t walk back over your own trail!', art: function (x, t) { artBg(x, '#1d3a6a'); for (var ty = 0; ty < 5; ty++) for (var tx = 0; tx < 5; tx++) { var gone = (tx + ty * 5) < ((t * 3) % 12) && ty === 2; if (!gone) D.spTile(x, 'snow', 50 + tx * 40, 60 + ty * 40, tx + ty * 7, false); } gimAt(x, 70 + ((t * 40) % 160), 165, YOU(), t, { moving: true, walk: t * 10 }); } },
       { h: 'Four floors deep', p: 'Fall through a hole and you land on the floor below. There are <b>' + MG.SP_LAYERS + '</b> floors: snow, sand, clay and TNT. Fall off the last one and you’re out.', art: function (x, t) { artBg(x, '#2a1a5e'); MG.SP.kinds.forEach(function (k2, z) { for (var tx = 0; tx < 4; tx++) D.spTile(x, k2, 70 + tx * 40 + z * 6, 50 + z * 55, tx + z, true); }); } },
-      { h: 'Jump the gaps', p: 'Press <kbd>Space</kbd> to jump over a hole. While you’re in the air the floor can’t fall under you.', tk: 'Tap ⤴️ to jump', art: function (x, t) { artBg(x, '#1d3a6a'); D.spTile(x, 'snow', 60, 170, 1, true); D.spTile(x, 'snow', 200, 170, 2, true); var u = (t % 1.4) / 1.4; gimAt(x, 80 + u * 140, 190 - Math.sin(u * Math.PI) * 60, YOU(), t, { moving: true, walk: t * 10 }); } },
-      { h: 'Dig & throw', p: '<b>Left click</b> a block to dig it out, ideally right under someone else 😈. Each dig gives a snowball ❄️; <b>right click</b> to throw it and knock people around.', keys: '<kbd>Left</kbd> dig · <kbd>Right</kbd> snowball · hit people to push them', tk: '⛏️ dig · ❄️ throw · ⤴️ jump', art: function (x, t) { artBg(x, '#3a2a6a'); itemAt(x, 'shovel', 110, 150, 3); itemAt(x, 'snow', 200, 150 + Math.sin(t * 4) * 10, 2.6); } },
+      { h: 'Jump the gaps', p: 'Press <kbd>Space</kbd> to jump over a hole. While you’re in the air the floor can’t fall under you.', tk: 'Tap to jump', art: function (x, t) { artBg(x, '#1d3a6a'); D.spTile(x, 'snow', 60, 170, 1, true); D.spTile(x, 'snow', 200, 170, 2, true); var u = (t % 1.4) / 1.4; gimAt(x, 80 + u * 140, 190 - Math.sin(u * Math.PI) * 60, YOU(), t, { moving: true, walk: t * 10 }); } },
+      { h: 'Dig & throw', p: '<b>Left click</b> a block to dig it out, ideally right under someone else. Each dig gives a snowball; <b>right click</b> to throw it and knock people around.', keys: '<kbd>Left</kbd> dig · <kbd>Right</kbd> snowball · hit people to push them', tk: 'dig · throw · jump', art: function (x, t) { artBg(x, '#3a2a6a'); itemAt(x, 'shovel', 110, 150, 3); itemAt(x, 'snow', 200, 150 + Math.sin(t * 4) * 10, 2.6); } },
     ] },
-    hide: { name: 'Prop Hunt', icon: '🎃', pages: [
-      { h: 'Hiders become props', p: 'Walk up to any prop and press <kbd>E</kbd> to turn into it. Then pick a sneaky spot near matching props and <b>stand still</b>.', tk: 'Stand by a prop and tap 🎭', art: function (x, t) { artBg(x, '#1d4a3a'); ['barrel', 'pumpkin', 'crate'].forEach(function (k2, i) { D.prop(x, k2, 70 + i * 80, 230, t, { sc: 2.3, wob: i === 1 ? (Math.sin(t * 2) > 0.8 ? 1 : 0) : 0, face: true }); }); x.fillStyle = '#ffd166'; x.font = '700 22px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('Which one is a player? 🤔', 150, 60); } },
+    hide: { name: 'Prop Hunt', icon: '', pages: [
+      { h: 'Hiders become props', p: 'Walk up to any prop and press <kbd>E</kbd> to turn into it. Then pick a sneaky spot near matching props and <b>stand still</b>.', tk: 'Stand by a prop and tap', art: function (x, t) { artBg(x, '#1d4a3a'); ['barrel', 'pumpkin', 'crate'].forEach(function (k2, i) { D.prop(x, k2, 70 + i * 80, 230, t, { sc: 2.3, wob: i === 1 ? (Math.sin(t * 2) > 0.8 ? 1 : 0) : 0, face: true }); }); x.fillStyle = '#ffd166'; x.font = '700 22px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('Which one is a player?', 150, 60); } },
       { h: 'Seekers hunt', p: 'Seekers are blindfolded for 30 seconds, then go looking. They hit props that look out of place. Hitting a <b>real</b> prop hurts the seeker a little!', art: function (x, t) { artBg(x, '#5a1a3a'); gimAt(x, 110, 210, { skin: 'ninja', body: '#ff4b5c' }, t); itemAt(x, 'sword2', 150, 150, 1.8); D.prop(x, 'barrel', 215, 235, t, { sc: 2.3, wob: Math.sin(t * 6) > 0 ? 0.6 : 0 }); } },
       { h: 'Found? Join the hunt', p: 'When a hider is found they come back as a <b>seeker</b>. Hiders win if anyone is still hidden when time runs out.', art: function (x, t) { artBg(x, '#3a2a6a'); D.prop(x, 'crate', 85, 225, t, { sc: 2.2 }); x.fillStyle = '#fff'; x.font = '700 40px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillText('➜', 155, 195); gimAt(x, 215, 215, { skin: 'cat', body: '#ff4b5c' }, t); } },
-      { h: 'Taunts, radar & voice', p: 'Hiders: <kbd>F</kbd> taunts 🎵 for bonus Scrolls (and every 30s you taunt automatically). Seekers: <kbd>F</kbd> uses the 📡 radar. Proximity voice is on, so whispering hiders can be heard!', tk: 'Hiders: 🎵 taunt · Seekers: 📡 radar', art: function (x, t) { artBg(x, '#2a1a5e'); itemAt(x, 'taunt', 100, 150, 2.8); itemAt(x, 'radar', 200, 150, 2.8); for (var k = 0; k < 3; k++) { x.fillStyle = 'rgba(255,209,102,' + (1 - ((t + k / 3) % 1)) + ')'; x.font = '700 28px Fredoka, sans-serif'; x.fillText('♪', 80 + k * 20, 100 - ((t + k / 3) % 1) * 50); } } },
+      { h: 'Taunts, radar & voice', p: 'Hiders: <kbd>F</kbd> taunts for bonus Scrolls (and every 30s you taunt automatically). Seekers: <kbd>F</kbd> uses the radar. Proximity voice is on, so whispering hiders can be heard!', tk: 'Hiders: taunt · Seekers: radar', art: function (x, t) { artBg(x, '#2a1a5e'); itemAt(x, 'taunt', 100, 150, 2.8); itemAt(x, 'radar', 200, 150, 2.8); for (var k = 0; k < 3; k++) { x.fillStyle = 'rgba(255,209,102,' + (1 - ((t + k / 3) % 1)) + ')'; x.font = '700 28px Fredoka, sans-serif'; x.fillText('♪', 80 + k * 20, 100 - ((t + k / 3) % 1) * 50); } } },
     ] },
   };
-  HELP.duel = { name: 'Duels', icon: '⚔️', pages: [
+  HELP.duel = { name: 'Duels', icon: '', pages: [
     { h: '1v1. No excuses.', p: 'A tiny arena over the void. Sprint hits send people flying, jump hits are <b style="color:#ffd166">critical</b>. First to ' + MG.GAMES.duel.wins + ' kills takes it.', art: function (x, t) { artBg(x, '#5a1a3a'); gimAt(x, 90, 210, YOU(), t); gimAt(x, 210, 210 - Math.abs(Math.sin(t * 3)) * 30, { skin: 'ninja', body: '#ff4b5c' }, t); itemAt(x, 'sword3', 150, 100, 2.6); } },
     { h: 'Climb the ranks', p: 'Public duels are <b>ranked</b>: Bronze → Silver → Gold → Diamond. Winning against stronger players earns more points.', art: function (x, t) { artBg(x); MG.RANKS.forEach(function (r2, k) { x.fillStyle = r2.color; x.beginPath(); x.arc(60 + k * 60, 150 + Math.sin(t * 2 + k) * 8, 20, 0, 7); x.fill(); x.strokeStyle = '#1b1636'; x.lineWidth = 4; x.stroke(); }); } },
-    { h: 'The void is a weapon', p: 'The edge has no rails. A well-timed knockback hit wins a round without doing a single heart of damage.', keys: '<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Left click</kbd> swing', tk: 'Full joystick = sprint · ⤴️ jump · ⚔️ swing', art: function (x, t) { artBg(x, '#1d3a6a'); D.spTile(x, 'sand', 60, 170, 3, true); D.spTile(x, 'sand', 100, 170, 4, true); var u = (t % 1.3) / 1.3; gimAt(x, 160 + u * 90, 185 + u * u * 60, { skin: 'bear', body: '#2bd576' }, t); } },
+    { h: 'The void is a weapon', p: 'The edge has no rails. A well-timed knockback hit wins a round without doing a single heart of damage.', keys: '<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Left click</kbd> swing', tk: 'Full joystick = sprint · jump · swing', art: function (x, t) { artBg(x, '#1d3a6a'); D.spTile(x, 'sand', 60, 170, 3, true); D.spTile(x, 'sand', 100, 170, 4, true); var u = (t % 1.3) / 1.3; gimAt(x, 160 + u * 90, 185 + u * u * 60, { skin: 'bear', body: '#2bd576' }, t); } },
   ] };
-  HELP.murder = { name: 'Murder Mystery', icon: '🔪', pages: [
-    { h: 'Trust no one', p: '8 players. One is the <b style="color:#ff5c6c">murderer</b>, one is the <b style="color:#3fa9ff">detective</b> with a bow. Everyone else is innocent.', art: function (x, t) { artBg(x, '#2a1a5e'); [['cat', '#ff922b'], ['ninja', '#4a4f6a'], ['duck', '#ffd166'], ['bear', '#2bd576']].forEach(function (q, k) { gimAt(x, 60 + k * 60, 215, { skin: q[0], body: q[1] }, t + k); }); x.font = '30px system-ui'; x.textAlign = 'center'; x.fillText('❓', 150, 70); } },
+  HELP.murder = { name: 'Murder Mystery', icon: '', pages: [
+    { h: 'Trust no one', p: '8 players. One is the <b style="color:#ff5c6c">murderer</b>, one is the <b style="color:#3fa9ff">detective</b> with a bow. Everyone else is innocent.', art: function (x, t) { artBg(x, '#2a1a5e'); [['cat', '#ff922b'], ['ninja', '#4a4f6a'], ['duck', '#ffd166'], ['bear', '#2bd576']].forEach(function (q, k) { gimAt(x, 60 + k * 60, 215, { skin: q[0], body: q[1] }, t + k); }); x.font = '30px system-ui'; x.textAlign = 'center'; x.fillText('', 150, 70); } },
     { h: 'The knife', p: 'The murderer draws the knife with <kbd>F</kbd> — one stab kills. But anyone nearby <b>sees</b> the knife and will run, scream and shoot.', art: function (x, t) { artBg(x, '#5a1a3a'); gimAt(x, 150, 210, { skin: 'skeleton', body: '#eef2ff' }, t); itemAt(x, 'knife', 200, 140, 3); } },
     { h: 'Gold buys justice', p: 'Gold bars appear around the village. Collect <b>10</b> and you get a bow with one arrow. Shoot the murderer to end it — shoot an innocent and you die too.', art: function (x, t) { artBg(x, '#1d4a3a'); for (var k = 0; k < 5; k++) { x.save(); x.translate(60 + k * 45, 160 + Math.sin(t * 3 + k) * 8); D.drawItem(x, 'goldI', 1.4); x.restore(); } itemAt(x, 'bow', 150, 240, 2); } },
-    { h: 'Use your ears', p: 'Proximity voice is on. Scream when you see the knife. And if someone goes quiet mid-sentence… you know why. 🎙️', art: function (x, t) { artBg(x); gimAt(x, 100, 210, YOU(), t); for (var k = 0; k < 3; k++) { x.fillStyle = 'rgba(255,209,102,' + (1 - ((t + k / 3) % 1)) + ')'; x.font = '700 26px Fredoka, sans-serif'; x.fillText('!', 150 + k * 18, 140 - ((t + k / 3) % 1) * 40); } } },
+    { h: 'Use your ears', p: 'Proximity voice is on. Scream when you see the knife. And if someone goes quiet mid-sentence… you know why.', art: function (x, t) { artBg(x); gimAt(x, 100, 210, YOU(), t); for (var k = 0; k < 3; k++) { x.fillStyle = 'rgba(255,209,102,' + (1 - ((t + k / 3) % 1)) + ')'; x.font = '700 26px Fredoka, sans-serif'; x.fillText('!', 150 + k * 18, 140 - ((t + k / 3) % 1) * 40); } } },
   ] };
-  HELP.royale = { name: 'Scroll Royale', icon: '🪂', pages: [
+  HELP.royale = { name: 'Scroll Royale', icon: '', pages: [
     { h: 'Last one standing', p: 'Ride the <b>Battle Bus</b> and press <kbd>Space</kbd> to jump. Glide down, land, loot and be the last one alive. <b>Click</b> to shoot where you aim.', tk: 'Tap to jump from the bus. <b>Tap anywhere</b> to shoot there; hold to keep firing. Joystick moves.', art: function (x, t) { artBg(x, '#2f5f2a'); [['cat', '#ff922b'], ['ninja', '#4a4f6a'], ['duck', '#ffd166'], ['bear', '#2bd576']].forEach(function (q, k) { gimAt(x, 60 + k * 60, 215, { skin: q[0], body: q[1] }, t + k); }); itemAt(x, 'ar', 150, 120, 3); } },
     { h: 'Loot & rarity', p: 'Open <b>gold chests</b> and walk over loot. <b style="color:#b0b6bd">Common</b> → <b style="color:#2bd576">Uncommon</b> → <b style="color:#4aa8ff">Rare</b> → <b style="color:#b55cff">Epic</b> → <b style="color:#ffb02e">Legendary</b>. 5 slots: <kbd>1</kbd>–<kbd>5</kbd>, <kbd>R</kbd> reload, <kbd>H</kbd> heal, <kbd>X</kbd> drop, <kbd>E</kbd> chests, swaps and jeeps.', art: function (x, t) { artBg(x, '#4a3a10'); ['pistol', 'smg', 'ar', 'shotgun', 'sniper'].forEach(function (k, i) { itemAt(x, k, 50 + i * 50, 150 + Math.sin(t * 3 + i) * 6, 1.6); }); } },
     { h: 'Beat the storm', p: 'The purple <b style="color:#b27cff">storm</b> shrinks to the white ring. Shields soak damage first. Break trees, rocks and walls with your pickaxe or explosives, hide inside buildings, and press <kbd>M</kbd> for the big map.', art: function (x, t) { artBg(x, '#3b1a6e'); x.strokeStyle = '#d6b8ff'; x.lineWidth = 4; x.beginPath(); x.arc(150, 150, 110 - (t % 4) * 18, 0, 6.3); x.stroke(); gimAt(x, 150, 200, YOU(), t); } },
   ] };
-  HELP.build = { name: 'Build Battle', icon: '🏗️', pages: [
+  HELP.build = { name: 'Build Battle', icon: '', pages: [
     { h: 'One theme, one plot', p: 'Everyone gets the same theme and their own plot. You have ' + MG.GAMES.build.buildSec + ' seconds — make something amazing.', art: function (x, t) { artBg(x, '#1d4a3a'); x.strokeStyle = '#2bd576'; x.lineWidth = 5; x.strokeRect(40, 90, 100, 100); x.strokeStyle = 'rgba(255,255,255,.3)'; x.strokeRect(160, 90, 100, 100); D.prop(x, 'snowman', 90, 180, t, { sc: 1.4 }); D.tag && null; } },
-    { h: 'The palette', p: 'Pick ground, walls and props from the palette. <b>Left click</b> places, <b>right click</b> erases, <kbd>R</kbd> cycles. Dig pits, build walls, place pumpkins!', tk: 'Tap a palette item, then tap your plot. 🧽 erases.', art: function (x, t) { artBg(x); ['wool', 'wood', 'end'].forEach(function (id, k) { itemAt(x, id, 70 + k * 80, 130 + Math.sin(t * 3 + k) * 6, 2, { team: 0 }); }); D.prop(x, 'pot', 110, 250, t, { sc: 1.3 }); D.prop(x, 'lamp', 190, 250, t, { sc: 1.2 }); } },
-    { h: 'Vote time ⭐', p: 'When time is up, everyone tours each plot and votes 1–5 stars (you can’t vote for your own). Highest average wins the Scrolls!', art: function (x, t) { artBg(x, '#3a2a6a'); for (var k = 0; k < 5; k++) { x.font = '700 ' + (26 + Math.sin(t * 4 + k) * 4) + 'px system-ui'; x.textAlign = 'center'; x.fillText('⭐', 60 + k * 45, 160); } } },
+    { h: 'The palette', p: 'Pick ground, walls and props from the palette. <b>Left click</b> places, <b>right click</b> erases, <kbd>R</kbd> cycles. Dig pits, build walls, place pumpkins!', tk: 'Tap a palette item, then tap your plot. erases.', art: function (x, t) { artBg(x); ['wool', 'wood', 'end'].forEach(function (id, k) { itemAt(x, id, 70 + k * 80, 130 + Math.sin(t * 3 + k) * 6, 2, { team: 0 }); }); D.prop(x, 'pot', 110, 250, t, { sc: 1.3 }); D.prop(x, 'lamp', 190, 250, t, { sc: 1.2 }); } },
+    { h: 'Vote time', p: 'When time is up, everyone tours each plot and votes 1–5 stars (you can’t vote for your own). Highest average wins the Scrolls!', art: function (x, t) { artBg(x, '#3a2a6a'); for (var k = 0; k < 5; k++) { x.font = '700 ' + (26 + Math.sin(t * 4 + k) * 4) + 'px system-ui'; x.textAlign = 'center'; x.fillText('', 60 + k * 45, 160); } } },
   ] };
   var help = { g: 'bw', i: 0, raf: 0 };
   function openHelp(g) {
@@ -3100,7 +3108,7 @@
   }
   function helpRender() {
     var H2 = HELP[help.g], pg = H2.pages[help.i];
-    $('hTitle').textContent = 'How to play · ' + H2.name; $('hIco').textContent = H2.icon;
+    $('hTitle').textContent = 'How to play · ' + H2.name; $('hIco').innerHTML = UI(GAME_ICON[help.g] || 'book-open');
     [].forEach.call($('hGames').children, function (b) { b.classList.toggle('on', b.dataset.hg === help.g); });
     $('hPage').innerHTML = '<canvas id="hArt" width="300" height="300"></canvas><div><h3>' + pg.h + '</h3><p>' + pg.p + '</p>' + ((touch ? pg.tk : pg.keys) ? '<div class="keys2">' + (touch ? pg.tk : pg.keys) + '</div>' : '') + '</div>';
     $('hDots').innerHTML = H2.pages.map(function (_, k) { return '<i' + (k === help.i ? ' class="on"' : '') + '></i>'; }).join('');

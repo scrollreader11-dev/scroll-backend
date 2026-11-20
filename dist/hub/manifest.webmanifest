@@ -1,0 +1,17 @@
+{
+  "name": "ScrollHub",
+  "short_name": "ScrollHub",
+  "description": "Every ScrollHub game in one launcher.",
+  "id": "/hub/",
+  "start_url": "/hub/",
+  "scope": "/hub/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04070e",
+  "theme_color": "#04070e",
+  "icons": [
+    { "src": "/hub/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/hub/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/hub/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}

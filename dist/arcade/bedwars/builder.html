@@ -92,20 +92,20 @@
 <canvas id="cv" tabindex="0"></canvas>
 <div id="top" class="pn">
   <a class="b ghost" href="/arcade" title="Back to the Games hub">←</a>
-  <div class="seg" id="gameSeg"><button data-g="bw">🛏️<span class="gt"> Bedwars</span></button><button data-g="ctf">🚩<span class="gt"> CTF</span></button><button data-g="spleef">❄️<span class="gt"> Spleef</span></button><button data-g="hide">🎃<span class="gt"> Prop Hunt</span></button></div>
+  <div class="seg" id="gameSeg"><button data-g="bw"><span class="gt"> Bedwars</span></button><button data-g="ctf"><span class="gt"> CTF</span></button><button data-g="spleef"><span class="gt"> Spleef</span></button><button data-g="hide"><span class="gt"> Prop Hunt</span></button></div>
   <input id="name" maxlength="40" placeholder="Map name" />
   <span id="status" class="bad">…</span>
   <span class="grow"></span>
   <button class="b ghost" id="undo" title="Undo (Ctrl+Z)">↶</button><button class="b ghost" id="redo" title="Redo (Ctrl+Y)">↷</button>
   <button class="b" id="grid" title="Grid (G)">#</button>
-  <button class="b" id="openMaps">📂 Maps</button>
-  <button class="b gold" id="save">💾 Save</button>
+  <button class="b" id="openMaps">Maps</button>
+  <button class="b gold" id="save">Save</button>
   <button class="b green" id="test">▶ Test</button>
 </div>
 <div id="side" class="pn">
-  <button class="b ghost" id="sideTog" title="Show / hide the paint palette">🎨</button>
+  <button class="b ghost" id="sideTog" title="Show / hide the paint palette">Palette</button>
   <div class="lab">Tool</div>
-  <div class="tools" id="tools"><button data-t="brush" title="Brush (B)">✏️</button><button data-t="rect" title="Rectangle (R)">▭</button><button data-t="fill" title="Fill (F)">🪣</button><button data-t="pick" title="Eyedropper (I)">💧</button><button data-t="pan" title="Move the camera (H)">✋</button></div>
+  <div class="tools" id="tools"><button data-t="brush" title="Brush (B)">Pen</button><button data-t="rect" title="Rectangle (R)">▭</button><button data-t="fill" title="Fill (F)">Fill</button><button data-t="pick" title="Eyedropper (I)">Pick</button><button data-t="pan" title="Move the camera (H)">Pan</button></div>
   <div class="lab">Brush size</div>
   <div class="sizes" id="sizes"><button data-s="1">1</button><button data-s="2">2</button><button data-s="3">3</button><button data-s="5">5</button></div>
   <div class="lab">Symmetry</div>
@@ -122,18 +122,18 @@
 <div id="toast"></div>
 <div id="maps" class="modal hidden">
   <div class="mw">
-    <div class="mh"><div style="font-size:28px">🗺️</div><h2>Maps</h2><span class="grow"></span><button class="b red" data-x>✕</button></div>
+    <div class="mh"><h2>Maps</h2><span class="grow"></span><button class="b red" data-x>✕</button></div>
     <div class="mb">
       <div class="card"><div class="lab" style="margin-bottom:6px">New map</div>
-        <div class="row"><div class="seg" id="newGame"><button data-g="bw" class="on">🛏️ Bedwars</button><button data-g="ctf">🚩 CTF</button><button data-g="spleef">❄️ Spleef</button><button data-g="hide">🎃 Prop Hunt</button></div>
-        <button class="b" id="newBlank">＋ Blank island</button><button class="b" id="newCopy">📋 Copy the built-in map</button></div></div>
+        <div class="row"><div class="seg" id="newGame"><button data-g="bw" class="on">Bedwars</button><button data-g="ctf">CTF</button><button data-g="spleef">Spleef</button><button data-g="hide">Prop Hunt</button></div>
+        <button class="b" id="newBlank">＋ Blank island</button><button class="b" id="newCopy">Copy the built-in map</button></div></div>
       <div class="card"><div class="lab" style="margin-bottom:6px">Built-in maps in rotation</div><div class="row" id="defRot"></div>
         <div class="hint" style="margin-top:6px">Quick-play matches pick randomly from every map that's in rotation for that game. Private rooms let the host choose any finished map.</div></div>
       <div class="card"><div class="lab">Your maps</div><table class="ml" id="mapList"></table></div>
     </div>
   </div>
 </div>
-<div id="lock" class="hidden"><div style="font-size:60px">🔒</div><h1>Map Builder</h1><div id="lockMsg" style="color:#cfc8ff;font-size:17px">Connecting…</div><a class="b" href="/arcade">← Back to Games</a></div>
+<div id="lock" class="hidden"><h1>Map Builder</h1><div id="lockMsg" style="color:#cfc8ff;font-size:17px">Connecting…</div><a class="b" href="/arcade">← Back to Games</a></div>
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=11"></script>
@@ -141,6 +141,6 @@
 <script src="/arcade/bedwars/mg.js?v=15"></script>
 <script src="/arcade/bedwars/draw.js?v=14"></script>
 <script src="/arcade/bedwars/mgdraw.js?v=5"></script>
-<script src="/arcade/bedwars/builder.js?v=3"></script>
+<script src="/arcade/bedwars/builder.js?v=4"></script>
 </body>
 </html>

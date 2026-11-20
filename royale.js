@@ -424,7 +424,7 @@ function zoneTick(r, now) {
   const z = r.rg.z, s = MG.R_STORM[z.i];
   if (!s) return;
   if (z.mode === 'wait') {
-    if (now >= z.t0 + s.w * 1000) { z.mode = 'shrink'; z.t0 = now; z.from = { x: z.x, y: z.y, r: z.r }; A.roomSend(r, { t: 'ann2', text: '🌪️ The storm is closing in!' }); r.rg.znDirty = true; }
+    if (now >= z.t0 + s.w * 1000) { z.mode = 'shrink'; z.t0 = now; z.from = { x: z.x, y: z.y, r: z.r }; A.roomSend(r, { t: 'ann2', text: 'The storm is closing in!' }); r.rg.znDirty = true; }
   } else {
     const k = Math.min(1, (now - z.t0) / (s.s * 1000));
     z.x = z.from.x + (z.to.x - z.from.x) * k; z.y = z.from.y + (z.to.y - z.from.y) * k; z.r = z.from.r + (z.to.r - z.from.r) * k;

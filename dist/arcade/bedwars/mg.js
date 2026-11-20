@@ -22,20 +22,20 @@
   B.ITEM_NAMES.fists = 'Fists'; B.ITEM_NAMES.knife = 'Knife';
 
   M.GAMES = {
-    bw: { key: 'bw', name: 'Bedwars', icon: '🛏️' },
-    ctf: { key: 'ctf', name: 'Capture the Flag', short: 'CTF', icon: '🚩', teams: 2, per: 4, max: 8, caps: 3, mins: 8, respawn: 4,
+    bw: { key: 'bw', name: 'Bedwars', icon: '' },
+    ctf: { key: 'ctf', name: 'Capture the Flag', short: 'CTF', icon: '', teams: 2, per: 4, max: 8, caps: 3, mins: 8, respawn: 4,
       desc: 'Grab the enemy flag and bring it home', tag: 'Team 4v4' },
-    spleef: { key: 'spleef', name: 'TNT Spleef', short: 'SPLEEF', icon: '❄️', teams: 8, per: 1, max: 8, mins: 4,
+    spleef: { key: 'spleef', name: 'TNT Spleef', short: 'SPLEEF', icon: '', teams: 8, per: 1, max: 8, mins: 4,
       desc: 'The floor falls away — be the last one standing', tag: 'Free for all' },
-    hide: { key: 'hide', name: 'Prop Hunt', short: 'PROP HUNT', icon: '🎃', teams: 2, per: 8, max: 8, hideSec: 30, seekSec: 180,
+    hide: { key: 'hide', name: 'Prop Hunt', short: 'PROP HUNT', icon: '', teams: 2, per: 8, max: 8, hideSec: 30, seekSec: 180,
       desc: 'Hide as a prop — or hunt the ones who did', tag: 'Hide & seek' },
-    duel: { key: 'duel', name: 'Duels', short: 'DUELS', icon: '⚔️', teams: 2, per: 1, max: 2, wins: 5, mins: 5, respawn: 3,
+    duel: { key: 'duel', name: 'Duels', short: 'DUELS', icon: '', teams: 2, per: 1, max: 2, wins: 5, mins: 5, respawn: 3,
       desc: '1v1 sword fight — first to 5 kills', tag: '1v1 ranked' },
-    murder: { key: 'murder', name: 'Murder Mystery', short: 'MYSTERY', icon: '🔪', teams: 8, per: 1, max: 8, mins: 5,
+    murder: { key: 'murder', name: 'Murder Mystery', short: 'MYSTERY', icon: '', teams: 8, per: 1, max: 8, mins: 5,
       desc: 'Someone here is the murderer…', tag: '8-player mystery' },
-    build: { key: 'build', name: 'Build Battle', short: 'BUILD', icon: '🏗️', teams: 8, per: 1, max: 4, buildSec: 150, voteSec: 9,
+    build: { key: 'build', name: 'Build Battle', short: 'BUILD', icon: '', teams: 8, per: 1, max: 4, buildSec: 150, voteSec: 9,
       desc: 'Build the theme, then everyone votes', tag: 'Creative' },
-    royale: { key: 'royale', name: 'Scroll Royale', short: 'ROYALE', icon: '🪂', teams: 100, per: 1, max: 24, mins: 15,
+    royale: { key: 'royale', name: 'Scroll Royale', short: 'ROYALE', icon: '', teams: 100, per: 1, max: 24, mins: 15,
       desc: 'Drop from the bus, loot, outlast the storm', tag: 'Battle royale' },
   };
   // ================================================================ SCROLL ROYALE data (shared by server + client)
@@ -45,21 +45,41 @@
     { n: 'Common', c: '#b6bcc4', dm: 1, rl: 1 }, { n: 'Uncommon', c: '#52d273', dm: 1.07, rl: 0.95 }, { n: 'Rare', c: '#3fa9ff', dm: 1.14, rl: 0.9 },
     { n: 'Epic', c: '#b06bff', dm: 1.22, rl: 0.85 }, { n: 'Legendary', c: '#ffb02e', dm: 1.32, rl: 0.8 }];
   M.RW = {
-    pistol: { n: 'Pistol', cls: 'gun', dmg: 23, rate: 230, mag: 12, rl: 1100, sp: 0.035, rg: 680, am: 'L', icon: '🔫' },
-    smg: { n: 'SMG', cls: 'gun', dmg: 13, rate: 80, mag: 30, rl: 1500, sp: 0.095, rg: 540, am: 'L', auto: 1, icon: '🔫' },
-    ar: { n: 'Assault Rifle', cls: 'gun', dmg: 22, rate: 135, mag: 30, rl: 1900, sp: 0.045, rg: 920, am: 'M', auto: 1, icon: '🔫' },
-    burst: { n: 'Burst Rifle', cls: 'gun', dmg: 25, rate: 380, mag: 24, rl: 2000, sp: 0.03, rg: 950, am: 'M', burst: 3, icon: '🔫' },
-    shotgun: { n: 'Pump Shotgun', cls: 'gun', dmg: 11, pel: 9, rate: 850, mag: 5, rl: 2400, sp: 0.22, rg: 400, am: 'S', icon: '🔫' },
-    tac: { n: 'Tactical Shotgun', cls: 'gun', dmg: 8, pel: 8, rate: 420, mag: 8, rl: 2600, sp: 0.25, rg: 360, am: 'S', icon: '🔫' },
-    sniper: { n: 'Sniper Rifle', cls: 'gun', dmg: 92, rate: 1400, mag: 5, rl: 2600, sp: 0.004, rg: 1700, am: 'H', scope: 1, icon: '🎯' },
-    minigun: { n: 'Minigun', cls: 'gun', dmg: 9, rate: 55, mag: 120, rl: 4000, sp: 0.13, rg: 640, am: 'M', auto: 1, minR: 3, icon: '🔫' },
-    rocket: { n: 'Rocket Launcher', cls: 'gun', dmg: 90, rate: 1300, mag: 1, rl: 2400, sp: 0.01, rg: 1100, am: 'R', proj: 640, blast: 115, minR: 3, icon: '🚀' },
-    grenade: { n: 'Grenade', cls: 'throw', dmg: 85, blast: 120, fuse: 2000, max: 6, icon: '💣' },
-    bandage: { n: 'Bandages', cls: 'heal', hp: 15, cap: 75, use: 2400, max: 15, icon: '🩹' },
-    medkit: { n: 'Med Kit', cls: 'heal', hp: 100, cap: 100, use: 5000, max: 3, icon: '🧰' },
-    minishield: { n: 'Small Shield', cls: 'heal', sh: 25, cap: 50, use: 1400, max: 6, icon: '🧪' },
-    shieldpot: { n: 'Shield Potion', cls: 'heal', sh: 50, cap: 100, use: 3200, max: 3, icon: '🛡️' },
+    pistol: { n: 'Pistol', cls: 'gun', dmg: 23, rate: 230, mag: 12, rl: 1100, sp: 0.035, rg: 680, am: 'L', ico: 'gun' },
+    smg: { n: 'SMG', cls: 'gun', dmg: 13, rate: 80, mag: 30, rl: 1500, sp: 0.095, rg: 540, am: 'L', auto: 1, ico: 'gun' },
+    ar: { n: 'Assault Rifle', cls: 'gun', dmg: 22, rate: 135, mag: 30, rl: 1900, sp: 0.045, rg: 920, am: 'M', auto: 1, ico: 'gun' },
+    burst: { n: 'Burst Rifle', cls: 'gun', dmg: 25, rate: 380, mag: 24, rl: 2000, sp: 0.03, rg: 950, am: 'M', burst: 3, ico: 'gun' },
+    shotgun: { n: 'Pump Shotgun', cls: 'gun', dmg: 11, pel: 9, rate: 850, mag: 5, rl: 2400, sp: 0.22, rg: 400, am: 'S', ico: 'gun' },
+    tac: { n: 'Tactical Shotgun', cls: 'gun', dmg: 8, pel: 8, rate: 420, mag: 8, rl: 2600, sp: 0.25, rg: 360, am: 'S', ico: 'gun' },
+    sniper: { n: 'Sniper Rifle', cls: 'gun', dmg: 92, rate: 1400, mag: 5, rl: 2600, sp: 0.004, rg: 1700, am: 'H', scope: 1, ico: 'scope' },
+    minigun: { n: 'Minigun', cls: 'gun', dmg: 9, rate: 55, mag: 120, rl: 4000, sp: 0.13, rg: 640, am: 'M', auto: 1, minR: 3, ico: 'gun' },
+    rocket: { n: 'Rocket Launcher', cls: 'gun', dmg: 90, rate: 1300, mag: 1, rl: 2400, sp: 0.01, rg: 1100, am: 'R', proj: 640, blast: 115, minR: 3, ico: 'rocket' },
+    grenade: { n: 'Grenade', cls: 'throw', dmg: 85, blast: 120, fuse: 2000, max: 6, ico: 'grenade' },
+    bandage: { n: 'Bandages', cls: 'heal', hp: 15, cap: 75, use: 2400, max: 15, ico: 'bandage' },
+    medkit: { n: 'Med Kit', cls: 'heal', hp: 100, cap: 100, use: 5000, max: 3, ico: 'medkit' },
+    minishield: { n: 'Small Shield', cls: 'heal', sh: 25, cap: 50, use: 1400, max: 6, ico: 'potion' },
+    shieldpot: { n: 'Shield Potion', cls: 'heal', sh: 50, cap: 100, use: 3200, max: 3, ico: 'shield' },
   };
+
+  // ---- vector icons (24x24, fill) used by HUD (inline svg) and canvas (Path2D); no emoji anywhere
+  M.RICO = {
+    gun: 'M2 8h14l2 2h4v4h-6l-1 5H8l1-5H2z',
+    scope: 'M2 9h16v3H9l-1 4H5l1-4H2zM18 8l4-1v6l-4-1z',
+    rocket: 'M3 10h12l5-3v10l-5-3H3zM6 17l2 4h3l-1-4z',
+    grenade: 'M12 8a7 7 0 1 0 .01 0zM10 3h5v2h-2v2h-2V5h-1zM15 3l4-1 1 2-4 2z',
+    bandage: 'M4.2 15.6 15.6 4.2a3.4 3.4 0 0 1 4.8 4.8L9 20.4a3.4 3.4 0 0 1-4.8-4.8zM10 12.5l1.5 1.5-1.5 1.5-1.5-1.5zM14 8.5l1.5 1.5-1.5 1.5-1.5-1.5z',
+    medkit: 'M4 7h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM9 3h6v4h-2V5h-2v2H9zM11 10h2v3h3v2h-3v3h-2v-3H8v-2h3z',
+    potion: 'M9 2h6v2h-1v4.2l4.7 8.3A3 3 0 0 1 16.1 21H7.9a3 3 0 0 1-2.6-4.5L10 8.2V4H9z',
+    shield: 'M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z',
+    heart: 'M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z',
+    jeep: 'M2 14l2-5h10l3 3h4a1 1 0 0 1 1 1v3h-2.2a2.8 2.8 0 0 0-5.6 0H9.8a2.8 2.8 0 0 0-5.6 0H2zM4.2 17.5a1.8 1.8 0 1 0 3.6 0 1.8 1.8 0 1 0-3.6 0zM14.2 17.5a1.8 1.8 0 1 0 3.6 0 1.8 1.8 0 1 0-3.6 0z',
+    car: 'M2 15l1-3 5-1 3-3h6l3 4h2v3h-2.2a2.8 2.8 0 0 0-5.6 0H9.8a2.8 2.8 0 0 0-5.6 0H2zM4.2 17.5a1.8 1.8 0 1 0 3.6 0 1.8 1.8 0 1 0-3.6 0zM14.2 17.5a1.8 1.8 0 1 0 3.6 0 1.8 1.8 0 1 0-3.6 0z',
+    tank: 'M3 15h18l-2 4H5zM6 10h9l1 5H5zM12 7h4v3h-4zM16 8h6v2h-6z',
+    pickaxe: 'M3 9c3-4 10-5 16-2l-3 2c-3-1-7-1-10 2zM11 10l3 3-7 9-3-3z',
+    users: 'M9 11a4 4 0 1 0 .01 0zM1 21c0-4 3-6 8-6s8 2 8 6zM17 4a3.5 3.5 0 0 1 0 7zM19 15c3 .6 5 2.4 5 6h-4c0-2-.4-4-1-6z',
+    skull: 'M12 2a9 9 0 0 0-9 9c0 3 1.5 5 3.5 6.2V21h3v-2h1v2h3v-2h1v2h3v-3.8C19.500 16 21 14 21 11a9 9 0 0 0-9-9zM8 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM16 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
+  };
+  M.ico = function (k, cls) { var d = M.RICO[k] || M.RICO.gun; return '<svg class="' + (cls || 'ico') + '" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="' + d + '"/></svg>'; };
   M.RW_KEYS = Object.keys(M.RW);
   M.RAMMO = { L: { n: 'Light ammo', c: '#ffd36b', max: 360, box: 36 }, M: { n: 'Medium ammo', c: '#7ee081', max: 360, box: 30 }, S: { n: 'Shells', c: '#ff7a5c', max: 60, box: 10 }, H: { n: 'Heavy ammo', c: '#7fc8ff', max: 40, box: 6 }, R: { n: 'Rockets', c: '#c78bff', max: 12, box: 3 } };
   M.RSLOTS = 5;
@@ -68,9 +88,9 @@
   M.R_BUS_MS = 26000;
   // vehicles: hp, speed multiplier, ram damage, hit radius; tanks have a cannon the driver fires by clicking
   M.RVEH = {
-    jeep: { n: 'Jeep', hp: 380, sp: 2.3, ram: 35, r: 48, icon: '🚙' },
-    car: { n: 'Sports Car', hp: 240, sp: 2.9, ram: 28, r: 44, icon: '🏎️' },
-    tank: { n: 'Tank', hp: 1100, sp: 1.3, ram: 60, r: 66, icon: '🛡️', gun: { dmg: 75, blast: 115, cd: 1400, sp: 900 } },
+    jeep: { n: 'Jeep', hp: 380, sp: 2.3, ram: 35, r: 48, ico: 'jeep' },
+    car: { n: 'Sports Car', hp: 240, sp: 2.9, ram: 28, r: 44, ico: 'car' },
+    tank: { n: 'Tank', hp: 1100, sp: 1.3, ram: 60, r: 66, ico: 'tank', gun: { dmg: 75, blast: 115, cd: 1400, sp: 900 } },
   };
   M.RVEH_KEYS = ['jeep', 'car', 'tank'];
   // older code paths still look these up
