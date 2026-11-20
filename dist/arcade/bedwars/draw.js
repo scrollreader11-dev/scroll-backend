@@ -397,9 +397,11 @@
     c.beginPath(); c.moveTo(-13, -12); c.quadraticCurveTo(0, -24, 13, -12); c.lineTo(11, -10); c.quadraticCurveTo(0, -19, -11, -10); c.closePath(); fs(c, col, OL, 2.2);
     c.restore();
   }
-  var GUN_LEN = { pistol: 16, smg: 20, ar: 28, shotgun: 30, sniper: 36 };
+  var GUN_LEN = { pistol: 16, smg: 20, ar: 28, shotgun: 30, sniper: 36, burst: 30, tac: 28, minigun: 34, rocket: 38 };
   function gunShape(c, k, s, col) {
     var L = GUN_LEN[k] || 20; col = col || '#b0b6bd';
+    if (k === 'rocket') { c.save(); c.scale(s, s); c.lineJoin = 'round'; rr(c, -10, -6, L, 12, 5); fs(c, '#4f6b3a', OL, 2.4); c.fillStyle = col; c.fillRect(-4, -6, 5, 12); rr(c, L - 14, -7.5, 6, 15, 2); fs(c, '#2f3a26', OL, 2); rr(c, 2, 5, 5, 9, 1.5); fs(c, '#3a3f4a', OL, 2); c.restore(); return; }
+    if (k === 'minigun') { c.save(); c.scale(s, s); c.lineJoin = 'round'; rr(c, -8, -7, 16, 14, 4); fs(c, '#59606e', OL, 2.2); for (var mb = -1; mb <= 1; mb++) { rr(c, 6, mb * 3.5 - 1.6, L - 8, 3.2, 1.5); fs(c, '#8a93a6', OL, 1.4); } c.fillStyle = col; c.fillRect(-6, -2, 10, 4); c.restore(); return; }
     c.save(); c.scale(s, s); c.lineJoin = 'round';
     if (k === 'shotgun') { rr(c, -12, -2.5, 10, 6, 2); fs(c, '#a0703f', OL, 2); }
     if (k === 'sniper') { rr(c, 6, -9, 12, 4.5, 1.5); fs(c, '#2a2f3a', OL, 1.6); }
@@ -449,6 +451,7 @@
   };
 
   // ------------------------------------------------------------------ held items on characters
+  D.gunIcon = function (c, k, col) { gunShape(c, k, 1, col); };
   D.held = function (c, e, x, y, t) {
     var it = e.held || 'sword'; if (e.dead) return;
     var a = e.ang || 0, fx = Math.cos(a), fy = Math.sin(a);
@@ -472,7 +475,12 @@
       c.strokeStyle = '#eee'; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-2 + Math.cos(-1.15) * 15, Math.sin(-1.15) * 15); c.lineTo(sx - 4, 0); c.lineTo(-2 + Math.cos(1.15) * 15, Math.sin(1.15) * 15); c.stroke();
       if (draw > 0) { c.strokeStyle = OL; c.lineWidth = 3.5; c.beginPath(); c.moveTo(sx - 4, 0); c.lineTo(sx + 20, 0); c.stroke(); c.strokeStyle = '#c99a5b'; c.lineWidth = 1.6; c.stroke(); c.beginPath(); c.moveTo(sx + 24, 0); c.lineTo(sx + 18, -3); c.lineTo(sx + 18, 3); c.closePath(); fs(c, '#cfd6e4', OL, 1.4); }
     } else if (GUN_LEN[it]) {
-      c.rotate(a); c.translate(10, 0); if (Math.cos(a) < 0) c.scale(1, -1); gunShape(c, it, 1, '#b0b6bd');
+      c.rotate(a); c.translate(10, 0); if (Math.cos(a) < 0) c.scale(1, -1); gunShape(c, it, 1, (D.gunCol && D.gunCol(e)) || '#b0b6bd');
+    } else if (it === 'pickaxe') {
+      var sw2 = e.swingT != null ? D.ease.out(Math.min(1, e.swingT / 0.17)) : 1, rot2 = e.swingT != null && e.swingT < 0.3 ? a - 1.2 + 2.4 * sw2 : a + 0.4;
+      c.rotate(rot2 + Math.PI / 2); c.translate(0, -4); pickaxe(c, 0.9, '#b8c2d6');
+    } else if (window.MG && window.MG.RW && window.MG.RW[it]) {
+      c.rotate(a * 0.2); c.font = '16px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(window.MG.RW[it].icon || '❔', 6, 0);
     } else {
       D.drawItem(c, it, 0.62, { team: e.team, tier: it === 'pick' ? e.pick : 1 });
     }

@@ -34,20 +34,42 @@
       desc: 'Someone here is the murderer…', tag: '8-player mystery' },
     build: { key: 'build', name: 'Build Battle', short: 'BUILD', icon: '🏗️', teams: 8, per: 1, max: 4, buildSec: 150, voteSec: 9,
       desc: 'Build the theme, then everyone votes', tag: 'Creative' },
-    royale: { key: 'royale', name: 'Scroll Royal', short: 'ROYAL', icon: '🪂', teams: 8, per: 1, max: 8, mins: 9,
-      desc: 'Crack chests, grab guns, outlast the storm', tag: 'Battle royale' },
+    royale: { key: 'royale', name: 'Scroll Royale', short: 'ROYALE', icon: '🪂', teams: 100, per: 1, max: 16, mins: 12,
+      desc: 'Drop from the bus, loot, outlast the storm', tag: 'Battle royale' },
   };
-  M.RARITY = [{ n: 'Common', c: '#b0b6bd', m: 1 }, { n: 'Rare', c: '#4aa8ff', m: 1.15 }, { n: 'Epic', c: '#b55cff', m: 1.3 }, { n: 'Legendary', c: '#ffb02e', m: 1.55 }];
-  // d = damage (hearts, MAX_HP 20), r = ms between shots, s = bullet px/s, sp = spread (rad), p = pellets, a = ammo type, rg = range px
-  M.GUNS = {
-    pistol: { n: 'Pistol', d: 2, r: 380, s: 800, sp: 0.04, p: 1, a: 'l', rg: 620 },
-    smg: { n: 'SMG', d: 1.2, r: 110, s: 850, sp: 0.1, p: 1, a: 'l', rg: 520 },
-    ar: { n: 'Assault Rifle', d: 2.2, r: 170, s: 1000, sp: 0.05, p: 1, a: 'l', rg: 820 },
-    shotgun: { n: 'Shotgun', d: 1, r: 850, s: 800, sp: 0.16, p: 7, a: 's', rg: 340 },
-    sniper: { n: 'Sniper', d: 10, r: 1800, s: 1100, sp: 0, p: 1, a: 'h', rg: 1500 },
+  // ================================================================ SCROLL ROYALE data (shared by server + client)
+  // Health and shield are 0–100. dmg = per bullet, rate = ms between shots, mag = clip, rl = reload ms, sp = spread (rad),
+  // rg = range px, am = ammo type, pel = pellets, auto = hold to fire, proj = projectile speed (rockets), blast = splash radius px.
+  M.RRAR = [
+    { n: 'Common', c: '#b6bcc4', dm: 1, rl: 1 }, { n: 'Uncommon', c: '#52d273', dm: 1.07, rl: 0.95 }, { n: 'Rare', c: '#3fa9ff', dm: 1.14, rl: 0.9 },
+    { n: 'Epic', c: '#b06bff', dm: 1.22, rl: 0.85 }, { n: 'Legendary', c: '#ffb02e', dm: 1.32, rl: 0.8 }];
+  M.RW = {
+    pistol: { n: 'Pistol', cls: 'gun', dmg: 23, rate: 230, mag: 12, rl: 1100, sp: 0.035, rg: 680, am: 'L', icon: '🔫' },
+    smg: { n: 'SMG', cls: 'gun', dmg: 13, rate: 80, mag: 30, rl: 1500, sp: 0.095, rg: 540, am: 'L', auto: 1, icon: '🔫' },
+    ar: { n: 'Assault Rifle', cls: 'gun', dmg: 22, rate: 135, mag: 30, rl: 1900, sp: 0.045, rg: 920, am: 'M', auto: 1, icon: '🔫' },
+    burst: { n: 'Burst Rifle', cls: 'gun', dmg: 25, rate: 380, mag: 24, rl: 2000, sp: 0.03, rg: 950, am: 'M', burst: 3, icon: '🔫' },
+    shotgun: { n: 'Pump Shotgun', cls: 'gun', dmg: 11, pel: 9, rate: 850, mag: 5, rl: 2400, sp: 0.22, rg: 400, am: 'S', icon: '🔫' },
+    tac: { n: 'Tactical Shotgun', cls: 'gun', dmg: 8, pel: 8, rate: 420, mag: 8, rl: 2600, sp: 0.25, rg: 360, am: 'S', icon: '🔫' },
+    sniper: { n: 'Sniper Rifle', cls: 'gun', dmg: 92, rate: 1400, mag: 5, rl: 2600, sp: 0.004, rg: 1700, am: 'H', scope: 1, icon: '🎯' },
+    minigun: { n: 'Minigun', cls: 'gun', dmg: 9, rate: 55, mag: 120, rl: 4000, sp: 0.13, rg: 640, am: 'M', auto: 1, minR: 3, icon: '🔫' },
+    rocket: { n: 'Rocket Launcher', cls: 'gun', dmg: 90, rate: 1300, mag: 1, rl: 2400, sp: 0.01, rg: 1100, am: 'R', proj: 640, blast: 115, minR: 3, icon: '🚀' },
+    grenade: { n: 'Grenade', cls: 'throw', dmg: 85, blast: 120, fuse: 2000, max: 6, icon: '💣' },
+    bandage: { n: 'Bandages', cls: 'heal', hp: 15, cap: 75, use: 2400, max: 15, icon: '🩹' },
+    medkit: { n: 'Med Kit', cls: 'heal', hp: 100, cap: 100, use: 5000, max: 3, icon: '🧰' },
+    minishield: { n: 'Small Shield', cls: 'heal', sh: 25, cap: 50, use: 1400, max: 6, icon: '🧪' },
+    shieldpot: { n: 'Shield Potion', cls: 'heal', sh: 50, cap: 100, use: 3200, max: 3, icon: '🛡️' },
   };
-  M.GUN_ORDER = ['pistol', 'smg', 'ar', 'shotgun', 'sniper'];
-  M.GUN_ORDER.forEach(function (k) { if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); B.ITEM_NAMES[k] = M.GUNS[k].n; });
+  M.RW_KEYS = Object.keys(M.RW);
+  M.RAMMO = { L: { n: 'Light ammo', c: '#ffd36b', max: 360, box: 36 }, M: { n: 'Medium ammo', c: '#7ee081', max: 360, box: 30 }, S: { n: 'Shells', c: '#ff7a5c', max: 60, box: 10 }, H: { n: 'Heavy ammo', c: '#7fc8ff', max: 40, box: 6 }, R: { n: 'Rockets', c: '#c78bff', max: 12, box: 3 } };
+  M.RSLOTS = 5;
+  M.R_STORM = [ // wait s, shrink s, radius (tiles) after shrinking, damage per second outside
+    { w: 50, s: 30, r: 24, d: 1 }, { w: 35, s: 25, r: 15, d: 2 }, { w: 30, s: 20, r: 9, d: 4 }, { w: 25, s: 18, r: 4, d: 7 }, { w: 20, s: 15, r: 0, d: 10 }];
+  M.R_BUS_MS = 17000;
+  // older code paths still look these up
+  M.RARITY = M.RRAR.map(function (r) { return { n: r.n, c: r.c, m: r.dm }; });
+  M.GUNS = {}; M.GUN_ORDER = [];
+  M.RW_KEYS.forEach(function (k) { var w = M.RW[k]; M.GUNS[k] = { n: w.n, a: w.am, r: w.rate || 500, d: w.dmg || 0, p: w.pel || 1 }; M.GUN_ORDER.push(k); if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); B.ITEM_NAMES[k] = w.n; });
+  if (B.HOTBAR_ORDER.indexOf('pickaxe') < 0) B.HOTBAR_ORDER.push('pickaxe'); B.ITEM_NAMES.pickaxe = 'Pickaxe';
   M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide' || g === 'duel' || g === 'murder' || g === 'build' || g === 'royale'; };
   M.RANKS = [
     { key: 'bronze', name: 'Bronze', at: 0, color: '#c67b4e' },
@@ -379,15 +401,89 @@
     for (var t = 0; t < 8; t++) { var s = spots[t % spots.length]; m.bases.push({ team: t, cx: Math.floor(s.x / T), cy: Math.floor(s.y / T), spawn: s, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] }); }
     return m;
   };
-  // ================================================================ SCROLL ROYAL
-  // The Prop Hunt village makes a fine battleground: houses to loot, roads, trees and cover.
+  // ================================================================ SCROLL ROYALE MAP
+  // An island with towns (houses with roofs), a farm, a quarry, a park, roads, forests and destructible stuff.
+  // Destructibles: m.rgObjs [{id, i, kind}] (tile is solid via m.obj = 9). Houses: m.houses [{x0,y0,x1,y1}] (roofs drawn by the client).
+  M.R_OBJ = { tree: { hp: 170, r: 17 }, pine: { hp: 170, r: 15 }, bush: { hp: 40, r: 14, soft: 1 }, crate: { hp: 70, r: 15, loot: 1 }, barrel: { hp: 45, r: 13, boom: 1 }, rock: { hp: 320, r: 17 }, hay: { hp: 60, r: 16 } };
+  M.R_WALL_HP = 220;
   M.genRoyale = function (seed) {
-    var m = M.genHide(seed); m.game = 'royale'; m.cage = null;
-    var spots = m.hideSpawns.concat([m.seekSpawn]);
-    m.bases = [];
-    for (var t = 0; t < 8; t++) { var s = spots[t % spots.length]; m.bases.push({ team: t, cx: Math.floor(s.x / T), cy: Math.floor(s.y / T), spawn: s, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] }); }
+    var m = blank(); m.game = 'royale'; m.props = []; m.rgObjs = []; m.houses = []; m.chestSpots = []; m.lootSpots = []; m.vehSpots = []; m.pois = [];
+    var r = rng(seed || 7), C = 35.5;
+    // island (rounded, wobbly coast)
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var dx = (x - C) / 33.5, dy = (y - C) / 33.5, a = Math.atan2(dy, dx), wob = 0.045 * Math.sin(a * 5 + 1.3) + 0.03 * Math.sin(a * 9 + 4.1);
+      var d = Math.pow(Math.pow(Math.abs(dx), 3.2) + Math.pow(Math.abs(dy), 3.2), 1 / 3.2);
+      if (d < 1 - wob) m.g[y * W + x] = d > 0.93 - wob ? G.SAND : G.GRASS;
+    }
+    // cliffs: a ring of rock on the very edge so nobody walks into the sea
+    for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var i = y * W + x; if (!m.g[i]) continue; if (!m.g[i - 1] || !m.g[i + 1] || !m.g[i - W] || !m.g[i + W]) m.g[i] = G.ROCK; }
+    function road(x0, y0, x1, y1) { fill(m, Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1), G.PATH); }
+    road(8, 35, 63, 36); road(35, 8, 36, 63); road(14, 20, 34, 21); road(37, 50, 58, 51); road(20, 37, 21, 52); road(50, 20, 51, 34);
+    function okG(x, y) { var i = y * W + x; return B.inb(x, y) && m.g[i] && m.g[i] !== G.ROCK; }
+    function house(x0, y0, x1, y1, doors, name, chests) {
+      for (var yy = y0; yy <= y1; yy++) for (var xx = x0; xx <= x1; xx++) { if (!okG(xx, yy)) return false; }
+      fill(m, x0, y0, x1, y1, G.FLOOR);
+      for (var xx2 = x0; xx2 <= x1; xx2++) { wall(m, xx2, y0, 2, 0); wall(m, xx2, y1, 2, 0); }
+      for (var yy2 = y0; yy2 <= y1; yy2++) { wall(m, x0, yy2, 2, 0); wall(m, x1, yy2, 2, 0); }
+      doors.forEach(function (dd) { m.w[dd[1] * W + dd[0]] = 0; });
+      m.houses.push({ x0: x0, y0: y0, x1: x1, y1: y1, name: name || '' });
+      var cx2 = (x0 + x1) >> 1, cy2 = (y0 + y1) >> 1;
+      m.chestSpots.push((y0 + 1) * W + x0 + 1 + ((r() * (x1 - x0 - 2)) | 0));
+      if (chests > 1) m.chestSpots.push((y1 - 1) * W + x1 - 1);
+      m.lootSpots.push(cy2 * W + cx2); if (x1 - x0 > 5) m.lootSpots.push(cy2 * W + cx2 - 2, cy2 * W + cx2 + 2);
+      return true;
+    }
+    // --- Scroll Town (north)
+    m.pois.push({ name: 'Scroll Town', x: 36, y: 15 });
+    house(26, 9, 32, 14, [[29, 14], [30, 14]], 'Town Hall', 2); house(39, 9, 45, 14, [[42, 14], [39, 11]], '', 1);
+    house(26, 23, 31, 28, [[28, 23], [31, 25]], '', 1); house(40, 23, 46, 28, [[43, 23], [40, 26]], '', 1);
+    house(47, 9, 52, 14, [[49, 14]], '', 1); fill(m, 33, 14, 38, 22, G.COBBLE);
+    // --- Gim Farms (south-west)
+    m.pois.push({ name: 'Gim Farms', x: 16, y: 50 });
+    house(9, 43, 19, 50, [[14, 43], [15, 43], [19, 47]], 'Big Barn', 2); house(23, 55, 28, 60, [[25, 55]], '', 1);
+    for (y = 53; y <= 61; y++) for (x = 9; x <= 19; x++) if (okG(x, y) && (x + y) % 3 === 0) m.g[y * W + x] = G.PATH;
+    // --- Bedrock Quarry (south-east)
+    m.pois.push({ name: 'Bedrock Quarry', x: 54, y: 55 });
+    for (var q = 0; q < 26; q++) { var qx = 45 + ((r() * 18) | 0), qy = 46 + ((r() * 16) | 0); if (okG(qx, qy) && Math.abs(qx - 52) + Math.abs(qy - 54) > 4 && m.g[qy * W + qx] !== G.PATH) m.g[qy * W + qx] = G.STONE; }
+    house(49, 53, 57, 59, [[53, 53], [49, 56]], 'Warehouse', 2);
+    // --- Pixel Park (north-west)
+    m.pois.push({ name: 'Pixel Park', x: 15, y: 15 });
+    disc(m, 15, 14, 4, G.ICE); house(9, 24, 14, 29, [[11, 24]], '', 1);
+    // --- Lazy Lagoon (east)
+    m.pois.push({ name: 'Lazy Lagoon', x: 58, y: 30 });
+    for (y = 24; y <= 40; y++) for (x = 55; x <= 66; x++) if (okG(x, y) && m.g[y * W + x] === G.GRASS) m.g[y * W + x] = G.SAND;
+    house(55, 26, 61, 31, [[58, 31], [55, 28]], 'Beach House', 2);
+    // --- Storm Tower (center)
+    m.pois.push({ name: 'Storm Tower', x: 36, y: 36 });
+    fill(m, 32, 32, 39, 39, G.COBBLE);
+    house(33, 40, 38, 45, [[35, 40], [36, 40], [38, 43]], 'Tower', 2);
+    // --- Dusty Diner (west)
+    m.pois.push({ name: 'Dusty Diner', x: 13, y: 33 });
+    house(9, 31, 16, 38, [[16, 34], [12, 31]], 'Diner', 2);
+    // destructibles
+    var used = {};
+    function obj(kind, x2, y2) {
+      var i2 = y2 * W + x2; if (!okG(x2, y2) || used[i2] || m.w[i2] || m.g[i2] === G.PATH || m.g[i2] === G.FLOOR || m.obj[i2]) return false;
+      used[i2] = 1; m.obj[i2] = 9; m.rgObjs.push({ id: m.rgObjs.length + 1, i: i2, kind: kind }); return true;
+    }
+    function cluster(kinds, x0, y0, x1, y1, n) { for (var k = 0, tries = 0; k < n && tries < n * 25; tries++) if (obj(kinds[(r() * kinds.length) | 0], x0 + ((r() * (x1 - x0 + 1)) | 0), y0 + ((r() * (y1 - y0 + 1)) | 0))) k++; }
+    cluster(['tree', 'tree', 'pine', 'bush'], 6, 6, 26, 27, 34);          // park forest
+    cluster(['pine', 'pine', 'tree', 'rock'], 42, 40, 66, 48, 12);        // east woods
+    cluster(['tree', 'pine', 'bush'], 22, 26, 32, 33, 8);
+    cluster(['rock', 'rock', 'crate', 'barrel'], 44, 45, 64, 63, 22);     // quarry
+    cluster(['hay', 'hay', 'crate', 'barrel'], 8, 51, 22, 63, 16);         // farm
+    cluster(['crate', 'barrel', 'crate'], 25, 8, 53, 30, 12);              // town
+    cluster(['bush', 'tree', 'rock'], 52, 22, 66, 42, 9);                  // lagoon
+    cluster(['tree', 'pine', 'bush', 'rock'], 6, 6, 66, 66, 70);           // everywhere
+    // loot spots outside too
+    for (var lk = 0; lk < 40; lk++) { var lx = 6 + ((r() * 60) | 0), ly = 6 + ((r() * 60) | 0), li = ly * W + lx; if (okG(lx, ly) && !m.obj[li] && !m.w[li]) m.lootSpots.push(li); }
+    [[35, 30], [22, 36], [50, 50], [36, 56], [50, 26]].forEach(function (p) { var vi = p[1] * W + p[0]; if (okG(p[0], p[1])) m.vehSpots.push(vi); });
+    for (i = 0; i < N; i++) { m.noBuild[i] = 1; m.noMine[i] = 1; }
+    var c0 = { x: tcx(35.5), y: tcx(35.5) };
+    m.bases = []; for (var t2 = 0; t2 < 8; t2++) m.bases.push({ team: t2, cx: 35, cy: 35, spawn: c0, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] });
     return m;
   };
+  M.rObjAt = function (m, i) { if (!m.rgIdx) { m.rgIdx = {}; (m.rgObjs || []).forEach(function (o) { m.rgIdx[o.i] = o; }); } return m.rgIdx[i] || null; };
   // ================================================================ BUILD BATTLE
   M.BB_THEMES = ['Castle', 'Garden', 'Farm', 'Snowy Day', 'Spooky Night', 'Cozy House', 'Market Stall', 'Campsite', 'Pirate Island', 'Birthday Party', 'Zoo', 'Robot'];
   M.BB_GROUNDS = [G.GRASS, G.STONE, G.PATH, G.COBBLE, G.FLOOR, G.SNOW, G.MID, G.ICE, G.CANDY, G.SAND, G.BRICK, 0];
@@ -421,7 +517,7 @@
     if (game === 'duel') return ['sword'];
     if (game === 'murder') { var o2 = ['fists']; if (role === 'm') o2.push('knife'); if (inv.bow > 0) o2.push('bow'); return o2; }
     if (game === 'build') return ['fists'];
-    if (game === 'royale') { var og = []; M.GUN_ORDER.forEach(function (k) { if (inv.rgun && inv.rgun[k] != null) og.push(k); }); return og.length ? og : ['fists']; }
+    if (game === 'royale') return ['pickaxe'];
     return B.hotbar(inv);
   };
   root.MG = M;

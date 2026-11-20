@@ -449,6 +449,7 @@ function quizReward(r, e) {
     e.res.iron += 6; e.res.gold += 2; out.iron = 6; out.gold = 2;
     if (st > 0 && st % 3 === 0) { e.res.dia += 1; out.dia = 1; }
     if (st > 0 && st % 5 === 0) { e.res.em += 1; out.em = 1; }
+  } else if (r.game === 'royale') { MINI.rgQuiz(r, e, out);
   } else if (r.game === 'murder') {
     // Murder Mystery: answers only give energy (gold still comes from picking it up on the map)
   } else if (st > 0 && st % 4 === 0 && !e.dead) { e.speedUntil = Date.now() + 8000; out.speed = 1; }
@@ -1403,7 +1404,7 @@ function onMsg(c, m, now) {
   if (t === 'mv') {
     let x = Number(m.x), y = Number(m.y); if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const dt = Math.min(1, (now - (e.lastMv || now - 50)) / 1000); e.lastMv = now;
-    const allow = BW.SPEED * (now < e.speedUntil ? 1.35 : 1) * dt * 1.6 + 26 + e.kbBudget;
+    const allow = BW.SPEED * (now < e.speedUntil ? 1.35 : 1) * (e.rgMul || 1) * dt * 1.6 + 26 + e.kbBudget;
     const dx = x - e.x, dy = y - e.y, d = Math.hypot(dx, dy);
     let bad = false;
     if (d > allow && !e.god) { x = e.x + dx / d * allow; y = e.y + dy / d * allow; bad = true; }

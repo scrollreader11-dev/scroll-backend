@@ -109,6 +109,7 @@
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
     if (t === 'me') return onMe(m);
+    if ((t === 'rgme' || t === 'rgmsg' || t === 'rgout' || t === 'kb') && S.game === 'royale' && RG.msg(m)) return;
     if (t === 'kb') { if (P && !P.dead) { P.vx += m.vx; P.vy += m.vy; } return; }
     if (t === 'pos') { if (P) { P.x = m.x; P.y = m.y; if (m.spawn) { P.dead = false; P.falling = 0; P.vx = P.vy = 0; } } return; }
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
@@ -585,7 +586,7 @@
     if (S.game === 'hide') { S.seekAt = m.seekAt; S.endAt = m.endAt; S.phase = m.phase; }
     if (S.game === 'duel') { S.score = m.score || [0, 0]; S.endAt = m.endAt; }
     if (S.game === 'murder') { S.endAt = m.endAt; S.det = m.det || 0; S.mrole = m.mrole || ''; S.golds = new Map(); (m.golds || []).forEach(function (q) { S.golds.set(q[0], q[1]); }); }
-    if (S.game === 'royale') { S.endAt = m.endAt; S.zone = m.zn || null; S.chests = new Map((m.chests || []).map(function (q) { return [q[0], { id: q[0], x: q[1], y: q[2], open: !!q[3] }]; })); S.loot = new Map(); (m.loot || []).forEach(function (q) { S.loot.set(q[0], { id: q[0], x: q[1], y: q[2], t: q[3], k: q[4], rar: q[5], n: q[6] }); }); }
+    if (S.game === 'royale') { S.endAt = m.endAt; RG.init(m, map); } else if (window.RG) RG.reset();
     if (S.game === 'build') { S.phase = m.phase; S.theme = m.theme; S.buildEnd = m.buildEnd; S.plotOwners = m.plotOwners || []; S.votePlot = m.votePlot != null ? m.votePlot : -1; S.voted = false; S.bbSel = { lay: 'g', v: 1 }; (m.bb || []).forEach(function (q) { bbApplyLocal(q[0], q[1], q[2], q[3], map); }); }
     S.map = map; D.resetChunks();
     bbUISync();
@@ -641,7 +642,7 @@
       var a = m.p[k], e = S.ents.get(a[0]); if (!e) continue;
       var f = a[4];
       e.flags = f; e.hp = a[6];
-      if (a.length > 7) { var x7 = a[7]; if (S.game === 'spleef') { if (e.id !== S.myId) e.z = x7 & 3; e.spFall = !!(x7 & 4); } else if (S.game === 'hide') e.prop = x7 ? MG.PROP_KINDS[x7 - 1] : ''; else if (S.game === 'ctf') e.carry = x7 ? x7 - 1 : -1; }
+      if (a.length > 7) { var x7 = a[7]; if (S.game === 'spleef') { if (e.id !== S.myId) e.z = x7 & 3; e.spFall = !!(x7 & 4); } else if (S.game === 'hide') e.prop = x7 ? MG.PROP_KINDS[x7 - 1] : ''; else if (S.game === 'ctf') e.carry = x7 ? x7 - 1 : -1; else if (S.game === 'royale') RG.extra(e, x7); }
       if (e.id !== S.myId) {
         e.held = HELD[a[5]] || 'sword';
         e.buf.push([ts, a[1], a[2], a[3] / 100]); if (e.buf.length > 30) e.buf.shift();
@@ -659,6 +660,7 @@
     S.projs.forEach(function (p, id) { if (!seen[id]) S.projs.delete(id); });
     if (m.teams) { S.teams = m.teams; renderTeams(); }
     if (m.fl) { S.flags = m.fl; S.score = m.sc || S.score; }
+    if (S.game === 'royale' && S.screen === 'game') RG.snap(m);
     if (S.screen === 'game' && !S.replay) potgRec(m);
     if (m.e) m.e.forEach(onEvent);
     if (S.screen === 'game' && !S.replay) potgCheck();
@@ -808,14 +810,16 @@
     var k = e.key.toLowerCase();
     if (S.quizOpen) { if (/^[1-4]$/.test(k)) quizPick(+k - 1); if (k === 'escape' || k === 'g') closeQuiz(); e.preventDefault(); return; }
     if (k === 'g' && S.screen === 'game' && S.en >= 0) { openQuiz(); return; }
+    if (k === 'escape' && S.game === 'royale' && S.screen === 'game' && RG.key(k, e)) return;
     if (k === 'escape') { closeShop(); closeModals(); $('qcMenu').classList.add('hidden'); return; }
     if (S.screen !== 'game' && S.screen !== 'hub' && S.screen !== 'wait') return;
     if (anyModal()) return;
     if (k === 'tab') { e.preventDefault(); if (S.screen === 'game') showScore(true); return; }
     if (MOVE_KEYS.indexOf(k) >= 0 && !e.repeat) { if (now() - (lastTap[k] || 0) < 280) S.dblSprint = true; lastTap[k] = now(); }
     keys[k] = true;
-    if (k === ' ') { e.preventDefault(); if (!e.repeat) doHop(); }
+    if (k === ' ') { e.preventDefault(); if (S.screen === 'game' && S.game === 'royale' && RG.key(k, e)) return; if (!e.repeat) doHop(); }
     if (S.screen === 'game') {
+      if (S.game === 'royale' && RG.key(k, e)) return;
       if (/^[1-9]$/.test(k)) selectSlot(+k - 1);
       if (isMini() && mgKey(k)) return;
       if (k === 'e') { var n = nearNpc(); if (n) openShop(n.kind); else closeShop(); }
@@ -848,7 +852,7 @@
     if (e.button === 2) { mouse.r = true; if (isMini() && mgSecondary()) { mouse.r = false; return; } tryPlace(true); }
   });
   addEventListener('mouseup', function (e) { if (e.button === 0) { if (mouse.l) primaryUp(); mouse.l = false; } if (e.button === 2) mouse.r = false; });
-  cv.addEventListener('wheel', function (e) { if (S.screen !== 'game') return; var hb = hotbarItems(); var i = hb.indexOf(S.held); selectSlot((i + (e.deltaY > 0 ? 1 : -1) + hb.length) % hb.length); e.preventDefault(); }, { passive: false });
+  cv.addEventListener('wheel', function (e) { if (S.screen !== 'game') return; if (S.game === 'royale') { RG.wheel(e.deltaY); e.preventDefault(); return; } var hb = hotbarItems(); var i = hb.indexOf(S.held); selectSlot((i + (e.deltaY > 0 ? 1 : -1) + hb.length) % hb.length); e.preventDefault(); }, { passive: false });
 
   // touch: joystick + buttons + tap the world
   if (touch) {
@@ -870,12 +874,16 @@
         return;
       }
       if (S.screen !== 'game') return;
+      if (S.game === 'royale') { var rt = e.changedTouches[0]; RG.tapDown(rt.identifier, rt.clientX, rt.clientY); return; }
       var t = e.changedTouches[0]; mouse.x = t.clientX; mouse.y = t.clientY; screenToWorld();
       var n = npcUnderCursor(); if (n && Math.hypot(n.x - P.x, n.y - P.y) < 3.4 * T) { openShop(n.kind); return; }
       S.touchTarget = { x: mouse.wx, y: mouse.wy, until: now() + 2500 };
       var ti = cursorTile(), mt = ti >= 0 && B.mineTarget(S.map, ti);
       if (mt && mt.kind !== 'floor') { S.touchMine = ti; mouse.l = true; } else if (B.canPlace(S.map, ti, [])) tryPlace(true);
     }, { passive: true });
+    cv.addEventListener('touchmove', function (e) { if (S.game !== 'royale') return; for (var i = 0; i < e.changedTouches.length; i++) RG.tapMove(e.changedTouches[i].identifier, e.changedTouches[i].clientX, e.changedTouches[i].clientY); }, { passive: true });
+    cv.addEventListener('touchend', function (e) { if (S.game === 'royale') for (var i = 0; i < e.changedTouches.length; i++) RG.tapUp(e.changedTouches[i].identifier); }, { passive: true });
+    cv.addEventListener('touchcancel', function () { if (window.RG) RG.tapUp(); }, { passive: true });
     cv.addEventListener('touchend', function () { if (S.touchMine != null) { S.touchMine = null; mouse.l = false; } }, { passive: true });
   }
   // Phones: the attack button mines whatever block/bed you're facing when nobody is in reach.
@@ -1015,6 +1023,7 @@
     if (window.SHMusic) SHMusic.want(S.screen === 'hub' || S.screen === 'wait' ? 'lobby' : null);
     if (S.replay) { potgTick(dt, t); return; }
     screenToWorld();
+    if (window.RG) RG.update(dt);
     if (!P) return;
     var me = S.ents.get(S.myId);
     var inGame = S.screen === 'game';
@@ -1039,7 +1048,9 @@
       if (il < 0.1) S.dblSprint = false;
       // Minecraft-style sprinting: hold Shift/Ctrl, double-tap a direction, or push the joystick all the way.
       P.sprint = il > 0.1 && !bowStart && (keys.shift || keys.control || S.dblSprint || (touch && il > 0.93)) && !(inGame && now() < S.slowUntil);
-      var sp = B.SPEED * (P.sprint ? 1.3 : 1) * (now() < S.speedUntil ? 1.35 : 1) * (now() < S.slowUntil ? 0.55 : 1) * (bowStart ? 0.6 : 1);
+      var rgSkip = inGame && S.game === 'royale' && RG.customMove(P, ix, iy, dt);
+      if (!rgSkip) {
+      var sp = (inGame && S.game === 'royale' ? RG.speedMul() : 1) * B.SPEED * (P.sprint ? 1.3 : 1) * (now() < S.speedUntil ? 1.35 : 1) * (now() < S.slowUntil ? 0.55 : 1) * (bowStart ? 0.6 : 1);
       var acc = 1 - Math.exp(-(il > 0.1 ? 16 : 22) * dt);
       P.cvx += (ix * sp - P.cvx) * acc; P.cvy += (iy * sp - P.cvy) * acc;
       var kbOn = Math.hypot(P.vx, P.vy) > 60;
@@ -1047,8 +1058,10 @@
       if (res.bx) P.cvx = 0; if (res.by) P.cvy = 0;
       var kd = Math.exp(-6.5 * dt); P.vx *= kd; P.vy *= kd; if (Math.hypot(P.vx, P.vy) < 4) P.vx = P.vy = 0;
       P.mv = Math.hypot(P.cvx, P.cvy) > 25;
+      }
       // aim
-      if (touch) { if (il > 0.2 && (!S.touchAtk || S.autoMine >= 0)) P.ang = Math.atan2(iy, ix); if (S.touchAtk && S.autoMine < 0) touchAim(); }
+      if (touch && inGame && S.game === 'royale' && RG.touchAim()) { /* tap-to-shoot: aim follows your finger */ }
+      else if (touch) { if (il > 0.2 && (!S.touchAtk || S.autoMine >= 0)) P.ang = Math.atan2(iy, ix); if (S.touchAtk && S.autoMine < 0) touchAim(); }
       else P.ang = Math.atan2(mouse.wy - (P.y - 16), mouse.wx - P.x);
       // fell?
       if (inGame && S.game === 'build' && S.phase === 'build' && S.map.plots) {
@@ -1207,6 +1220,7 @@
     if (inGame && snow() < S.goAt - 2600) z *= 0.55;
     else if (inGame && snow() < S.goAt) z *= 0.55 + 0.45 * D.ease.out(1 - (S.goAt - snow()) / 2600);
     if (P && P.sprint && P.mv) z *= 0.95; // Minecraft-ish FOV kick when sprinting
+    if (inGame && S.game === 'royale') return clamp(z * RG.zoom(), 0.3, 2);
     return clamp(z, touch ? 0.58 : 0.62, 1.3);
   }
   var lastT = now(), T0 = now();
@@ -1225,8 +1239,9 @@
     var sx = (Math.random() - 0.5) * sh * 2, sy = (Math.random() - 0.5) * sh * 2;
     var L = cam.x - vw / 2 + sx, Tp = cam.y - vh / 2 + sy;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    D.sky(c, innerWidth, innerHeight, cam.x, cam.y, t, z);
-    D.clouds(c, innerWidth, innerHeight, cam.x, cam.y, t, z);
+    if (S.game === 'royale' && (S.screen === 'game' || S.screen === 'end') && map !== S.hubMap) RG.ocean(c, innerWidth, innerHeight, { x: L, y: Tp }, t, z);
+    else { D.sky(c, innerWidth, innerHeight, cam.x, cam.y, t, z);
+    D.clouds(c, innerWidth, innerHeight, cam.x, cam.y, t, z); }
     c.setTransform(dpr * z, 0, 0, dpr * z, -L * dpr * z, -Tp * dpr * z);
     // ground chunks
     var CS = D.CH * T;
@@ -1262,7 +1277,7 @@
     if (map.props) map.props.forEach(function (pp) { if (pp.x > L - 60 && pp.x < L + vw + 60 && pp.y > Tp - 60 && pp.y < Tp + vh + 80) list.push({ k: 'prop', y: pp.y + 12, p: pp }); });
     if (S.game === 'ctf' && map.game === 'ctf') mgCtfDrawables(list, t);
     else if (S.game === 'murder') murderDrawables(list, t);
-    else if (S.game === 'royale') royaleDrawables(list, t);
+    else if (S.game === 'royale') RG.drawables(list, t);
     else if (S.game === 'build') buildDrawables(list, t);
     var ents = Array.from(S.ents.values());
     ents.forEach(function (e) { if (spDrawn && ((e.id === S.myId ? (P.z || 0) : e.z || 0) !== vz)) return; if (e.x > L - 80 && e.x < L + vw + 80 && e.y > Tp - 120 && e.y < Tp + vh + 120) list.push({ k: 'ent', y: e.y, e: e }); });
@@ -1532,6 +1547,7 @@
     return { title: (gg.kind === 'dia' ? 'Diamond ' : 'Emerald ') + tier, sub: g.n >= B.GEN[gg.kind].cap ? 'FULL' : 'Next in ' + Math.ceil(left) + 's' };
   }
   function drawEnt(e, t) {
+    if (S.game === 'royale' && S.screen === 'game' && RG.skipEnt(e)) return;
     var tn = now(), x = e.x, y = e.y, sc = 1, rot = 0, alpha = 1;
     if (e.id === S.myId && P) { x = P.x; y = P.y; }
     var dead = e.dead || e.elim || (e.id === S.myId && (P.dead || S.dead));
@@ -1597,6 +1613,7 @@
   }
   function drawTag(e, t) {
     var dead = e.dead || e.elim; if (dead) return;
+    if (S.game === 'royale' && S.screen === 'game' && RG.hideTag(e)) return;
     if (S.game === 'murder' && e.id === S.det) D.tag(c, '🕵️ DETECTIVE', e.x, e.y - 74, { size: 10, color: '#fff', bg: '#1d5fa8' });
     if ((e.flags || 0) & 1024 && e.id !== S.myId && !S.owner) return;
     if (S.game === 'hide' && S.screen === 'game' && e.prop) { if (S.team === 0 && e.id !== S.myId) D.tag(c, e.nick, e.x, e.y - 50, { size: 11, color: 'rgba(181,245,207,.85)' }); if (!(window.BWV && BWV.hearing && BWV.isTalking(e.id))) return; }
@@ -2447,16 +2464,7 @@
   }
   function mgWorldTop(t) {
     var tn = now();
-    if (S.game === 'royale') {
-      var zn = rgZone();
-      if (zn) {
-        var vw2 = innerWidth / cam.z, vh2 = innerHeight / cam.z, L2 = cam.x - vw2 / 2 - 140, T2 = cam.y - vh2 / 2 - 140;
-        c.save(); c.fillStyle = 'rgba(122,50,220,.38)'; c.beginPath(); c.rect(L2, T2, vw2 + 280, vh2 + 280); c.arc(zn.x, zn.y, Math.max(zn.r, 1), 0, Math.PI * 2); c.fill('evenodd');
-        c.strokeStyle = 'rgba(190,140,255,.9)'; c.lineWidth = 5; c.beginPath(); c.arc(zn.x, zn.y, Math.max(zn.r, 1), 0, Math.PI * 2); c.stroke();
-        if (!zn.shrink && zn.tr > 0 && zn.tr < zn.r) { c.setLineDash([16, 12]); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 3; c.beginPath(); c.arc(zn.tx, zn.ty, zn.tr, 0, Math.PI * 2); c.stroke(); }
-        c.restore();
-      }
-    }
+    if (S.game === 'royale') RG.top(t);
     if (S.game === 'hide') {
       var m = S.map;
       if (snow() < S.seekAt && m.cage) { // the seekers' cage
@@ -2494,6 +2502,7 @@
   }
   function mgScreen(t, z) {
     if (!P) return;
+    if (S.game === 'royale') { RG.screen(t); return; }
     var me = S.ents.get(S.myId);
     if (S.game === 'ctf' && S.flags.length) {
       var my = S.flags[S.team], en = S.flags[1 - S.team], b = S.map.bases[S.team];
@@ -2549,7 +2558,7 @@
     S.radarT = now(); send({ t: 'radar' }); S.did.radar = true;
   }
   function mgPrimary(it) {
-    if (S.game === 'royale') { rgFire(); return true; }
+    if (S.game === 'royale') return RG.click();
     if (S.game === 'duel') return false;
     if (S.game === 'murder') { if (it === 'bow') return false; doSwing(); return true; }
     if (S.game === 'build') { if (S.phase === 'build') bbPlaceAt(cursorTileFloor(), false); return true; }
@@ -2562,7 +2571,7 @@
     return false;
   }
   function mgHold(it) {
-    if (S.game === 'royale') { rgFire(); return true; }
+    if (S.game === 'royale') return RG.hold();
     if (S.game === 'spleef') { if (it === 'shovel' && !touch) digTile(cursorTileFloor()); return true; }
     if (S.game === 'hide') { if (S.team === 1 && it === 'sword' && now() - (S.lastHoldSwing || 0) > 300) { doSwing(); S.did.swingSeek = true; } return true; }
     return false;
@@ -2577,7 +2586,6 @@
     return false;
   }
   function mgKey(k) {
-    if (S.game === 'royale' && (k === 'e' || k === 'f')) { rgInteract(); return true; }
     if (S.game === 'murder' && S.mrole === 'm' && (k === 'f' || k === 'q')) { toggleKnife(); return true; }
     if (S.game === 'build' && S.phase === 'build' && k === 'r') { bbCycle(); return true; }
     if (S.game === 'hide') {
@@ -2590,12 +2598,7 @@
   }
   function mgTouch(btn) {
     if (!P || P.dead) return true;
-    if (S.game === 'royale') {
-      if (btn === 'atk') { var tg = null, tbd = 14 * T; S.ents.forEach(function (o) { if (o.id === S.myId || o.dead || o.elim) return; var dd = Math.hypot(o.x - P.x, o.y - P.y); if (dd < tbd) { tbd = dd; tg = o; } }); if (tg) P.ang = Math.atan2(tg.y - P.y - 16, tg.x - P.x); rgFire(); }
-      else if (btn === 'place') rgInteract();
-      else { var hb2 = hotbarItems(); selectSlot((hb2.indexOf(S.held) + 1) % hb2.length); }
-      return true;
-    }
+    if (S.game === 'royale') return RG.touch(btn);
     if (S.game === 'duel') { if (btn === 'atk') { var en2 = enemyClose(); if (en2) P.ang = Math.atan2(en2.y - P.y, en2.x - P.x); doSwing(); } return true; }
     if (S.game === 'murder') {
       if (btn === 'atk') { if (S.mrole === 'm' && S.held !== 'knife') { toggleKnife(); return true; } var en3 = enemyClose(); if (en3) P.ang = Math.atan2(en3.y - P.y, en3.x - P.x); doSwing(); return true; }
@@ -2638,7 +2641,7 @@
     else if (S.game === 'spleef') { tm.textContent = B.fmtTime(el); nx.textContent = sn < S.sdAt ? 'Sudden death in ' + B.fmtTime((S.sdAt - sn) / 1000) : '💥 SUDDEN DEATH'; }
     else if (S.game === 'duel') { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'First to ' + MG.GAMES.duel.wins + ' kills'; }
     else if (S.game === 'murder') { tm.textContent = B.fmtTime((S.endAt - sn) / 1000); nx.textContent = 'Innocents survive in'; }
-    else if (S.game === 'royale') { var zt = rgZone(); if (zt) { tm.textContent = B.fmtTime(zt.left / 1000); nx.textContent = zt.shrink ? '🌪️ Storm closing' : 'Storm closes in'; } }
+    else if (S.game === 'royale') { var zt = RG.zone(); if (zt) { tm.textContent = B.fmtTime(zt.left / 1000); nx.textContent = zt.shrink ? '🌪️ Storm closing' : 'Storm closes in'; } }
     else if (S.game === 'build') { if (S.phase === 'build') { tm.textContent = B.fmtTime((S.buildEnd - sn) / 1000); nx.textContent = '🏗️ ' + S.theme; } else { tm.textContent = S.phase === 'vote' ? 'VOTE' : 'DONE'; nx.textContent = S.theme; } }
   }
   function mgHudTick(force) {
@@ -2663,10 +2666,6 @@
     } else if (S.game === 'murder') {
       var alive2 = 0; S.ents.forEach(function (e) { if (!e.dead && !e.elim) alive2++; });
       h = '<span class="pill">👥 ' + alive2 + ' alive</span>' + (S.mrole === 'm' ? '<span class="pill hot">🔪 you are the murderer</span>' : '<span class="pill" style="color:#ffd166">🪙 ' + (S.gold || 0) + (S.inv && S.inv.bow ? '</span><span class="pill">🏹 ' + (S.inv.arrows || 0) : '/10') + '</span>');
-    } else if (S.game === 'royale') {
-      var alive3 = 0; S.ents.forEach(function (e) { if (!e.dead && !e.elim) alive3++; });
-      var zz = rgZone(), inStorm = zz && P && Math.hypot(P.x - zz.x, P.y - zz.y) > zz.r, gn = MG.GUNS[S.held];
-      h = '<span class="pill">👥 ' + alive3 + ' alive</span><span class="pill">🎯 ' + ((S.stats && S.stats.kills) || 0) + '</span>' + (gn ? '<span class="pill" style="color:' + RG_AMMO[gn.a] + '">• ' + (S.inv['am_' + gn.a] | 0) + '</span>' : '') + (inStorm ? '<span class="pill hot">🌪️ IN THE STORM!</span>' : '');
     } else if (S.game === 'build') {
       h = '<span class="pill" style="color:#ffd166">🏗️ ' + esc(S.theme) + '</span>' + (S.phase === 'build' ? '<span class="pill">build on YOUR plot</span>' : S.phase === 'vote' ? '<span class="pill hot">⭐ VOTING</span>' : '<span class="pill">🏆 results</span>');
     }
@@ -2674,21 +2673,12 @@
     tutTick();
   }
   function mgPrompt(pr) {
-    if (S.game === 'royale' && P && !P.dead) {
-      var nr = rgNear();
-      if (nr.chest) { pr.classList.remove('hidden'); pr.textContent = touch ? '📦 Tap to open chest' : 'E · Open chest'; return true; }
-      if (nr.loot) { pr.classList.remove('hidden'); pr.textContent = (touch ? '🔄 Tap to swap · ' : 'E · Swap for ') + MG.RARITY[nr.loot.rar].n + ' ' + MG.GUNS[nr.loot.k].n; return true; }
-    }
+    if (S.game === 'royale' && P && !P.dead) return RG.prompt(pr, touch);
     if (S.game === 'hide' && S.team === 0 && P && !P.dead) { var p = nearProp(P.x, P.y); if (p) { pr.classList.remove('hidden'); pr.textContent = (touch ? '🎭 Tap to become a ' : 'E · Become a ') + MG.PROPS[p.kind].name; return true; } }
     return false;
   }
   function mgDeath(d, killer, final, kind) {
-    if (S.game === 'royale') {
-      var left2 = 0; S.ents.forEach(function (e) { if (!e.elim && !e.dead && e.id !== S.myId) left2++; });
-      d.innerHTML = '<div class="big" style="color:#ff5c6c">ELIMINATED!</div><div class="sub">' + (kind === 'storm' ? 'The storm got you' : killer ? '<span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span> got you' : 'You’re out') + ' · You placed <b style="color:#ffd166">#' + (left2 + 1) + '</b></div><div class="sub" style="font-size:15px;color:#cfc8ff">Spectate the rest or jump into a new match.</div><div class="flex" style="flex-wrap:wrap;justify-content:center"><button class="btn" id="dSpec">👀 Spectate</button><button class="btn green" id="dAgain">▶ New game</button><button class="btn" id="dHub">🏠 Hub</button></div>';
-      $('dAgain').onclick = playAgain; $('dSpec').onclick = function () { d.classList.add('hidden'); }; $('dHub').onclick = function () { send({ t: 'hub' }); };
-      d.style.pointerEvents = 'auto'; return true;
-    }
+    if (S.game === 'royale') return RG.death(d, killer, kind);
     if (S.game === 'duel') {
       d.innerHTML = '<div class="big">SLAIN!</div><div class="sub">' + (killer ? '<span style="color:' + teamCol(killer.team) + '">' + esc(killer.nick) + '</span> got you · ' : '') + '<b>' + S.score[0] + ' – ' + S.score[1] + '</b></div><div class="sub" style="margin:0">Back in</div><div class="cd" id="deathCd">3</div>';
       d.style.pointerEvents = 'none'; return true;
@@ -2756,7 +2746,7 @@
       $('eSub').innerHTML = (m.winner >= 0 ? '<span style="color:' + teamCol(m.winner) + '">' + tname(m.winner) + '</span> wins <b>' + (m.score ? m.score[0] + ' – ' + m.score[1] : '') + '</b>' : 'Draw!') + eloTxt;
     }
     if (m.game === 'murder') { var mm2 = (m.stats || []).find(function (x) { return x.id === m.murderer; }); $('eSub').innerHTML = (m.winner === 1 ? '🔪 The murderer wins!' : '😇 The innocents win!') + (mm2 ? ' The murderer was <b style="color:#ff5c6c">' + esc(mm2.nick) + '</b>' : ''); }
-    if (m.game === 'royale') { var rw = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (rw ? '<span style="color:' + teamCol(rw.team) + '">' + esc(rw.nick) + '</span> wins the match!' : 'Nobody survived!') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
+    if (m.game === 'royale') { try { RG.end(m); } catch (e9) {} var rw = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (rw ? '<span style="color:' + teamCol(rw.team) + '">' + esc(rw.nick) + '</span> wins the match!' : 'Nobody survived!') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
     if (m.game === 'build') { var r1 = m.results && m.results[0]; $('eSub').innerHTML = '🏗️ Theme: <b>' + esc(m.theme || '') + '</b>' + (r1 ? ' · <span style="color:#ffd166">' + esc(r1.nick) + '</span> won with ' + r1.avg + ' ⭐' : ''); }
     void win;
   }
@@ -2778,12 +2768,13 @@
     if (S.game === 'hide') return S.team === 0 ? ['You are a', 'HIDER 🎭', '#2bd576', 'Copy a prop and hide! The seekers come out in ' + MG.GAMES.hide.hideSec + 's'] : ['You are a', 'SEEKER 🔍', '#ff5c6c', 'Hiders are disguised as props. Hit the fakes!'];
     if (S.game === 'duel') { var rk3 = MG.rankOf(S.myElo); return ['1v1 · first to ' + MG.GAMES.duel.wins, 'DUEL ⚔️', rk3.color, 'Sprint for knockback, jump for crits. Don’t fall off!']; }
     if (S.game === 'murder') return S.mrole === 'm' ? ['Shhh… you are the', 'MURDERER 🔪', '#ff5c6c', 'F draws your knife. One hit kills. Don’t get seen!'] : S.mrole === 'd' ? ['You are the', 'DETECTIVE 🕵️', '#3fa9ff', 'You have a bow. Find the murderer and don’t miss!'] : ['You are', 'INNOCENT 😇', '#2bd576', 'Collect 10 🪙 for a bow. Stay with people you trust…'];
-    if (S.game === 'royale') return ['Welcome to', 'SCROLL ROYAL 🪂', '#ffb02e', '📦 Open chests · 🔫 grab guns · stay inside the storm circle · last one standing wins!'];
+    if (S.game === 'royale') return ['Welcome to', 'SCROLL ROYALE 🪂', '#ffb02e', '🚌 Jump from the bus · 📦 loot chests · 🌪️ beat the storm · last one standing wins!'];
     if (S.game === 'build') return ['Build this theme:', (S.theme || '???').toUpperCase() + ' 🏗️', '#ffd166', MG.GAMES.build.buildSec + ' seconds on your plot — then everyone votes!'];
     return ['You are on the', tm.name.toUpperCase() + ' TEAM', tm.color, '🛏 Protect your bed · ⚔️ Destroy the others'];
   }
   function mgEvent(k, ev) {
     var e, p;
+    if (S.game === 'royale' && RG.event(k, ev)) return true;
     if (k === 'take') { e = S.ents.get(ev[1]); if (S.flags[ev[2]]) { S.flags[ev[2]][0] = 1; S.flags[ev[2]][1] = ev[1]; } if (e) e.carry = ev[2];
       feed(nameHtml(e) + ' grabbed the <b style="color:' + teamCol(ev[2]) + '">' + tname(ev[2]) + ' flag</b> 🚩');
       if (ev[1] === S.myId) { banner('YOU HAVE THE FLAG!', 'Run it back to your own flag!', '#ffd166'); SC.sfx('flag'); S.did.take = true; }
@@ -2859,50 +2850,6 @@
     var to = S.held === 'knife' ? 'fists' : 'knife';
     S.held = to; send({ t: 'sel', it: to }); renderHotbar(); SC.sfx(to === 'knife' ? 'draw' : 'click');
     toast(to === 'knife' ? '🔪 Knife out — one hit kills. Don’t get seen!' : '✊ Knife hidden', 1400);
-  }
-  // ---- Scroll Royal
-  var RG_AMMO = { l: '#f0c36a', s: '#e0553a', h: '#7fd1ff' };
-  function rgZone() {
-    var z = S.zone; if (!z) return null; var sn = snow(), left = Math.max(0, Math.min(z[2], z[2] - (sn - z[1])));
-    if (z[0] === 1) { var k = Math.max(0, Math.min(1, (sn - z[1]) / z[2])); return { x: z[3] + (z[6] - z[3]) * k, y: z[4] + (z[7] - z[4]) * k, r: z[5] + (z[8] - z[5]) * k, shrink: 1, left: left, tx: z[6], ty: z[7], tr: z[8] }; }
-    return { x: z[3], y: z[4], r: z[5], shrink: 0, left: left, tx: z[6], ty: z[7], tr: z[8] };
-  }
-  function rgFire() {
-    if (!P || P.dead || !MG.GUNS[S.held]) return;
-    var g = MG.GUNS[S.held], t0 = now();
-    if (t0 - (S.rgT || 0) < Math.max(60, g.r - 30)) return; S.rgT = t0;
-    if ((S.inv['am_' + g.a] | 0) <= 0) { if (t0 - (S.rgNoAmmo || 0) > 1500) { S.rgNoAmmo = t0; toast('Out of ' + (g.a === 'l' ? 'light' : g.a === 's' ? 'shell' : 'heavy') + ' ammo!', 1000); } return; }
-    send({ t: 'rf', a: Math.round(P.ang * 100) });
-    D.burst('dust', P.x + Math.cos(P.ang) * 22, P.y - 18 + Math.sin(P.ang) * 22, 2);
-  }
-  function rgNear() {
-    var bc = null, bd = 78, bl = null, ld = 60;
-    if (S.chests) S.chests.forEach(function (ch) { if (ch.open) return; var d = Math.hypot(ch.x - P.x, ch.y - P.y); if (d < bd) { bd = d; bc = ch; } });
-    if (S.loot) S.loot.forEach(function (it) { if (it.t !== 'w') return; var d = Math.hypot(it.x - P.x, it.y - P.y); if (d < ld) { ld = d; bl = it; } });
-    return { chest: bc, loot: bl };
-  }
-  function rgInteract() { if (!P || P.dead) return; var n = rgNear(); if (n.chest) send({ t: 'rch', id: n.chest.id }); else if (n.loot) send({ t: 'rpk', id: n.loot.id }); }
-  function royaleDrawables(list, t) {
-    if (S.chests) S.chests.forEach(function (ch) {
-      list.push({ k: 'fn', y: ch.y + 10, fn: function () {
-        c.save(); c.translate(ch.x, ch.y);
-        c.fillStyle = 'rgba(10,6,30,.25)'; A.ell(c, 0, 12, 20, 6); c.fill();
-        if (!ch.open) { var gg = c.createRadialGradient(0, -6, 2, 0, -6, 38); gg.addColorStop(0, 'rgba(255,210,74,.45)'); gg.addColorStop(1, 'rgba(255,210,74,0)'); c.fillStyle = gg; A.circ(c, 0, -6, 38 + Math.sin(t * 3) * 3); c.fill(); }
-        c.strokeStyle = '#4a3000'; c.lineWidth = 3; c.fillStyle = ch.open ? '#6b5a35' : '#e0a81c'; c.fillRect(-18, -12, 36, 22); c.strokeRect(-18, -12, 36, 22);
-        c.fillStyle = ch.open ? '#3d3320' : '#f6c842'; c.fillRect(-18, ch.open ? -20 : -12, 36, 9); c.strokeRect(-18, ch.open ? -20 : -12, 36, 9);
-        c.fillStyle = '#4a3000'; c.fillRect(-3, -6, 6, 8); c.restore();
-      } });
-    });
-    if (S.loot) S.loot.forEach(function (it) {
-      list.push({ k: 'fn', y: it.y + 4, fn: function () {
-        c.save(); c.translate(it.x, it.y - 8 + Math.sin(t * 3 + it.id) * 2.5);
-        if (it.t === 'w') { var rr2 = MG.RARITY[it.rar]; c.globalCompositeOperation = 'lighter'; var g2 = c.createRadialGradient(0, 0, 2, 0, 0, 28); g2.addColorStop(0, rr2.c + 'aa'); g2.addColorStop(1, rr2.c + '00'); c.fillStyle = g2; A.circ(c, 0, 0, 28); c.fill(); c.globalCompositeOperation = 'source-over'; D.drawItem(c, it.k, 0.9, { col: rr2.c }); }
-        else if (it.t === 'a') { c.fillStyle = RG_AMMO[it.k]; c.strokeStyle = '#000'; c.lineWidth = 2; c.fillRect(-7, -7, 14, 14); c.strokeRect(-7, -7, 14, 14); }
-        else if (it.t === 'm') { c.fillStyle = '#fff'; c.fillRect(-10, -10, 20, 20); c.fillStyle = '#e5393b'; c.fillRect(-2.5, -8, 5, 16); c.fillRect(-8, -2.5, 16, 5); }
-        else { c.fillStyle = '#3aa0ff'; c.shadowColor = '#3aa0ff'; c.shadowBlur = 12; A.circ(c, 0, 0, 10); c.fill(); }
-        c.restore();
-      } });
-    });
   }
   function murderDrawables(list, t) {
     if (!S.golds) return;
@@ -3132,10 +3079,10 @@
     { h: 'Gold buys justice', p: 'Gold bars appear around the village. Collect <b>10</b> and you get a bow with one arrow. Shoot the murderer to end it — shoot an innocent and you die too.', art: function (x, t) { artBg(x, '#1d4a3a'); for (var k = 0; k < 5; k++) { x.save(); x.translate(60 + k * 45, 160 + Math.sin(t * 3 + k) * 8); D.drawItem(x, 'goldI', 1.4); x.restore(); } itemAt(x, 'bow', 150, 240, 2); } },
     { h: 'Use your ears', p: 'Proximity voice is on. Scream when you see the knife. And if someone goes quiet mid-sentence… you know why. 🎙️', art: function (x, t) { artBg(x); gimAt(x, 100, 210, YOU(), t); for (var k = 0; k < 3; k++) { x.fillStyle = 'rgba(255,209,102,' + (1 - ((t + k / 3) % 1)) + ')'; x.font = '700 26px Fredoka, sans-serif'; x.fillText('!', 150 + k * 18, 140 - ((t + k / 3) % 1) * 40); } } },
   ] };
-  HELP.royale = { name: 'Scroll Royal', icon: '🪂', pages: [
-    { h: 'Last one standing', p: '8 players land around the village. <b>Open chests</b> with <kbd>E</kbd>, grab guns, and be the last one alive. Click to shoot where you aim.', art: function (x, t) { artBg(x, '#2f5f2a'); [['cat', '#ff922b'], ['ninja', '#4a4f6a'], ['duck', '#ffd166'], ['bear', '#2bd576']].forEach(function (q, k) { gimAt(x, 60 + k * 60, 215, { skin: q[0], body: q[1] }, t + k); }); itemAt(x, 'ar', 150, 120, 3); } },
-    { h: 'Chests & rarity', p: 'Gold chests hold guns in <b style="color:#b0b6bd">Common</b>, <b style="color:#4aa8ff">Rare</b>, <b style="color:#b55cff">Epic</b> and <b style="color:#ffb02e">Legendary</b>. Better rarity = more damage. You carry 4 guns: swap with <kbd>E</kbd>, switch with 1-4.', art: function (x, t) { artBg(x, '#4a3a10'); ['pistol', 'smg', 'ar', 'shotgun', 'sniper'].forEach(function (k, i) { itemAt(x, k, 50 + i * 50, 150 + Math.sin(t * 3 + i) * 6, 1.6); }); } },
-    { h: 'Beat the storm', p: 'The purple <b style="color:#b27cff">storm</b> shrinks toward the white ring on the map. Outside it you take damage that gets worse every phase. Stay inside and stay alive!', art: function (x, t) { artBg(x, '#3b1a6e'); x.strokeStyle = '#d6b8ff'; x.lineWidth = 4; x.beginPath(); x.arc(150, 150, 110 - (t % 4) * 18, 0, 6.3); x.stroke(); gimAt(x, 150, 200, YOU(), t); } },
+  HELP.royale = { name: 'Scroll Royale', icon: '🪂', pages: [
+    { h: 'Last one standing', p: 'Ride the <b>Battle Bus</b> and press <kbd>Space</kbd> to jump. Glide down, land, loot and be the last one alive. <b>Click</b> to shoot where you aim.', tk: 'Tap to jump from the bus. <b>Tap anywhere</b> to shoot there; hold to keep firing. Joystick moves.', art: function (x, t) { artBg(x, '#2f5f2a'); [['cat', '#ff922b'], ['ninja', '#4a4f6a'], ['duck', '#ffd166'], ['bear', '#2bd576']].forEach(function (q, k) { gimAt(x, 60 + k * 60, 215, { skin: q[0], body: q[1] }, t + k); }); itemAt(x, 'ar', 150, 120, 3); } },
+    { h: 'Loot & rarity', p: 'Open <b>gold chests</b> and walk over loot. <b style="color:#b0b6bd">Common</b> → <b style="color:#2bd576">Uncommon</b> → <b style="color:#4aa8ff">Rare</b> → <b style="color:#b55cff">Epic</b> → <b style="color:#ffb02e">Legendary</b>. 5 slots: <kbd>1</kbd>–<kbd>5</kbd>, <kbd>R</kbd> reload, <kbd>H</kbd> heal, <kbd>X</kbd> drop, <kbd>E</kbd> chests, swaps and jeeps.', art: function (x, t) { artBg(x, '#4a3a10'); ['pistol', 'smg', 'ar', 'shotgun', 'sniper'].forEach(function (k, i) { itemAt(x, k, 50 + i * 50, 150 + Math.sin(t * 3 + i) * 6, 1.6); }); } },
+    { h: 'Beat the storm', p: 'The purple <b style="color:#b27cff">storm</b> shrinks to the white ring. Shields soak damage first. Break trees, rocks and walls with your pickaxe or explosives, hide inside buildings, and press <kbd>M</kbd> for the big map.', art: function (x, t) { artBg(x, '#3b1a6e'); x.strokeStyle = '#d6b8ff'; x.lineWidth = 4; x.beginPath(); x.arc(150, 150, 110 - (t % 4) * 18, 0, 6.3); x.stroke(); gimAt(x, 150, 200, YOU(), t); } },
   ] };
   HELP.build = { name: 'Build Battle', icon: '🏗️', pages: [
     { h: 'One theme, one plot', p: 'Everyone gets the same theme and their own plot. You have ' + MG.GAMES.build.buildSec + ' seconds — make something amazing.', art: function (x, t) { artBg(x, '#1d4a3a'); x.strokeStyle = '#2bd576'; x.lineWidth = 5; x.strokeRect(40, 90, 100, 100); x.strokeStyle = 'rgba(255,255,255,.3)'; x.strokeRect(160, 90, 100, 100); D.prop(x, 'snowman', 90, 180, t, { sc: 1.4 }); D.tag && null; } },
@@ -3170,6 +3117,8 @@
   void hcv;
 
   // debug hook for automated tests
+  D.gunCol = function (e) { return S.game === 'royale' && window.MG && MG.RRAR[e.rrar | 0] ? MG.RRAR[e.rrar | 0].c : null; };
+  if (window.RG) RG.attach({ S: S, getP: function () { return P; }, ctx: c, cam: cam, send: send, now: now, snow: snow, toast: toast, toastBig: toastBig, mouse: mouse, keys: keys, entPos: entPos, playAgain: playAgain, shake: function (v) { S.shake = Math.max(S.shake, v); }, get touch() { return touch; } });
   window.BWG = { openHelp: function (g) { openHelp(g); }, skinShop: function () { openSkinShop(); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
 
   if (window.BWV) BWV.listen(); // hear nearby players right away (no mic needed)

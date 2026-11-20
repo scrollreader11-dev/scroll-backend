@@ -4,11 +4,12 @@
 // combat, projectiles, bots, rewards and proximity voice. bedwars.js hands us
 // its helpers through initMini(api).
 // ============================================================
+import * as RGS from './royale.js';
 const BW = globalThis.BW, MG = globalThis.MG;
 const { T, W, H } = BW;
 const N = W * H;
 let A = null;
-export function initMini(api) { A = api; }
+export function initMini(api) { A = api; RGS.initRoyale(api); }
 
 const rnd = Math.random;
 const pick = (a) => a[(rnd() * a.length) | 0];
@@ -93,17 +94,7 @@ function start(r) {
     });
     r.endAt = r.goAt + GM.mins * 60000; r.golds = new Map(); r.goldSeq = 0; r.goldAt = r.goAt + 3000; r.detId = all[1].id;
   } else if (r.game === 'royale') {
-    while (r.ents.size < (r.noBots ? 3 : GM.max)) addBot(r.ents.size);
-    let ti = 0; for (const e of r.ents.values()) e.team = ti++;
-    const c0 = 35.5 * T, off = rnd() * 6.283, mp = r.map, n0 = r.ents.size;
-    [...r.ents.values()].forEach((e, i) => {
-      const a = off + i * Math.PI * 2 / n0; let rad = 24 * T, x = c0, y = c0;
-      for (let q = 0; q < 16; q++) { x = c0 + Math.cos(a) * rad; y = c0 + Math.sin(a) * rad; if (rgWalk(mp, tileOf(x, y))) break; rad -= T; }
-      e.x = x; e.y = y; e.sword = 1; e.armor = 1; e.inv = A.emptyInv();
-      e.inv.rgun = { pistol: 0 }; e.inv.am_l = 30; e.inv.am_s = 0; e.inv.am_h = 0; e.held = 'pistol';
-      e.stats = freshStats({ place: 0, shots: 0 }); e.ai.wanderAt = 0; e.dirty = true;
-    });
-    r.endAt = r.goAt + GM.mins * 60000; rgSetup(r);
+    RGS.start(r, addBot);
   } else if (r.game === 'build') {
     while (r.ents.size < (r.noBots ? 2 : GM.max)) addBot(r.ents.size);
     r.phase = 'build'; r.theme = pick(MG.BB_THEMES); r.buildEnd = r.goAt + GM.buildSec * 1000;
@@ -149,6 +140,7 @@ function setSeeker(r, e, first) {
 // ============================================================ per-tick
 function tick(r, now) {
   const m = r.map, DT = A.DT;
+  if (r.game === 'royale') { RGS.tick(r, now); checkEnd(r, now); return; }
   if (r.game === 'hide') hidePhase(r, now);
   if (r.game === 'build') { buildTick(r, now); checkEnd(r, now); return; }
   for (const e of r.ents.values()) {
@@ -157,7 +149,7 @@ function tick(r, now) {
     if (e.ctl === 'ai') {
       if (r.game !== 'spleef' || !e.fallUntil) A.physics(r, e, DT, r.game === 'spleef');
       if (r.game === 'ctf') ctfBot(r, e, now); else if (r.game === 'spleef') spleefBot(r, e, now);
-      else if (r.game === 'duel') duelBot(r, e, now); else if (r.game === 'murder') murderBot(r, e, now); else if (r.game === 'royale') royaleBot(r, e, now); else hideBot(r, e, now);
+      else if (r.game === 'duel') duelBot(r, e, now); else if (r.game === 'murder') murderBot(r, e, now); else hideBot(r, e, now);
     } else {
       e.kbBudget *= 0.86;
       if (r.game === 'ctf') { if (e.mineReq && now < e.mineReq.until) A.mineStep(r, e, e.mineReq.i, DT); else if (e.mine) A.stopMine(r, e); }
@@ -173,12 +165,10 @@ function tick(r, now) {
     if (Math.ceil(e.hp) !== e.lastHp) { e.lastHp = Math.ceil(e.hp); e.dirty = true; }
     if (r.game === 'ctf') ctfTouch(r, e, now);
     if (r.game === 'murder') murderEnt(r, e, now);
-    if (r.game === 'royale') royaleEnt(r, e, now);
   }
   if (r.game === 'ctf') ctfTick(r, now);
   else if (r.game === 'spleef') spleefTick(r, now);
   else if (r.game === 'murder') murderTick(r, now);
-  else if (r.game === 'royale') rgZoneTick(r, now);
   checkEnd(r, now);
 }
 
@@ -330,6 +320,7 @@ function missProp(r, e, ang, now) {
 // ============================================================ death / respawn / end
 function die(r, v, kind, att) {
   if (v.dead) return;
+  if (r.game === 'royale') { RGS.die(r, v, kind, att); checkEnd(r, Date.now()); return; }
   const now = Date.now();
   if (!att && v.lastHitBy && now - v.lastHitAt < (r.game === 'spleef' ? 7000 : 10000)) att = r.ents.get(v.lastHitBy);
   if (att === v || (att && att.team === v.team && r.game !== 'spleef')) att = null;
@@ -362,8 +353,6 @@ function die(r, v, kind, att) {
     }
     // nearby players witness the kill
     if (att && att.mrole === 'm') for (const o of r.ents.values()) { if (o !== v && o !== att && !o.dead && o.ai && dist(o, att) < 9 * T) { o.ai.knows = true; o.ai.fleeFrom = att.id; } }
-  } else if (r.game === 'royale') {
-    final = 1; v.elim = true; v.stats.place = alive(r).length + 1; rgDrop(r, v);
   } else if (r.game === 'hide') {
     if (v.team === 0) {
       if (att) { att.stats.finds++; }
@@ -427,10 +416,7 @@ function checkEnd(r, now) {
     else if (!inno.length) winner = 1;                                  // the murderer
     else if (now >= r.endAt) { winner = 0; inno.forEach((e) => { e.stats.survived = 1; }); }
   } else if (r.game === 'royale') {
-    if (now < r.goAt + 1500) return;
-    const al = alive(r);
-    if (al.length <= 1) { winner = al.length ? al[0].team : -1; if (al[0]) al[0].stats.place = 1; }
-    else if (now >= r.endAt) { al.sort((x, y) => y.hp - x.hp); winner = al[0].team; al[0].stats.place = 1; }
+    winner = RGS.checkEnd(r, now); if (winner === null) return;
   } else if (r.game === 'build') {
     if (r.results && now >= r.podiumAt) winner = r.results[0].team;
   }
@@ -446,12 +432,13 @@ function reward(r, e, win) {
   if (r.game === 'ctf') return 15 + (win ? 100 : 0) + s.kills * 3 + s.caps * 25 + s.rets * 6;
   if (r.game === 'spleef') return 15 + ([0, 110, 65, 40, 25][s.place] || 0) + Math.min(30, s.digs) + s.knocks * 6;
   if (r.game === 'duel') return 20 + (win ? 90 : 0) + s.kills * 8;
-  if (r.game === 'royale') return 20 + (win ? 120 : 0) + Math.max(0, 6 - (s.place || 8)) * 12 + s.kills * 18;
+  if (r.game === 'royale') return RGS.reward(r, e, win);
   if (r.game === 'murder') return 15 + (win ? 90 : 0) + s.kills * 6 + Math.min(20, s.gold) + (s.role === 'm' ? 15 : 0);
   if (r.game === 'build') return 20 + ([0, 110, 60, 35, 20][s.place] || 0) + Math.min(40, (s.placed / 4) | 0);
   return 15 + (win ? 100 : 0) + s.finds * 12 + s.taunts * 3 + (s.survived ? 20 : 0);
 }
 function endInfo(r) {
+  if (r.game === 'royale') return RGS.endInfo(r);
   if (r.game === 'ctf' || r.game === 'duel') return { score: r.score };
   if (r.game === 'murder') { const mur = [...r.ents.values()].find((e) => e.mrole === 'm'); return { murderer: mur ? mur.id : 0 }; }
   if (r.game === 'build') return { theme: r.theme, results: r.results };
@@ -461,7 +448,7 @@ function endInfo(r) {
 // ============================================================ network glue
 function state(r, e) {
   const o = { game: r.game, seed: r.seed };
-  if (r.game === 'royale') { o.endAt = r.endAt; o.chests = r.rg.chests.map((c) => [c.id, Math.round(c.x), Math.round(c.y), c.open ? 1 : 0]); o.loot = [...r.rg.loot.values()].map((it) => [it.id, it.x, it.y, it.t, it.k || it.a || '', it.rar | 0, it.n | 0]); o.zn = rgZn(r); }
+  if (r.game === 'royale') Object.assign(o, RGS.state(r, e));
   if (r.game === 'ctf') { o.flags = r.flags.map((f) => [f.state, f.carrier, Math.round(f.x), Math.round(f.y)]); o.score = r.score; o.endAt = r.endAt; o.pick = r.pick.map((p) => p.item); }
   if (r.game === 'spleef') {
     const fresh = (r.custom ? MG.buildCustom(r.custom) : MG.genSpleef(r.seed)).L, diff = [];
@@ -486,6 +473,7 @@ function state(r, e) {
   return o;
 }
 function extra(r, e) {
+  if (r.game === 'royale') return RGS.extra(r, e);
   if (r.game === 'murder') return e.gold | 0;
   if (r.game === 'spleef') return (e.z | 0) | (e.fallUntil ? 4 : 0);
   if (r.game === 'hide') return e.prop ? MG.PROP_KINDS.indexOf(e.prop) + 1 : 0;
@@ -493,7 +481,7 @@ function extra(r, e) {
   return 0;
 }
 function snapExtra(r, msg, now) {
-  if (r.game === 'royale' && now - (r.znAt || 0) > 500) { r.znAt = now; msg.zn = rgZn(r); }
+  if (r.game === 'royale') { RGS.snapExtra(r, msg, now); return; }
   if (r.game === 'ctf' && (r.flagsDirty || now - (r.flAt || 0) > 500)) {
     r.flagsDirty = false; r.flAt = now;
     msg.fl = r.flags.map((f) => [f.state, f.carrier, Math.round(f.x), Math.round(f.y)]); msg.sc = r.score;
@@ -508,12 +496,7 @@ function swingBlocked(r, e, now) {
 }
 function onMsg(r, e, m, now) {
   const t = m.t;
-  if (r.game === 'royale') {
-    if (t === 'rf') { rgFire(r, e, (Number(m.a) || 0) / 100, now); return true; }
-    if (t === 'rch') { const c = r.rg.chests.find((q) => q.id === (m.id | 0)); if (c && !c.open && dist(c, e) < 2.2 * T) rgOpen(r, e, c); return true; }
-    if (t === 'rpk') { let b = null, bd = 64; for (const it of r.rg.loot.values()) if (it.t === 'w') { const d = dist(it, e); if (d < bd) { bd = d; b = it; } } if (b) rgGrab(r, e, b, true); return true; }
-    if (t === 'mine' || t === 'pl' || t === 'use' || t === 'bow' || t === 'sw') return true;
-  }
+  if (r.game === 'royale') return RGS.onMsg(r, e, m, now);
   if (r.game === 'spleef') {
     if (t === 'mv' && e.fallUntil) return true;
     if (t === 'dig') { dig(r, e, m.i | 0, now); return true; }
@@ -551,7 +534,8 @@ function adminInfo(r) {
   if (r.game === 'ctf' || r.game === 'duel') return 'Score ' + r.score[0] + ' – ' + r.score[1];
   if (r.game === 'murder') return [...r.ents.values()].filter((e) => e.mrole !== 'm' && !e.dead).length + ' innocents left';
   if (r.game === 'build') return r.phase === 'build' ? 'Building: ' + r.theme : r.phase === 'vote' ? 'Voting' : 'Results';
-  if (r.game === 'spleef' || r.game === 'royale') return alive(r).length + ' still standing';
+  if (r.game === 'royale') return RGS.adminInfo(r);
+  if (r.game === 'spleef') return alive(r).length + ' still standing';
   if (r.game === 'hide') return (r.phase === 'hide' ? 'Hiding' : 'Seeking') + ' · ' + [...r.ents.values()].filter((e) => e.team === 0 && !e.dead).length + ' hiders left';
   return '';
 }
@@ -560,13 +544,13 @@ function kit(r, e) {
   if (r.game === 'murder') { e.inv.bow = 1; e.inv.arrows = 3; e.dirty = true; }
   if (r.game === 'ctf') { kitCTF(r, e); e.sword = 4; e.armor = 4; e.inv.fireball += 3; e.inv.pearl += 2; e.inv.gapple += 3; e.inv.arrows += 32; e.dirty = true; r.ev(['gear', e.id, 4, 4, 0]); }
   if (r.game === 'spleef') { e.inv.snow = 16; e.dirty = true; }
-  if (r.game === 'royale') { e.inv.am_l += 90; e.inv.am_s += 24; e.inv.am_h += 12; e.dirty = true; }
+  if (r.game === 'royale') RGS.kit(r, e);
 }
 function skip(r, ms) {
   if (r.game === 'ctf' || r.game === 'duel' || r.game === 'murder') r.endAt -= ms;
   if (r.game === 'build') { if (r.phase === 'build') r.buildEnd -= ms; }
   if (r.game === 'spleef') r.sdAt -= ms;
-  if (r.game === 'royale') { r.endAt -= ms; r.rg.z.t0 -= ms; }
+  if (r.game === 'royale') RGS.skip(r, ms);
   if (r.game === 'hide') { if (r.phase === 'hide') r.seekAt -= ms; r.endAt -= ms; }
   A.roomSend(r, { t: 'mgt', endAt: r.endAt, seekAt: r.seekAt, sdAt: r.sdAt });
 }
@@ -983,170 +967,4 @@ function lateJoin(r, e) {
   r.teamsDirty = true; return true;
 }
 
-// ============================================================ SCROLL ROYAL
-// Battle royale: chests, rarity guns, a shrinking storm. Bullets are engine projectiles (kind 'bullet').
-const RG_STAGES = [{ r: 22, w: 22, s: 30, d: 0.3 }, { r: 14, w: 20, s: 25, d: 0.6 }, { r: 8, w: 18, s: 20, d: 1.2 }, { r: 4, w: 15, s: 18, d: 2 }, { r: 0, w: 10, s: 14, d: 3.5 }];
-const rgRoll = (w) => { const x = rnd(); let a = 0; for (let i = 0; i < 4; i++) { a += w[i]; if (x < a) return i; } return 0; };
-const rgKind = () => pick(['pistol', 'smg', 'smg', 'ar', 'ar', 'ar', 'shotgun', 'shotgun', 'shotgun', 'sniper']);
-const rgWalk = (m, i) => i >= 0 && i < N && !!m.g[i] && !m.w[i] && !m.obj[i] && !BW.solidAt(m, i % W, (i / W) | 0);
-const rgScore = (k, rar) => { const g = MG.GUNS[k]; return g.d * MG.RARITY[rar].m * g.p * (1000 / g.r) + (k === 'sniper' ? 12 : 0); };
-function rgSetup(r) {
-  const m = r.map, floors = [], open = [];
-  for (let y = 8; y < 64; y++) for (let x = 8; x < 64; x++) { const i = y * W + x; if (!rgWalk(m, i)) continue; (m.g[i] === BW.G.FLOOR ? floors : open).push(i); }
-  shuffle(floors); shuffle(open);
-  const chests = [], far = (p) => chests.every((c) => Math.hypot(c.x - p.x, c.y - p.y) > 4.5 * T);
-  for (const i of floors.concat(open)) { if (chests.length >= (floors.length ? 22 : 12)) break; const p = tcen(i); if (chests.length < 14 && m.g[i] !== BW.G.FLOOR && floors.length > 30) continue; if (far(p)) chests.push({ id: chests.length + 1, x: p.x, y: p.y, open: false }); }
-  for (const i of open) { if (chests.length >= 22) break; const p = tcen(i); if (far(p)) chests.push({ id: chests.length + 1, x: p.x, y: p.y, open: false }); }
-  const c = 35.5 * T;
-  r.rg = { chests, loot: new Map(), seq: 0, quiet: true, z: { x: c, y: c, r: 40 * T, i: 0, mode: 'wait', t0: r.goAt, from: null, to: null } };
-  const pool = open.concat(floors);
-  for (let k = 0; k < 70 && pool.length; k++) { const p = tcen(pick(pool)); rgLoot(r, p.x, p.y, false); }
-  r.rg.quiet = false; rgPlan(r);
-}
-function rgPlan(r) {
-  const z = r.rg.z, s = RG_STAGES[z.i];
-  if (!s) { z.to = { x: z.x, y: z.y, r: 0 }; return; }
-  const a = rnd() * 6.283, d = rnd() * Math.max(0, z.r - s.r * T) * 0.6;
-  z.to = { x: clamp(z.x + Math.cos(a) * d, 12 * T, 60 * T), y: clamp(z.y + Math.sin(a) * d, 12 * T, 60 * T), r: s.r * T };
-}
-function rgZoneTick(r, now) {
-  const z = r.rg.z, s = RG_STAGES[z.i];
-  if (!s || now < r.goAt) return;
-  if (z.mode === 'wait') {
-    if (now >= z.t0 + s.w * 1000) { z.mode = 'shrink'; z.t0 = now; z.from = { x: z.x, y: z.y, r: z.r }; A.roomSend(r, { t: 'ann2', text: '🌪️ The storm is closing in!' }); r.znAt = 0; }
-  } else {
-    const k = Math.min(1, (now - z.t0) / (s.s * 1000));
-    z.x = z.from.x + (z.to.x - z.from.x) * k; z.y = z.from.y + (z.to.y - z.from.y) * k; z.r = z.from.r + (z.to.r - z.from.r) * k;
-    if (k >= 1) { z.i++; z.mode = 'wait'; z.t0 = now; rgPlan(r); r.znAt = 0; }
-  }
-}
-function rgZn(r) {
-  const z = r.rg.z, s = RG_STAGES[z.i], X = Math.round;
-  if (!s) return [0, z.t0, 0, X(z.x), X(z.y), X(z.r), X(z.x), X(z.y), X(z.r), z.i];
-  if (z.mode === 'shrink') return [1, z.t0, s.s * 1000, X(z.from.x), X(z.from.y), X(z.from.r), X(z.to.x), X(z.to.y), X(z.to.r), z.i];
-  return [0, z.t0, s.w * 1000, X(z.x), X(z.y), X(z.r), X(z.to.x), X(z.to.y), X(z.to.r), z.i];
-}
-function rgSpawn(r, x, y, o) {
-  const m = r.map; let px = x, py = y;
-  for (let q = 0; q < 8; q++) { const tx = x + (q ? rnd(-34, 34) : 0), ty = y + (q ? rnd(-34, 34) : 0); if (rgWalk(m, tileOf(tx, ty))) { px = tx; py = ty; break; } }
-  const it = Object.assign({ id: ++r.rg.seq, x: Math.round(px), y: Math.round(py) }, o);
-  r.rg.loot.set(it.id, it);
-  if (!r.rg.quiet) r.ev(['rl', it.id, it.x, it.y, it.t, it.k || it.a || '', it.rar | 0, it.n | 0]);
-  return it;
-}
-function rgLoot(r, x, y, chest) {
-  const wt = chest ? [0.3, 0.35, 0.22, 0.13] : [0.7, 0.22, 0.07, 0.01];
-  if (chest) {
-    rgSpawn(r, x, y, { t: 'w', k: rgKind(), rar: rgRoll(wt) });
-    if (rnd() < 0.6) rgSpawn(r, x, y, { t: 'w', k: rgKind(), rar: rgRoll(wt) });
-    rgSpawn(r, x, y, { t: 'a', a: 'l', n: 40 }); rgSpawn(r, x, y, { t: 'a', a: 's', n: 12 });
-    if (rnd() < 0.5) rgSpawn(r, x, y, { t: 'a', a: 'h', n: 6 });
-    rgSpawn(r, x, y, { t: rnd() < 0.5 ? 'm' : 's' });
-  } else if (rnd() < 0.55) rgSpawn(r, x, y, { t: 'w', k: rgKind(), rar: rgRoll(wt) });
-  else if (rnd() < 0.7) rgSpawn(r, x, y, { t: 'a', a: pick(['l', 'l', 's', 'h']), n: 25 });
-  else rgSpawn(r, x, y, { t: rnd() < 0.5 ? 'm' : 's' });
-}
-function rgOpen(r, e, c) { if (c.open) return false; c.open = true; rgLoot(r, c.x, c.y, true); r.ev(['rc', c.id, e.id]); return true; }
-function rgDrop(r, v) {
-  const g = v.inv.rgun || {};
-  for (const k in g) rgSpawn(r, v.x, v.y, { t: 'w', k, rar: g[k] });
-  for (const a of ['l', 's', 'h']) { const n = v.inv['am_' + a] | 0; if (n > 5) rgSpawn(r, v.x, v.y, { t: 'a', a, n }); }
-}
-function rgWants(e, it) {
-  if (it.t === 'a') return true;
-  if (it.t === 'm') return e.hp < BW.MAX_HP - 4;
-  if (it.t === 's') return e.absorb < 8;
-  const g = e.inv.rgun, n = Object.keys(g).length;
-  if (g[it.k] != null) return it.rar > g[it.k];
-  if (n < 4) return true;
-  return rgScore(it.k, it.rar) > Math.min(...Object.keys(g).map((k) => rgScore(k, g[k]))) * 1.15;
-}
-function rgGrab(r, e, it, force) {
-  const inv = e.inv; let ok = false;
-  if (it.t === 'a') { inv['am_' + it.a] = (inv['am_' + it.a] | 0) + it.n; ok = true; }
-  else if (it.t === 'm') { if (e.hp < BW.MAX_HP) { e.hp = Math.min(BW.MAX_HP, e.hp + 6); ok = true; } }
-  else if (it.t === 's') { if (e.absorb < 10) { e.absorb = Math.min(10, e.absorb + 5); ok = true; } }
-  else if (it.t === 'w') {
-    const g = inv.rgun, n = Object.keys(g).length;
-    if (g[it.k] != null) { if (it.rar > g[it.k]) { g[it.k] = it.rar; ok = true; } }
-    else if (n < 4) { g[it.k] = it.rar; ok = true; }
-    else if (force || (e.bot && rgWants(e, it))) {
-      let out = force && g[e.held] != null ? e.held : null;
-      if (!out) { let ms = 1e9; for (const k in g) { const sc = rgScore(k, g[k]); if (sc < ms) { ms = sc; out = k; } } }
-      rgSpawn(r, e.x, e.y, { t: 'w', k: out, rar: g[out] }); delete g[out]; g[it.k] = it.rar; ok = true;
-    }
-    if (ok && (g[e.held] == null || force || e.held === 'fists')) e.held = it.k;
-  }
-  if (!ok) return false;
-  r.rg.loot.delete(it.id); r.ev(['rx', it.id, e.id]); e.dirty = true; return true;
-}
-function rgFire(r, e, ang, now) {
-  const g = MG.GUNS[e.held];
-  if (!g || !e.inv.rgun || e.inv.rgun[e.held] == null || e.dead || e.elim || now < r.goAt || now < (e.rgCd | 0)) return false;
-  const key = 'am_' + g.a; if ((e.inv[key] | 0) <= 0) return false;
-  e.inv[key]--; e.rgCd = now + g.r - 15; e.dirty = true; e.stats.shots = (e.stats.shots | 0) + 1;
-  const dmg = g.d * MG.RARITY[e.inv.rgun[e.held]].m;
-  for (let i = 0; i < g.p; i++) {
-    const a = ang + (rnd() - 0.5) * 2 * g.sp;
-    A.addProj(r, { kind: 'bullet', x: e.x + Math.cos(ang) * 18, y: e.y - 16 + Math.sin(ang) * 18, vx: Math.cos(a) * g.s, vy: Math.sin(a) * g.s, owner: e.id, team: e.team, life: g.rg / g.s, dmg, z: 0 });
-  }
-  r.ev(['shoot', e.id, 'gun']);
-  return true;
-}
-function royaleEnt(r, e, now) {
-  const z = r.rg.z, DT = A.DT;
-  if (now >= r.goAt && Math.hypot(e.x - z.x, e.y - z.y) > z.r) {
-    e.hp -= RG_STAGES[Math.min(z.i, RG_STAGES.length - 1)].d * DT; e.dirty = true;
-    if (e.hp <= 0) { e.hp = 0; A.die(r, e, 'storm', null); return; }
-  }
-  for (const it of r.rg.loot.values()) {
-    if (Math.abs(it.x - e.x) > 30 || Math.abs(it.y - e.y) > 30) continue;
-    if (it.t === 'w' && !(e.bot ? rgWants(e, it) : e.inv.rgun[it.k] == null ? Object.keys(e.inv.rgun).length < 4 : it.rar > e.inv.rgun[it.k])) continue;
-    if (rgGrab(r, e, it, false)) break;
-  }
-}
-function royaleBot(r, e, now) {
-  if (!botCommon(r, e, now) || now < r.goAt) return;
-  const ai = e.ai, z = r.rg.z, g = e.inv.rgun;
-  if (now >= (ai.thinkAt || 0)) {
-    ai.thinkAt = now + 200 + rnd() * 160;
-    let bk = null, bs = -1;
-    for (const k in g) { if ((e.inv['am_' + MG.GUNS[k].a] | 0) <= 0) continue; const sc = rgScore(k, g[k]); if (sc > bs) { bs = sc; bk = k; } }
-    if (bk) e.held = bk;
-    let tg = null, bd = 8 * T;
-    if (bk) for (const o of r.ents.values()) { if (o === e || o.dead || o.elim) continue; const d = dist(o, e); if (d < bd && A.clearLine(r, e, o)) { bd = d; tg = o; } }
-    ai.tgt = tg;
-  }
-  const tg = ai.tgt;
-  if (tg && !tg.dead && !tg.elim && MG.GUNS[e.held] && (e.inv['am_' + MG.GUNS[e.held].a] | 0) > 0) {
-    const dx = tg.x - e.x, dy = tg.y - e.y, d = Math.hypot(dx, dy) || 1, gn = MG.GUNS[e.held];
-    const pref = e.held === 'shotgun' ? 2.5 * T : e.held === 'sniper' ? 9 * T : 5 * T;
-    if (now > (ai.strafeAt || 0)) { ai.strafeAt = now + 600 + rnd() * 900; ai.strafe = rnd() < 0.5 ? 1 : -1; }
-    const f = d > pref + T ? 1 : d < pref - 1.5 * T ? -0.8 : 0, ux = dx / d, uy = dy / d;
-    A.moveToward(r, e, e.x + (ux * f - uy * ai.strafe * 0.8) * 3 * T, e.y + (uy * f + ux * ai.strafe * 0.8) * 3 * T, A.DT, 0.9); e.mv = true;
-    e.ang = Math.atan2(dy, dx);
-    if (now >= (ai.fireAt || 0) && d < gn.rg * 0.9 && rgFire(r, e, e.ang + (rnd() - 0.5) * 0.32, now)) ai.fireAt = now + gn.r + 150 + rnd() * 400;
-    return;
-  }
-  if (now >= (ai.goalAt || 0) || !ai.goal) {
-    ai.goalAt = now + 1800 + rnd() * 1200;
-    const soon = z.mode === 'shrink' || (RG_STAGES[z.i] && now > z.t0 + RG_STAGES[z.i].w * 1000 - 9000);
-    const out = Math.hypot(e.x - z.x, e.y - z.y) > z.r - 3 * T;
-    let goal = null;
-    if (out || (soon && Math.hypot(e.x - z.to.x, e.y - z.to.y) > z.to.r - 2 * T)) goal = { x: z.to.x, y: z.to.y, k: 'zone' };
-    else {
-      let bd = 16 * T; for (const c of r.rg.chests) if (!c.open) { const d = dist(c, e); if (d < bd) { bd = d; goal = { x: c.x, y: c.y, k: 'chest', c }; } }
-      if (!goal) { bd = 9 * T; for (const it of r.rg.loot.values()) { if (!rgWants(e, it)) continue; const d = dist(it, e); if (d < bd) { bd = d; goal = { x: it.x, y: it.y, k: 'loot' }; } } }
-    }
-    ai.goal = goal; ai.path = null;
-    if (goal) { ai.path = A.pathTo(r, e, tileOf(goal.x, goal.y), { bridge: false, mine: false }); ai.pi = 0; }
-  }
-  const gl = ai.goal;
-  if (!gl) { wanderBot(r, e, now); return; }
-  if (gl.k === 'chest' && dist(gl, e) < 1.7 * T) { rgOpen(r, e, gl.c); ai.goal = null; return; }
-  if (gl.k === 'loot' && dist(gl, e) < 40) { ai.goal = null; return; }
-  if (ai.path) { const st = A.stepPath(r, e, now); if (st !== 'go') ai.path = null; return; }
-  A.moveToward(r, e, gl.x, gl.y, A.DT); e.mv = true;
-}
-
-export const MINI = { lateJoin, start, tick, die, respawn, checkEnd, isWinner, reward, endInfo, state, extra, snapExtra, swingBlocked, missProp, onMsg, snowHit, snowLand, adminInfo, kit, skip };
+export const MINI = { rgQuiz: (r, e, out) => RGS.quizReward(r, e, out), lateJoin, start, tick, die, respawn, checkEnd, isWinner, reward, endInfo, state, extra, snapExtra, swingBlocked, missProp, onMsg, snowHit, snowLand, adminInfo, kit, skip };
