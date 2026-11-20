@@ -24,7 +24,7 @@ const RES = BW.RES;
 
 const conns = new Set();
 // Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
-const OWNERS = new Set(['scrollreader11', 'PakaJo']);
+const OWNERS = new Set(['scrollreader11', 'pakajo']);
 ;
 globalThis.SH_NAME_BANNED = (n) => (GMS.store.nameBans || []).includes(String(n || '').toLowerCase()); // only Scrollreader11 gets the owner panel
 let LOCKED = false; // owners can pause new matches
@@ -472,6 +472,29 @@ function quizMsg(r, e, c, m, now) {
   GMS.recordQuiz(e.cid, e.nick, ok, e.qz.streak);
   classRecord(e.cid, e.nick, ok, r.qset, cur.i);
   send(c, { t: 'qr', ok, ans: cur.ans, gain, en: Math.ceil(e.energy), qz: e.qz });
+}
+function hubQuiz(c, m, now) {
+  const sc = schoolCfg(); if (!sc || c.spectator) return;
+  const set = sc.set || 'blooket';
+  const h = c.hq || (c.hq = { qs: {}, qz: { right: 0, wrong: 0, streak: 0, best: 0 } });
+  if (m.t === 'qz') {
+    if (h.qs.cur && !h.qs.cur.done && now - h.qs.cur.at < 400) return;
+    const q = nextQuestion(h.qs, set);
+    return send(c, { t: 'qz', q: q.q, choices: q.choices, set: (QSETS[set] || QSETS.blooket).name, en: -1, qz: h.qz, hub: 1 });
+  }
+  const cur = h.qs.cur; if (!cur || cur.done) return;
+  if (now - cur.at < 150) return send(c, { t: 'qr', retry: 1 });
+  cur.done = true;
+  const ok = (m.i | 0) === cur.ans; let gain = null;
+  if (ok) {
+    h.qz.right++; h.qz.streak++; h.qz.best = Math.max(h.qz.best, h.qz.streak);
+    const coins = 10 + Math.min(40, (h.qz.streak - 1) * 5); // streaks pay more
+    if (c.cid) { try { grantCoins(c.cid, coins); } catch (e) {} }
+    gain = { coins };
+  } else { h.qz.wrong++; h.qz.streak = 0; }
+  GMS.recordQuiz(c.cid, c.nick, ok, h.qz.streak);
+  classRecord(c.cid, c.nick, ok, set, cur.i);
+  send(c, { t: 'qr', ok, ans: cur.ans, gain, en: -1, qz: h.qz, hub: 1 });
 }
 function quizBoard(r) {
   return [...r.ents.values()].filter((e) => e.quiz).map((e) => ({ nick: e.nick, team: e.team, right: e.qz.right, wrong: e.qz.wrong, best: e.qz.best })).sort((a, b) => b.right - a.right).slice(0, 30);
@@ -1377,6 +1400,8 @@ function onMsg(c, m, now) {
   if (t === 'leave' || t === 'hub') { if (c.room) leaveRoom(c); else goHub(c); return; }
   if (t === 'look') { c.look = worldLook(c.cid); if (c.space && !c.spectator) c.space.events.push(['pj', c.pid, c.nick, c.look, Math.round(c.sx), Math.round(c.sy), spaceTeam(c)]); send(c, { t: 'mylook', look: c.look }); return; }
   if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || t === 'lb2' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
+  // School Mode: students waiting in the hub answer questions too (earns Scrolls + counts in the class stats)
+  if ((t === 'qz' || t === 'qa') && (!r || r.state !== 'play')) return hubQuiz(c, m, now);
   if (!r) return;
   if (r.state === 'lobby') {
     if (t === 'team' && r.kind === 'private' && r.game !== 'hide') {

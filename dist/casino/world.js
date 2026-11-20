@@ -1007,11 +1007,23 @@
   }
 
   // ================================================================ BOOT
+  // School Mode: a nickname is enough to walk in (same nickname as the games hub)
+  function nickGate() {
+    fetch('/api/school', { credentials: 'include' }).then(function (r) { return r.json(); }).then(function (s) {
+      if (!s || !s.on) return;
+      $('gateTitle').textContent = 'Pick a nickname'; $('gateMsg').textContent = 'Type a nickname to walk into the casino.'; $('gateNick').style.display = 'block'; $('gateBack').href = '/arcade'; $('gateBack').textContent = '🎮 Games hub';
+      var go = function () { var n = $('gnInput').value.trim(); $('gnErr').textContent = '';
+        fetch('/api/arcade/nick', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nick: n }) }).then(function (r) { return r.json(); }).then(function (d) { if (d && d.ok) location.reload(); else $('gnErr').textContent = (d && d.error) || 'Try another nickname.'; }).catch(function () { $('gnErr').textContent = 'Couldn’t connect — try again.'; }); };
+      $('gnGo').onclick = go; $('gnInput').onkeydown = function (e) { e.stopPropagation(); if (e.key === 'Enter') go(); }; setTimeout(function () { $('gnInput').focus(); }, 50);
+    }).catch(function () {});
+  }
   function boot() {
     api('me').then(function (d) {
       if (d.error === 'no-id' || d.error === 'network') {
         hideLoading(); $('gateTitle').textContent = d.error === 'network' ? "Can't reach the casino" : 'Log in to play';
-        $('gateMsg').textContent = d.error === 'network' ? 'Check your connection and reload.' : 'Log in to ScrollHub to walk into the casino with your friends.'; $('gate').style.display = 'flex'; return;
+        $('gateMsg').textContent = d.error === 'network' ? 'Check your connection and reload.' : 'Log in to ScrollHub to walk into the casino with your friends.'; $('gate').style.display = 'flex';
+        if (d.error === 'no-id') nickGate();
+        return;
       }
       state.store = d.store || []; A.season = d.season == null ? 'xmas' : d.season; if (window.SHMusic) SHMusic.season(A.season); state.season = A.season; state.cases = d.cases || {}; state.dailyMs = d.dailyMs; state.nick = d.nick;
       state.store.forEach(function (it) { storeById[it.id] = it; });

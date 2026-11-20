@@ -412,17 +412,12 @@ async function serveGameImg(req, res, url) {
 // Password-guarded admin control endpoint.
 
 // Pages that School mode sends to the games hub instead.
-function schoolHome() { return admin.settings.schoolGamble ? '/casino' : '/arcade'; } // Gamble switch: the casino replaces the games hub
+function schoolHome() { return '/arcade'; } // School Mode always lands on the games hub (Gamble adds the casino)
 function isTeacherReq(req) { try { const tk = admin.settings.teacherKey; const ck = /(?:^|;\s*)sh_teacher=([^;]+)/.exec(req.headers.cookie || ''); return !!(tk && ck && decodeURIComponent(ck[1]) === tk); } catch (e) { return false; } }
 function location_school(req) { const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return proto + '://' + req.headers.host + schoolHome(); }
 function schoolBlocked(url, req) {
   const p = url.split('?')[0];
-  if (admin.settings.schoolGamble) { // Gamble switch: ONLY the casino is open (teachers can still watch the games hub)
-    if (p.startsWith('/casino') || p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/teacher')) return false;
-    if ((p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars')) && req && isTeacherReq(req)) return false;
-    if (p.startsWith('/arcade/') && /\.[a-z0-9]{1,6}$/i.test(p) && !/\.html?$/.test(p)) return false; // shared scripts/art the casino uses
-    if (p === '/arcade' || p === '/arcade/' || p === '/play' || p === '/play/' || p.startsWith('/arcade/')) return true;
-  }
+  if (admin.settings.schoolGamble && p.startsWith('/casino')) return false; // Gamble switch: the casino opens alongside the games hub
   if (p.startsWith('/api/') || p.startsWith('/admin') || p.startsWith('/arcade') || p === '/play' || p === '/play/' || p.startsWith('/bedwars') || p.startsWith('/calltest') || p.startsWith('/bw-ws')) return false;
   if (p === '/' || p === '/index.html' || p.startsWith('/casino') && (p === '/casino' || p === '/casino/' || p.endsWith('.html'))) return true;
   if (/\.html?$/.test(p)) return true;

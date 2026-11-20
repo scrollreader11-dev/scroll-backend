@@ -17,8 +17,8 @@
     fetch(base + '/api/school', { credentials: base === location.origin ? 'include' : 'omit', headers: h, cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
       if (!s || !s.on || s.exempt) return;
       // Normal School Mode: only the games hub. Gamble switch on: only the casino (teachers may still watch the hub).
-      var ok = s.gamble ? (inCasino || (inHub && s.teacher)) : inHub;
-      if (!ok) { document.documentElement.style.visibility = 'hidden'; go(s.home || (s.gamble ? '/casino' : '/arcade')); }
+      var ok = inHub || (s.gamble && inCasino);
+      if (!ok) { document.documentElement.style.visibility = 'hidden'; go('/arcade'); }
     }).catch(function () {});
   }
   check(); setInterval(check, 3000);

@@ -102,8 +102,8 @@
     if (t === 'cq') { openCq(m); return; }
     if (t === 'cqend') { if (S.qMode === 'cq') closeQuiz(true); return; }
     if (t === 'vote') { onVote(m); return; }
-    if (t === 'season') { applySeason(m.v); if (S.screen === 'hub') toast(S.season ? '🎄 Happy holidays! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
-    if (t === 'school') { S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
+    if (t === 'season') { applySeason(m.v); var se2 = B.SEASONS[S.season]; if (S.screen === 'hub') toast(se2 ? se2.emoji + ' Happy ' + se2.name + '! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
+    if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? '🎰 The casino is OPEN! Walk through the casino portal to gamble & play.' : '🔒 The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? '🏫 School Mode is ON — portals are locked, your teacher picks the games!' : '🏫 School Mode is off — portals are open!', 3000); return; }
     if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if (t === 's') return onSnap(m);
@@ -114,7 +114,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('🪤 You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('🏫 Welcome! Click 🏫 Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '✅ ' : '⚠️ ') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('📢 ' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -459,13 +459,14 @@
   $('gmPractice').onclick = function () { closeModals(); openPractice(S.gmGame); };
   $('gmPrivate').onclick = function () { closeModals(); openPrivate(S.gmGame); };
   $('gmHow').onclick = function () { closeModals(); openHelp(S.gmGame); };
-  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
+  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'sprites' ? 'Sprite Studio' : o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
-    if (o.act === 'casino' && S.school) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
+    if (o.act === 'casino' && S.school && !S.gamble) { toast('🏫 The casino is closed during School Mode — pick a game portal!', 2400); return; }
     var g = objGame(o);
     if (o.act === 'gmenu' && schoolLocked()) { toast('🔒 Portals are locked in School Mode — wait for your teacher’s vote!', 2400); return; }
     if (o.act === 'gmenu') { openGameMenu(g); }
+    else if (o.act === 'sprites') { if (S.mapper) location.href = '/arcade/sprites'; else toast('🎨 Only Scrollreader11 can draw new gims & hats — his creations show up in the Skin Shop!', 2800); }
     else if (o.act === 'builder') { if (S.mapper) location.href = '/arcade/builder'; else toast('🔒 Only Scrollreader11 can use the Map Builder — but his maps show up in every game!', 2600); }
     else if (o.act === 'quick') { S.lastQueue = { t: 'quick', game: g, mode: g === 'bw' ? o.mode : g }; send(S.lastQueue); toast('Joining ' + (g === 'bw' ? 'Bedwars ' + B.MODES[o.mode].name : gname(g)) + '…', 1500); }
     else if (o.act === 'practice') openPractice(g);
@@ -658,7 +659,6 @@
     S.projs.forEach(function (p, id) { if (!seen[id]) S.projs.delete(id); });
     if (m.teams) { S.teams = m.teams; renderTeams(); }
     if (m.fl) { S.flags = m.fl; S.score = m.sc || S.score; }
-    if (m.zn) S.zone = m.zn;
     if (S.screen === 'game' && !S.replay) potgRec(m);
     if (m.e) m.e.forEach(onEvent);
     if (S.screen === 'game' && !S.replay) potgCheck();
@@ -1290,7 +1290,7 @@
     if (S.screen === 'game' && touch && P && !P.dead && S.autoMine >= 0) { var am = S.autoMine, amk = S.map.w[am] ? 'wall' : 'floor'; D.tileCursor(c, (am % W) * T, ((am / W) | 0) * T, amk, true, t); }
     if (S.screen === 'wait') drawWaitHolo(t);
     if (isMini() && S.screen === 'game') mgWorldTop(t);
-    if (S.season === 'xmas' && S.screen === 'hub' && S.map === S.hubMap) drawGarlands(t);
+    if (B.SEASONS[S.season] && B.SEASONS[S.season].lights.length && S.screen === 'hub' && S.map === S.hubMap) drawGarlands(t);
     // projectiles, slashes, top particles
     S.projs.forEach(function (p) { D.projectile(c, { kind: p.kind, x: p.x, y: p.y, vx: p.vx || 1, vy: p.vy }, t); });
     for (var s2 = S.slashes.length - 1; s2 >= 0; s2--) { var fx = S.slashes[s2]; if (fx.owner === S.myId && P) { fx.x = P.x; fx.y = P.y - 18; } else if (fx.owner) { var oe = S.ents.get(fx.owner); if (oe) { fx.x = oe.x; fx.y = oe.y - 18; } } if (!D.slash(c, fx, tnow)) S.slashes.splice(s2, 1); }
@@ -1302,7 +1302,7 @@
     // screen fx
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (isMini() && S.screen === 'game') mgScreen(t, z);
-    if (S.season === 'xmas' && (S.screen === 'hub' || S.screen === 'wait' || S.screen === 'game' || S.screen === 'end')) drawSnow(dt, t);
+    if (B.SEASONS[S.season] && (S.screen === 'hub' || S.screen === 'wait' || S.screen === 'game' || S.screen === 'end')) drawSnow(dt, t);
     if (S.replay) potgOverlay(t);
     if (S.screen === 'game') {
       var hurt = Math.max(0, 1 - (tnow - S.hurtT) / 450), low = S.hp <= 6 && !S.dead ? (0.35 + Math.sin(t * 6) * 0.15) : 0;
@@ -1456,32 +1456,56 @@
     c.textBaseline = 'alphabetic';
   }
   // ---------------------------------------------------------------- HOLIDAY SEASON
-  function hubGen() { var m = B.genHub(); if (S.season === 'xmas') B.addXmas(m); return m; }
+  function hubGen() { var m = B.genHub(); if (B.SEASONS[S.season]) B.addSeason(m, S.season); return m; }
   function applySeason(v) {
-    S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', S.season === 'xmas');
+    S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', !!S.season); SNOW.length = 0;
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks();
     if (wasHub) { S.hubMap = hubGen(); S.map = S.hubMap; }
     if (window.SHMusic) SHMusic.season(S.season);
   }
-  var SNOW = [];
+  var SNOW = [], FW = [];
   function drawSnow(dt, t) {
-    var w = innerWidth, h = innerHeight, want = S.screen === 'game' ? 60 : 150;
-    while (SNOW.length < want) SNOW.push({ x: Math.random() * w, y: Math.random() * h, r: 1 + Math.random() * 2.6, s: 25 + Math.random() * 45, ph: Math.random() * 6.28, ccx: cam.x, ccy: cam.y });
+    var se = B.SEASONS[S.season]; if (!se) return;
+    var kind = se.fall, w = innerWidth, h = innerHeight, want = kind === 'sun' ? 18 : kind === 'bats' ? (S.screen === 'game' ? 6 : 14) : S.screen === 'game' ? 50 : 120;
+    var cols = { confetti: S.season === 'july4' ? ['#ff4b5c', '#ffffff', '#3a6dff'] : ['#ffd166', '#ff6ec7', '#5cf2ff', '#2bd576', '#ffffff'], leaves: ['#ff7a1a', '#e0a400', '#d62839', '#b5651d'], petals: ['#ffb7d5', '#ffffff', '#ffd6ea'], hearts: ['#ff3d6e', '#ff9ec7', '#ffffff'], clovers: ['#2bd576', '#1fa64a', '#ffd166'] }[kind] || ['#ffffff'];
+    while (SNOW.length < want) SNOW.push({ x: Math.random() * w, y: Math.random() * h, r: 1 + Math.random() * 2.6, s: 25 + Math.random() * 45, ph: Math.random() * 6.28, rot: Math.random() * 6.28, col: cols[(Math.random() * cols.length) | 0] });
     if (SNOW.length > want) SNOW.length = want;
     var dcx = cam.x - (drawSnow.cx == null ? cam.x : drawSnow.cx), dcy = cam.y - (drawSnow.cy == null ? cam.y : drawSnow.cy); drawSnow.cx = cam.x; drawSnow.cy = cam.y;
     if (Math.abs(dcx) > 200 || Math.abs(dcy) > 200) dcx = dcy = 0;
-    c.fillStyle = 'rgba(255,255,255,.85)';
     for (var i = 0; i < SNOW.length; i++) {
       var f = SNOW[i], par = 0.25 + f.r * 0.18;
-      f.y += f.s * dt * (0.6 + f.r * 0.25) - dcy * par; f.x += Math.sin(t * 1.3 + f.ph) * 12 * dt - dcx * par;
-      if (f.y > h + 5) { f.y = -5; f.x = Math.random() * w; } if (f.y < -6) f.y = h + 4;
-      if (f.x > w + 5) f.x = -5; if (f.x < -6) f.x = w + 4;
-      c.globalAlpha = 0.45 + f.r * 0.18; c.beginPath(); c.arc(f.x, f.y, f.r, 0, 6.2832); c.fill();
+      if (kind === 'bats') { f.x += (60 + f.s) * dt * (f.ph > 3 ? 1 : -1) - dcx * 0.4; f.y += Math.sin(t * 2 + f.ph) * 20 * dt - dcy * 0.4; }
+      else if (kind === 'sun') { f.y += -8 * dt - dcy * par; f.x += Math.sin(t * 0.7 + f.ph) * 6 * dt - dcx * par; }
+      else { var sp = kind === 'snow' ? 1 : kind === 'confetti' ? 1.6 : 0.8; f.y += f.s * dt * (0.6 + f.r * 0.25) * sp - dcy * par; f.x += Math.sin(t * 1.3 + f.ph) * (kind === 'snow' ? 12 : 26) * dt - dcx * par; f.rot += dt * (1.5 + f.r); }
+      if (f.y > h + 12) { f.y = -10; f.x = Math.random() * w; } if (f.y < -14) f.y = h + 10;
+      if (f.x > w + 14) f.x = -12; if (f.x < -14) f.x = w + 12;
+      c.globalAlpha = kind === 'sun' ? 0.25 + 0.2 * Math.sin(t * 2 + f.ph) : 0.55 + f.r * 0.15; c.fillStyle = f.col;
+      if (kind === 'snow') { c.beginPath(); c.arc(f.x, f.y, f.r, 0, 6.2832); c.fill(); continue; }
+      c.save(); c.translate(f.x, f.y);
+      if (kind === 'confetti') { c.rotate(f.rot); c.scale(1, Math.cos(f.rot * 1.7)); c.fillRect(-f.r * 1.6, -f.r * 0.8, f.r * 3.2, f.r * 1.6); }
+      else if (kind === 'leaves' || kind === 'petals') { c.rotate(f.rot); c.beginPath(); c.ellipse(0, 0, f.r * (kind === 'leaves' ? 2.6 : 2), f.r * 1.2, 0, 0, 6.2832); c.fill(); }
+      else if (kind === 'hearts') { var hr = f.r * 1.6; c.rotate(Math.sin(f.rot) * 0.4); c.beginPath(); c.moveTo(0, hr); c.bezierCurveTo(-hr * 2, -hr * 0.4, -hr, -hr * 1.8, 0, -hr * 0.6); c.bezierCurveTo(hr, -hr * 1.8, hr * 2, -hr * 0.4, 0, hr); c.fill(); }
+      else if (kind === 'clovers') { c.rotate(f.rot); for (var q = 0; q < 3; q++) { c.rotate(2.094); c.beginPath(); c.arc(0, -f.r * 1.3, f.r * 1.2, 0, 6.2832); c.fill(); } }
+      else if (kind === 'bats') { var fl = 0.45 + Math.abs(Math.sin(t * 12 + f.ph)) * 0.8, bs = 1.2 + f.r * 0.35; c.scale(f.ph > 3 ? 1 : -1, 1); c.fillStyle = '#1b1636'; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(-6 * bs, -6 * bs * fl, -11 * bs, 0); c.quadraticCurveTo(-6 * bs, 2 * bs, 0, 2 * bs); c.quadraticCurveTo(6 * bs, 2 * bs, 11 * bs, 0); c.quadraticCurveTo(6 * bs, -6 * bs * fl, 0, 0); c.fill(); c.fillStyle = '#ffd166'; c.fillRect(1, -1, 1.5, 1.5); }
+      else if (kind === 'sun') { var g2 = c.createRadialGradient(0, 0, 0, 0, 0, 30 + f.r * 10); g2.addColorStop(0, 'rgba(255,240,180,.9)'); g2.addColorStop(1, 'rgba(255,240,180,0)'); c.fillStyle = g2; c.beginPath(); c.arc(0, 0, 30 + f.r * 10, 0, 6.2832); c.fill(); }
+      c.restore();
     }
     c.globalAlpha = 1;
+    // spooky night tint / sunny warmth over the hub
+    if (S.screen === 'hub') {
+      if (S.season === 'halloween') { c.fillStyle = 'rgba(40,10,60,.22)'; c.fillRect(0, 0, w, h); }
+      else if (S.season === 'summer') { c.fillStyle = 'rgba(255,200,80,.07)'; c.fillRect(0, 0, w, h); }
+    }
+    // fireworks in the sky (New Year / 4th of July)
+    if (se.fireworks && (S.screen === 'hub' || S.screen === 'wait')) {
+      if (Math.random() < dt * 1.4) { var fc = cols[(Math.random() * cols.length) | 0], fx0 = w * (0.15 + Math.random() * 0.7), fy0 = h * (0.1 + Math.random() * 0.3); for (var k = 0; k < 28; k++) { var a = k / 28 * 6.2832, v = 90 + Math.random() * 60; FW.push({ x: fx0, y: fy0, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, col: k % 5 ? fc : '#ffffff' }); } }
+      c.globalCompositeOperation = 'lighter';
+      for (var j = FW.length - 1; j >= 0; j--) { var p2 = FW[j]; p2.life -= dt * 0.8; if (p2.life <= 0) { FW.splice(j, 1); continue; } p2.x += p2.vx * dt; p2.y += p2.vy * dt; p2.vy += 60 * dt; p2.vx *= 0.985; p2.vy *= 0.985; c.globalAlpha = p2.life; c.fillStyle = p2.col; c.beginPath(); c.arc(p2.x, p2.y, 2.2, 0, 6.2832); c.fill(); }
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    } else FW.length = 0;
   }
   function drawGarlands(t) {
-    var T2 = B.T, cols = ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'];
+    var T2 = B.T, cols = (B.SEASONS[S.season] && B.SEASONS[S.season].lights) || ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'];
     B.XMAS_LIGHTS.forEach(function (row) {
       for (var k = 0; k < row.length - 1; k++) {
         var x1 = row[k][0] * T2 + T2 / 2, y1 = row[k][1] * T2 + T2 / 2 - 48, x2 = row[k + 1][0] * T2 + T2 / 2, y2 = row[k + 1][1] * T2 + T2 / 2 - 48;
@@ -1944,9 +1968,11 @@
   var QCOLS = ['#f0a531', '#4d7cff', '#5dcc6b', '#e8473b'];
   function quizHud() {
     if ($('schoolTag')) $('schoolTag').classList.toggle('hidden', !S.school || S.screen === 'game');
-    var on = S.screen === 'game' && S.en >= 0;
+    var hubQ = S.school && S.screen === 'hub' && !S.owner && !S.teacher; // School Mode: questions in the hub too
+    var on = (S.screen === 'game' && S.en >= 0) || hubQ;
     $('qHud').classList.toggle('hidden', !on);
     if (!on) return;
+    if (hubQ) { $('qBar').style.width = '100%'; $('qBar').style.background = '#ffd166'; $('qEn').textContent = '📜 Earn Scrolls'; $('qHud').classList.remove('empty'); var hz = S.hqz || {}; $('qSt').textContent = '✅ ' + (hz.right || 0) + (hz.streak ? '  🔥 ' + hz.streak : ''); return; }
     var pct = Math.max(0, Math.min(100, S.en));
     $('qBar').style.width = pct + '%';
     $('qBar').style.background = S.en <= 15 ? '#ff4b5c' : S.en <= 40 ? '#ffd166' : '#2bd576';
@@ -1954,8 +1980,9 @@
     $('qHud').classList.toggle('empty', S.en === 0);
     var z = S.qz || {}; $('qSt').textContent = '✅ ' + (z.right || 0) + (z.streak ? '  🔥 ' + z.streak : '');
   }
+  function quizAllowed() { return S.en >= 0 || (S.school && S.screen === 'hub' && !S.owner && !S.teacher); }
   function openQuiz() {
-    if (S.en < 0 || S.quizOpen) return;
+    if (!quizAllowed() || S.quizOpen) return;
     S.quizOpen = true; keys = {}; mouse.l = mouse.r = false;
     $('quiz').classList.remove('hidden'); $('qFeed').textContent = ''; $('qQ').textContent = 'Loading question…'; $('qGrid').innerHTML = '';
     send({ t: 'qz' }); SC.sfx('open');
@@ -1977,7 +2004,7 @@
       b.onclick = function () { quizPick(i); };
       g.appendChild(b);
     });
-    if (m.en != null) { S.en = m.en; S.qz = m.qz; quizHud(); }
+    if (m.hub) { S.hqz = m.qz; quizHud(); } else if (m.en != null) { S.en = m.en; S.qz = m.qz; quizHud(); }
   }
   function quizPick(i) {
     if (!S.qCur || S.qBusy || now() - (S.qShownAt || 0) < 300) return;
@@ -1991,17 +2018,34 @@
     [].forEach.call(bs, function (b, k) { if (k === m.ans) b.classList.add('right'); else if (k === S.qPick && !m.ok) b.classList.add('wrong'); else b.classList.add('dim'); });
     var f = $('qFeed');
     if (m.ok) {
-      var g = m.gain || {}, parts = [g.en > 0 ? '+' + g.en + ' ⚡' : '⚡ full'];
+      var g = m.gain || {}, parts = m.hub ? ['+' + (g.coins || 0) + ' 📜 Scrolls'] : [g.en > 0 ? '+' + g.en + ' ⚡' : '⚡ full'];
       if (g.iron) parts.push('+' + g.iron + ' iron'); if (g.gold) parts.push('+' + g.gold + ' gold'); if (g.dia) parts.push('+1 diamond 💎'); if (g.em) parts.push('+1 emerald 🟩'); if (g.speed) parts.push('speed boost ⚡');
       f.textContent = '✅ Correct!  ' + parts.join('  ·  ') + (m.qz.streak >= 2 ? '   🔥 ' + m.qz.streak + ' in a row' : ''); f.className = 'ok'; SC.sfx('level');
     } else { f.textContent = '❌ Not quite — the answer is highlighted.'; f.className = 'bad'; SC.sfx('no'); }
-    if (m.en != null && m.en >= 0) { S.en = m.en; S.qz = m.qz; } quizHud();
+    if (m.hub) S.hqz = m.qz; else if (m.en != null && m.en >= 0) { S.en = m.en; S.qz = m.qz; } quizHud();
     if (m.cq) { clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, 2600); return; }
     // random pause before the next question so nobody can memorize a rhythm
     var wait = (m.ok ? 700 : 1700) + Math.random() * 900;
     clearTimeout(S.qNextT); S.qNextT = setTimeout(function () { if (S.quizOpen) send({ t: 'qz' }); }, wait);
   }
-  $('qClose').onclick = function () { closeQuiz(); };
+  $('qClose').onclick = function () { closeQuiz(); S.qAutoAt = now() + 45000; };
+  // School Mode: questions come to the students. In the hub after a few seconds (and again ~45s after closing);
+  // in a match at the start and whenever energy runs low.
+  setInterval(function () {
+    if (!S.school || S.owner || S.teacher || S.quizOpen || document.hidden) return;
+    if ($('quiz') && !$('quiz').classList.contains('hidden')) return;
+    var t0 = now(), anyModal = document.querySelector('.modal:not(.hidden)');
+    if (anyModal) return;
+    if (S.screen === 'hub') {
+      if (!S.qAutoAt) S.qAutoAt = t0 + 5000;
+      if (t0 >= S.qAutoAt) { S.qAutoAt = t0 + 45000; openQuiz(); }
+    } else if (S.screen === 'game' && S.en >= 0 && !S.dead && !S.replay) {
+      if (!S.qGameAt) S.qGameAt = t0 + 3500;
+      var low = S.en <= 20 && t0 - (S.qLowAt || 0) > 15000;
+      if (t0 >= S.qGameAt && !S.qFirstDone) { S.qFirstDone = true; openQuiz(); }
+      else if (low) { S.qLowAt = t0; openQuiz(); }
+    } else { S.qGameAt = 0; S.qFirstDone = false; }
+  }, 700);
   $('qOpen').onclick = function () { openQuiz(); };
 
 
@@ -2249,7 +2293,8 @@
         '<div class="admrow"><span class="lbl" style="min-width:150px">🤖 Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('💾 Save numbers', { act: 'saveset' }, 'green') + '</div></div>';
       var sc = d.school;
       html += '<div class="admcard"><div class="admhead">🏫 School mode ' + (sc ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (sc ? ab('Turn school mode off', { act: 'school', on: 0 }, 'red', true) : ab('🏫 Turn school mode on', { act: 'school', on: 1 }, 'green', true)) + '</div><div class="admrow"><span class="lbl">Questions:</span>' + [['blooket', 'Class Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9+10']].map(function (q) { return ab(q[1], { act: 'school', v: q[0] }, sc && sc.set === q[0] ? 'gold' : ''); }).join('') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Site goes to the games hub only · 30 players per game · walking uses ⚡ energy, answers refill it · Bedwars resources come from answers.</div></div>';
-      html += '<div class="admcard"><div class="admhead">🎄 Holiday decorations ' + (S.season ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow">' + (S.season ? ab('Turn decorations off', { act: 'season', v: 0 }, 'red') : ab('🎄 Turn Christmas on', { act: 'season', v: 1 }, 'green')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Snow, string lights, trees, presents and snowmen in the hub · frosty ground · Santa hats · holiday music.</div></div>';
+      html += '<div class="admcard"><div class="admhead">🎰 Gamble switch ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('🔒 Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('🎰 Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">During School Mode, opens the casino too — students walk between the games hub and the casino through the portals.</div></div>';
+      html += '<div class="admcard"><div class="admhead">🎉 Holiday decorations ' + (B.SEASONS[S.season] ? '<span class="tag2" style="background:#2bd576;color:#05240f">' + B.SEASONS[S.season].emoji + ' ' + B.SEASONS[S.season].name + '</span>' : '<span class="tag2">Off</span>') + '</div><div class="admrow" style="flex-wrap:wrap">' + B.SEASON_ORDER.map(function (id) { var se3 = B.SEASONS[id]; return ab(se3.emoji + ' ' + se3.name, { act: 'season', v: id }, S.season === id ? 'green' : ''); }).join('') + ab('Off', { act: 'season', v: '' }, !S.season ? 'red' : '') + '</div><div style="color:var(--mut);font-size:12px;padding:2px 4px">Decorations, falling effects, string lights, a default hat and (for some) special music.</div></div>';
       html += '<div class="admcard"><div class="admhead">⏹️ Emergency</div><div class="admrow">' + ab('End every match now', { act: 'endall' }, 'red', true) + '</div></div>';
     } else if (admTab === 'maps') {
       var mp = d.maps || [], rot = d.rot || {};
@@ -2262,6 +2307,7 @@
       else {
         var sc2 = d.school, left = cl.until ? Math.max(0, Math.ceil((cl.until - Date.now()) / 60000)) : 0;
         html += '<div class="admcard"><div class="admhead">🏫 School Mode ' + (sc2 ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON' + (left ? ' · ' + left + ' min left' : '') + '</span>' : '<span class="tag2">Off</span>') + '</div>' + (S.owner ? '<div class="admrow"><span class="lbl">Turn on for a class period:</span>' + [30, 45, 50, 60, 90].map(function (mn) { return ab(mn + ' min', { act: 'schooltimer', mins: mn }, 'green'); }).join('') + (sc2 ? ab('Turn off now', { act: 'school', on: 0 }, 'red', true) : '') + (cl.until ? ab('No timer', { act: 'schooltimer', mins: 0 }) : '') + '</div>' : '') + '</div>';
+        if (S.owner && sc2) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">🎰 Gamble ' + (S.gamble ? '<span class="tag2" style="background:#ffd166;color:#2a1300">UNLOCKED</span>' : '<span class="tag2">Locked</span>') + '</div><div class="admrow">' + (S.gamble ? ab('🔒 Lock the casino', { act: 'gamble', v: 0 }, 'red') : ab('🎰 Unlock the casino', { act: 'gamble', v: 1 }, 'gold')) + '<span style="color:var(--mut);font-size:12px">Students can walk between the games hub and the casino through the portals.</span></div></div>';
         var vt = cl.vote;
         if (S.owner && cl.tkey) html += '<div class="admcard" style="border-color:#ffd166"><div class="admhead">🔗 Teacher link <span style="color:var(--mut);font-weight:600;font-size:12px">only you can see this — send it to the teacher privately</span></div><div class="admrow"><input class="admin-in" id="tLink" readonly value="' + esc(location.origin + '/teacher/' + cl.tkey) + '" style="flex:1;min-width:0">' + ab('📋 Copy', { act: 'tcopy' }, 'gold') + ab('🔄 New link', { act: 'newteacher' }, 'red', true) + '</div></div>';
         if (S.teacher && !S.owner) html += '<div class="admrow" style="justify-content:flex-end"><a class="ab" href="/teacher/leave" style="text-decoration:none">🚪 Leave teacher mode on this computer</a></div>';
@@ -2817,9 +2863,6 @@
     if (k === 'mbow') { e = S.ents.get(ev[1]); if (ev[1] === S.myId) { toastBig('🏹 BOW UNLOCKED!', '#ffd166'); SC.sfx('level'); } else if (e) feed(nameHtml(e) + ' collected 10 gold and got a 🏹 bow!'); return true; }
     if (k === 'mdead') { e = S.ents.get(ev[1]); banner('THE MURDERER IS DOWN!', (e ? esc(e.nick) + ' was the murderer. ' : '') + 'The town is safe 🎉', '#2bd576'); SC.sfx('final'); return true; }
     if (k === 'justice') { e = S.ents.get(ev[1]); var v2 = S.ents.get(ev[2]); banner('WRONG TARGET!', (e ? esc(e.nick) : 'Someone') + ' shot an innocent' + (v2 ? ' (' + esc(v2.nick) + ')' : '') + '…', '#ff5c6c'); SC.sfx('no'); return true; }
-    if (k === 'rl') { if (!S.loot) S.loot = new Map(); S.loot.set(ev[1], { id: ev[1], x: ev[2], y: ev[3], t: ev[4], k: ev[5], rar: ev[6], n: ev[7] }); return true; }
-    if (k === 'rx') { var li = S.loot && S.loot.get(ev[1]); if (li) { D.burst('star', li.x, li.y - 10, 4, li.t === 'w' ? MG.RARITY[li.rar].c : '#ffd166'); if (ev[2] === S.myId) SC.sfx('res'); S.loot.delete(ev[1]); } return true; }
-    if (k === 'rc') { var rch = S.chests && S.chests.get(ev[1]); if (rch) { rch.open = true; D.burst('magic', rch.x, rch.y - 14, 12, '#ffd166'); sfxAt('pop2', rch.x, rch.y); } return true; }
     if (k === 'bb') { bbApplyLocal(ev[1], ev[2], ev[3], ev[4], S.map); return true; }
     if (k === 'bbphase') { S.phase = 'vote'; banner('⏰ TIME’S UP!', 'Walk through the builds and vote ⭐', '#ffd166'); SC.sfx('alarm'); bbUISync(); return true; }
     if (k === 'bbvote') { if (ev[1] !== S.myId) { e = S.ents.get(ev[1]); if (e) { p = entPos(e); D.text(p.x, p.y - 56, '⭐', '#ffd166', 18, { vy: -40, life: 0.8 }); } } return true; }
@@ -3144,7 +3187,7 @@
   void hcv;
 
   // debug hook for automated tests
-  window.BWG = { openHelp: function (g) { openHelp(g); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
+  window.BWG = { openHelp: function (g) { openHelp(g); }, skinShop: function () { openSkinShop(); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
 
   if (window.BWV) BWV.listen(); // hear nearby players right away (no mic needed)
   requestAnimationFrame(frame);

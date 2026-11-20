@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script src="/school-guard.js?v=3"></script>
+<script src="/school-guard.js?v=4"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Scrolls Casino</title>
@@ -531,18 +531,22 @@
   <div style="font-size:64px">🎰</div>
   <h1 id="gateTitle">Log in to play</h1>
   <p id="gateMsg">Log in to ScrollHub to walk into the casino with your friends.</p>
-  <a class="btn gold" href="/" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:10px">Back to ScrollHub</a>
+  <div id="gateNick" style="display:none;margin-top:12px">
+    <div style="display:flex;gap:8px;justify-content:center"><input id="gnInput" maxlength="16" placeholder="Your nickname" style="font:inherit;font-size:18px;padding:10px 14px;border-radius:12px;border:3px solid #0d0a26;background:#16123a;color:#fff;width:200px"><button class="btn gold" id="gnGo">Enter 🎰</button></div>
+    <div id="gnErr" style="color:#ff6b7a;font-weight:700;margin-top:8px;min-height:20px"></div>
+  </div>
+  <a class="btn gold" id="gateBack" href="/" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:10px">Back to ScrollHub</a>
 </div></div>
 <div id="loading"><div class="spin"></div>Opening the casino doors…</div>
 
 <script src="/casino/sfx.js?v=3"></script>
-<script src="/casino/art.js?v=10"></script>
+<script src="/casino/art.js?v=11"></script>
 <script src="/casino/games.js?v=2"></script>
 <script src="/casino/scenes.js?v=2"></script>
 <script src="/casino/mp.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
-<script src="/music.js?v=3"></script>
-<script src="/casino/world.js?v=7"></script>
+<script src="/music.js?v=4"></script>
+<script src="/casino/world.js?v=8"></script>
 <script src="/dc-notify.js?v=1" defer></script>
 </body>
 </html>
