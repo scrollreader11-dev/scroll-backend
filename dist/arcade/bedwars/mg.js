@@ -5,6 +5,7 @@
    ============================================================ */
 (function (root) {
   var B = root.BW, T = B.T, W = B.W, H = B.H, N = W * H, G = B.G;
+  B.onDims(function (w, h) { W = w; H = h; N = w * h; });
   var M = {};
 
   // Extra colors for free-for-all games (Bedwars only ever uses the first 4).
@@ -34,7 +35,7 @@
       desc: 'Someone here is the murderer…', tag: '8-player mystery' },
     build: { key: 'build', name: 'Build Battle', short: 'BUILD', icon: '🏗️', teams: 8, per: 1, max: 4, buildSec: 150, voteSec: 9,
       desc: 'Build the theme, then everyone votes', tag: 'Creative' },
-    royale: { key: 'royale', name: 'Scroll Royale', short: 'ROYALE', icon: '🪂', teams: 100, per: 1, max: 16, mins: 12,
+    royale: { key: 'royale', name: 'Scroll Royale', short: 'ROYALE', icon: '🪂', teams: 100, per: 1, max: 24, mins: 15,
       desc: 'Drop from the bus, loot, outlast the storm', tag: 'Battle royale' },
   };
   // ================================================================ SCROLL ROYALE data (shared by server + client)
@@ -63,13 +64,13 @@
   M.RAMMO = { L: { n: 'Light ammo', c: '#ffd36b', max: 360, box: 36 }, M: { n: 'Medium ammo', c: '#7ee081', max: 360, box: 30 }, S: { n: 'Shells', c: '#ff7a5c', max: 60, box: 10 }, H: { n: 'Heavy ammo', c: '#7fc8ff', max: 40, box: 6 }, R: { n: 'Rockets', c: '#c78bff', max: 12, box: 3 } };
   M.RSLOTS = 5;
   M.R_STORM = [ // wait s, shrink s, radius (tiles) after shrinking, damage per second outside
-    { w: 50, s: 30, r: 24, d: 1 }, { w: 35, s: 25, r: 15, d: 2 }, { w: 30, s: 20, r: 9, d: 4 }, { w: 25, s: 18, r: 4, d: 7 }, { w: 20, s: 15, r: 0, d: 10 }];
-  M.R_BUS_MS = 17000;
+    { w: 70, s: 45, r: 46, d: 1 }, { w: 50, s: 35, r: 30, d: 2 }, { w: 40, s: 30, r: 18, d: 4 }, { w: 30, s: 25, r: 9, d: 7 }, { w: 25, s: 20, r: 3, d: 10 }, { w: 15, s: 15, r: 0, d: 14 }];
+  M.R_BUS_MS = 26000;
   // vehicles: hp, speed multiplier, ram damage, hit radius; tanks have a cannon the driver fires by clicking
   M.RVEH = {
-    jeep: { n: 'Jeep', hp: 320, sp: 2.3, ram: 30, r: 30, icon: '🚙' },
-    car: { n: 'Sports Car', hp: 200, sp: 2.9, ram: 24, r: 28, icon: '🏎️' },
-    tank: { n: 'Tank', hp: 950, sp: 1.3, ram: 50, r: 36, icon: '🛡️', gun: { dmg: 75, blast: 115, cd: 1400, sp: 900 } },
+    jeep: { n: 'Jeep', hp: 380, sp: 2.3, ram: 35, r: 48, icon: '🚙' },
+    car: { n: 'Sports Car', hp: 240, sp: 2.9, ram: 28, r: 44, icon: '🏎️' },
+    tank: { n: 'Tank', hp: 1100, sp: 1.3, ram: 60, r: 66, icon: '🛡️', gun: { dmg: 75, blast: 115, cd: 1400, sp: 900 } },
   };
   M.RVEH_KEYS = ['jeep', 'car', 'tank'];
   // older code paths still look these up
@@ -264,7 +265,7 @@
   M.unrle = function (str) { var a = new Uint8Array(N); if (!str) return a; var k = 0; str.split(',').forEach(function (tok) { var p = tok.split('.'), v = parseInt(p[0], 36) || 0, n = parseInt(p[1], 36) || 0; for (var j = 0; j < n && k < N; j++) a[k++] = v; }); return a; };
   function ctr(i) { return { x: (i % W) * T + T / 2, y: ((i / W) | 0) * T + T / 2 }; }
   function byTeam(list, t) { if (!list) return null; for (var k = 0; k < list.length; k++) if (list[k][0] === t) return list[k]; return null; }
-  M.buildCustom = function (cm) {
+  M.buildCustom = function (cm) { B.setDims(72, 72);
     var m = blank(), mk = cm.mk || {}, game = cm.game;
     m.game = game; m.custom = true; m.name = cm.name;
     m.g = M.unrle(cm.g);
@@ -347,8 +348,11 @@
     return p;
   };
   // Turn a built-in map into an editable custom map (builder templates).
-  M.toCustom = function (game, seed) {
-    var m = M.genMap(game, seed || 7), mk = {}, i, cm = { v: 1, game: game, name: '', g: M.rle(m.g), w: [], props: [], mk: mk };
+  M.toCustom = function (game, seed) { // the Studio edits 72x72 maps, so copies of the big maps are made at that size
+    var keepR = M.R_SIZE; M.R_SIZE = 72;
+    var m; try { m = game === 'bw' ? B.genMap(72) : M.genMap(game, seed || 7); } finally { M.R_SIZE = keepR; }
+    B.setDims(72, 72);
+    var mk = {}, i, cm = { v: 1, game: game, name: '', g: M.rle(m.g), w: [], props: [], mk: mk };
     for (i = 0; i < N; i++) if (m.w[i]) cm.w.push([i, m.w[i], m.wc[i]]);
     var ti = function (x, y) { return Math.floor(y / T) * W + Math.floor(x / T); };
     if (game === 'bw') {
@@ -413,81 +417,115 @@
   // Destructibles: m.rgObjs [{id, i, kind}] (tile is solid via m.obj = 9). Houses: m.houses [{x0,y0,x1,y1}] (roofs drawn by the client).
   M.R_OBJ = { tree: { hp: 170, r: 17 }, pine: { hp: 170, r: 15 }, bush: { hp: 40, r: 14, soft: 1 }, crate: { hp: 70, r: 15, loot: 1 }, barrel: { hp: 45, r: 13, boom: 1 }, rock: { hp: 320, r: 17 }, hay: { hp: 60, r: 16 } };
   M.R_WALL_HP = 220;
+  M.R_SIZE = 144;
   M.genRoyale = function (seed) {
+    var S2 = M.R_SIZE; B.setDims(S2, S2);
     var m = blank(); m.game = 'royale'; m.props = []; m.rgObjs = []; m.houses = []; m.chestSpots = []; m.lootSpots = []; m.vehSpots = []; m.pois = [];
-    var r = rng(seed || 7), C = 35.5;
-    // island (rounded, wobbly coast)
+    var r = rng(seed || 7), C = (S2 - 1) / 2, RAD = C - 3;
+    function ri(a, b) { return a + ((r() * (b - a + 1)) | 0); }
+    function inb(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
+    function setG(x, y, v) { if (inb(x, y) && m.g[y * W + x] && m.g[y * W + x] !== G.ROCK) m.g[y * W + x] = v; }
+    function okG(x, y) { var i = y * W + x; return inb(x, y) && m.g[i] && m.g[i] !== G.ROCK; }
+    function rect(x0, y0, x1, y1, v) { for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) setG(x, y, v); }
+    function blob(cx, cy, rr, v, rough) { for (var y = -rr - 2; y <= rr + 2; y++) for (var x = -rr - 2; x <= rr + 2; x++) { var a = Math.atan2(y, x), d = Math.hypot(x, y), lim = rr * (1 + (rough || 0.18) * Math.sin(a * 3 + cx) * Math.cos(a * 2 + cy)); if (d <= lim) setG(cx + x, cy + y, v); } }
+    // ---- island: big wobbly coast with a couple of bays
+    var ph = [r() * 6, r() * 6, r() * 6];
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
-      var dx = (x - C) / 33.5, dy = (y - C) / 33.5, a = Math.atan2(dy, dx), wob = 0.045 * Math.sin(a * 5 + 1.3) + 0.03 * Math.sin(a * 9 + 4.1);
-      var d = Math.pow(Math.pow(Math.abs(dx), 3.2) + Math.pow(Math.abs(dy), 3.2), 1 / 3.2);
-      if (d < 1 - wob) m.g[y * W + x] = d > 0.93 - wob ? G.SAND : G.GRASS;
+      var dx = (x - C) / RAD, dy = (y - C) / RAD, a = Math.atan2(dy, dx);
+      var wob = 0.05 * Math.sin(a * 3 + ph[0]) + 0.035 * Math.sin(a * 7 + ph[1]) + 0.02 * Math.sin(a * 13 + ph[2]);
+      var d = Math.pow(Math.pow(Math.abs(dx), 2.6) + Math.pow(Math.abs(dy), 2.6), 1 / 2.6);
+      if (d < 0.97 - wob) m.g[y * W + x] = d > 0.9 - wob ? G.SAND : G.GRASS;
     }
-    // cliffs: a ring of rock on the very edge so nobody walks into the sea
     for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var i = y * W + x; if (!m.g[i]) continue; if (!m.g[i - 1] || !m.g[i + 1] || !m.g[i - W] || !m.g[i + W]) m.g[i] = G.ROCK; }
-    function road(x0, y0, x1, y1) { fill(m, Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1), G.PATH); }
-    road(8, 35, 63, 36); road(35, 8, 36, 63); road(14, 20, 34, 21); road(37, 50, 58, 51); road(20, 37, 21, 52); road(50, 20, 51, 34);
-    function okG(x, y) { var i = y * W + x; return B.inb(x, y) && m.g[i] && m.g[i] !== G.ROCK; }
-    function house(x0, y0, x1, y1, doors, name, chests) {
-      for (var yy = y0; yy <= y1; yy++) for (var xx = x0; xx <= x1; xx++) { if (!okG(xx, yy)) return false; }
-      fill(m, x0, y0, x1, y1, G.FLOOR);
-      for (var xx2 = x0; xx2 <= x1; xx2++) { wall(m, xx2, y0, 2, 0); wall(m, xx2, y1, 2, 0); }
-      for (var yy2 = y0; yy2 <= y1; yy2++) { wall(m, x0, yy2, 2, 0); wall(m, x1, yy2, 2, 0); }
-      doors.forEach(function (dd) { m.w[dd[1] * W + dd[0]] = 0; });
+    // ---- towns on a ring + the middle
+    var NAMES = ['Scroll City', 'Gim Farms', 'Bedrock Quarry', 'Pixel Park', 'Lazy Lagoon', 'Dusty Diner', 'Pleasant Pines', 'Snack Shack', 'Crater Camp', 'Frosty Peaks', 'Sunny Shores', 'Neon Market'];
+    var KIND = { 'Gim Farms': 'farm', 'Bedrock Quarry': 'quarry', 'Pixel Park': 'park', 'Lazy Lagoon': 'beach', 'Sunny Shores': 'beach', 'Pleasant Pines': 'forest', 'Frosty Peaks': 'snow', 'Crater Camp': 'quarry', 'Dusty Diner': 'desert' };
+    var towns = [{ name: 'Storm Tower', x: Math.round(C), y: Math.round(C), big: 1, kind: 'city' }];
+    var ring = NAMES.length, a0 = r() * 6.28;
+    for (var k = 0; k < ring; k++) { var aa = a0 + k / ring * 6.283 + (r() - 0.5) * 0.25, rr2 = RAD * (k % 2 ? 0.7 : 0.4) * (0.95 + r() * 0.08); towns.push({ name: NAMES[k], x: Math.round(C + Math.cos(aa) * rr2), y: Math.round(C + Math.sin(aa) * rr2), big: k === 0 ? 1 : 0, kind: KIND[NAMES[k]] || 'town' }); }
+    // ---- biomes under the towns
+    towns.forEach(function (t) {
+      if (t.kind === 'beach') blob(t.x, t.y, 11, G.SAND, 0.3);
+      else if (t.kind === 'desert') blob(t.x, t.y, 12, G.SAND, 0.35);
+      else if (t.kind === 'snow') { blob(t.x, t.y, 13, G.SNOW, 0.3); blob(t.x + 3, t.y - 2, 3, G.ICE, 0.2); }
+      else if (t.kind === 'quarry') { for (var q = 0; q < 70; q++) { var qa = r() * 6.28, qd = r() * 11; setG(Math.round(t.x + Math.cos(qa) * qd), Math.round(t.y + Math.sin(qa) * qd), G.STONE); } }
+      else if (t.kind === 'park') { blob(t.x - 5, t.y - 4, 4, G.ICE, 0.15); }
+    });
+    // ---- roads: ring road + spokes + neighbours
+    function road(x0, y0, x1, y1) { var steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)), lx = -1, ly = -1; for (var s2 = 0; s2 <= steps; s2++) { var t2 = steps ? s2 / steps : 0, xx = Math.round(x0 + (x1 - x0) * t2), yy = Math.round(y0 + (y1 - y0) * t2); if (xx === lx && yy === ly) continue; lx = xx; ly = yy; for (var oy = 0; oy <= 1; oy++) for (var ox = 0; ox <= 1; ox++) setG(xx + ox, yy + oy, G.PATH); } }
+    function lroad(x0, y0, x1, y1) { if (r() < 0.5) { road(x0, y0, x1, y0); road(x1, y0, x1, y1); } else { road(x0, y0, x0, y1); road(x0, y1, x1, y1); } }
+    var ringT = towns.slice(1).sort(function (p, q) { return Math.atan2(p.y - C, p.x - C) - Math.atan2(q.y - C, q.x - C); });
+    for (k = 0; k < ringT.length; k++) { var A1 = ringT[k], B1 = ringT[(k + 1) % ringT.length]; lroad(A1.x, A1.y, B1.x, B1.y); if (k % 3 === 0) lroad(towns[0].x, towns[0].y, A1.x, A1.y); }
+    // ---- buildings
+    var occ = new Uint8Array(N);
+    function free(x0, y0, x1, y1) { for (var yy = y0 - 3; yy <= y1 + 3; yy++) for (var xx = x0 - 3; xx <= x1 + 3; xx++) { if (!okG(xx, yy) || occ[yy * W + xx]) return false; } for (yy = y0; yy <= y1; yy++) for (xx = x0; xx <= x1; xx++) if (m.g[yy * W + xx] === G.PATH) return false; return true; }
+    function house(x0, y0, w, h, name) {
+      var x1 = x0 + w - 1, y1 = y0 + h - 1; if (!free(x0, y0, x1, y1)) return false;
+      for (var yy = y0 - 1; yy <= y1 + 1; yy++) for (var xx = x0 - 1; xx <= x1 + 1; xx++) occ[yy * W + xx] = 1;
+      for (yy = y0; yy <= y1; yy++) for (xx = x0; xx <= x1; xx++) m.g[yy * W + xx] = G.FLOOR;
+      for (xx = x0; xx <= x1; xx++) { wall(m, xx, y0, 2, 0); wall(m, xx, y1, 2, 0); }
+      for (yy = y0; yy <= y1; yy++) { wall(m, x0, yy, 2, 0); wall(m, x1, yy, 2, 0); }
+      // doors (2 tiles wide on the long sides, 1 on the short), at least two of them
+      var sides = [0, 1, 2, 3], nd = 2 + (w * h > 70 ? 1 : 0); for (var q4 = 3; q4 > 0; q4--) { var j4 = (r() * (q4 + 1)) | 0, t4 = sides[q4]; sides[q4] = sides[j4]; sides[j4] = t4; }
+      for (var s3 = 0; s3 < nd; s3++) { var sd = sides[s3];
+        if (sd < 2) { var dx2 = ri(x0 + 1, x1 - 2), yy2 = sd ? y1 : y0; m.w[yy2 * W + dx2] = 0; m.w[yy2 * W + dx2 + 1] = 0; }
+        else { var dy2 = ri(y0 + 1, y1 - 1), xx2 = sd === 2 ? x0 : x1; m.w[dy2 * W + xx2] = 0; } }
+      // big buildings get an inner wall with a doorway (rooms!)
+      if (w >= 9 && h >= 6) { var mx = ri(x0 + 3, x1 - 3), gap = ri(y0 + 1, y1 - 2); for (yy = y0 + 1; yy < y1; yy++) if (yy !== gap && yy !== gap + 1) wall(m, mx, yy, 2, 0); }
+      else if (h >= 8 && w >= 6) { var my = ri(y0 + 3, y1 - 3), gx = ri(x0 + 1, x1 - 2); for (xx = x0 + 1; xx < x1; xx++) if (xx !== gx && xx !== gx + 1) wall(m, xx, my, 2, 0); }
       m.houses.push({ x0: x0, y0: y0, x1: x1, y1: y1, name: name || '' });
       var cx2 = (x0 + x1) >> 1, cy2 = (y0 + y1) >> 1;
-      m.chestSpots.push((y0 + 1) * W + x0 + 1 + ((r() * (x1 - x0 - 2)) | 0));
-      if (chests > 1) m.chestSpots.push((y1 - 1) * W + x1 - 1);
-      m.lootSpots.push(cy2 * W + cx2); if (x1 - x0 > 5) m.lootSpots.push(cy2 * W + cx2 - 2, cy2 * W + cx2 + 2);
+      var spot = function () { for (var t3 = 0; t3 < 20; t3++) { var sx = ri(x0 + 1, x1 - 1), sy = ri(y0 + 1, y1 - 1), si = sy * W + sx; if (!m.w[si]) return si; } return cy2 * W + cx2; };
+      m.chestSpots.push(spot()); if (w * h > 48 || r() < 0.4) m.chestSpots.push(spot());
+      m.lootSpots.push(spot(), spot()); if (w * h > 60) m.lootSpots.push(spot(), spot());
       return true;
     }
-    // --- Scroll Town (north)
-    m.pois.push({ name: 'Scroll Town', x: 36, y: 15 });
-    house(26, 9, 32, 14, [[29, 14], [30, 14]], 'Town Hall', 2); house(39, 9, 45, 14, [[42, 14], [39, 11]], '', 1);
-    house(26, 23, 31, 28, [[28, 23], [31, 25]], '', 1); house(40, 23, 46, 28, [[43, 23], [40, 26]], '', 1);
-    house(47, 9, 52, 14, [[49, 14]], '', 1); fill(m, 33, 14, 38, 22, G.COBBLE);
-    // --- Gim Farms (south-west)
-    m.pois.push({ name: 'Gim Farms', x: 16, y: 50 });
-    house(9, 43, 19, 50, [[14, 43], [15, 43], [19, 47]], 'Big Barn', 2); house(23, 55, 28, 60, [[25, 55]], '', 1);
-    for (y = 53; y <= 61; y++) for (x = 9; x <= 19; x++) if (okG(x, y) && (x + y) % 3 === 0) m.g[y * W + x] = G.PATH;
-    // --- Bedrock Quarry (south-east)
-    m.pois.push({ name: 'Bedrock Quarry', x: 54, y: 55 });
-    for (var q = 0; q < 26; q++) { var qx = 45 + ((r() * 18) | 0), qy = 46 + ((r() * 16) | 0); if (okG(qx, qy) && Math.abs(qx - 52) + Math.abs(qy - 54) > 4 && m.g[qy * W + qx] !== G.PATH) m.g[qy * W + qx] = G.STONE; }
-    house(49, 53, 57, 59, [[53, 53], [49, 56]], 'Warehouse', 2);
-    // --- Pixel Park (north-west)
-    m.pois.push({ name: 'Pixel Park', x: 15, y: 15 });
-    disc(m, 15, 14, 4, G.ICE); house(9, 24, 14, 29, [[11, 24]], '', 1);
-    // --- Lazy Lagoon (east)
-    m.pois.push({ name: 'Lazy Lagoon', x: 58, y: 30 });
-    for (y = 24; y <= 40; y++) for (x = 55; x <= 66; x++) if (okG(x, y) && m.g[y * W + x] === G.GRASS) m.g[y * W + x] = G.SAND;
-    house(55, 26, 61, 31, [[58, 31], [55, 28]], 'Beach House', 2);
-    // --- Storm Tower (center)
-    m.pois.push({ name: 'Storm Tower', x: 36, y: 36 });
-    fill(m, 32, 32, 39, 39, G.COBBLE);
-    house(33, 40, 38, 45, [[35, 40], [36, 40], [38, 43]], 'Tower', 2);
-    // --- Dusty Diner (west)
-    m.pois.push({ name: 'Dusty Diner', x: 13, y: 33 });
-    house(9, 31, 16, 38, [[16, 34], [12, 31]], 'Diner', 2);
-    // destructibles
+    towns.forEach(function (t) {
+      m.pois.push({ name: t.name, x: t.x, y: t.y });
+      var n = t.big ? 7 : t.kind === 'farm' || t.kind === 'quarry' ? 2 : t.kind === 'forest' ? 2 : 4 + ri(0, 1), placed = 0;
+      if (t.kind === 'city' || t.big) rect(t.x - 4, t.y - 4, t.x + 4, t.y + 4, G.COBBLE);
+      if (t.kind === 'farm') { for (var fy = -9; fy <= 9; fy++) for (var fx = -12; fx <= 12; fx++) if ((fx + 40) % 3 === 0 && Math.abs(fy) > 3) setG(t.x + fx, t.y + fy, G.PATH); }
+      for (var tries = 0; placed < n && tries < 200; tries++) {
+        var big = (t.big && placed < 3) || (t.kind === 'farm' && placed === 0) || (t.kind === 'quarry' && placed === 0);
+        var w = big ? ri(10, 13) : ri(7, 9), h = big ? ri(7, 10) : ri(6, 8), sp2 = t.big ? 22 : 16;
+        var hx = t.x + ri(-sp2, sp2) - (w >> 1), hy = t.y + ri(-sp2, sp2) - (h >> 1);
+        if (Math.abs(hx + w / 2 - t.x) < 5 && Math.abs(hy + h / 2 - t.y) < 5) continue;
+        if (house(hx, hy, w, h, placed === 0 ? t.name : '')) placed++;
+      }
+    });
+    // a few lonely cabins in the wild
+    for (k = 0; k < 8; k++) { var cxp = ri(12, W - 13), cyp = ri(12, H - 13); house(cxp, cyp, ri(6, 7), ri(5, 6), ''); }
+    // ---- destructibles
     var used = {};
     function obj(kind, x2, y2) {
-      var i2 = y2 * W + x2; if (!okG(x2, y2) || used[i2] || m.w[i2] || m.g[i2] === G.PATH || m.g[i2] === G.FLOOR || m.obj[i2]) return false;
+      var i2 = y2 * W + x2; if (!okG(x2, y2) || used[i2] || occ[i2] || m.w[i2] || m.g[i2] === G.PATH || m.g[i2] === G.FLOOR || m.obj[i2]) return false;
+      if (used[i2 - 1] || used[i2 + 1] || used[i2 - W] || used[i2 + W]) return false;
       used[i2] = 1; m.obj[i2] = 9; m.rgObjs.push({ id: m.rgObjs.length + 1, i: i2, kind: kind }); return true;
     }
-    function cluster(kinds, x0, y0, x1, y1, n) { for (var k = 0, tries = 0; k < n && tries < n * 25; tries++) if (obj(kinds[(r() * kinds.length) | 0], x0 + ((r() * (x1 - x0 + 1)) | 0), y0 + ((r() * (y1 - y0 + 1)) | 0))) k++; }
-    cluster(['tree', 'tree', 'pine', 'bush'], 6, 6, 26, 27, 34);          // park forest
-    cluster(['pine', 'pine', 'tree', 'rock'], 42, 40, 66, 48, 12);        // east woods
-    cluster(['tree', 'pine', 'bush'], 22, 26, 32, 33, 8);
-    cluster(['rock', 'rock', 'crate', 'barrel'], 44, 45, 64, 63, 22);     // quarry
-    cluster(['hay', 'hay', 'crate', 'barrel'], 8, 51, 22, 63, 16);         // farm
-    cluster(['crate', 'barrel', 'crate'], 25, 8, 53, 30, 12);              // town
-    cluster(['bush', 'tree', 'rock'], 52, 22, 66, 42, 9);                  // lagoon
-    cluster(['tree', 'pine', 'bush', 'rock'], 6, 6, 66, 66, 70);           // everywhere
-    // loot spots outside too
-    for (var lk = 0; lk < 40; lk++) { var lx = 6 + ((r() * 60) | 0), ly = 6 + ((r() * 60) | 0), li = ly * W + lx; if (okG(lx, ly) && !m.obj[li] && !m.w[li]) m.lootSpots.push(li); }
-    [[35, 30], [22, 36], [50, 50], [36, 56], [50, 26], [14, 21], [57, 51], [30, 36]].forEach(function (p) { var vi = p[1] * W + p[0]; if (okG(p[0], p[1])) m.vehSpots.push(vi); });
+    function cluster(kinds, cx, cy, rad, n) { for (var k2 = 0, tr = 0; k2 < n && tr < n * 30; tr++) { var ca = r() * 6.28, cd = Math.sqrt(r()) * rad; if (obj(kinds[(r() * kinds.length) | 0], Math.round(cx + Math.cos(ca) * cd), Math.round(cy + Math.sin(ca) * cd))) k2++; } }
+    towns.forEach(function (t) {
+      if (t.kind === 'farm') cluster(['hay', 'hay', 'crate', 'barrel'], t.x, t.y, 15, 16);
+      else if (t.kind === 'quarry') cluster(['rock', 'rock', 'rock', 'crate', 'barrel'], t.x, t.y, 15, 20);
+      else if (t.kind === 'forest') cluster(['pine', 'pine', 'tree', 'bush'], t.x, t.y, 17, 36);
+      else if (t.kind === 'snow') cluster(['pine', 'pine', 'rock'], t.x, t.y, 16, 20);
+      else if (t.kind === 'beach') cluster(['bush', 'barrel', 'crate', 'rock'], t.x, t.y, 14, 9);
+      else if (t.kind === 'desert') cluster(['rock', 'barrel', 'bush'], t.x, t.y, 14, 10);
+      else if (t.kind === 'park') cluster(['tree', 'tree', 'bush', 'bush'], t.x, t.y, 15, 18);
+      else cluster(['crate', 'barrel', 'crate', 'bush', 'tree'], t.x, t.y, 20, 12);
+    });
+    // big forests between towns
+    for (k = 0; k < 7; k++) { var fa = r() * 6.28, fd = RAD * (0.25 + r() * 0.6); cluster(['tree', 'pine', 'tree', 'bush', 'rock'], C + Math.cos(fa) * fd, C + Math.sin(fa) * fd, 10 + ri(0, 5), 26); }
+    // everywhere else
+    for (var e2 = 0, tr2 = 0; e2 < 200 && tr2 < 9000; tr2++) { var ex = ri(4, W - 5), ey = ri(4, H - 5), gk = m.g[ey * W + ex]; var kinds = gk === G.SAND ? ['bush', 'rock', 'barrel'] : gk === G.SNOW ? ['pine', 'rock'] : ['tree', 'pine', 'bush', 'rock', 'bush']; if (obj(kinds[(r() * kinds.length) | 0], ex, ey)) e2++; }
+    // loot in the open
+    for (var lk = 0; lk < 140; lk++) { var lx = ri(6, W - 7), ly = ri(6, H - 7), li = ly * W + lx; if (okG(lx, ly) && !m.obj[li] && !m.w[li]) m.lootSpots.push(li); }
+    // vehicles parked on roads
+    function roomy(i3) { var x3 = i3 % W, y3 = (i3 / W) | 0; for (var oy = -2; oy <= 2; oy++) for (var ox = -2; ox <= 2; ox++) { var j3 = (y3 + oy) * W + x3 + ox; if (!inb(x3 + ox, y3 + oy) || !m.g[j3] || m.g[j3] === G.ROCK || m.w[j3] || m.obj[j3] || occ[j3]) return false; } return true; }
+    var roadT = []; for (i = 0; i < N; i++) if (m.g[i] === G.PATH && roomy(i)) roadT.push(i);
+    for (k = 0; k < 60 && roadT.length && m.vehSpots.length < 14; k++) { var vi = roadT[(r() * roadT.length) | 0]; if (m.vehSpots.every(function (o) { return Math.abs(o % W - vi % W) + Math.abs(((o / W) | 0) - ((vi / W) | 0)) > 9; })) m.vehSpots.push(vi); }
     for (i = 0; i < N; i++) { m.noBuild[i] = 1; m.noMine[i] = 1; }
-    var c0 = { x: tcx(35.5), y: tcx(35.5) };
-    m.bases = []; for (var t2 = 0; t2 < 8; t2++) m.bases.push({ team: t2, cx: 35, cy: 35, spawn: c0, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] });
+    var c0 = { x: tcx(C), y: tcx(C) };
+    m.bases = []; for (var t2 = 0; t2 < 8; t2++) m.bases.push({ team: t2, cx: Math.round(C), cy: Math.round(C), spawn: c0, inward: [0, 1], right: [1, 0], rect: [0, 0, 0, 0] });
     return m;
   };
   M.rObjAt = function (m, i) { if (!m.rgIdx) { m.rgIdx = {}; (m.rgObjs || []).forEach(function (o) { m.rgIdx[o.i] = o; }); } return m.rgIdx[i] || null; };
@@ -515,7 +553,7 @@
   };
   M.inPlot = function (m, plot, i) { var p = m.plots[plot]; if (!p) return false; var x = i % W, y = (i / W) | 0; return x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1; };
 
-  M.genMap = function (game, seed, custom) { if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : game === 'royale' ? M.genRoyale(seed) : B.genMap(); };
+  M.genMap = function (game, seed, custom) { if (game !== 'royale' && game !== 'bw') B.setDims(72, 72); if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : game === 'royale' ? M.genRoyale(seed) : B.genMap(); };
 
   // Hotbar per game.
   M.hotbar = function (game, inv, role) {

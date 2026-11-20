@@ -6,8 +6,9 @@
 // Health/shield are 0..100 (e.rhp / e.rsh); the engine's e.hp mirrors health on its 0..20 scale.
 // ============================================================
 const BW = globalThis.BW, MG = globalThis.MG;
-const { T, W, H } = BW;
-const N = W * H;
+const { T } = BW;
+let W = BW.W, H = BW.H, N = W * H;
+BW.onDims((w, h) => { W = w; H = h; N = w * h; });
 let A = null;
 export function initRoyale(api) { A = api; }
 
@@ -32,33 +33,33 @@ function nearestWalkable(m, x, y) {
     if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
     const i = (ty + dy) * W + tx + dx; if (BW.inb(tx + dx, ty + dy) && walkable(m, i)) return tcen(i);
   }
-  return { x: 35.5 * T, y: 35.5 * T };
+  return { x: (W / 2) * T, y: (H / 2) * T };
 }
 
 // ============================================================ start
 export function start(r, addBot) {
   const now = Date.now(), m = r.map, GM = MG.GAMES.royale;
-  const target = r.noBots ? Math.max(2, r.ents.size) : Math.max(GM.max, Math.min(24, r.ents.size + 6));
+  const target = r.noBots ? Math.max(2, r.ents.size) : Math.max(GM.max, Math.min(32, r.ents.size + 8));
   while (r.ents.size < target) addBot(r.ents.size);
   let ti = 0; for (const e of r.ents.values()) e.team = ti++;
   r.teams = []; for (let t = 0; t < ti + 4; t++) r.teams.push({ bed: false, elim: false, up: { sharp: 0, prot: 0, forge: 0, haste: 0, heal: 0, trap: 0 } });
   // battle bus: a straight line across the island
-  const a = rnd() * Math.PI * 2, c = 35.5 * T, R = 27 * T, off = (rnd() - 0.5) * 10 * T;
+  const a = rnd() * Math.PI * 2, c = (W / 2) * T, R = W * 0.4 * T, off = (rnd() - 0.5) * W * 0.15 * T;
   const nx = -Math.sin(a), ny = Math.cos(a);
   const bus = { x0: c - Math.cos(a) * R + nx * off, y0: c - Math.sin(a) * R + ny * off, x1: c + Math.cos(a) * R + nx * off, y1: c + Math.sin(a) * R + ny * off, t0: r.goAt + 600, dur: MG.R_BUS_MS };
   const rg = r.rg = {
     bus, loot: new Map(), seq: 0, chests: [], objHp: new Map(), dead: new Set(), whp: new Map(), veh: [], pj: [], pjSeq: 0,
-    z: { x: c, y: c, r: 52 * T, i: 0, mode: 'wait', t0: r.goAt, from: null, to: null }, znDirty: true, quiet: true,
+    z: { x: c, y: c, r: W * 0.72 * T, i: 0, mode: 'wait', t0: r.goAt, from: null, to: null }, znDirty: true, quiet: true,
   };
   // chests in buildings + a few in the wild
   const spots = m.chestSpots.slice();
-  for (let k = 0; k < 8; k++) { const i = pick(m.lootSpots); if (walkable(m, i)) spots.push(i); }
+  for (let k = 0; k < 22; k++) { const i = pick(m.lootSpots); if (walkable(m, i)) spots.push(i); }
   spots.forEach((i, k) => { if (!walkable(m, i) && !(m.g[i] === BW.G.FLOOR && !m.w[i] && !m.obj[i])) return; const p = tcen(i); rg.chests.push({ id: k + 1, x: p.x, y: p.y, open: false }); });
   // floor loot
   for (const i of m.lootSpots) { if (rnd() < 0.82) { const p = tcen(i); floorLoot(r, p.x + (rnd() - 0.5) * 14, p.y + (rnd() - 0.5) * 14); } }
   // jeeps
   const VK = ['tank', 'jeep', 'car', 'jeep', 'car', 'tank', 'car', 'jeep'];
-  m.vehSpots.slice(0, 8).forEach((i, k) => { const p = tcen(i), kind = VK[k % VK.length]; rg.veh.push({ id: k + 1, kind, x: p.x, y: p.y, ang: rnd() * 6.28, tur: 0, hp: MG.RVEH[kind].hp, driver: 0, vx: 0, vy: 0, cd: 0 }); });
+  m.vehSpots.slice(0, 15).forEach((i, k) => { const p = tcen(i), kind = VK[k % VK.length]; rg.veh.push({ id: k + 1, kind, x: p.x, y: p.y, ang: rnd() * 6.28, tur: 0, hp: MG.RVEH[kind].hp, driver: 0, vx: 0, vy: 0, cd: 0 }); });
   rg.quiet = false;
   planZone(r);
   for (const e of r.ents.values()) {
@@ -184,7 +185,7 @@ function hurtObj(r, o, dmg, by) {
   rg.dead.add(o.id); rg.objHp.delete(o.id); r.map.obj[o.i] = 0; r.ev(['ro', o.id, 0]);
   const p = tcen(o.i);
   if (def.loot) { if (rnd() < 0.75) chestLoot(r, p.x, p.y, CRATE_W); }
-  if (def.boom) setTimeout(() => { if (r.state === 'play') explode(r, p.x, p.y, 105, 55, by, 'barrel'); }, 120);
+  if (def.boom) setTimeout(() => { if (r.state !== 'play') return; BW.useMap(r.map); try { explode(r, p.x, p.y, 105, 55, by, 'barrel'); } finally { BW.setDims(72, 72); } }, 120);
 }
 function hurtWall(r, i, dmg) {
   const m = r.map; if (!m.w[i]) return;
@@ -198,7 +199,7 @@ function hurtVeh(r, v, dmg, by) {
   if (v.hp <= 0) return; v.hp -= dmg; r.ev(['rvh', v.id, Math.max(0, Math.round(v.hp))]);
   if (v.hp <= 0) {
     const d = v.driver && r.ents.get(v.driver); if (d) exitVeh(r, d, true);
-    setTimeout(() => { if (r.state === 'play') explode(r, v.x, v.y, v.kind === 'tank' ? 150 : 120, v.kind === 'tank' ? 90 : 70, by, 'jeep'); }, 60);
+    setTimeout(() => { if (r.state !== 'play') return; BW.useMap(r.map); try { explode(r, v.x, v.y, v.kind === 'tank' ? 150 : 120, v.kind === 'tank' ? 90 : 70, by, 'jeep'); } finally { BW.setDims(72, 72); } }, 60);
     r.rg.veh = r.rg.veh.filter((q) => q !== v); r.ev(['rvx', v.id]);
   }
 }
@@ -372,7 +373,7 @@ function tickProj(r, now, DT) {
 function tankFire(r, e, ang, now) {
   const v = r.rg.veh.find((q) => q.id === e.rs.veh); if (!v || v.kind !== 'tank' || now < v.cd) return false;
   const g = MG.RVEH.tank.gun; v.cd = now + g.cd; v.tur = ang;
-  r.rg.pj.push({ id: ++r.rg.pjSeq, k: 'shell', x: v.x + Math.cos(ang) * 46, y: v.y - 14 + Math.sin(ang) * 46, vx: Math.cos(ang) * g.sp, vy: Math.sin(ang) * g.sp, owner: e.id, veh: v.id, life: 1.4, dmg: g.dmg, blast: g.blast });
+  r.rg.pj.push({ id: ++r.rg.pjSeq, k: 'shell', x: v.x + Math.cos(ang) * 92, y: v.y - 24 + Math.sin(ang) * 92, vx: Math.cos(ang) * g.sp, vy: Math.sin(ang) * g.sp, owner: e.id, veh: v.id, life: 1.4, dmg: g.dmg, blast: g.blast });
   r.ev(['rtf', v.id, Math.round(ang * 100)]); return true;
 }
 function enterVeh(r, e, v) {
@@ -395,7 +396,7 @@ function tickVeh(r, now, DT) {
     const dx = d.x - v.x, dy = d.y - v.y, sp = Math.hypot(dx, dy) / DT;
     if (Math.hypot(dx, dy) > 0.5) v.ang = Math.atan2(dy, dx);
     v.x = d.x; v.y = d.y; v.sp = sp; v.tur = d.ang || v.tur;
-    if (v.kind === 'tank' && sp > 60) { const ti = tileOf(v.x + Math.cos(v.ang) * 40, v.y + Math.sin(v.ang) * 40); if (r.map.obj[ti] === 9) { const o = MG.rObjAt(r.map, ti); if (o) hurtObj(r, o, 400, d.id); } }
+    if (v.kind === 'tank' && sp > 60) { const ti = tileOf(v.x + Math.cos(v.ang) * 70, v.y + Math.sin(v.ang) * 70); if (r.map.obj[ti] === 9) { const o = MG.rObjAt(r.map, ti); if (o) hurtObj(r, o, 400, d.id); } }
     if (sp > (v.kind === 'tank' ? 100 : 260)) for (const o of r.ents.values()) { // run people over
       if (o === d || o.dead || o.elim || !o.rs || o.rs.st !== 'ground' || o.rs.veh) continue;
       if (Math.hypot(o.x - v.x, o.y - v.y) < VD(v).r + PR - 4 && now - (v.hitAt && v.hitAt[o.id] || 0) > 700) {
@@ -414,7 +415,7 @@ function planZone(r) {
   const m = r.map; let tx = z.x, ty = z.y;
   for (let tries = 0; tries < 30; tries++) {
     const a = rnd() * 6.283, d = rnd() * Math.max(0, z.r - s.r * T) * 0.7;
-    const x = clamp(z.x + Math.cos(a) * d, 10 * T, 62 * T), y = clamp(z.y + Math.sin(a) * d, 10 * T, 62 * T);
+    const x = clamp(z.x + Math.cos(a) * d, 14 * T, (W - 14) * T), y = clamp(z.y + Math.sin(a) * d, 14 * T, (H - 14) * T);
     if (m.g[tileOf(x, y)] && m.g[tileOf(x, y)] !== BW.G.ROCK) { tx = x; ty = y; break; }
   }
   z.to = { x: tx, y: ty, r: s.r * T }; r.rg.znDirty = true;

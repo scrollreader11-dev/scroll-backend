@@ -6,8 +6,9 @@
 // ============================================================
 import * as RGS from './royale.js';
 const BW = globalThis.BW, MG = globalThis.MG;
-const { T, W, H } = BW;
-const N = W * H;
+const { T } = BW;
+let W = BW.W, H = BW.H, N = W * H;
+BW.onDims((w, h) => { W = w; H = h; N = w * h; });
 let A = null;
 export function initMini(api) { A = api; RGS.initRoyale(api); }
 

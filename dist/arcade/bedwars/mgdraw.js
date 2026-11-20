@@ -6,6 +6,7 @@
 (function () {
   var B = window.BW, M = window.MG, D = window.BWD, A = window.SC.art;
   var T = B.T, W = B.W, H = B.H, TAU = Math.PI * 2, OL = '#1b1636';
+  B.onDims(function (w, h) { W = w; H = h; });
   var rr = A.rr, ell = A.ell, circ = A.circ, shade = A.shade, hash = B.hash;
   function fs(c, f, st, lw) { if (f) { c.fillStyle = f; c.fill(); } if (st) { c.strokeStyle = st; c.lineWidth = lw || 3; c.lineJoin = 'round'; c.lineCap = 'round'; c.stroke(); } }
   function mk(w, h) { var cv = document.createElement('canvas'); cv.width = w; cv.height = h; return cv; }

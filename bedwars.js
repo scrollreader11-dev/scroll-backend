@@ -14,8 +14,10 @@ import { worldIdentity, worldLook, bwReward, bwStats, bwLeaderboard, grantCoins 
 
 const BW = globalThis.BW;
 const MG = globalThis.MG;
-const { T, W, H, G } = BW;
-const N = W * H;
+const { T, G } = BW;
+let W = BW.W, H = BW.H, N = W * H;
+BW.onDims((w, h) => { W = w; H = h; N = w * h; });
+const MAXN = 200 * 200;
 const TICK = 50, DT = TICK / 1000;
 const DEBUG = process.env.BW_DEBUG === '1';
 const wss = new WebSocketServer({ noServer: true, maxPayload: 8192 });
@@ -842,7 +844,7 @@ function baseL(b, a, bb) { return [b.cx + a * b.right[0] + bb * b.inward[0], b.c
 function inRect(rc, x, y) { const tx = Math.floor(x / T), ty = Math.floor(y / T); return tx >= rc[0] - 1 && tx <= rc[2] + 1 && ty >= rc[1] - 1 && ty <= rc[3] + 1; }
 
 // A* over tiles. Walking = 1, bridging over void = 2.4 (needs blocks), mining a wall = by hardness.
-const AS = { g: new Float32Array(N), came: new Int32Array(N), seen: new Uint32Array(N), closed: new Uint32Array(N), gen: 0 };
+const AS = { g: new Float32Array(MAXN), came: new Int32Array(MAXN), seen: new Uint32Array(MAXN), closed: new Uint32Array(MAXN), gen: 0 };
 function astar(r, from, goalSet, gx, gy, opt) {
   const m = r.map, bridge = opt.bridge, mine = opt.mine, maxN = opt.max || 7000;
   const gen = ++AS.gen;
@@ -1264,7 +1266,7 @@ function flush(r) {
 }
 setInterval(() => {
   const now = Date.now();
-  for (const r of rooms.values()) { try { tickRoom(r, now); } catch (err) { console.error('bedwars tick', err && err.stack); } }
+  for (const r of rooms.values()) { try { BW.useMap(r.map); tickRoom(r, now); } catch (err) { console.error('bedwars tick', err && err.stack); } finally { BW.setDims(72, 72); } }
   if (++spaceTick % 2 === 0) { try { tickSpace(HUB, now); for (const r of rooms.values()) if (r.state === 'lobby') tickSpace(r.space, now); } catch (err) { console.error('bedwars space', err && err.stack); } }
 }, TICK);
 let spaceTick = 0;
@@ -1330,9 +1332,9 @@ export function handleBedwarsUpgrade(req, socket, head) {
       const now = Date.now();
       c.tok = Math.min(60, c.tok + (now - c.tokAt) / 20); c.tokAt = now;
       if (c.tok < 1) return; c.tok--;
-      try { onMsg(c, msg, now); } catch (err) { console.error('bedwars msg', err && err.stack); }
+      try { BW.useMap(c.room && c.room.map); onMsg(c, msg, now); } catch (err) { console.error('bedwars msg', err && err.stack); } finally { BW.setDims(72, 72); }
     });
-    const bye = () => { if (!conns.has(c)) return; conns.delete(c); if (c.watch) stopWatch(c, true); if (c.room) leaveRoom(c, true); leaveSpace(c); };
+    const bye = () => { if (!conns.has(c)) return; conns.delete(c); try { if (c.watch) stopWatch(c, true); BW.useMap(c.room && c.room.map); if (c.room) leaveRoom(c, true); } finally { BW.setDims(72, 72); } leaveSpace(c); };
     ws.on('close', bye); ws.on('error', bye);
   });
 }

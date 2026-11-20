@@ -7,6 +7,7 @@
   'use strict';
   var B = window.BW, D = window.BWD, SC = window.SC, A = SC.art, MG = window.MG;
   var T = B.T, W = B.W, H = B.H, TAU = Math.PI * 2;
+  B.onDims(function (w, h) { W = w; H = h; });
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), c = cv.getContext('2d');
   D.season = 'xmas'; A.season = 'xmas';
@@ -216,7 +217,7 @@
     $('loading').classList.add('out');
     setTimeout(function () { $('loading').classList.add('hidden'); }, 700);
     if (S.screen === 'loading') { // still no word from the server: show the hub anyway
-      S.map = S.hubMap || (S.hubMap = hubGen()); P = newBody(B.HUB_SPAWN.x, B.HUB_SPAWN.y); cam.x = P.x; cam.y = P.y; show('hub'); renderHubHud();
+      B.setDims(72, 72); S.map = S.hubMap || (S.hubMap = hubGen()); D.resetChunks(); P = newBody(B.HUB_SPAWN.x, B.HUB_SPAWN.y); cam.x = P.x; cam.y = P.y; show('hub'); renderHubHud();
     }
   }
   setTimeout(finishLoading, 14000); // never get stuck on the loading screen
@@ -229,7 +230,7 @@
     $('loading').style.background = 'radial-gradient(ellipse at center, rgba(18,12,51,.35), rgba(18,12,51,.92) 70%)';
     ldStep(0.08, 'Waking up the islands…');
     try { await Promise.race([document.fonts.load('700 20px Fredoka'), wait(1500)]); } catch (e) {}
-    S.hubMap = hubGen(); S.map = S.hubMap; cam.x = B.HUB_SPAWN.x; cam.y = B.HUB_SPAWN.y - 120;
+    B.setDims(72, 72); S.hubMap = hubGen(); S.map = S.hubMap; cam.x = B.HUB_SPAWN.x; cam.y = B.HUB_SPAWN.y - 120;
     ldStep(0.3, 'Painting blocks & beds…'); await wait(250);
     var ids = ['sword1', 'sword2', 'sword3', 'sword4', 'kbstick', 'wool', 'wood', 'end', 'obby', 'pick1', 'pick2', 'pick3', 'pick4', 'bow', 'arrows', 'fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed', 'armor1', 'armor2', 'armor3', 'armor4', 'iron', 'gold', 'dia', 'em', 'forge', 'heal', 'trap', 'star'];
     ids.forEach(function (id) { D.iconURL(id, 0, 0, 64); });
@@ -283,7 +284,7 @@
   function enterSpace(m) {
     closeShop(); closeModals();
     var hub = m.kind === 'hub';
-    S.map = hub ? (S.hubMap || (S.hubMap = hubGen())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
+    B.setDims(72, 72); S.map = hub ? (S.hubMap || (S.hubMap = hubGen())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
     if (window.BWV) BWV.reset();
     S.watching = false; $('watchBar').classList.add('hidden'); document.body.classList.remove('watching');
     S.en = -1; closeQuiz(true); quizHud();
@@ -576,6 +577,7 @@
     document.body.classList.toggle('mg', isMini());
     if (m.cfg && MG.GAMES[S.game]) Object.assign(MG.GAMES[S.game], m.cfg);
     S.custom = m.custom || null;
+    B.setDims(72, 72);
     var map = m.custom ? MG.buildCustom(m.custom) : isMini() ? MG.genMap(S.game, m.seed) : B.genMap();
     m.blocks.forEach(function (b) { map.f[b[0]] = b[1]; map.fc[b[0]] = b[2]; map.w[b[0]] = b[3]; map.wc[b[0]] = b[4]; });
     m.beds.forEach(function (a, t) { if (!a && map.beds[t]) { map.beds[t].alive = false; map.obj[map.beds[t].foot] = 0; map.obj[map.beds[t].head] = 0; } });
@@ -605,7 +607,7 @@
     P = newBody(me.x, me.y); P.dead = me.dead; P.z = me.z || 0;
     S.held = 'sword'; S.inv = {}; S.res = { iron: 0, gold: 0, dia: 0, em: 0 }; S.hp = 20; S.absorb = 0; S.god = false;
     S.dead = me.dead; S.elim = me.elim;
-    cam.x = 36 * T; cam.y = 36 * T; cam.introFrom = { x: 36 * T, y: 36 * T };
+    cam.x = (W / 2) * T; cam.y = (H / 2) * T; cam.introFrom = { x: (W / 2) * T, y: (H / 2) * T };
     show('game');
     buildHud(); renderTeams(); updateHearts(); renderHotbar(); renderRes(true);
     $('death').classList.add('hidden');
@@ -1475,7 +1477,7 @@
   function applySeason(v) {
     S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', !!S.season); SNOW.length = 0;
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks();
-    if (wasHub) { S.hubMap = hubGen(); S.map = S.hubMap; }
+    if (wasHub) { B.setDims(72, 72); S.hubMap = hubGen(); S.map = S.hubMap; }
     if (window.SHMusic) SHMusic.season(S.season);
   }
   var SNOW = [], FW = [];

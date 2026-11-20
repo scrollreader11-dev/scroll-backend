@@ -7,6 +7,11 @@
   var B = {};
   var T = B.T = 40;           // tile size (px)
   var W = B.W = 72, H = B.H = 72;
+  // Most maps are 72x72; Scroll Royale's island is much bigger. Every module re-reads the size through onDims.
+  var dimL = [];
+  B.onDims = function (f) { dimL.push(f); };
+  B.setDims = function (w, h) { w = w || 72; h = h || w; if (w === W && h === H) return; W = B.W = w; H = B.H = h; for (var i = 0; i < dimL.length; i++) dimL[i](w, h); };
+  B.useMap = function (m) { B.setDims(m && m.W || 72, m && m.H || 72); };
   B.R = 12;                    // player collision half-size vs solid things
   B.EDGE_R = 5;                // how close your center may get to the void when walking
   B.SPEED = 200;               // walk px/s
@@ -131,30 +136,34 @@
 
   // ---- map -----------------------------------------------------------------
   // Four team islands (N/E/S/W), four diamond islands on the diagonals, emerald mid.
-  B.genMap = function () {
-    var N = W * H, C = 36;
+  B.BW_SIZE = 110;
+  B.genMap = function (size) {
+    B.setDims(size || B.BW_SIZE, size || B.BW_SIZE);
+    var N = W * H, C = (W / 2) | 0, D = W <= 72 ? 29 : C - 11; // island distance from the middle
     var m = { W: W, H: H, g: new Uint8Array(N), f: new Uint8Array(N), fc: new Uint8Array(N), w: new Uint8Array(N), wc: new Uint8Array(N), obj: new Uint8Array(N), noBuild: new Uint8Array(N), beds: [], gens: [], npcs: [], bases: [] };
     function set(x, y, v) { if (x >= 0 && y >= 0 && x < W && y < H) m.g[y * W + x] = v; }
     var OUT = [[0, -1], [1, 0], [0, 1], [-1, 0]];
     for (var t = 0; t < 4; t++) {
       var o = OUT[t], dx = -o[0], dy = -o[1], rx = -dy, ry = dx;
-      var cx = C + o[0] * 29, cy = C + o[1] * 29;
+      var cx = C + o[0] * D, cy = C + o[1] * D;
       var L = (function (cx, cy, dx, dy, rx, ry) { return function (a, b) { return [cx + a * rx + b * dx, cy + a * ry + b * dy]; }; })(cx, cy, dx, dy, rx, ry);
       var a, b, p;
-      for (a = -5; a <= 5; a++) for (b = -4; b <= 5; b++) {
+      for (a = -7; a <= 7; a++) for (b = -5; b <= 6; b++) {
         var aa = Math.abs(a);
-        if (aa === 5 && (b === -4 || b === 5)) continue;          // rounded corners
-        if (aa >= 4 && b === 5) continue;
+        if (aa === 7 && (b === -5 || b === 6)) continue;          // rounded corners
+        if (aa >= 6 && b === 6) continue;
+        if (aa === 7 && b === 5) continue;
         p = L(a, b); set(p[0], p[1], G.GRASS);
       }
-      for (b = -2; b <= 5; b++) { p = L(0, b); set(p[0], p[1], G.PATH); }
+      for (b = -2; b <= 6; b++) { p = L(0, b); set(p[0], p[1], G.PATH); }
+      for (a = -6; a <= 6; a++) { if (Math.abs(a) > 1 && (a + 40) % 3 === 0) { p = L(a, 4); set(p[0], p[1], G.COBBLE); } }
       for (a = -1; a <= 1; a++) for (b = -4; b <= -2; b++) { p = L(a, b); set(p[0], p[1], G.PAD); }
-      var gp = L(0, -3), sp = L(0, -1), bf = L(0, 2), bh = L(0, 3), sh = L(-4, -2), up = L(4, -2);
+      var gp = L(0, -3), sp = L(0, -1), bf = L(0, 2), bh = L(0, 3), sh = L(-5, -2), up = L(5, -2);
       var base = { team: t, cx: cx, cy: cy, out: o, inward: [dx, dy], right: [rx, ry],
         spawn: { x: sp[0] * T + T / 2, y: sp[1] * T + T / 2 },
         gen: { x: gp[0] * T + T / 2, y: gp[1] * T + T / 2 },
         // the area your trap / heal pool covers (tile rect)
-        rect: [Math.min(L(-5, -4)[0], L(5, 5)[0]), Math.min(L(-5, -4)[1], L(5, 5)[1]), Math.max(L(-5, -4)[0], L(5, 5)[0]), Math.max(L(-5, -4)[1], L(5, 5)[1])],
+        rect: [Math.min(L(-7, -5)[0], L(7, 6)[0]), Math.min(L(-7, -5)[1], L(7, 6)[1]), Math.max(L(-7, -5)[0], L(7, 6)[0]), Math.max(L(-7, -5)[1], L(7, 6)[1])],
         flag: L(-2, -4), flag2: L(2, -4) };
       m.bases.push(base);
       var fi = bf[1] * W + bf[0], hi = bh[1] * W + bh[0];
@@ -167,19 +176,20 @@
       for (a = -1; a <= 1; a++) for (b = -4; b <= -2; b++) { p = L(a, b); m.noBuild[p[1] * W + p[0]] = 1; }
     }
     // diamond islands
-    [[17, 17], [55, 17], [17, 55], [55, 55]].forEach(function (c) {
-      for (var y = -2; y <= 2; y++) for (var x = -2; x <= 2; x++) { if (Math.abs(x) === 2 && Math.abs(y) === 2) continue; set(c[0] + x, c[1] + y, G.STONE); }
+    var dq = Math.round(D * 0.62);
+    [[C - dq, C - dq], [C + dq, C - dq], [C - dq, C + dq], [C + dq, C + dq]].forEach(function (c) {
+      for (var y = -3; y <= 3; y++) for (var x = -3; x <= 3; x++) { if (Math.abs(x) + Math.abs(y) > 4) continue; set(c[0] + x, c[1] + y, G.STONE); }
       m.gens.push({ kind: 'dia', x: c[0] * T + T / 2, y: c[1] * T + T / 2, tile: c[1] * W + c[0] });
       m.noBuild[c[1] * W + c[0]] = 1;
     });
     // mid
-    for (var y = -6; y <= 6; y++) for (var x = -6; x <= 6; x++) {
+    for (var y = -9; y <= 9; y++) for (var x = -9; x <= 9; x++) {
       var ax = Math.abs(x), ay = Math.abs(y);
-      if (ax + ay > 9) continue;
+      if (ax + ay > 13) continue;
       set(C + x, C + y, G.MID);
     }
-    [[-3, -3], [3, -3], [-3, 3], [3, 3]].forEach(function (d) { set(C + d[0], C + d[1], G.ROCK); });
-    [[0, -2], [0, 2]].forEach(function (d) {
+    [[-4, -4], [4, -4], [-4, 4], [4, 4], [-7, 0], [7, 0], [0, -7], [0, 7]].forEach(function (d) { set(C + d[0], C + d[1], G.ROCK); });
+    [[0, -3], [0, 3]].forEach(function (d) {
       m.gens.push({ kind: 'em', x: (C + d[0]) * T + T / 2, y: (C + d[1]) * T + T / 2, tile: (C + d[1]) * W + C + d[0] });
       m.noBuild[(C + d[1]) * W + C + d[0]] = 1;
     });
