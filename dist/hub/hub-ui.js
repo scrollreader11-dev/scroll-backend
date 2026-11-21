@@ -96,7 +96,7 @@
     var gift = h('button', { class: 'iconbtn gift', type: 'button', 'aria-label': 'Daily reward' }, [icon('gift'), Hub.dailyReady() ? h('i', { class: 'dot plain' }) : null]); gift.addEventListener('click', function () { Hub.rewardsModal(); });
     var n = Hub.unreadCount(), bell = h('button', { class: 'iconbtn', type: 'button', id: 'bellBtn', 'aria-label': 'Notifications' + (n ? ', ' + n + ' unread' : ''), 'aria-haspopup': 'dialog' }, [icon('bell'), n ? h('i', { class: 'dot', text: n > 9 ? '9+' : String(n) }) : null]); bell.addEventListener('click', function () { Hub.notifFlyout(bell); });
     side.appendChild(h('div', { class: 'me' }, [who, gift, bell]));
-    var nav = h('nav', { class: 'nav', 'aria-label': 'Main' }); navItems().forEach(function (it) { nav.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] }), (it[0] === 'discord' && Hub.dcUnread) || (it[0] === 'friends' && Hub.friends.incoming.length) ? h('i', { class: 'dot plain nav-dot' }) : null])); });
+    var nav = h('nav', { class: 'nav', 'aria-label': 'Main' }); var grp = { home: 'Play', discord: 'Social', admin: 'Staff' }; navItems().forEach(function (it) { if (grp[it[0]]) nav.appendChild(h('div', { class: 'nav-g', text: grp[it[0]] })); nav.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] }), (it[0] === 'discord' && Hub.dcUnread) || (it[0] === 'friends' && Hub.friends.incoming.length) ? h('i', { class: 'dot plain nav-dot' }) : null])); });
     side.appendChild(nav);
     var rec = Hub.recents(6);
     if (Hub.prefs.recents && rec.length) {
@@ -126,6 +126,27 @@
     var bell = h('button', { class: 'iconbtn only-m', type: 'button', 'aria-label': 'Notifications' }, [icon('bell'), Hub.unreadCount() ? h('i', { class: 'dot plain' }) : null]); bell.addEventListener('click', function () { Hub.notifFlyout(bell); });
     top.appendChild(bell); top.appendChild(h('span', { class: 'top-spacer only-d' }));
   }
+  // Pages and tools reachable from the search box, so nothing is more than a few letters away.
+  function pageList() {
+    var me = Hub.me || {}, L = [
+      { t: 'Home', s: 'Page', i: 'house', k: 'home start main', go: function () { location.hash = '#/home'; } },
+      { t: 'Scrolls Casino', s: 'Open the casino', i: 'dices', k: 'casino slots blackjack roulette plinko mines crash gamble bet scrolls coins', go: function () { location.hash = '#/game/scrollhub-casino'; }, need: Hub.canCasino() },
+      { t: 'ScrollHub Originals', s: 'Games made by ScrollHub', i: 'crown', k: 'originals royale bedwars racing arcade', go: function () { location.hash = '#/originals'; } },
+      { t: 'My Library', s: 'Your installed and played games', i: 'library-big', k: 'library installed games mine', go: function () { location.hash = '#/library'; } },
+      { t: 'Play history', s: 'Games you played recently', i: 'clock', k: 'history recent played', go: function () { location.hash = '#/library/history'; } },
+      { t: 'Install queue', s: 'Installs and updates', i: 'download', k: 'install queue updates download', go: function () { location.hash = '#/library/queue'; } },
+      { t: 'Store', s: 'Browse every game', i: 'shopping-bag', k: 'store browse all games catalog genre', go: function () { location.hash = '#/store'; }, need: Hub.canStore() },
+      { t: 'Discord', s: 'Servers, DMs and voice', i: 'message-square', k: 'discord chat dm voice servers messages talk', go: function () { location.hash = '#/discord'; }, need: me.kind === 'user' },
+      { t: 'Friends', s: 'Requests, online and offline friends', i: 'users', k: 'friends requests add online', go: function () { location.hash = '#/friends'; }, need: me.kind === 'user' },
+      { t: 'Profile', s: 'Your picture, banner and achievements', i: 'user', k: 'profile picture avatar banner achievements me', go: function () { location.hash = '#/profile/' + encodeURIComponent(me.name || ''); }, need: me.kind === 'user' },
+      { t: 'Settings', s: 'Account, notifications, display', i: 'settings', k: 'settings account notifications display options preferences', go: function () { Hub.settingsModal('account'); } },
+      { t: 'Daily reward', s: 'Claim your Scrolls', i: 'gift', k: 'daily reward gift claim scrolls streak', go: function () { Hub.rewardsModal(); }, need: me.kind === 'user' },
+      { t: 'Notifications', s: 'Your latest alerts', i: 'bell', k: 'notifications alerts bell', go: function () { var b = $('#bellBtn'); if (b) b.click(); } },
+      { t: 'Admin tools', s: me.role === 'owner' ? 'Owner panel' : 'Moderator panel', i: 'shield', k: 'admin owner mod staff panel ban players', go: function () { location.hash = '#/admin'; }, need: !!me.role }
+    ];
+    return L.filter(function (x) { return x.need !== false; });
+  }
+  function pageHits(q) { q = q.trim().toLowerCase(); if (q.length < 2) return []; return pageList().filter(function (x) { return x.t.toLowerCase().indexOf(q) >= 0 || (' ' + x.k).indexOf(' ' + q) >= 0; }).slice(0, 3); }
   function buildSearch() {
     var wrap = h('div', { class: 'search', role: 'search' }), input = h('input', { type: 'search', placeholder: Hub.canStore() ? 'Search for games and more' : 'Search ScrollHub games', 'aria-label': 'Search games', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'search', maxlength: '60' });
     var clr = h('button', { class: 'clr', type: 'button', 'aria-label': 'Clear search', hidden: true }, icon('x')), box = null, sel = -1, list = [];
@@ -134,12 +155,17 @@
     function close() { if (box) { box.remove(); box = null; } sel = -1; }
     function go(q) { close(); q = q.trim(); if (!q) return; input.blur(); location.hash = '#/search/' + encodeURIComponent(q); }
     function show() {
-      var q = input.value; clr.hidden = !q; close(); if (!q.trim()) return; list = Hub.search(q, 5); if (!list.length) return;
-      box = h('div', { class: 'suggest', role: 'listbox' }); list.forEach(function (g, i) {
+      var q = input.value; clr.hidden = !q; close(); var empty = !q.trim(); if (empty && document.activeElement !== input) return; list = empty ? [] : Hub.search(q, 5); var pg = empty ? pageList().filter(function (x) { return ['Home', 'Install queue', 'Play history', 'Notifications'].indexOf(x.t) < 0; }).slice(0, 7) : pageHits(q); if (!list.length && !pg.length) return;
+      box = h('div', { class: 'suggest', role: 'listbox' });
+      pg.forEach(function (p0) {
+        var pb = h('button', { class: 'sug page', type: 'button', role: 'option' }, [h('span', { class: 'pgi' }, icon(p0.i)), h('div', {}, [h('div', { class: 't', text: p0.t }), h('div', { class: 's', text: p0.s })])]);
+        pb.addEventListener('pointerdown', function (e) { e.preventDefault(); }); pb.addEventListener('click', function () { close(); input.blur(); input.value = ''; clr.hidden = true; p0.go(); }); box.appendChild(pb);
+      });
+      list.forEach(function (g, i) {
         var b = h('button', { class: 'sug', type: 'button', role: 'option' }, [artEl(g, 'tile', true), h('div', {}, [h('div', { class: 't', text: g.title }), h('div', { class: 's', text: g.kind === 'original' ? 'ScrollHub Original' : (g.cats[0] || 'Game') })])]);
         b.addEventListener('pointerdown', function (e) { e.preventDefault(); }); b.addEventListener('click', function () { close(); input.blur(); location.hash = '#/game/' + encodeURIComponent(g.id); }); box.appendChild(b);
       });
-      box.appendChild(h('div', { class: 'sug-foot', text: 'Press enter to search' })); wrap.appendChild(box);
+      box.appendChild(h('div', { class: 'sug-foot', text: empty ? 'Jump to a page, or type to search games' : 'Press enter to search' })); wrap.appendChild(box);
     }
     input.addEventListener('input', Hub.debounce(show, 90));
     input.addEventListener('keydown', function (e) {
@@ -180,6 +206,8 @@
     var byNew = orig.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }), fresh = byNew[0] && byNew[0].ts && Date.now() - byNew[0].ts < 14 * 86400e3 ? byNew[0] : null;
     var feat = fresh || Hub.byId['scrollhub-royale'] || orig[0], second = (Hub.canCasino() ? Hub.byId['scrollhub-casino'] : null) || Hub.byId['scrollhub-bedwars'] || orig[1];
     if (feat === second) second = orig.filter(function (g) { return g !== feat; })[0];
+    var jumps = [['Scroll Racing', 'car', '#/game/scrollhub-racing'], ['Casino', 'dices', '#/game/scrollhub-casino', Hub.canCasino()], ['Discord', 'message-square', '#/discord', Hub.me.kind === 'user'], ['Friends', 'users', '#/friends', Hub.me.kind === 'user'], ['My Library', 'library-big', '#/library'], ['Browse games', 'shopping-bag', '#/store/all', Hub.canStore()]].filter(function (j) { return j[3] !== false && (j[0] !== 'Scroll Racing' || Hub.byId['scrollhub-racing']); });
+    v.appendChild(h('nav', { class: 'jump', 'aria-label': 'Quick links' }, jumps.map(function (j) { return h('a', { class: 'chip', href: j[2] }, [icon(j[1]), j[0]]); })));
     if (feat) {
       var hero = h('div', { class: 'hero' }), right = h('div', { class: 'hero-r' }), season = Hub.wallet && Hub.wallet.season, sl = SEASONS[season];
       hero.appendChild(tileLg(feat, { kicker: fresh ? 'Just updated' : 'Featured', cls: 'big', sub: fresh && fresh.notes ? 'v' + fresh.v + ': ' + fresh.notes : feat.tagline }));

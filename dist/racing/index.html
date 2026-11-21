@@ -41,6 +41,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .tracks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .tk { position: relative; text-align: left; padding: 0; border-radius: 20px; overflow: hidden; border: 1px solid var(--stroke); background: rgba(255, 255, 255, .05); transition: transform .2s cubic-bezier(.2, .8, .2, 1), border-color .2s, box-shadow .2s; }
 .tk:hover { transform: translateY(-3px); } .tk.on { border-color: var(--blue-hi); box-shadow: 0 0 0 3px rgba(96, 165, 250, .35), 0 16px 40px rgba(37, 99, 235, .35); }
+#pick .panel { background: rgba(7, 12, 28, .9); }
+.subh { margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: var(--text2, #9db0d4); letter-spacing: .04em; text-transform: uppercase; }
+.cars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.car { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 8px; border-radius: 16px; border: 1px solid var(--stroke); background: rgba(255, 255, 255, .05); color: inherit; font: inherit; cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; }
+.car canvas { width: 100%; max-width: 112px; aspect-ratio: 112 / 72; } .car span { font-size: 12.5px; font-weight: 600; }
+.car:hover { transform: translateY(-2px); } .car.on { border-color: var(--blue-hi); box-shadow: 0 0 0 3px rgba(96, 165, 250, .35), 0 12px 28px rgba(37, 99, 235, .3); }
+@media (max-width: 760px) { .cars { grid-template-columns: repeat(3, 1fr); } }
 .tk canvas { width: 100%; aspect-ratio: 4 / 3; display: block; }
 .tk .ti { padding: 12px 14px 14px; } .tk b { display: block; font-size: 16.5px; } .tk span { color: var(--text3); font-size: 13px; }
 .tk .best { display: block; margin-top: 6px; color: var(--blue-hi); font-size: 12.5px; font-variant-numeric: tabular-nums; }
@@ -101,6 +108,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <div class="glass panel">
     <h2>Choose a track</h2><p class="sub">Four tracks, three laps each. Your best times are saved on this device.</p>
     <div class="tracks" id="trackList"></div>
+    <h3 class="subh">Choose your car</h3><div class="cars" id="carList"></div>
     <div class="opts">
       <div class="opt"><label>Difficulty</label><div class="seg" id="segDiff"></div></div>
       <div class="opt"><label>Laps</label><div class="seg" id="segLaps"></div></div>
@@ -124,7 +132,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=11"></script>
-<script src="/racing/racing.js?v=1"></script>
+<script src="/racing/cars.js?v=1"></script>
+<script src="/racing/racing.js?v=2"></script>
 <script src="/hub/hub-back.js?v=1"></script>
 </body>
 </html>

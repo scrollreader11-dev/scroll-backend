@@ -58,7 +58,7 @@
   var trackCache = {}; function getTrack(id) { return trackCache[id] || (trackCache[id] = buildTrack(TRACKS.filter(function (t) { return t.id === id; })[0])); }
 
   // ---------------------------------------------------------------- state
-  var opts = lsGet('sr_opts', { diff: 'normal', laps: 3, auto: true, track: 'meadow' }), best = lsGet('sr_best', {});
+  var opts = lsGet('sr_opts', { diff: 'normal', laps: 3, auto: true, track: 'meadow', car: 'kart' }), best = lsGet('sr_best', {});
   var DIFF = { easy: { top: 0.86, mult: 0.6, slot: 3 }, normal: { top: 0.93, mult: 1, slot: 5 }, hard: { top: 1.0, mult: 1.4, slot: 6 } };
   var S = { mode: 'boot', track: null, racers: [], me: null, proj: [], slicks: [], parts: [], pops: [], laps: 3, t: 0, count: 0, raceT: 0, finishedN: 0, afterT: 0, results: null, flash: 0, shake: 0, token: '', run: null, wrong: 0, hintT: 0, gasAt: -1, early: false, focus: null, zapT: 0 };
   var cam = { x: 0, y: 0, a: 0, z: 1 };
@@ -79,10 +79,13 @@
     return c;
   }
   function randomLook(R) { return { skin: A && A.SKINS ? A.SKINS[Math.floor(R() * A.SKINS.length)] : 'gim', body: BODIES[Math.floor(R() * BODIES.length)], hat: HATS[Math.floor(R() * HATS.length)], acc: '', trail: '' }; }
+  var ACCENTS = ['#ffffff', '#fde047', '#0f172a', '#f8fafc', '#fb7185', '#22d3ee'];
   function mkRacer(i, T, slot, look, name, isMe, top, R) {
     var row = Math.floor(slot / 2), col = slot % 2, back = 70 + row * 78, idx0 = (T.N - Math.round(back / STEP) + T.N) % T.N, lat = (col ? 1 : -1) * 48;
     var r = { i: i, me: isMe, name: name, look: look, x: T.x[idx0] + T.nx[idx0] * lat, y: T.y[idx0] + T.ny[idx0] * lat, a: Math.atan2(T.ty[idx0], T.tx[idx0]), vx: 0, vy: 0, idx: idx0, u: idx0 - T.N, lat: lat, drift: false, driftDir: 0, driftT: 0, boost: 0, boostTier: 0, spin: 0, spinA: 0, shield: 0, item: null, roll: 0, inv: 0, slow: 0, finished: false, ft: 0, lapT: [], lap: 1, place: i + 1, top: top, lane: (R() - 0.5) * 90, rnd: R(), stuck: 0, off: false, hop: 0, steerV: 0, aiT: R() * 5, slotU: 0, wantDrift: false, itemT: 0, bump: 0, lapStart: 0, sprite: spriteFor(look), sparks: 0 };
-    r.bodyCol = look.body || '#3fa9ff';
+    r.bodyCol = look.body || '#3fa9ff'; var M = window.SRCars ? SRCars.MODELS : [{ id: 'kart', seatX: -4 }];
+    var mid = isMe ? (opts.car || 'kart') : M[Math.floor(R() * M.length)].id, mm = M.filter(function (m) { return m.id === mid; })[0] || M[0];
+    r.car = mm.id; r.seatX = mm.seatX; r.accent = ACCENTS[Math.floor(R() * ACCENTS.length)];
     return r;
   }
   function startRace(demo) {
@@ -375,13 +378,9 @@
   function ZOMZ(v) { return ZOOM * v; }
   function applyCam() { g.setTransform(DPR, 0, 0, DPR, 0, 0); g.translate(W / 2, OY); g.rotate(rot); g.scale(ZOOM, ZOOM); g.translate(-cam.x, -cam.y); }
   function drawKartBody(r) {
-    var fx = Math.cos(r.a); g.save(); g.translate(r.x, r.y); g.rotate(r.a + r.spinA + (r.drift ? r.driftDir * 0.28 : 0));
-    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(0, 4, 28, 20, 0, 0, TAU); g.fill();
-    g.fillStyle = '#15171f'; [[-14, -16], [-14, 16], [14, -17], [14, 17]].forEach(function (w) { g.beginPath(); g.roundRect ? g.roundRect(w[0] - 7, w[1] - 4.5, 14, 9, 3) : g.rect(w[0] - 7, w[1] - 4.5, 14, 9); g.fill(); });
-    g.fillStyle = r.bodyCol; g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 2.5; g.beginPath(); if (g.roundRect) g.roundRect(-22, -12, 44, 24, 9); else g.rect(-22, -12, 44, 24); g.fill(); g.stroke();
-    g.fillStyle = 'rgba(255,255,255,.28)'; g.beginPath(); if (g.roundRect) g.roundRect(-16, -8, 30, 6, 3); else g.rect(-16, -8, 30, 6); g.fill();
-    g.fillStyle = '#0f1220'; g.beginPath(); g.moveTo(-23, -10); g.lineTo(-29, -13); g.lineTo(-29, 13); g.lineTo(-23, 10); g.closePath(); g.fill();
-    g.fillStyle = '#e8ecf8'; g.beginPath(); g.moveTo(22, -7); g.lineTo(31, -3); g.lineTo(31, 3); g.lineTo(22, 7); g.closePath(); g.fill(); g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 1.5; g.stroke();
+    g.save(); g.translate(r.x, r.y); g.rotate(r.a + r.spinA + (r.drift ? r.driftDir * 0.28 : 0));
+    g.fillStyle = 'rgba(0,0,0,.30)'; g.beginPath(); g.ellipse(2, 5, 46, 28, 0, 0, TAU); g.fill();
+    if (window.SRCars) { var sp = SRCars.sprite(r.car, r.bodyCol, r.me ? '#ffffff' : r.accent); g.drawImage(sp, -56, -36, 112, 72); }
     g.restore();
   }
   function drawSprite(r, sx, sy, z) {
@@ -440,7 +439,7 @@
     var list = [], z = ZOOM, rr2 = R * R, i;
     for (i = 0; i < T.deco.length; i++) { var dc = T.deco[i], dx = dc.x - cam.x, dy = dc.y - cam.y; if (dx * dx + dy * dy > rr2) continue; var p = toScr(dc.x, dc.y); if (p[0] < -120 || p[0] > W + 120 || p[1] < -160 || p[1] > H + 120) continue; list.push({ y: p[1], f: drawDeco, a: dc, sx: p[0], sy: p[1] }); }
     T.boxes.forEach(function (b) { var p = toScr(b.x, b.y); if (p[0] < -60 || p[0] > W + 60 || p[1] < -80 || p[1] > H + 60) return; list.push({ y: p[1], f: drawBox, a: b, sx: p[0], sy: p[1] }); });
-    S.racers.forEach(function (rc) { var p = toScr(rc.x, rc.y); if (p[0] < -120 || p[0] > W + 120 || p[1] < -160 || p[1] > H + 140) return; list.push({ y: p[1] + 0.5, f: drawSprite, a: rc, sx: p[0], sy: p[1] }); });
+    S.racers.forEach(function (rc) { var so = rc.seatX || 0, p = toScr(rc.x + Math.cos(rc.a) * so, rc.y + Math.sin(rc.a) * so); if (p[0] < -120 || p[0] > W + 120 || p[1] < -160 || p[1] > H + 140) return; list.push({ y: p[1] + 0.5, f: drawSprite, a: rc, sx: p[0], sy: p[1] }); });
     S.proj.forEach(function (pj) { var p = toScr(pj.x, pj.y); list.push({ y: p[1], f: drawProj, a: pj, sx: p[0], sy: p[1] }); });
     list.sort(function (a, b) { return a.y - b.y; });
     for (i = 0; i < list.length; i++) list[i].f(list[i].a, list[i].sx, list[i].sy, z);
@@ -535,10 +534,22 @@
       info.innerHTML = '<b></b><span></span><span class="best"></span>'; info.children[0].textContent = d.name; info.children[1].textContent = d.sub; info.children[2].textContent = bt ? 'Best ' + fmt(bt) : 'No time yet';
       b.appendChild(c); b.appendChild(info); b.addEventListener('click', function () { opts.track = d.id; lsSet('sr_opts', opts); Array.prototype.forEach.call(box.children, function (n) { n.classList.toggle('on', n.dataset.id === d.id); }); sfx('click'); }); box.appendChild(b);
     });
+    buildCars();
     seg($('segDiff'), [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']], opts.diff, function (v) { opts.diff = v; lsSet('sr_opts', opts); });
     seg($('segLaps'), [[1, '1'], [3, '3'], [5, '5']], opts.laps, function (v) { opts.laps = +v; lsSet('sr_opts', opts); buildPickBest(); });
     seg($('segAuto'), [['1', 'Automatic'], ['0', 'Manual']], opts.auto ? '1' : '0', function (v) { opts.auto = v === '1'; lsSet('sr_opts', opts); });
     $('optAuto').style.display = TOUCH ? '' : 'none';
+  }
+  function buildCars() {
+    var box = $('carList'); if (!box || !window.SRCars) return; box.textContent = '';
+    var body = (player.look && player.look.body) || '#3fa9ff';
+    SRCars.MODELS.forEach(function (m) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'car' + (opts.car === m.id ? ' on' : ''); b.dataset.id = m.id; b.setAttribute('aria-label', m.name);
+      var c = document.createElement('canvas'); c.width = 224; c.height = 144; c.getContext('2d').drawImage(SRCars.sprite(m.id, body, '#ffffff'), 0, 0);
+      var n = document.createElement('span'); n.textContent = m.name; b.appendChild(c); b.appendChild(n);
+      b.addEventListener('click', function () { opts.car = m.id; lsSet('sr_opts', opts); Array.prototype.forEach.call(box.children, function (x) { x.classList.toggle('on', x === b); }); if (S.me) S.me.car = m.id; });
+      box.appendChild(b);
+    });
   }
   function buildPickBest() { Array.prototype.forEach.call($('trackList').children, function (n) { var bt = best[n.dataset.id + '|' + opts.laps]; n.querySelector('.best').textContent = bt ? 'Best ' + fmt(bt) : 'No time yet'; }); }
   function beginRace() {

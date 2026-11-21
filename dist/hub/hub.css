@@ -714,3 +714,8 @@ body.in-dc .dc { height: var(--app-h); border-radius: 0; border: 0; box-shadow: 
 .dc-rail .dr-i.exit:hover { color: #fff; background: rgba(59, 130, 246, .5); }
 .dc-rail { padding-bottom: calc(10px + var(--safe-b)); }
 @media (max-width: 760px) { body.in-dc .scroll.dcmode { padding: 0; } body.in-dc .dc { height: var(--app-h); border-radius: 0; } }
+.sug.page .pgi { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(59, 130, 246, .22); color: var(--blue-hi); flex: none; } .sug.page .pgi .ic { width: 20px; height: 20px; }
+.jump { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; } .jump .chip { height: 40px; } .jump .chip .ic { color: var(--blue-hi); }
+.nav-g { margin: 14px 12px 4px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--text2); opacity: .8; } .nav > .nav-g:first-child { margin-top: 2px; }
+@media (max-width: 1100px) { .nav-g { display: none; } }
+@media (max-width: 760px) { .jump { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -4px; padding-bottom: 2px; } .jump::-webkit-scrollbar { display: none; } .jump .chip { flex: none; } }
