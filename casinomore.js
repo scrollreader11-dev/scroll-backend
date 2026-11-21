@@ -117,6 +117,17 @@ function shuffled() { const d = []; for (let r = 2; r <= 14; r++) for (let s = 0
 
 // ---------------------------------------------------------------- per-player rounds in progress
 const live = { war: {}, hilo: {}, poker: {} };
+// Rig support (owner tool): copy and put back one player's rounds in progress while a round is re-rolled in memory.
+export function liveSnap(cid) { const o = {}; for (const g in live) o[g] = live[g][cid] ? structuredClone(live[g][cid]) : undefined; return o; }
+export function liveRestore(cid, snap, reshuffle) {
+  for (const g in live) {
+    const v = snap && snap[g];
+    if (v === undefined) { delete live[g][cid]; continue; }
+    const c = structuredClone(v);
+    if (reshuffle && Array.isArray(c.deck)) for (let i = c.deck.length - 1; i > 0; i--) { const j = rnd(i + 1); [c.deck[i], c.deck[j]] = [c.deck[j], c.deck[i]]; }
+    live[g][cid] = c;
+  }
+}
 const STALE = 30 * 60 * 1000;
 function active(game, cid) { const g = live[game][cid]; if (g && Date.now() - g.t > STALE) { delete live[game][cid]; return null; } return g || null; }
 const hiloP = (r) => ({ hi: (14 - r) / 13, lo: (r - 2) / 13 });

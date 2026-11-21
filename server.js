@@ -20,7 +20,7 @@ import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
 import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
-import { casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -969,6 +969,24 @@ async function handleStaff(req, res) {
     if (r.error) return sendJson(res, r.error === 'owner only' ? 403 : 404, r);
     try { audit(who, 'discord.delete', r.who + ' in ' + r.where, ''); } catch (e) {}
     return sendJson(res, 200, r);
+  }
+  if (action.startsWith('casino.rig.')) {
+    if (!owner) return needOwner();
+    if (action === 'casino.rig.list') return sendJson(res, 200, { ok: true, ...rigList() });
+    if (action === 'casino.rig.add') {
+      let cid = '', name = '';
+      if (body.username && String(body.username).trim()) {
+        const t = await staffTarget(body.username);
+        if (!t) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+        cid = t.id; name = t.username;
+      }
+      const r = rigAdd({ ...body, cid, name }, who.username);
+      audit(who, 'casino rig', name || 'everyone', r.game + ' ' + r.mode + (r.mode === 'payout' ? ' ' + r.min + '-' + (r.max || 'any') + 'x' : r.mode === 'chance' ? ' ' + r.chance + '%' : '') + (r.uses ? ' x' + r.uses : ''));
+      return sendJson(res, 200, { ok: true, rule: r, ...rigList() });
+    }
+    if (action === 'casino.rig.del') { rigDelete(String(body.id || '')); audit(who, 'casino rig removed', String(body.id || ''), ''); return sendJson(res, 200, { ok: true, ...rigList() }); }
+    if (action === 'casino.rig.toggle') { rigToggle(String(body.id || ''), body.on); return sendJson(res, 200, { ok: true, ...rigList() }); }
+    if (action === 'casino.rig.clear') { rigClear(); audit(who, 'casino rig cleared', '', ''); return sendJson(res, 200, { ok: true, ...rigList() }); }
   }
   if (action === 'casino.cfg.get') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, ...casinoCfgGet() }); }
   if (action === 'casino.cfg.set') {

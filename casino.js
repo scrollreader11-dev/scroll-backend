@@ -6,7 +6,7 @@
 // ============================================================
 import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
-import { handleMore } from './casinomore.js';
+import { handleMore, liveSnap, liveRestore } from './casinomore.js';
 import './dist/arcade/bannergen.js'; // sets globalThis.SHBanner (custom banners from the Sprite Studio)
 
 const CASINO_FILE = '/tmp/scrollhub-casino.json';
@@ -32,7 +32,7 @@ export async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
+const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 function blankProfile() {
   return { coins: (casino.cfg && casino.cfg.startCoins) || START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
@@ -45,7 +45,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
+function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -63,8 +63,9 @@ export async function initCasino() {
   } catch (e) { console.log('reset check failed:', e.message); }
 }
 let dirty = false;
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg }); }
-function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
+let rigDry = false, rigPlays = null, rigPending = []; // owner rigging tool: see the Rigging section
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120) }); }
+function save() { dirty = true; if (rigDry) return; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
 export { flush as flushCasino };
@@ -805,7 +806,8 @@ function recordPlay(p, bet, payout) {
   if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
   // Weekly tournament: accumulate this week's net result.
   ensureWeek(p); p.weekNet = (p.weekNet || 0) + net;
-  if (playHook) { try { playHook(p, bet, payout); } catch (e) {} }
+  if (rigPlays) rigPlays.push({ bet, payout });
+  if (playHook) { if (rigDry) rigPending.push(() => playHook(p, bet, payout)); else { try { playHook(p, bet, payout); } catch (e) {} } }
 }
 
 const OLD_GAMES = { '/api/casino/slots': 'slots', '/api/casino/coinflip': 'coinflip', '/api/casino/dice': 'dice', '/api/casino/roulette': 'roulette', '/api/casino/plinko': 'plinko', '/api/casino/wheel': 'wheel', '/api/casino/bj/start': 'blackjack', '/api/casino/mines/start': 'mines', '/api/casino/crash/start': 'crash', '/api/casino/case': 'cases' };
@@ -854,6 +856,143 @@ function minesMult(m, picks) {
   return mult * 0.97;
 }
 
+
+// ============================================================
+// Rigging (owner tool). A rule says: for this player (or everyone) in this game, make the next
+// rounds win, lose, pay between A and B times the bet, or win a set share of the time.
+// The round is played normally, then re-rolled in memory (wallet, stats, jackpot and the round in
+// progress are put back each time) until it fits the rule. Only the round that fits is kept.
+// ============================================================
+const RIG_MODES = ['win', 'lose', 'payout', 'chance'];
+const rigRound = new Map(); // "cid:game" -> 'win' | 'lose' (the coin for a win-chance rule, kept until the round ends)
+function rigClean(o, by) {
+  const mode = RIG_MODES.includes(o.mode) ? o.mode : 'win';
+  const game = o.game === '*' || GAME_LIST.some((g) => g[0] === o.game) ? o.game : '*';
+  const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+  const min = num(o.min, 2, 0, 100000), max = o.max === '' || o.max == null ? 0 : num(o.max, 0, 0, 100000);
+  const uses = Math.floor(num(o.uses, 1, 0, 100000));
+  const mins = Math.floor(num(o.minutes, 0, 0, 525600));
+  return { id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), game, cid: o.cid ? String(o.cid) : '*', name: o.cid ? String(o.name || '') : '*', mode, min: Math.min(min, max || min), max: max && max < min ? min : max, chance: num(o.chance, 50, 0, 100), uses, left: uses, expires: mins ? Date.now() + mins * 60000 : 0, staff: !!o.staff, note: String(o.note || '').slice(0, 80), by: String(by || ''), created: Date.now(), hits: 0, on: true };
+}
+export function rigList() { return { rules: casino.rigs.slice(), log: casino.rigLog.slice(-80).reverse(), games: GAME_LIST }; }
+export function rigAdd(o, by) { const r = rigClean(o || {}, by); casino.rigs.push(r); if (casino.rigs.length > 60) casino.rigs.shift(); save(); flush(); return r; }
+export function rigDelete(id) { const n = casino.rigs.length; casino.rigs = casino.rigs.filter((r) => r.id !== id); save(); flush(); return casino.rigs.length !== n; }
+export function rigClear() { casino.rigs = []; rigRound.clear(); save(); flush(); }
+export function rigToggle(id, on) { const r = casino.rigs.find((x) => x.id === id); if (!r) return null; r.on = on == null ? !r.on : !!on; if (r.on && r.uses && r.left <= 0) r.left = r.uses; save(); flush(); return r; }
+function rigFind(cid, gid, isStaff) {
+  const now = Date.now(); let best = null, bs = -1;
+  for (const r of casino.rigs) {
+    if (!r.on || (r.expires && now > r.expires) || (r.uses && r.left <= 0)) continue;
+    if (r.game !== '*' && r.game !== gid) continue;
+    if (r.cid !== '*' && r.cid !== cid) continue;
+    if (r.cid === '*' && isStaff && !r.staff) continue;
+    const sc = (r.cid !== '*' ? 2 : 0) + (r.game !== '*' ? 1 : 0) + r.created / 1e15;
+    if (sc > bs) { bs = sc; best = r; }
+  }
+  return best;
+}
+function rigWant(rule, cid, gid) {
+  if (rule.mode !== 'chance') return rule.mode;
+  const k = cid + ':' + gid; let w = rigRound.get(k);
+  if (!w) { w = Math.random() * 100 < rule.chance ? 'win' : 'lose'; rigRound.set(k, w); }
+  return w;
+}
+function rigDone(rule, cid, gid, p, bet, payout, tries, ok) { // a round counted against a rule
+  rigRound.delete(cid + ':' + gid);
+  rule.hits++; if (rule.uses) { rule.left--; if (rule.left <= 0) rule.on = false; }
+  casino.rigLog.push({ ts: Date.now(), name: p.nick || '', game: gid, mode: rule.mode, bet, payout, tries, ok: !!ok, rule: rule.id });
+  if (casino.rigLog.length > 200) casino.rigLog.shift();
+}
+function rigSnap(cid) {
+  const p = casino.users[cid], j = casino.jackpot;
+  return { p: p && { coins: p.coins, stats: structuredClone(p.stats), weekNet: p.weekNet, weekKey: p.weekKey }, jp: j && { pool: j.pool, last: j.last ? { ...j.last } : j.last }, bj: structuredClone(bj[cid]), mines: structuredClone(mines[cid]), crash: structuredClone(crash[cid]), more: liveSnap(cid) };
+}
+function rigRestore(cid, s, reshuffle) {
+  const p = casino.users[cid];
+  if (p && s.p) { p.coins = s.p.coins; p.stats = structuredClone(s.p.stats); p.weekNet = s.p.weekNet; p.weekKey = s.p.weekKey; }
+  if (casino.jackpot && s.jp) { casino.jackpot.pool = s.jp.pool; casino.jackpot.last = s.jp.last ? { ...s.jp.last } : s.jp.last; }
+  for (const [store, key] of [[bj, 'bj'], [mines, 'mines'], [crash, 'crash']]) {
+    if (s[key] === undefined) delete store[cid]; else { const c = structuredClone(s[key]); if (reshuffle && Array.isArray(c.deck)) for (let i = c.deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c.deck[i], c.deck[j]] = [c.deck[j], c.deck[i]]; } store[cid] = c; }
+  }
+  liveRestore(cid, s.more, reshuffle);
+}
+// How far a replayed round is from what the rule wants (0 = fits).
+function rigScore(rule, want, kind, resp, plays, tries, bjDeal) {
+  if (resp && resp.error) return { ok: true, dist: 0, resolved: false, err: true };
+  const lo = rule.min || 0, hi = rule.max || Infinity;
+  if (kind === 'crash') {
+    const cp = Number(resp.crashPoint) || 1;
+    if (want === 'win') return { ok: cp >= Math.max(2.5, lo), dist: Math.max(0, Math.max(2.5, lo) - cp), resolved: true, crash: cp };
+    if (want === 'lose') return { ok: cp <= 1.15, dist: Math.max(0, cp - 1.15), resolved: true, crash: cp };
+    const top = hi === Infinity ? lo * 2 + 1 : hi, d = cp < lo ? lo - cp : cp > top ? cp - top : 0;
+    return { ok: d === 0, dist: d, resolved: true, crash: cp };
+  }
+  if (!plays.length && bjDeal) { // blackjack deal: the dealer's hidden card is already set, so pick a deal the rule can still work with
+    if (want === 'win') return { ok: bjDeal <= 15, dist: Math.max(0, bjDeal - 15), resolved: false };
+    if (want === 'lose') return { ok: bjDeal >= 17, dist: Math.max(0, 17 - bjDeal), resolved: false };
+  }
+  if (!plays.length) return want === 'lose' ? { ok: tries >= 40, dist: 1, resolved: false } : { ok: true, dist: 0, resolved: false };
+  const last = plays[plays.length - 1], ratio = last.bet > 0 ? last.payout / last.bet : 0;
+  if (want === 'win') return { ok: ratio > 1, dist: ratio > 1 ? 0 : 1 - ratio + 0.001, resolved: true, ratio };
+  if (want === 'lose') return { ok: ratio < 1, dist: ratio < 1 ? 0 : ratio - 1 + 0.001, resolved: true, ratio };
+  const d = ratio < lo ? lo - ratio : ratio > hi ? ratio - hi : 0;
+  return { ok: d === 0, dist: d, resolved: true, ratio };
+}
+function rigKind(path, method) {
+  if (method !== 'POST') return null;
+  if (path === '/api/casino/crash/start') return { gid: 'crash', kind: 'crash' };
+  if (path === '/api/casino/bj/start' || path === '/api/casino/bj/hit' || path === '/api/casino/bj/stand') return { gid: 'blackjack', kind: 'gen' };
+  if (OLD_GAMES[path] && path !== '/api/casino/mines/start') return { gid: OLD_GAMES[path], kind: 'gen' };
+  const m = path.match(/^\/api\/casino\/g\/([a-z]+)(?:\/([a-z]+))?$/);
+  if (m && m[1] !== 'info' && m[2] !== 'state' && GAME_LIST.some((g) => g[0] === m[1])) return { gid: m[1], kind: 'gen' };
+  return null;
+}
+async function rigGate(url, req, res, cid, p, rk) {
+  const rule = rigFind(cid, rk.gid, !!(req._auth && req._auth.role)); if (!rule) return false;
+  await readBody(req);
+  const want = rigWant(rule, cid, rk.gid), MAXT = want === 'payout' ? 4000 : 600;
+  if (rk.gid === 'blackjack' && url.split('?')[0] === '/api/casino/bj/stand' && bj[cid] && !bj[cid].done) { // the dealer's hidden card is already dealt: swap it for one the rule can work with
+    const g = bj[cid], pv = handValue(g.player), cards = [];
+    for (const s0 of SUITS) for (let n = 1; n <= 13; n++) cards.push({ n, s: s0 });
+    const withHole = (c) => handValue([g.dealer[0], c]);
+    if (want === 'lose' && pv < 21) { const c = cards.filter((x) => withHole(x) > pv && withHole(x) <= 21).sort((a, b) => withHole(a) - withHole(b))[0]; if (c) g.dealer[1] = c; }
+    else if (want === 'win' && withHole(g.dealer[1]) >= Math.min(pv, 17)) { const c = cards.filter((x) => withHole(x) <= 15).sort((a, b) => withHole(b) - withHole(a))[0]; if (c) g.dealer[1] = c; }
+  }
+  let best = null, ok = false, i = 0; const seen = new Set();
+  for (; i < MAXT; i++) {
+    const before = rigSnap(cid);
+    rigDry = true; rigPlays = []; rigPending = []; req._rigSkip = true;
+    const cap = { statusCode: 200, body: '', writeHead(c) { this.statusCode = c; }, end(b) { this.body = b || ''; } };
+    try { await handleCasino(url, req, cap); } finally { rigDry = false; }
+    const plays = rigPlays, pending = rigPending; rigPlays = null; rigPending = [];
+    let resp = {}; try { resp = JSON.parse(cap.body); } catch (e) {}
+    const ev = rigScore(rule, want, rk.kind, resp, plays, i, url.split('?')[0] === '/api/casino/bj/start' && bj[cid] && !bj[cid].done ? handValue(bj[cid].dealer) : 0);
+    const att = { cap, plays, pending, ev, after: rigSnap(cid) };
+    if (!best || ev.dist < best.ev.dist) best = att;
+    if (ev.ok) { ok = true; best = att; break; }
+    seen.add(ev.ratio != null ? ev.ratio : ev.crash != null ? ev.crash : 'x');
+    rigRestore(cid, before, true);
+    if (i >= 60 && seen.size === 1) break;               // nothing about this round is random, so stop trying
+  }
+  rigRestore(cid, best.after, false);
+  rigDry = false;
+  for (const f of best.pending) { try { f(); } catch (e) {} }
+  save();
+  const last = best.plays[best.plays.length - 1];
+  if (best.ev.resolved && !best.ev.err) rigDone(rule, cid, rk.gid, p, last ? last.bet : Number((await readBody(req)).bet) || 0, last ? last.payout : 0, i + 1, ok);
+  res.writeHead(best.cap.statusCode, { 'Content-Type': 'application/json', 'cache-control': 'no-store' }); res.end(best.cap.body);
+  return true;
+}
+// Mines decides each tile as it is picked, so its rig moves the bombs instead of re-rolling.
+function rigMinesIntent(cid, req, g) {
+  const rule = rigFind(cid, 'mines', !!(req._auth && req._auth.role)); if (!rule) return null;
+  const want = rigWant(rule, cid, 'mines');
+  if (want === 'win') return { rule, act: 'safe' };
+  if (want === 'lose') return { rule, act: 'boom' };
+  const lo = rule.min || 2, cur = minesMult(g.mines, g.picks.length);
+  return cur < lo ? { rule, act: 'safe' } : { rule, act: null };
+}
+
 // ============================================================
 // Router — returns true if it handled the request.
 // ============================================================
@@ -867,6 +1006,9 @@ export async function handleCasino(url, req, res) {
   if (nick && nick !== 'Guest' && p.nick !== nick) { p.nick = nick; save(); } // keep a name for the leaderboard/tips
   try { checkTournamentRollover(); } catch (e) {} // pay out last week if the week just rolled over
   ensureWeek(p);
+
+  // Owner rigging (see the Rigging section): re-rolls this round until it fits an active rule.
+  if (!req._rigSkip && casino.rigs.length) { const rk = rigKind(path, req.method); if (rk && await rigGate(url, req, res, cid, p, rk)) return true; }
 
   // Owner table limits apply to every game, old and new.
   if (req.method === 'POST' && OLD_GAMES[path]) {
@@ -952,7 +1094,7 @@ export async function handleCasino(url, req, res) {
       jp.last = { nick: p.nick || 'Player', amount: jackpotWon, ts: Date.now() }; jp.pool = JACKPOT_SEED;
     }
     p.coins += payout; recordPlay(p, bet, payout); save();
-    if (jackpotWon && jackpotHook) { try { jackpotHook(p, jackpotWon); } catch (e) {} }
+    if (jackpotWon && jackpotHook) { if (rigDry) rigPending.push(() => jackpotHook(p, jackpotWon)); else { try { jackpotHook(p, jackpotWon); } catch (e) {} } }
     sendJson(res, 200, { reels: reels.map((r) => r.s), payout, win: payout - bet, line, jackpot: jackpotWon, jackpotPool: Math.floor(jp.pool), profile: publicProfile(cid) }); return true;
   }
 
@@ -985,7 +1127,7 @@ export async function handleCasino(url, req, res) {
   if (path === '/api/casino/bj/hit' && req.method === 'POST') {
     const g = bj[cid]; if (!g || g.done) return (sendJson(res, 200, { error: 'no-game' }), true);
     g.player.push(g.deck.pop());
-    if (handValue(g.player) > 21) { g.done = true; g.result = 'bust'; /* bet already taken */ save(); }
+    if (handValue(g.player) > 21) { g.done = true; g.result = 'bust'; /* bet already taken */ recordPlay(p, g.bet, 0); save(); }
     sendJson(res, 200, { state: bjState(cid, g.done), profile: publicProfile(cid) }); return true;
   }
   if (path === '/api/casino/bj/stand' && req.method === 'POST') {
@@ -1093,8 +1235,16 @@ export async function handleCasino(url, req, res) {
     if (!g || g.done) return (sendJson(res, 200, { error: 'no-game' }), true);
     const tile = Math.floor(Number(body.tile));
     if (!(tile >= 0 && tile < 25) || g.picks.includes(tile)) return (sendJson(res, 200, { error: 'bad-tile' }), true);
+    const ri = rigMinesIntent(cid, req, g);
+    if (ri && ri.act === 'safe' && g.positions.has(tile)) { // rigged: move the bomb to a tile that is still hidden
+      const free = []; for (let t = 0; t < 25; t++) if (t !== tile && !g.positions.has(t) && !g.picks.includes(t)) free.push(t);
+      if (free.length) { g.positions.delete(tile); g.positions.add(free[Math.floor(Math.random() * free.length)]); }
+    } else if (ri && ri.act === 'boom' && !g.positions.has(tile)) { // rigged: this tile is a bomb after all
+      const old = [...g.positions].filter((t) => !g.picks.includes(t)); if (old.length) { g.positions.delete(old[Math.floor(Math.random() * old.length)]); g.positions.add(tile); }
+    }
     if (g.positions.has(tile)) {
       g.done = true; recordPlay(p, g.bet, 0); save();
+      if (ri) rigDone(ri.rule, cid, 'mines', p, g.bet, 0, 1, ri.act !== 'safe');
       return (sendJson(res, 200, { hit: true, tile, done: true, mineField: [...g.positions], profile: publicProfile(cid) }), true);
     }
     g.picks.push(tile);
@@ -1107,6 +1257,7 @@ export async function handleCasino(url, req, res) {
     const mult = minesMult(g.mines, g.picks.length);
     const payout = Math.floor(g.bet * mult);
     g.done = true; p.coins += payout; recordPlay(p, g.bet, payout); save();
+    { const rm = rigFind(cid, 'mines', !!(req._auth && req._auth.role)); if (rm) rigDone(rm, cid, 'mines', p, g.bet, payout, 1, true); }
     sendJson(res, 200, { ok: true, payout, mult: +mult.toFixed(4), win: payout - g.bet, mineField: [...g.positions], profile: publicProfile(cid) }); return true;
   }
 
