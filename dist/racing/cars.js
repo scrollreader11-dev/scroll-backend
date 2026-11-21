@@ -3,6 +3,9 @@
 (function () {
   'use strict';
   var TAU = Math.PI * 2;
+  // Shop paint can be a special finish ('m:gold'); map those to a plain colour so gradients never get an invalid stop.
+  var FINISH = { 'm:gold': '#f5c542', 'm:chrome': '#c9d3e6', 'm:lava': '#ff5a1f', 'm:galaxy': '#6d3bd6', 'm:rainbow': '#ff4fa3' };
+  function safe(c) { c = String(c == null ? '' : c); if (FINISH[c]) return FINISH[c]; return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c) ? c : '#3fa9ff'; }
   function hex(c) { c = String(c || '#3fa9ff').replace('#', ''); if (c.length === 3) c = c.replace(/(.)/g, '$1$1'); var n = parseInt(c, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
   function mix(c, t, a) { var h = hex(c), r = t < 0 ? 0 : 255, k = Math.abs(t); return 'rgb(' + Math.round(h[0] + (r - h[0]) * k) + ',' + Math.round(h[1] + (r - h[1]) * k) + ',' + Math.round(h[2] + (r - h[2]) * k) + ')'; }
   function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r); g.lineTo(x + w, y + h - r); g.quadraticCurveTo(x + w, y + h, x + w - r, y + h); g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r); g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath(); }
@@ -84,7 +87,7 @@
   };
   var ORDER = ['kart', 'roadster', 'buggy', 'muscle', 'formula', 'jeep'], cache = {};
   function sprite(model, color, accent) {
-    var m = M[model] || M.kart, key = model + color + accent; if (cache[key]) return cache[key];
+    color = safe(color); accent = safe(accent || '#ffffff'); var m = M[model] || M.kart, key = model + color + accent; if (cache[key]) return cache[key];
     var c = document.createElement('canvas'); c.width = 224; c.height = 144; var g = c.getContext('2d'); g.scale(2, 2); g.translate(56, 36); g.lineJoin = 'round'; g.lineCap = 'round';
     m.draw(g, color, accent || '#ffffff'); return cache[key] = c;
   }

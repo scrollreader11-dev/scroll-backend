@@ -380,7 +380,7 @@
   function drawKartBody(r) {
     g.save(); g.translate(r.x, r.y); g.rotate(r.a + r.spinA + (r.drift ? r.driftDir * 0.28 : 0));
     g.fillStyle = 'rgba(0,0,0,.30)'; g.beginPath(); g.ellipse(2, 5, 46, 28, 0, 0, TAU); g.fill();
-    if (window.SRCars) { var sp = SRCars.sprite(r.car, r.bodyCol, r.me ? '#ffffff' : r.accent); g.drawImage(sp, -56, -36, 112, 72); }
+    if (window.SRCars) { try { g.drawImage(SRCars.sprite(r.car, r.bodyCol, r.me ? '#ffffff' : r.accent), -56, -36, 112, 72); } catch (e) {} }
     g.restore();
   }
   function drawSprite(r, sx, sy, z) {
@@ -569,7 +569,7 @@
     }).then(function () { drawMe(); });
   }
   function wire() {
-    $('bPlay').addEventListener('click', function () { engineOn(); sfx('click'); buildPick(); show('pick'); });
+    $('bPlay').addEventListener('click', function () { try { engineOn(); } catch (e) {} sfx('click'); try { buildPick(); } catch (e) { if (window.console) console.error(e); } show('pick'); });
     $('bHow').addEventListener('click', function () { sfx('click'); show('how'); }); $('bHowBack').addEventListener('click', function () { show('title'); });
     $('bPickBack').addEventListener('click', function () { show('title'); }); $('bStart').addEventListener('click', beginRace);
     $('pauseBtn').addEventListener('click', function () { togglePause(); }); $('bResume').addEventListener('click', function () { togglePause(); });
