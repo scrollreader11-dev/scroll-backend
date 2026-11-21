@@ -1,4 +1,4 @@
-/* Scrolls Casino: nine more games. Every outcome is rolled here with a secure random source;
+/* Scrolls Casino: eight more games. Every outcome is rolled here with a secure random source;
    the browser only draws what this file returns. Wallet changes go through the same
    profile, stats, tournament and play-hook path as the older games (env.recordPlay). */
 import crypto from 'crypto';
@@ -6,8 +6,8 @@ import crypto from 'crypto';
 const rnd = (n) => crypto.randomInt(n);                                     // 0 .. n-1
 const rf = () => crypto.randomInt(1, 281474976710655) / 281474976710656;    // (0, 1)
 
-export const MORE_GAMES = ['keno', 'scratch', 'baccarat', 'shell', 'penalty', 'war', 'sicbo', 'hilo', 'poker'];
-export const MORE_NAMES = { keno: 'Keno', scratch: 'Scratch Cards', baccarat: 'Baccarat', shell: 'Shell Game', penalty: 'Penalty Shootout', war: 'Casino War', sicbo: 'Sic Bo', hilo: 'Hi-Lo', poker: 'Video Poker' };
+export const MORE_GAMES = ['keno', 'scratch', 'baccarat', 'shell', 'penalty', 'war', 'hilo', 'poker'];
+export const MORE_NAMES = { keno: 'Keno', scratch: 'Scratch Cards', baccarat: 'Baccarat', shell: 'Shell Game', penalty: 'Penalty Shootout', war: 'Casino War', hilo: 'Hi-Lo', poker: 'Video Poker' };
 
 // ---------------------------------------------------------------- helpers
 function gate(env, game, bet) {
@@ -91,9 +91,6 @@ function scratchBoard(win) {
 const bacVal = (r) => (r >= 10 ? 0 : r === 14 ? 1 : r);                       // ranks 2..14 mapped to baccarat points
 const bacTot = (h) => h.reduce((a, c) => a + bacVal(c.r), 0) % 10;
 
-// ---------------------------------------------------------------- sic bo
-const SIC_TOTAL = { 4: 60, 17: 60, 5: 30, 16: 30, 6: 17, 15: 17, 7: 12, 14: 12, 8: 8, 13: 8, 9: 6, 10: 6, 11: 6, 12: 6 };
-
 // ---------------------------------------------------------------- video poker (8/5 Jacks or Better)
 export const POKER_PAY = [['Royal Flush', 250], ['Straight Flush', 50], ['Four of a Kind', 25], ['Full House', 8], ['Flush', 5], ['Straight', 4], ['Three of a Kind', 3], ['Two Pair', 2], ['Jacks or Better', 1]];
 function pokerEval(h) {
@@ -141,7 +138,7 @@ export function handleMore(path, body, env) {
   const game = m[1], act = m[2] || 'play', cid = env.cid, p = env.p;
   if (game === 'info') {
     const cfg = env.cfg();
-    return { ok: true, keno: KENO, scratch: SCRATCH.map((x) => ({ sym: x.sym, m: x.m })), sicTotal: SIC_TOTAL, poker: POKER_PAY, names: MORE_NAMES, closed: !!cfg.closed, games: cfg.games || {}, maxBet: cfg.maxBet || 0, minBet: cfg.minBet || 0, profile: env.publicProfile() };
+    return { ok: true, keno: KENO, scratch: SCRATCH.map((x) => ({ sym: x.sym, m: x.m })), poker: POKER_PAY, names: MORE_NAMES, closed: !!cfg.closed, games: cfg.games || {}, maxBet: cfg.maxBet || 0, minBet: cfg.minBet || 0, profile: env.publicProfile() };
   }
   if (!MORE_GAMES.includes(game)) return null;
 
@@ -239,23 +236,6 @@ export function handleMore(path, body, env) {
       return done(env, { war: true, pc: cur.pc, dc: cur.dc, pc2, dc2, won }, stake, payout);
     }
     return { error: 'bad-action' };
-  }
-
-  // ---- sic bo
-  if (game === 'sicbo') {
-    const type = String(body.type || ''), n = Math.floor(Number(body.n));
-    const okType = type === 'big' || type === 'small' || type === 'triple' || (type === 'single' && n >= 1 && n <= 6) || (type === 'total' && SIC_TOTAL[n]);
-    if (!okType) return { error: 'bad-bet-type' };
-    const t = takeBet(env, game, body.bet); if (t.error) return t;
-    const dice = [1 + rnd(6), 1 + rnd(6), 1 + rnd(6)], sum = dice[0] + dice[1] + dice[2], tri = dice[0] === dice[1] && dice[1] === dice[2];
-    let payout = 0;
-    if (type === 'big') payout = !tri && sum >= 11 ? t.bet * 2 : 0;
-    else if (type === 'small') payout = !tri && sum <= 10 ? t.bet * 2 : 0;
-    else if (type === 'triple') payout = tri ? t.bet * 31 : 0;
-    else if (type === 'single') { const c = dice.filter((d) => d === n).length; payout = c ? t.bet * (1 + c) : 0; }
-    else if (type === 'total') payout = sum === n && !tri ? t.bet * (SIC_TOTAL[n] + 1) : 0;
-    payout = payOut(env, game, t.bet, payout);
-    return done(env, { dice, sum, triple: tri, type, n }, t.bet, payout);
   }
 
   // ---- hi-lo

@@ -89,7 +89,7 @@
   var MORE_META = {
     keno: ['🔢', 'Keno', 'Pick up to 10 numbers. Ten get drawn.'], scratch: ['🎟️', 'Scratch Cards', 'Match three symbols to win'],
     baccarat: ['🂡', 'Baccarat', 'Player, Banker or Tie'], shell: ['🥥', 'Shell Game', 'Find the ball under the cup'], penalty: ['⚽', 'Penalty Shootout', 'Pick a corner and beat the keeper'],
-    war: ['⚔️', 'Casino War', 'High card wins. Ties go to war.'], sicbo: ['🎲', 'Sic Bo', 'Three dice, many ways to win'], hilo: ['🃏', 'Hi-Lo', 'Higher or lower. Cash out any time.'], poker: ['♠️', 'Video Poker', 'Jacks or Better, 8/5 pay table'],
+    war: ['⚔️', 'Casino War', 'High card wins. Ties go to war.'], hilo: ['🃏', 'Hi-Lo', 'Higher or lower. Cash out any time.'], poker: ['♠️', 'Video Poker', 'Jacks or Better, 8/5 pay table'],
   };
   // --- Slot Alley
   [110, 206, 302, 398, 494, 590].forEach(function (x, i) { add('slot', x, 190, { v: i }); add('slot', x, 920, { v: i + 3 }); });
@@ -114,7 +114,6 @@
   var wheelObj = add('wheel', 1440, 330);
   var crashObj = add('crash', 1100, 470);
   add('plinko', 1760, 460); add('plinko', 1890, 460);
-  station('sicbo', 1600, 460);
   add('sign', 1440, 26, { text: 'HIGH STAKES', color: '#5cf2ff', size: 26, v: 2 });
   add('rope', 820, 540); add('rope', 2060, 540);
   // --- Main floor
@@ -429,7 +428,7 @@
     dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
     plinko: ['🔵', 'Plinko', 'Drop it and pray'], wheel: ['🎡', 'The Big Wheel', 'Pick a color — everyone spins together'], crash: ['🚀', 'Crash', 'One rocket for everyone — cash out in time'],
     cases: ['📦', 'Case Vault', 'Open a case'],
-    keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, war: MORE_META.war, sicbo: MORE_META.sicbo, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
+    keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
     leaderboard: ['🏆', 'Richest Players', 'Top balances on ScrollHub'], tournament: ['🥇', 'Weekly Tournament', 'Most Scrolls won this week'],
     atm: ['🏧', 'ATM', 'Daily Scrolls & event codes'], shop: ['🛍️', 'The Shop', 'Characters, colors, hats, trails & more'],
     owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],

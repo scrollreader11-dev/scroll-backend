@@ -157,25 +157,6 @@
   }
   section('war', '<div class="hint">Higher card wins. On a tie you can go to war (match your bet for a second draw) or surrender for half back. Aces are high.</div><div class="felt" id="wrCards" style="min-height:150px"></div><div class="mg-row" id="wrChoice" style="display:none"><button class="btn red" id="wrWar">Go to war</button><button class="btn dark" id="wrSur">Surrender</button></div>' + betRow('war') + '<div class="mg-row"><button class="btn gold act" id="wrGo">Deal</button></div><div class="msg center" id="wrMsg"></div>');
 
-  // ------------------------------------------------ SIC BO
-  var sicBet = { type: 'big', n: 0 }, DIE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-  function sicBuild() {
-    var h = '<button class="mg-opt on" data-t="big">Big 11-17</button><button class="mg-opt" data-t="small">Small 4-10</button><button class="mg-opt" data-t="triple">Any triple 30:1</button>';
-    for (var i = 1; i <= 6; i++) h += '<button class="mg-opt" data-t="single" data-n="' + i + '">' + DIE[i - 1] + '</button>';
-    for (var t = 4; t <= 17; t++) h += '<button class="mg-opt" data-t="total" data-n="' + t + '">' + t + ' <small>' + ((INFO && INFO.sicTotal && INFO.sicTotal[t]) || '') + ':1</small></button>';
-    $('sbOpts').innerHTML = h;
-  }
-  function sicPlay() {
-    if (busy.sicbo) return; lock('sicbo', true); msg('sbMsg', '');
-    var dice = [].slice.call($('sbDice').children); dice.forEach(function (d) { d.classList.add('roll'); });
-    post('sicbo', 'play', { bet: bet('sicbo'), type: sicBet.type, n: sicBet.n }).then(async function (d) {
-      if (d.error) { dice.forEach(function (x) { x.classList.remove('roll'); }); lock('sicbo', false); return err(d); }
-      await sleep(800); dice.forEach(function (x, i) { x.classList.remove('roll'); x.textContent = DIE[d.dice[i] - 1]; }); sfx('pop');
-      applyProfile(d); lock('sicbo', false); result('sbMsg', d); $('sbMsg').textContent = 'Total ' + d.sum + (d.triple ? ' (triple). ' : '. ') + $('sbMsg').textContent;
-    });
-  }
-  section('sicbo', '<div class="hint">Three dice. Choose one kind of bet. Big and small lose on a triple.</div><div class="mg-dice" id="sbDice"><div class="mg-die">⚀</div><div class="mg-die">⚁</div><div class="mg-die">⚂</div></div><div class="mg-row" id="sbOpts"></div>' + betRow('sicbo') + '<div class="mg-row"><button class="btn gold act" id="sbGo">Roll</button></div><div class="msg center" id="sbMsg"></div>');
-
   // ------------------------------------------------ HI-LO
   var hl = null;
   function hlPaint() {
@@ -234,7 +215,6 @@
     $('shCups').onclick = function (e) { var c = e.target.closest('.mg-cup'); if (!c || busy.shell) return; shellPick = +c.dataset.i; [].forEach.call($('shCups').children, function (x) { x.classList.toggle('pick', x === c); }); sfx('click'); }; $('shGo').onclick = shellPlay;
     $('pnGoal').onclick = function (e) { var z = e.target.closest('.mg-zone'); if (!z || busy.penalty) return; penAim = +z.dataset.a; [].forEach.call($('pnGoal').querySelectorAll('.mg-zone'), function (x) { x.classList.toggle('pick', x === z); }); sfx('click'); }; $('pnGo').onclick = penPlay;
     $('wrGo').onclick = warDeal; $('wrWar').onclick = function () { warAct('go'); }; $('wrSur').onclick = function () { warAct('surrender'); };
-    $('sbOpts').onclick = function (e) { var b = e.target.closest('.mg-opt'); if (!b || busy.sicbo) return; sicBet = { type: b.dataset.t, n: +b.dataset.n || 0 }; [].forEach.call($('sbOpts').children, function (x) { x.classList.toggle('on', x === b); }); sfx('click'); }; $('sbGo').onclick = sicPlay;
     $('hlStart').onclick = function () { if (busy.hilo) return; lock('hilo', true); msg('hlMsg', ''); post('hilo', 'start', { bet: bet('hilo') }).then(function (d) { lock('hilo', false); if (d.error && d.error !== 'in-progress') return err(d); hl = d; $('hlHist').innerHTML = ''; hlPaint(); applyProfile(d); sfx('pop'); }); };
     $('hlHi').onclick = function () { hlGuess('hi'); }; $('hlLo').onclick = function () { hlGuess('lo'); };
     $('hlCash').onclick = function () { if (busy.hilo) return; lock('hilo', true); post('hilo', 'cash').then(function (d) { lock('hilo', false); if (d.error) return err(d); hl = null; hlPaint(); applyProfile(d); result('hlMsg', d); sfx('win'); }); };
@@ -243,7 +223,7 @@
   var OPEN = {
     keno: function () { kenoPaint(); }, scratch: function () {}, baccarat: function () {}, shell: function () {}, penalty: function () {},
     war: function () { post('war', 'state').then(function (d) { if (d && d.active) { warShow({ pc: d.pc, dc: d.dc }); $('wrChoice').style.display = ''; lock('war', true); msg('wrMsg', 'Tie! Go to war or surrender for half your bet.'); } }); },
-    sicbo: function () { sicBuild(); }, hilo: hlRestore, poker: pkRestore,
+    hilo: hlRestore, poker: pkRestore,
   };
   function ready() { wire(); }
   var prevOpen = SC.games && SC.games.open;

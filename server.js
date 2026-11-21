@@ -20,6 +20,7 @@ import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
 import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
+import { tableState, tableControl } from './casinotables.js';
 import { rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
@@ -969,6 +970,14 @@ async function handleStaff(req, res) {
     if (r.error) return sendJson(res, r.error === 'owner only' ? 403 : 404, r);
     try { audit(who, 'discord.delete', r.who + ' in ' + r.where, ''); } catch (e) {}
     return sendJson(res, 200, r);
+  }
+  if (action === 'casino.table.get') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, ...tableState() }); }
+  if (action === 'casino.table.set') {
+    if (!owner) return needOwner();
+    const g = String(body.game || ''), op = String(body.op || ''), r = tableControl(g, op, body.value, body.count);
+    if (r.error) return sendJson(res, 200, r);
+    audit(who, 'casino table', g, op + ' ' + String(body.value == null ? '' : body.value) + (body.count > 1 ? ' x' + body.count : ''));
+    return sendJson(res, 200, { ok: true, ...tableState() });
   }
   if (action.startsWith('casino.rig.')) {
     if (!owner) return needOwner();

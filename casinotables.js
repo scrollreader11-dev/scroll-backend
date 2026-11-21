@@ -20,6 +20,43 @@ function fail(pl, g, msg) { io.sendTo(pl, { t: 'g', g, ev: 'err', msg: ERR[msg] 
 function amtOf(v) { const a = Math.floor(Number(v) || 0); return a >= 1 && a <= 1e9 ? a : 0; }
 function take(pl, g, amt) { const r = walletBet(pl.cid, amt); if (r.error) { fail(pl, g, r.error); return false; } sendCoins(pl.cid); return true; }
 
+// ================================================================ OWNER CONTROLS
+// Set from the casino Owner panel (server.js 'casino.table.*'): pick when Crash crashes, which
+// Roulette number lands and which Big Wheel color lands. Queues are used up one round at a time.
+const ctl = { crashQueue: [], crashFixed: 0, roulQueue: [], wheelQueue: [] };
+const clampX = (v) => Math.max(1, Math.min(1000, Math.round(Number(v) * 100) / 100));
+export function tableState() {
+  const m = crash.phase === 'run' ? crashMult(now()) : crash.phase === 'end' ? crash.point : 1;
+  return { crash: { id: crash.id, phase: crash.phase, mult: m, point: crash.point, queue: ctl.crashQueue.slice(), fixed: ctl.crashFixed, hist: crash.hist.slice(0, 8) },
+    roulette: { id: roul.id, phase: roul.phase, result: roul.phase === 'spin' ? roul.result : null, queue: ctl.roulQueue.slice(), hist: roul.hist.slice(0, 8) },
+    wheel: { id: wheel.id, phase: wheel.phase, queue: ctl.wheelQueue.slice(), hist: wheel.hist.slice(0, 8) } };
+}
+export function tableControl(g, op, value, count) {
+  const n = Math.max(1, Math.min(50, Math.floor(Number(count) || 1)));
+  if (g === 'crash') {
+    if (op === 'clear') { ctl.crashQueue = []; ctl.crashFixed = 0; return { ok: true }; }
+    if (op === 'fixed') { ctl.crashFixed = value === '' || value == null || Number(value) <= 0 ? 0 : clampX(value); return { ok: true }; }
+    if (op === 'now') { // this round: the rocket crashes at this multiplier (or right away if it is already past it)
+      if (crash.phase === 'end') return { error: 'bad-phase', message: 'The round is over. Use "next round" instead.' };
+      crash.point = clampX(value); return { ok: true };
+    }
+    if (op === 'next') { if (!(Number(value) >= 1)) return { error: 'bad-value', message: 'Enter a multiplier of 1.00 or more.' }; for (let i = 0; i < n; i++) ctl.crashQueue.push(clampX(value)); ctl.crashQueue.length = Math.min(ctl.crashQueue.length, 50); return { ok: true }; }
+  }
+  if (g === 'roulette') {
+    if (op === 'clear') { ctl.roulQueue = []; return { ok: true }; }
+    const v = Math.floor(Number(value)); if (!(v >= 0 && v <= 36)) return { error: 'bad-value', message: 'Pick a number from 0 to 36.' };
+    if (op === 'now') { if (roul.phase !== 'bet') return { error: 'bad-phase', message: 'The wheel is already spinning. Use "next spin" instead.' }; ctl.roulQueue.unshift(v); return { ok: true }; }
+    if (op === 'next') { for (let i = 0; i < n; i++) ctl.roulQueue.push(v); ctl.roulQueue.length = Math.min(ctl.roulQueue.length, 50); return { ok: true }; }
+  }
+  if (g === 'wheel') {
+    if (op === 'clear') { ctl.wheelQueue = []; return { ok: true }; }
+    const c = String(value); if (!WPAY[c]) return { error: 'bad-value', message: 'Pick grey, blue, green or gold.' };
+    if (op === 'now') { if (wheel.phase !== 'bet') return { error: 'bad-phase', message: 'The wheel is already spinning. Use "next spin" instead.' }; ctl.wheelQueue.unshift(c); return { ok: true }; }
+    if (op === 'next') { for (let i = 0; i < n; i++) ctl.wheelQueue.push(c); ctl.wheelQueue.length = Math.min(ctl.wheelQueue.length, 50); return { ok: true }; }
+  }
+  return { error: 'bad-op', message: 'Unknown control.' };
+}
+
 // ================================================================ CRASH
 const CR_BET = 7000, CR_END = 4000;
 const crash = { id: 0, phase: 'bet', until: 0, start: 0, point: 1, bets: new Map(), hist: [] };
@@ -29,7 +66,7 @@ function crashPub() {
     point: crash.phase === 'end' ? crash.point : undefined,
     bets: [...crash.bets.values()].map((b) => ({ pid: b.pid, nick: b.nick, bet: b.bet, auto: b.auto, cashed: b.cashed, win: b.win })) };
 }
-function crashRound() { crash.id++; crash.phase = 'bet'; crash.until = now() + CR_BET; crash.bets = new Map(); crash.point = crashRoll(); emit('crash', { ev: 'state', s: crashPub() }); }
+function crashRound() { crash.id++; crash.phase = 'bet'; crash.until = now() + CR_BET; crash.bets = new Map(); crash.point = ctl.crashQueue.length ? ctl.crashQueue.shift() : ctl.crashFixed ? ctl.crashFixed : crashRoll(); emit('crash', { ev: 'state', s: crashPub() }); }
 function crashCash(b, m) {
   b.cashed = m; b.win = Math.floor(b.bet * m);
   walletSettle(b.cid, b.bet, b.win); sendCoins(b.cid);
@@ -87,7 +124,7 @@ function roulPub() { return { id: roul.id, phase: roul.phase, until: roul.until,
 function roulRound() { roul.id++; roul.phase = 'bet'; roul.until = now() + RL_BET; roul.bets = []; roul.result = null; emit('roulette', { ev: 'state', s: roulPub() }); }
 function roulTick(t) {
   if (roul.phase === 'bet' && t >= roul.until) {
-    roul.result = Math.floor(Math.random() * 37); roul.color = rColor(roul.result);
+    roul.result = ctl.roulQueue.length ? ctl.roulQueue.shift() : Math.floor(Math.random() * 37); roul.color = rColor(roul.result);
     roul.phase = 'spin'; roul.until = t + RL_SPIN;
     emit('roulette', { ev: 'state', s: roulPub() });
   } else if (roul.phase === 'spin' && t >= roul.until) {
@@ -130,7 +167,7 @@ function wheelPub() { return { id: wheel.id, phase: wheel.phase, until: wheel.un
 function wheelRound() { wheel.id++; wheel.phase = 'bet'; wheel.until = now() + WH_BET; wheel.bets = []; wheel.idx = -1; emit('wheel', { ev: 'state', s: wheelPub() }); }
 function wheelTick(t) {
   if (wheel.phase === 'bet' && t >= wheel.until) {
-    wheel.idx = Math.floor(Math.random() * WHEEL.length); wheel.phase = 'spin'; wheel.until = t + WH_SPIN;
+    { const want = ctl.wheelQueue.shift(), pool = want ? WHEEL.map((c, i) => (c === want ? i : -1)).filter((i) => i >= 0) : []; wheel.idx = pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * WHEEL.length); } wheel.phase = 'spin'; wheel.until = t + WH_SPIN;
     emit('wheel', { ev: 'state', s: wheelPub() });
   } else if (wheel.phase === 'spin' && t >= wheel.until) {
     const col = WHEEL[wheel.idx], per = new Map();

@@ -5,7 +5,8 @@
   var SC = window.SC = window.SC || {};
   var $ = function (s) { return document.getElementById(s); };
   var esc = SC.esc;
-  var S = { rules: [], log: [], games: [], ready: false, built: false };
+  var S = { rules: [], log: [], games: [], ready: false, built: false, tbl: null, timer: 0 };
+  var SHARED = { crash: 1, roulette: 1, wheel: 1, blackjack: 1 };
   function staff(body) {
     return fetch('/api/staff/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' })
       .then(function (r) { return r.json(); }).catch(function () { return { error: 'network' }; });
@@ -23,6 +24,9 @@
     if (S.built) return; S.built = true;
     var host = document.querySelector('#panel .view[data-panel="owner"]');
     host.innerHTML =
+      '<h3 class="ow-h" style="margin-top:0">Live tables</h3><div class="hint">Crash, Roulette and the Big Wheel run one round for everyone, so they are controlled here instead of by a rig. Changes apply to the round shown below or to the next ones.</div>' +
+      '<div id="owTables"></div>' +
+      '<h3 class="ow-h">Rig a game</h3><div class="hint">Shared tables and seated Blackjack are not listed, they cannot be rigged for one player.</div>' +
       '<div class="hint">Rig a game. Pick the game, the player and what should happen. It runs on the server, so the player just sees a normal round. Every change is logged.</div>' +
       '<div class="ow-grid">' +
         '<label>Game<select id="owGame"></select></label>' +
@@ -48,10 +52,55 @@
       b.onclick = function () { var v = p[1]; $('owMode').value = v.mode; if (v.min != null) $('owMin').value = v.min; if (v.max != null) $('owMax').value = v.max; if (v.chance != null) $('owChance').value = v.chance; if (v.uses != null) $('owUses').value = v.uses; sync(); };
       $('owPresets').appendChild(b);
     });
+    tablesBuild();
     $('owMode').onchange = sync; sync();
     $('owAdd').onclick = add;
     $('owClear').onclick = function () { if (!S.rules.length) return; staff({ action: 'casino.rig.clear' }).then(function (x) { if (x && x.ok) { take(x); SC.toast('All rigs deleted'); } else err(x); }); };
     ['owGame', 'owWho', 'owMin', 'owMax', 'owChance', 'owUses', 'owMins', 'owNote'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { e.stopPropagation(); }); });
+  }
+  // ---- live tables (Crash, Roulette, Big Wheel)
+  function tset(game, op, value, count) {
+    return staff({ action: 'casino.table.set', game: game, op: op, value: value, count: count }).then(function (x) { if (x && x.ok) { S.tbl = x; tablesPaint(); return x; } err(x); return x; });
+  }
+  function tget() { staff({ action: 'casino.table.get' }).then(function (x) { if (x && x.ok) { S.tbl = x; tablesPaint(); } }); }
+  function tpoll() { clearInterval(S.timer); S.timer = setInterval(function () { var v = document.querySelector('#panel .view[data-panel="owner"]'); if (!v || !v.classList.contains('on')) { clearInterval(S.timer); return; } tget(); }, 1000); }
+  function field(id, label, html) { return '<label>' + label + html + '</label>'; }
+  function tablesBuild() {
+    var h = '';
+    h += '<div class="ow-card"><div class="ow-t">Crash</div><div class="ow-s" id="owCrSt"></div>' +
+      '<div class="ow-grid">' + field('owCrX', 'Crash at (x)', '<input type="number" id="owCrX" value="2" min="1" step="0.1" />') + field('owCrN', 'For how many rounds', '<input type="number" id="owCrN" value="1" min="1" max="50" />') + '</div>' +
+      '<div class="betrow" id="owCrB"></div><div class="ow-s" id="owCrQ"></div></div>';
+    h += '<div class="ow-card"><div class="ow-t">Roulette</div><div class="ow-s" id="owRoSt"></div>' +
+      '<div class="ow-grid">' + field('owRoV', 'Number (0 to 36)', '<input type="number" id="owRoV" value="7" min="0" max="36" />') + field('owRoN', 'For how many spins', '<input type="number" id="owRoN" value="1" min="1" max="50" />') + '</div>' +
+      '<div class="betrow" id="owRoB"></div><div class="ow-s" id="owRoQ"></div></div>';
+    h += '<div class="ow-card"><div class="ow-t">Big Wheel</div><div class="ow-s" id="owWhSt"></div>' +
+      '<div class="ow-grid">' + field('owWhV', 'Color', '<select id="owWhV"><option value="grey">Grey</option><option value="blue">Blue</option><option value="green">Green</option><option value="gold">Gold</option></select>') + field('owWhN', 'For how many spins', '<input type="number" id="owWhN" value="1" min="1" max="50" />') + '</div>' +
+      '<div class="betrow" id="owWhB"></div><div class="ow-s" id="owWhQ"></div></div>';
+    $('owTables').innerHTML = h;
+    function btn(host, label, fn, cls) { var b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (cls ? ' ' + cls : ''); b.textContent = label; b.onclick = function () { fn(); }; $(host).appendChild(b); }
+    var cx = function () { return $('owCrX').value; }, cn = function () { return $('owCrN').value; };
+    btn('owCrB', 'Crash this round at X', function () { tset('crash', 'now', cx()).then(function (x) { if (x && x.ok) SC.toast('This round crashes at ' + cx() + 'x'); }); });
+    btn('owCrB', 'Queue X for the next rounds', function () { tset('crash', 'next', cx(), cn()).then(function (x) { if (x && x.ok) SC.toast('Queued'); }); });
+    btn('owCrB', 'Every round at X', function () { tset('crash', 'fixed', cx()).then(function (x) { if (x && x.ok) SC.toast('Every round crashes at ' + cx() + 'x'); }); });
+    btn('owCrB', 'Crash right now', function () { tset('crash', 'now', 1).then(function (x) { if (x && x.ok) SC.toast('Crashing'); }); }, 'red');
+    btn('owCrB', 'Back to random', function () { tset('crash', 'clear').then(function (x) { if (x && x.ok) SC.toast('Crash is random again'); }); });
+    btn('owRoB', 'Land on it this spin', function () { tset('roulette', 'now', $('owRoV').value).then(function (x) { if (x && x.ok) SC.toast('This spin lands on ' + $('owRoV').value); }); });
+    btn('owRoB', 'Queue for the next spins', function () { tset('roulette', 'next', $('owRoV').value, $('owRoN').value).then(function (x) { if (x && x.ok) SC.toast('Queued'); }); });
+    btn('owRoB', 'Back to random', function () { tset('roulette', 'clear').then(function (x) { if (x && x.ok) SC.toast('Roulette is random again'); }); });
+    btn('owWhB', 'Land on it this spin', function () { tset('wheel', 'now', $('owWhV').value).then(function (x) { if (x && x.ok) SC.toast('This spin lands on ' + $('owWhV').value); }); });
+    btn('owWhB', 'Queue for the next spins', function () { tset('wheel', 'next', $('owWhV').value, $('owWhN').value).then(function (x) { if (x && x.ok) SC.toast('Queued'); }); });
+    btn('owWhB', 'Back to random', function () { tset('wheel', 'clear').then(function (x) { if (x && x.ok) SC.toast('Wheel is random again'); }); });
+    ['owCrX', 'owCrN', 'owRoV', 'owRoN', 'owWhV', 'owWhN'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { e.stopPropagation(); }); });
+  }
+  function tablesPaint() {
+    var t = S.tbl; if (!t || !$('owCrSt')) return;
+    var c = t.crash, r = t.roulette, w = t.wheel, q = function (a, f) { return a.length ? 'Queued: ' + a.map(f || String).join(', ') : ''; };
+    $('owCrSt').textContent = c.phase === 'run' ? 'Flying at ' + c.mult.toFixed(2) + 'x. Set to crash at ' + c.point.toFixed(2) + 'x.' : c.phase === 'end' ? 'Crashed at ' + c.point.toFixed(2) + 'x.' : 'Betting open. This round is set to crash at ' + c.point.toFixed(2) + 'x.';
+    $('owCrQ').textContent = [c.fixed ? 'Every round: ' + c.fixed + 'x' : '', q(c.queue, function (v) { return v + 'x'; }), c.hist && c.hist.length ? 'Recent: ' + c.hist.map(function (v) { return (v.point || v) + 'x'; }).join(', ') : ''].filter(Boolean).join(' · ');
+    $('owRoSt').textContent = r.phase === 'spin' && r.result != null ? 'Spinning, it lands on ' + r.result + '.' : r.phase === 'bet' ? 'Betting open.' : 'Round in progress.';
+    $('owRoQ').textContent = q(r.queue);
+    $('owWhSt').textContent = w.phase === 'bet' ? 'Betting open.' : 'Round in progress.';
+    $('owWhQ').textContent = q(w.queue);
   }
   function sync() {
     var m = $('owMode').value;
@@ -100,10 +149,10 @@
   function load() {
     staff({ action: 'casino.rig.list' }).then(function (x) {
       if (!x || !x.ok) { err(x); return; }
-      var sel = $('owGame'); if (!S.ready) { sel.innerHTML = '<option value="*">All games</option>' + x.games.map(function (g) { return '<option value="' + g[0] + '">' + esc(g[1]) + '</option>'; }).join(''); S.ready = true; }
+      var sel = $('owGame'); if (!S.ready) { sel.innerHTML = '<option value="*">All games</option>' + x.games.filter(function (g) { return !SHARED[g[0]]; }).map(function (g) { return '<option value="' + g[0] + '">' + esc(g[1]) + '</option>'; }).join(''); S.ready = true; }
       take(x);
     });
   }
   var prevOpen = SC.games && SC.games.open;
-  SC.games.open = function (kind) { if (prevOpen) prevOpen(kind); if (kind === 'owner') { build(); load(); } };
+  SC.games.open = function (kind) { if (prevOpen) prevOpen(kind); if (kind === 'owner') { build(); load(); tget(); tpoll(); } };
 })();
