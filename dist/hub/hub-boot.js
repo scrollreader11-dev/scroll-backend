@@ -3,9 +3,18 @@
   'use strict';
   var Hub = window.Hub, h = Hub.h, icon = Hub.icon, $ = Hub.$, $$ = Hub.$$;
 
-  // ---------- logo: a flat scroll with an S ----------
+  // ---------- logo: the scroll S inside the glass orb ----------
   function glossLogo(mini) {
-    return h('div', { class: 'gloss' + (mini ? ' mini' : '') }, h('img', { src: '/hub/logo.png?v=3', alt: '', draggable: 'false' }));
+    var svg = '<svg viewBox="0 0 240 240" aria-hidden="true"><defs>' +
+      '<radialGradient id="gb' + (mini ? 'm' : '') + '" cx="50%" cy="36%" r="64%"><stop offset="0" stop-color="#2a6be0" stop-opacity=".55"/><stop offset=".55" stop-color="#0c2f80" stop-opacity=".78"/><stop offset="1" stop-color="#030b24" stop-opacity=".96"/></radialGradient>' +
+      '<radialGradient id="gr' + (mini ? 'm' : '') + '" cx="50%" cy="50%" r="50%"><stop offset=".80" stop-color="#6db0ff" stop-opacity="0"/><stop offset=".96" stop-color="#8ac6ff" stop-opacity=".85"/><stop offset="1" stop-color="#d4ebff" stop-opacity="1"/></radialGradient>' +
+      '<linearGradient id="gs' + (mini ? 'm' : '') + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+      '<radialGradient id="gu' + (mini ? 'm' : '') + '" cx="50%" cy="100%" r="62%"><stop offset="0" stop-color="#6cb8ff" stop-opacity=".9"/><stop offset="1" stop-color="#6cb8ff" stop-opacity="0"/></radialGradient>' +
+      '<clipPath id="gc' + (mini ? 'm' : '') + '"><circle cx="120" cy="120" r="112"/></clipPath></defs>' +
+      '<circle cx="120" cy="120" r="112" fill="url(#gb' + (mini ? 'm' : '') + ')"/>' +
+      '<g clip-path="url(#gc' + (mini ? 'm' : '') + ')"><ellipse cx="120" cy="236" rx="116" ry="70" fill="url(#gu' + (mini ? 'm' : '') + ')"/><ellipse cx="120" cy="50" rx="82" ry="42" fill="url(#gs' + (mini ? 'm' : '') + ')" opacity=".55"/></g>' +
+      '<circle cx="120" cy="120" r="112" fill="url(#gr' + (mini ? 'm' : '') + ')"/><circle cx="120" cy="120" r="111" fill="none" stroke="rgba(200,230,255,.6)" stroke-width="1.4"/></svg>';
+    return h('div', { class: 'gloss' + (mini ? ' mini' : '') }, [h('div', { class: 'floor' }), h('div', { class: 'orb', html: svg }), h('img', { class: 'mk', src: '/hub/logo.png?v=3', alt: '', draggable: 'false' }), h('div', { class: 'mark-sweep' })]);
   }
 
   // ---------- background video ----------
