@@ -204,7 +204,7 @@
 
   function paintMembers() {
     if (!dom.mem) return; var m = Hub.clear(dom.mem);
-    if (S.view === 'dm') { var d = curDm(); if (d) { m.appendChild(h('div', { class: 'dm-card' }, [callButtons(d), avatar(d.user, 84), h('h3', { text: d.user.username }), h('a', { class: 'btn sm', href: '#/profile/' + encodeURIComponent(d.user.username) }, [icon('user'), 'View profile'])])); } return; }
+    if (S.view === 'dm') { var d = curDm(); if (d) { m.appendChild(h('div', { class: 'dm-card' }, [avatar(d.user, 84), h('h3', { text: d.user.username }), h('a', { class: 'btn sm', href: '#/profile/' + encodeURIComponent(d.user.username) }, [icon('user'), 'View profile']), callButtons(d)])); } return; }
     var g = guild(); if (!g) return; var list = S.members[g.id] || [];
     m.appendChild(h('div', { class: 'dmh', text: 'Members, ' + (list.length || g.memberCount) }));
     list.slice().sort(function (a, b) { return (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || a.username.localeCompare(b.username); }).forEach(function (u) {
@@ -227,7 +227,8 @@
     else { var ch = chan(g, S.cid); title = ch ? ch.name : ''; sub = ch && ch.topic || ''; }
     if (!S.cid) { c.appendChild(h('div', { class: 'dc-none' }, [icon('message-square'), h('h3', { text: S.view === 'dm' ? 'Your messages' : 'Pick a channel' }), h('p', { text: S.view === 'dm' ? 'Start a conversation with a username in the box on the left.' : 'Choose a text channel to start chatting.' })])); return; }
     var back = h('button', { type: 'button', class: 'iconbtn dc-back', 'aria-label': 'Back to channels', onclick: function () { setPane('list'); } }, icon('arrow-left'));
-    c.appendChild(h('div', { class: 'dc-top' }, [back, h('span', { class: 'hs', text: S.view === 'dm' ? '@' : '#' }), h('h2', { text: title }), sub ? h('span', { class: 'tp', text: sub }) : null, h('span', { class: 'grow' }), S.view === 'dm' && curDm() ? h('button', { type: 'button', class: 'iconbtn', 'aria-label': 'Voice call', title: 'Voice call', onclick: function () { toggleCall(curDm()); } }, icon('phone')) : null, h('button', { type: 'button', class: 'iconbtn only-m2', 'aria-label': 'Members', onclick: function () { dom.root.classList.toggle('show-mem'); } }, icon('users'))]));
+    c.appendChild(h('div', { class: 'dc-top' }, [back, h('span', { class: 'hs', text: S.view === 'dm' ? '@' : '#' }), h('h2', { text: title }), sub ? h('span', { class: 'tp', text: sub }) : null, h('span', { class: 'grow' }), S.view === 'dm' && curDm() ? h('button', { type: 'button', class: 'iconbtn', 'aria-label': 'Voice call', title: 'Voice call', onclick: function () { toggleCall(curDm(), false); } }, icon('phone')) : null, S.view === 'dm' && curDm() ? h('button', { type: 'button', class: 'iconbtn', 'aria-label': 'Video call', title: 'Video call', onclick: function () { toggleCall(curDm(), true); } }, icon('video')) : null, h('button', { type: 'button', class: 'iconbtn only-m2', 'aria-label': 'Members', onclick: function () { dom.root.classList.toggle('show-mem'); } }, icon('users'))]));
+    dom.callpanel = h('div', { class: 'dc-callpanel', hidden: true }); c.appendChild(dom.callpanel); paintCallPanel();
     dom.scroller = h('div', { class: 'dc-msgs', role: 'log', 'aria-live': 'polite' }); c.appendChild(dom.scroller);
     dom.typing = h('div', { class: 'dc-typing', 'aria-live': 'polite' }); c.appendChild(dom.typing);
     c.appendChild(composer(title));
@@ -381,6 +382,7 @@
   Hub.openDm = function (name) { S.boot === true ? openDm(name) : boot().then(function () { openDm(name); }); };
 
   // ---------- voice (WebRTC mesh, signalled over the same socket) ----------
+  var CAM = { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' };
   function joinVoice(g, c, opts) {
     opts = opts || {};
     if (S.voice && S.voice.cid === c.id) { leaveVoice(); return; }
@@ -390,7 +392,12 @@
     var v = S.voice = { cid: c.id, name: opts.label || (g.name + ' / ' + c.name), stream: null, peers: {}, rooms: {}, connected: false, muted: false, ice: null, audioBox: h('div', { style: 'display:none' }) };
     document.body.appendChild(v.audioBox);
     paintChannels();
-    Promise.all([navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }), Hub.api('/api/ice')]).then(function (rs) {
+    var AUD = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    function getMedia() {
+      if (!opts.video) return navigator.mediaDevices.getUserMedia({ audio: AUD });
+      return navigator.mediaDevices.getUserMedia({ audio: AUD, video: CAM }).catch(function () { Hub.toast('Camera unavailable, joining with audio only', { bad: true }); return navigator.mediaDevices.getUserMedia({ audio: AUD }); });
+    }
+    Promise.all([getMedia(), Hub.api('/api/ice')]).then(function (rs) {
       if (S.voice !== v) { rs[0].getTracks().forEach(function (t) { t.stop(); }); return; }
       v.stream = rs[0]; v.ice = (rs[1] && rs[1].iceServers) || [{ urls: 'stun:stun.l.google.com:19302' }]; v.connected = true;
       v.rooms[c.id] = [{ peer: S.peer, name: S.me.username, speaking: false, me: true }]; watch(v.stream, v.rooms[c.id][0]);
@@ -407,17 +414,29 @@
   function watch(stream, entry) {
     var v = S.voice; if (!v) return;
     try { v.ctx = v.ctx || new (window.AudioContext || window.webkitAudioContext)(); var an = v.ctx.createAnalyser(); an.fftSize = 256; v.ctx.createMediaStreamSource(stream).connect(an); entry.an = an; entry.buf = new Uint8Array(an.frequencyBinCount); } catch (e) { return; }
-    if (!v.tick) v.tick = setInterval(function () { var ch = false, rm = v.rooms[v.cid] || []; rm.forEach(function (p) { if (!p.an) return; p.an.getByteFrequencyData(p.buf); var s = 0; for (var i = 0; i < p.buf.length; i++) s += p.buf[i]; var sp = (s / p.buf.length) > 14 && !(p.me && v.muted); if (sp !== p.speaking) { p.speaking = sp; ch = true; } }); if (ch && Hub.parse().name === 'discord') paintChannels(); }, 220);
+    if (!v.tick) v.tick = setInterval(function () { var ch = false, rm = v.rooms[v.cid] || []; rm.forEach(function (p) { if (!p.an) return; p.an.getByteFrequencyData(p.buf); var s = 0; for (var i = 0; i < p.buf.length; i++) s += p.buf[i]; var sp = (s / p.buf.length) > 14 && !(p.me && v.muted); if (sp !== p.speaking) { p.speaking = sp; ch = true; } }); if (ch) { rings(); if (Hub.parse().name === 'discord') paintChannels(); } }, 220);
   }
+  function liveVideo(st) { return !!(st && st.getVideoTracks().some(function (t) { return t.readyState === 'live' && !t.muted; })); }
   function mkPeer(id, name, initiator) {
     var v = S.voice; if (!v || v.peers[id]) return v && v.peers[id];
-    var pc = new RTCPeerConnection({ iceServers: v.ice }), entry = { pc: pc, name: name };
+    var pc = new RTCPeerConnection({ iceServers: v.ice }), entry = { pc: pc, name: name, making: false, ignore: false, started: false, polite: String(S.peer) < String(id) };
     v.peers[id] = entry;
     v.stream.getTracks().forEach(function (t) { pc.addTrack(t, v.stream); });
     pc.onicecandidate = function (e) { if (e.candidate) wsSend({ t: 'signal', to: id, data: { candidate: e.candidate } }); };
-    pc.ontrack = function (e) { var a = entry.audio || (entry.audio = h('audio', { autoplay: true, playsinline: true })); a.srcObject = e.streams[0]; if (!a.parentNode) v.audioBox.appendChild(a); a.play && a.play().catch(function () {}); var r = (v.rooms[v.cid] || []).filter(function (p) { return p.peer === id; })[0]; if (r && !r.an) watch(e.streams[0], r); };
+    pc.ontrack = function (e) {
+      var st = e.streams[0]; entry.stream = st;
+      var a = entry.audio || (entry.audio = h('audio', { autoplay: true, playsinline: true })); a.srcObject = st; if (!a.parentNode) v.audioBox.appendChild(a); a.play && a.play().catch(function () {});
+      var r = (v.rooms[v.cid] || []).filter(function (p) { return p.peer === id; })[0]; if (r && !r.an) watch(st, r);
+      if (e.track.kind === 'video') { e.track.onmute = e.track.onunmute = e.track.onended = function () { callBar(); }; st.onremovetrack = function () { callBar(); }; }
+      callBar();
+    };
+    pc.onnegotiationneeded = function () {
+      if (!entry.started) return;
+      entry.making = true;
+      pc.setLocalDescription().then(function () { wsSend({ t: 'signal', to: id, data: { sdp: pc.localDescription } }); }).catch(function () {}).then(function () { entry.making = false; });
+    };
     pc.onconnectionstatechange = function () { if (pc.connectionState === 'failed') { try { pc.close(); } catch (e) {} } };
-    if (initiator) pc.createOffer().then(function (o) { return pc.setLocalDescription(o).then(function () { wsSend({ t: 'signal', to: id, data: { sdp: pc.localDescription } }); }); });
+    if (initiator) pc.createOffer().then(function (o) { return pc.setLocalDescription(o).then(function () { entry.started = true; wsSend({ t: 'signal', to: id, data: { sdp: pc.localDescription } }); }); });
     return entry;
   }
   function setRoom(peers) { var v = S.voice; if (!v) return; v.rooms[v.cid] = [{ peer: S.peer, name: S.me.username, speaking: false, me: true, an: (v.rooms[v.cid] && v.rooms[v.cid][0] && v.rooms[v.cid][0].an), buf: (v.rooms[v.cid] && v.rooms[v.cid][0] && v.rooms[v.cid][0].buf) }].concat(peers); if (Hub.parse().name === 'discord') paintChannels(); }
@@ -428,8 +447,11 @@
     else if (d.t === 'voice-leave') { var e = v.peers[d.peer]; if (e) { try { e.pc.close(); } catch (x) {} if (e.audio && e.audio.parentNode) e.audio.parentNode.removeChild(e.audio); delete v.peers[d.peer]; } v.rooms[v.cid] = (v.rooms[v.cid] || []).filter(function (p) { return p.peer !== d.peer; }); if (S.call && !S.call.ringing && v.rooms[v.cid].length <= 1) { Hub.toast('Call ended'); leaveVoice(); return; } if (Hub.parse().name === 'discord') paintChannels(); }
     else if (d.t === 'signal') {
       var ent = v.peers[d.from] || mkPeer(d.from, '', false); if (!ent) return; var pc = ent.pc, data = d.data || {};
-      if (data.sdp) { pc.setRemoteDescription(data.sdp).then(function () { if (data.sdp.type === 'offer') return pc.createAnswer().then(function (an) { return pc.setLocalDescription(an).then(function () { wsSend({ t: 'signal', to: d.from, data: { sdp: pc.localDescription } }); }); }); }).catch(function () {}); }
-      else if (data.candidate) pc.addIceCandidate(data.candidate).catch(function () {});
+      if (data.sdp) {
+        var collision = data.sdp.type === 'offer' && (ent.making || pc.signalingState !== 'stable');
+        ent.ignore = !ent.polite && collision; if (ent.ignore) return;
+        pc.setRemoteDescription(data.sdp).then(function () { if (data.sdp.type === 'offer') return pc.setLocalDescription().then(function () { ent.started = true; wsSend({ t: 'signal', to: d.from, data: { sdp: pc.localDescription } }); }); }).catch(function () {});
+      } else if (data.candidate) { if (!ent.ignore) pc.addIceCandidate(data.candidate).catch(function () {}); }
     }
   }
 
@@ -441,16 +463,20 @@
     if (mine) {
       row.appendChild(h('button', { type: 'button', class: 'btn sm call-end', onclick: function () { leaveVoice(); } }, [icon('phone'), S.call.ringing ? 'Cancel call' : 'Hang up']));
       row.appendChild(h('button', { type: 'button', class: 'btn sm', onclick: function () { toggleMute(); paintMembers(); } }, [icon(S.voice.muted ? 'mic-off' : 'mic'), S.voice.muted ? 'Unmute' : 'Mute']));
-    } else row.appendChild(h('button', { type: 'button', class: 'btn sm call-go', onclick: function () { toggleCall(d); } }, [icon('phone'), 'Voice call']));
+      row.appendChild(h('button', { type: 'button', class: 'btn sm', onclick: function () { toggleCam(); } }, [icon(hasCam() ? 'video-off' : 'video'), hasCam() ? 'Camera off' : 'Camera on']));
+    } else {
+      row.appendChild(h('button', { type: 'button', class: 'btn sm call-go', onclick: function () { startCall(d, false); } }, [icon('phone'), 'Voice call']));
+      row.appendChild(h('button', { type: 'button', class: 'btn sm call-go', onclick: function () { startCall(d, true); } }, [icon('video'), 'Video call']));
+    }
     return row;
   }
-  function toggleCall(d) { if (!d) return; if (inCallWith(d)) { leaveVoice(); return; } startCall(d); }
-  function startCall(d) {
+  function toggleCall(d, video) { if (!d) return; if (inCallWith(d)) { leaveVoice(); return; } startCall(d, !!video); }
+  function startCall(d, video) {
     if (!S.wsOpen) { Hub.toast('Still connecting. Try again in a moment.', { bad: true }); return; }
     if (S.voice) leaveVoice();
-    var call = { dmId: d.id, uid: d.user.id, name: d.user.username, ringing: true, timer: 0 };
-    joinVoice(null, { id: d.id, name: d.user.username }, { label: 'Call with ' + d.user.username, onJoined: function () {
-      S.call = call; wsSend({ t: 'call-ring', toUid: d.user.id, dmId: d.id });
+    var call = { dmId: d.id, uid: d.user.id, name: d.user.username, ringing: true, timer: 0, video: !!video };
+    joinVoice(null, { id: d.id, name: d.user.username }, { video: !!video, label: 'Call with ' + d.user.username, onJoined: function () {
+      S.call = call; wsSend({ t: 'call-ring', toUid: d.user.id, dmId: d.id, video: !!video });
       call.timer = setTimeout(function () { if (S.call === call && call.ringing) { Hub.toast(d.user.username + ' did not answer'); leaveVoice(); } }, 45000);
       paintChannels(); paintMembers(); callBar();
     } });
@@ -467,10 +493,15 @@
     stopRing();
     var from = d.fromName || 'Someone', dm = S.dms.filter(function (x) { return x.id === d.dmId; })[0];
     var el = h('div', { class: 'dc-ring', role: 'alertdialog', 'aria-label': 'Incoming call from ' + from }, [
-      avatar(dm ? dm.user : { username: from }, 48),
-      h('div', { class: 'rb' }, [h('b', { text: from }), h('span', { text: 'Incoming voice call' })]),
-      h('button', { type: 'button', class: 'btn sm call-end', onclick: function () { wsSend({ t: 'call-decline', toUid: d.fromUid, dmId: d.dmId }); stopRing(); } }, 'Decline'),
-      h('button', { type: 'button', class: 'btn sm call-go', onclick: function () { acceptCall(d, dm); } }, 'Accept')]);
+      h('div', { class: 'rg-card' }, [
+        h('div', { class: 'rg-av' }, [h('i', { class: 'rg-p1' }), h('i', { class: 'rg-p2' }), avatar(dm ? dm.user : { username: from }, 132)]),
+        h('div', { class: 'rg-name', text: from }),
+        h('div', { class: 'rg-sub', text: d.video ? 'Incoming video call' : 'Incoming voice call' }),
+        h('div', { class: 'rg-btns' }, [
+          h('div', { class: 'rg-b' }, [h('button', { type: 'button', class: 'rg-round no', 'aria-label': 'Decline', onclick: function () { wsSend({ t: 'call-decline', toUid: d.fromUid, dmId: d.dmId }); stopRing(); } }, icon('phone')), h('span', { text: 'Decline' })]),
+          h('div', { class: 'rg-b' }, [h('button', { type: 'button', class: 'rg-round yes', 'aria-label': 'Accept', onclick: function () { acceptCall(d, dm); } }, icon(d.video ? 'video' : 'phone')), h('span', { text: 'Accept' })])
+        ])
+      ])]);
     el._from = d.fromUid; el._t = setTimeout(stopRing, 45000); ringEl = el; document.body.appendChild(el); ringSound();
   }
   function acceptCall(d, dm) {
@@ -478,9 +509,9 @@
     if (S.voice) leaveVoice();
     if (!dm) refreshDms();
     S.view = 'dm'; S.gid = null; S.cid = d.dmId;
-    var call = { dmId: d.dmId, uid: d.fromUid, name: d.fromName, ringing: false, timer: 0 };
+    var call = { dmId: d.dmId, uid: d.fromUid, name: d.fromName, ringing: false, timer: 0, video: !!d.video };
     if (Hub.parse().name !== 'discord') location.hash = '#/discord'; else { paintAll(); loadMsgs(d.dmId, true); }
-    joinVoice(null, { id: d.dmId, name: d.fromName }, { label: 'Call with ' + d.fromName, onJoined: function () { S.call = call; wsSend({ t: 'call-accept', toUid: d.fromUid, dmId: d.dmId }); paintChannels(); paintMembers(); callBar(); } });
+    joinVoice(null, { id: d.dmId, name: d.fromName }, { video: !!d.video, label: 'Call with ' + d.fromName, onJoined: function () { S.call = call; wsSend({ t: 'call-accept', toUid: d.fromUid, dmId: d.dmId }); paintChannels(); paintMembers(); callBar(); } });
   }
   function callWs(d) {
     if (d.t === 'call-ring') {
@@ -494,6 +525,7 @@
   // Small floating bar so a call stays controllable outside the Discord page.
   var barEl = null;
   function callBar() {
+    try { paintCallPanel(); paintMembers(); } catch (e) {}
     var show = !!(S.voice && Hub.parse().name !== 'discord');
     if (!show) { if (barEl && barEl.parentNode) barEl.parentNode.removeChild(barEl); barEl = null; return; }
     if (barEl && barEl.parentNode) barEl.parentNode.removeChild(barEl);
@@ -503,6 +535,68 @@
     document.body.appendChild(barEl);
   }
   window.addEventListener('hashchange', function () { if (S.voice) callBar(); });
+  function hasCam() { var v = S.voice; return !!(v && v.stream && v.stream.getVideoTracks().some(function (t) { return t.readyState === 'live'; })); }
+  function toggleCam() {
+    var v = S.voice; if (!v || !v.stream) return;
+    var vt = v.stream.getVideoTracks()[0];
+    if (vt) {
+      Object.keys(v.peers).forEach(function (k) { var pc = v.peers[k].pc; pc.getSenders().forEach(function (s) { if (s.track === vt) { try { pc.removeTrack(s); } catch (e) {} } }); });
+      vt.stop(); v.stream.removeTrack(vt); callBar(); return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    navigator.mediaDevices.getUserMedia({ video: CAM }).then(function (ms) {
+      if (S.voice !== v) { ms.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var t = ms.getVideoTracks()[0]; v.stream.addTrack(t);
+      Object.keys(v.peers).forEach(function (k) { try { v.peers[k].pc.addTrack(t, v.stream); } catch (e) {} });
+      callBar();
+    }, function () { Hub.toast('Camera access was blocked', { bad: true }); });
+  }
+  // The call panel: one tile per person, video when their camera is on, a glowing ring when they talk.
+  function callTile(v, key, name, user, me) {
+    v.tiles = v.tiles || {};
+    var t = v.tiles[key];
+    if (!t) {
+      var vid = h('video', { autoplay: true, playsinline: true, muted: true }); vid.muted = true;
+      var av = avatar(user, 96); av.classList.add('ct-av');
+      var nm = h('div', { class: 'ct-name', text: me ? name + ' (you)' : name });
+      var el = h('div', { class: 'ctile', 'data-key': key }, [vid, av, nm]);
+      t = v.tiles[key] = { el: el, vid: vid, av: av, nm: nm };
+    }
+    return t;
+  }
+  function paintCallPanel() {
+    var host = dom.callpanel; if (!host) return;
+    var v = S.voice, show = !!(v && S.call && S.view === 'dm' && S.cid === S.call.dmId && Hub.parse().name === 'discord');
+    host.hidden = !show; if (!show) { while (host.firstChild) host.removeChild(host.firstChild); return; }
+    var rm = v.rooms[v.cid] || [], other = rm.filter(function (p) { return !p.me; })[0], dm = curDm();
+    var mine = callTile(v, 'me', S.me.username, { username: S.me.username, avatar: Hub.me.avatar }, true);
+    var tiles = [mine], mineVid = hasCam();
+    mine.vid.style.transform = 'scaleX(-1)'; if (mine.vid.srcObject !== v.stream) mine.vid.srcObject = v.stream;
+    mine.el.classList.toggle('hasvid', mineVid);
+    if (other) {
+      var ent = v.peers[other.peer], ot = callTile(v, other.peer, other.name, { username: other.name, avatar: dm && dm.user.avatar }, false);
+      var ov = !!(ent && liveVideo(ent.stream));
+      if (ent && ent.stream && ot.vid.srcObject !== ent.stream) ot.vid.srcObject = ent.stream;
+      ot.el.classList.toggle('hasvid', ov); tiles.push(ot);
+    } else { var wt = callTile(v, 'wait', S.call.name, dm ? dm.user : { username: S.call.name }, false); wt.el.classList.add('waiting'); wt.nm.textContent = S.call.ringing ? 'Calling ' + S.call.name : S.call.name; tiles.push(wt); }
+    host.classList.toggle('solo', tiles.length < 2);
+    while (host.firstChild) host.removeChild(host.firstChild);
+    tiles.forEach(function (t) { host.appendChild(t.el); if (t.el.classList.contains('hasvid') && t.vid.paused) t.vid.play().catch(function () {}); });
+    var bar = h('div', { class: 'ct-bar' }, [
+      h('button', { type: 'button', class: 'ctb' + (v.muted ? ' off' : ''), 'aria-label': v.muted ? 'Unmute' : 'Mute', onclick: function () { toggleMute(); callBar(); } }, icon(v.muted ? 'mic-off' : 'mic')),
+      h('button', { type: 'button', class: 'ctb' + (mineVid ? '' : ' off'), 'aria-label': mineVid ? 'Turn camera off' : 'Turn camera on', onclick: function () { toggleCam(); } }, icon(mineVid ? 'video' : 'video-off')),
+      h('button', { type: 'button', class: 'ctb end', 'aria-label': 'Hang up', onclick: function () { leaveVoice(); } }, icon('phone'))]);
+    host.appendChild(bar); rings();
+  }
+  // Light the ring on whoever is talking right now.
+  function rings() {
+    var v = S.voice; if (!v || !v.tiles) return; var rm = v.rooms[v.cid] || [];
+    Object.keys(v.tiles).forEach(function (k) {
+      var on = false; rm.forEach(function (p) { if ((k === 'me' && p.me) || p.peer === k) on = p.me ? (p.speaking && !v.muted) : p.speaking; });
+      v.tiles[k].el.classList.toggle('sp', !!on);
+    });
+    var dmAv = document.querySelector('.dm-card .avatar'); if (dmAv) { var o = rm.filter(function (p) { return !p.me; })[0]; dmAv.classList.toggle('sp', !!(o && o.speaking)); }
+  }
   window.addEventListener('beforeunload', function () { if (S.voice) leaveVoice(); });
 
   // keep unread badge and sign-out state in sync

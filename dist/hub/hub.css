@@ -732,11 +732,51 @@ body.in-dc .dc { height: var(--app-h); border-radius: 0; border: 0; box-shadow: 
 .call-end { background: linear-gradient(180deg, #f87171, #dc2626); border-color: rgba(248, 113, 113, .6); color: #fff; font-weight: 700; }
 .call-end svg, .dc-callbar .leave svg { transform: rotate(135deg); }
 .dm-calls .btn svg { margin-right: 6px; }
-.dc-ring { position: fixed; z-index: 9999; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 20px; background: rgba(8, 13, 28, .94); border: 1px solid rgba(52, 211, 153, .45); box-shadow: 0 18px 50px rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); max-width: calc(100vw - 36px); animation: ringIn .25s ease-out; }
-.dc-ring .rb { display: flex; flex-direction: column; min-width: 0; margin-right: 6px; } .dc-ring .rb span { color: var(--text2); font-size: 13px; }
 @keyframes ringIn { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
 .dc-callbar { position: fixed; z-index: 9998; left: 50%; transform: translateX(-50%); bottom: 16px; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; border-radius: 999px; background: rgba(8, 24, 20, .94); border: 1px solid rgba(52, 211, 153, .45); box-shadow: 0 12px 40px rgba(0, 0, 0, .5); max-width: calc(100vw - 24px); }
 .dc-callbar .cd { width: 9px; height: 9px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 4px rgba(52, 211, 153, .25); flex: none; }
 .dc-callbar .cb { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; } .dc-callbar .cb span { color: var(--text2); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-callbar .leave { background: #dc2626; color: #fff; }
-@media (max-width: 760px) { .dc-callbar { bottom: 74px; } .dc-ring { bottom: 74px; } }
+@media (max-width: 760px) { .dc-callbar { bottom: 74px; } }
+
+/* call panel: tiles, video, talking ring */
+.dc-callpanel { flex: none; position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 14px 64px; background: rgba(2, 6, 16, .55); border-bottom: 1px solid var(--stroke); height: min(46vh, 340px); }
+.dc-callpanel[hidden] { display: none; }
+.dc-callpanel.solo { grid-template-columns: 1fr; }
+.ctile { position: relative; border-radius: 20px; overflow: hidden; background: linear-gradient(160deg, rgba(30, 58, 138, .55), rgba(8, 13, 28, .9)); border: 2px solid rgba(255, 255, 255, .08); display: grid; place-items: center; min-height: 0; transition: box-shadow .16s, border-color .16s; }
+.ctile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; background: #000; }
+.ctile.hasvid video { display: block; }
+.ctile .ct-av { width: 96px; height: 96px; font-size: 38px; transition: box-shadow .16s; }
+.ctile.hasvid .ct-av { display: none; }
+.ctile .ct-name { position: absolute; left: 12px; bottom: 10px; padding: 4px 10px; border-radius: 999px; background: rgba(0, 0, 0, .55); font-size: 13px; font-weight: 600; }
+.ctile.waiting .ct-av { opacity: .7; animation: ctwait 1.4s ease-in-out infinite; }
+@keyframes ctwait { 50% { transform: scale(.94); } }
+.ctile.sp { border-color: #34d399; box-shadow: 0 0 0 2px rgba(52, 211, 153, .9), 0 0 26px 6px rgba(52, 211, 153, .55); }
+.ctile.sp .ct-av { box-shadow: 0 0 0 4px #34d399, 0 0 30px 10px rgba(52, 211, 153, .65); }
+.ct-bar { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 12px; justify-content: center; }
+.ctb { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .14); color: #fff; border: 1px solid rgba(255, 255, 255, .2); }
+.ctb:hover { background: rgba(255, 255, 255, .24); } .ctb.off { background: rgba(255, 255, 255, .06); color: var(--text2); }
+.ctb.end { background: #dc2626; border-color: #f87171; } .ctb.end svg { transform: rotate(135deg); }
+.dm-card .avatar { transition: box-shadow .16s; } .dm-card .avatar.sp { box-shadow: 0 0 0 3px #34d399, 0 0 22px 6px rgba(52, 211, 153, .6); }
+.vp.sp .avatar { box-shadow: 0 0 0 2px #34d399, 0 0 12px 3px rgba(52, 211, 153, .7); }
+@media (max-width: 760px) { .dc-callpanel { height: min(52vh, 380px); padding-bottom: 66px; grid-template-columns: 1fr; grid-auto-rows: 1fr; } .ctile .ct-av { width: 72px; height: 72px; font-size: 28px; } }
+
+/* FaceTime-style incoming call */
+.dc-ring { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, rgba(30, 64, 175, .55), rgba(2, 6, 16, .94) 70%); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); animation: ringIn .25s ease-out; padding: 20px; }
+.rg-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; max-width: 360px; width: 100%; }
+.rg-av { position: relative; width: 132px; height: 132px; margin-bottom: 18px; display: grid; place-items: center; }
+.rg-av .avatar { width: 132px; height: 132px; font-size: 52px; position: relative; z-index: 1; box-shadow: 0 10px 40px rgba(0, 0, 0, .5); }
+.rg-av i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(52, 211, 153, .6); animation: rgpulse 2s ease-out infinite; }
+.rg-av .rg-p2 { animation-delay: 1s; }
+@keyframes rgpulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2); opacity: 0; } }
+.rg-name { font-size: 30px; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.rg-sub { color: var(--text2); font-size: 16px; }
+.rg-btns { display: flex; gap: 64px; margin-top: 56px; }
+.rg-b { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text2); font-size: 14px; }
+.rg-round { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; color: #fff; border: 0; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); transition: transform .12s; }
+.rg-round:hover { transform: scale(1.06); } .rg-round svg { width: 30px; height: 30px; }
+.rg-round.no { background: #ef4444; } .rg-round.no svg { transform: rotate(135deg); }
+.rg-round.yes { background: #22c55e; animation: rgshake 1.6s ease-in-out infinite; }
+@keyframes rgshake { 0%, 60%, 100% { transform: none; } 66% { transform: rotate(-10deg); } 72% { transform: rotate(10deg); } 78% { transform: rotate(-8deg); } 84% { transform: rotate(8deg); } }
+.dm-card { gap: 10px; } .dm-card .dm-calls { flex-direction: column; align-items: stretch; width: 100%; max-width: 190px; margin: 8px 0 0; }
+.dm-card .dm-calls .btn { justify-content: center; }
