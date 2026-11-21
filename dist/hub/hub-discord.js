@@ -91,7 +91,7 @@
     var me = (Hub.me && Hub.me.name || '').toLowerCase(), mention = !!me && String(d.text || '').toLowerCase().indexOf('@' + me) >= 0;
     var ci = d.dm ? null : chanInfo(d.channel);
     if (!d.dm && !mention && (!ci || ci.g.builtin)) return; // the big public server only pings you when you are mentioned
-    showPop({ cid: d.channel, from: d.from, where: d.dm ? 'Direct message' : d.where, text: d.text, mention: mention, dm: !!d.dm });
+    showPop({ cid: d.channel, from: d.from, avatar: d.avatar, where: d.dm ? 'Direct message' : d.where, text: d.text, mention: mention, dm: !!d.dm });
     try { if (document.hidden && window.Notification && Notification.permission === 'granted') { var n = new Notification(d.from + (d.dm ? '' : ' in ' + d.where), { body: String(d.text || '').slice(0, 140), tag: 'dc-' + d.channel }); n.onclick = function () { window.focus(); openChannel(d.channel); n.close(); }; } } catch (e) {}
   }
   function openChannel(cid) {
@@ -107,7 +107,7 @@
     if (old && old.el.isConnected) { old.count++; old.text.textContent = n.text; old.sub.textContent = old.where + '  ·  ' + old.count + ' new'; clearTimeout(old.t); old.t = setTimeout(old.close, 6500); return; }
     while (popBox.children.length >= 3) popBox.removeChild(popBox.firstChild);
     var text = h('div', { class: 'pt', text: n.text || '' }), sub = h('div', { class: 'ps', text: n.where }), close = function () { el.classList.add('out'); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); if (pops[n.cid] && pops[n.cid].el === el) delete pops[n.cid]; }, 240); };
-    var el = h('div', { class: 'dcp' + (n.mention ? ' men' : ''), role: 'button', tabindex: '0' }, [h('span', { class: 'avatar', style: 'background:' + tint(n.from), text: Hub.initials(n.from) }), h('div', { class: 'pb' }, [h('div', { class: 'pn' }, [h('b', { text: n.from }), n.mention ? h('i', { text: 'mentioned you' }) : null]), sub, text]), h('button', { type: 'button', class: 'px', 'aria-label': 'Dismiss', onclick: function (e) { e.stopPropagation(); close(); } }, icon('x'))]);
+    var el = h('div', { class: 'dcp' + (n.mention ? ' men' : ''), role: 'button', tabindex: '0' }, [avatar({ username: n.from, avatar: n.avatar }, 40), h('div', { class: 'pb' }, [h('div', { class: 'pn' }, [h('b', { text: n.from }), n.mention ? h('i', { text: 'mentioned you' }) : null]), sub, text]), h('button', { type: 'button', class: 'px', 'aria-label': 'Dismiss', onclick: function (e) { e.stopPropagation(); close(); } }, icon('x'))]);
     var rec = { el: el, text: text, sub: sub, where: n.where, count: 1, close: close, t: setTimeout(close, 6500) };
     pops[n.cid] = rec;
     el.addEventListener('mouseenter', function () { clearTimeout(rec.t); }); el.addEventListener('mouseleave', function () { rec.t = setTimeout(close, 3000); });
@@ -122,6 +122,7 @@
   function markSeen() { if (S.cid && S.unread[S.cid]) setUnread(S.cid, 0); }
 
   // ---------- view ----------
+  Hub.on && Hub.on('avatar', function () { boot().then(function () { if (S.gid) loadMembers(S.gid); if (Hub.parse().name === 'discord') paintAll(); }); });
   function dcMode() { var on = Hub.parse().name === 'discord', sc = $('#scroll'); if (sc) sc.classList.toggle('dcmode', on); document.body.classList.toggle('in-dc', on); }
   window.addEventListener('hashchange', function () { setTimeout(dcMode, 0); });
   Hub.views.discord = function (a) {
@@ -164,6 +165,7 @@
       r.appendChild(b);
     });
     var add = h('button', { type: 'button', class: 'dr-i add', title: 'Create or join a server', 'aria-label': 'Create or join a server' }, icon('plus')); add.addEventListener('click', serverDialog); r.appendChild(add);
+    var back = h('button', { type: 'button', class: 'dr-i exit', title: 'Back to the hub', 'aria-label': 'Back to the hub' }, icon('house')); back.addEventListener('click', function () { location.hash = '#/home'; }); r.appendChild(back);
   }
   function paintAll() { paintRail(); paintChannels(); paintChat(); paintMembers(); }
 
@@ -176,7 +178,7 @@
       s.appendChild(h('div', { class: 'ds-find' }, [inp, h('button', { type: 'button', class: 'iconbtn', 'aria-label': 'Start conversation', onclick: function () { openDm(inp.value.trim()); } }, icon('send'))]));
       var l = h('div', { class: 'ds-list' });
       if (!S.dms.length) l.appendChild(h('p', { class: 'ds-empty', text: 'No conversations yet. Type a username above to start one.' }));
-      S.dms.forEach(function (d) { var un = S.unread[d.id] || 0; var b = h('button', { type: 'button', class: 'dch dm' + (S.cid === d.id ? ' on' : ''), 'aria-current': S.cid === d.id ? 'true' : null }, [h('span', { class: 'avatar', style: 'background:' + tint(d.user.username), text: Hub.initials(d.user.username) }), h('span', { class: 'cn', text: d.user.username }), un ? h('i', { class: 'bd', text: String(un) }) : null]); b.addEventListener('click', function () { S.cid = d.id; setPane('chat'); paintChannels(); paintChat(); loadMsgs(d.id, true).then(markSeen); }); l.appendChild(b); });
+      S.dms.forEach(function (d) { var un = S.unread[d.id] || 0; var b = h('button', { type: 'button', class: 'dch dm' + (S.cid === d.id ? ' on' : ''), 'aria-current': S.cid === d.id ? 'true' : null }, [avatar(d.user, 28), h('span', { class: 'cn', text: d.user.username }), un ? h('i', { class: 'bd', text: String(un) }) : null]); b.addEventListener('click', function () { S.cid = d.id; setPane('chat'); paintChannels(); paintChat(); loadMsgs(d.id, true).then(markSeen); }); l.appendChild(b); });
       s.appendChild(l); return;
     }
     var g = guild(); if (!g) { s.appendChild(h('p', { class: 'ds-empty', text: 'Pick a server on the left.' })); return; }
@@ -201,12 +203,12 @@
 
   function paintMembers() {
     if (!dom.mem) return; var m = Hub.clear(dom.mem);
-    if (S.view === 'dm') { var d = curDm(); if (d) { m.appendChild(h('div', { class: 'dm-card' }, [h('span', { class: 'avatar big', style: 'background:' + tint(d.user.username), text: Hub.initials(d.user.username) }), h('h3', { text: d.user.username }), h('a', { class: 'btn sm', href: '#/profile/' + encodeURIComponent(d.user.username) }, [icon('user'), 'View profile'])])); } return; }
+    if (S.view === 'dm') { var d = curDm(); if (d) { m.appendChild(h('div', { class: 'dm-card' }, [avatar(d.user, 84), h('h3', { text: d.user.username }), h('a', { class: 'btn sm', href: '#/profile/' + encodeURIComponent(d.user.username) }, [icon('user'), 'View profile'])])); } return; }
     var g = guild(); if (!g) return; var list = S.members[g.id] || [];
     m.appendChild(h('div', { class: 'dmh', text: 'Members, ' + (list.length || g.memberCount) }));
     list.slice().sort(function (a, b) { return (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || a.username.localeCompare(b.username); }).forEach(function (u) {
       var row = h('button', { type: 'button', class: 'dmem' }, [avatar(u, 32), h('span', { class: 'mn', style: u.color ? 'color:' + u.color : '', text: u.username }), u.owner || u.staff ? h('span', { class: 'adm-badge ' + (u.owner ? 'owner' : 'mod'), text: u.owner ? 'Owner' : 'Staff' }) : null]);
-      row.addEventListener('click', function () { if (S.me && u.id !== S.me.id && u.id !== 'system') memberMenu(row, g, u); });
+      row.addEventListener('click', function () { if (S.me && u.id === S.me.id) location.hash = '#/profile/' + encodeURIComponent(S.me.username); else if (S.me && u.id !== 'system') memberMenu(row, g, u); });
       m.appendChild(row);
     });
   }

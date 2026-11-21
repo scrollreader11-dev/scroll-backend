@@ -24,6 +24,7 @@ const dc = {
   dms: {},           // dmId -> {id,userIds:[a,b],ts}
   userGuilds: {},    // uid -> [gid]
   files: {},         // fileId -> {ct,b64}  (small; mirrored to KV too)
+  settings: { defaultGuild: '' }, // staff-chosen server every account joins
 };
 
 let _dirty = false;
@@ -36,7 +37,7 @@ async function flush() {
     for (const k in dc.messages) trimmed[k] = (dc.messages[k] || []).slice(-400);
     await kvSet('sh:discord', JSON.stringify({
       guilds: dc.guilds, messages: trimmed, rev: dc.rev,
-      channelIndex: dc.channelIndex, dms: dc.dms, userGuilds: dc.userGuilds,
+      channelIndex: dc.channelIndex, dms: dc.dms, userGuilds: dc.userGuilds, settings: dc.settings,
     }));
   } catch (e) { _dirty = true; }
 }
@@ -51,7 +52,7 @@ export async function initDiscord(deps) {
       const s = JSON.parse(raw);
       Object.assign(dc, {
         guilds: s.guilds || {}, messages: s.messages || {}, rev: s.rev || {},
-        channelIndex: s.channelIndex || {}, dms: s.dms || {}, userGuilds: s.userGuilds || {},
+        channelIndex: s.channelIndex || {}, dms: s.dms || {}, userGuilds: s.userGuilds || {}, settings: s.settings || { defaultGuild: '' },
         files: {},
       });
     }
@@ -72,6 +73,25 @@ function ensureGlobal() {
     markDirty();
   }
   return g;
+}
+// The server every account joins. Staff can pick it; until then, a server named like "ScrollHub Official" is used.
+function defaultGuild() {
+  const id = dc.settings && dc.settings.defaultGuild;
+  if (id && dc.guilds[id]) return dc.guilds[id];
+  const norm = (n) => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+  const hit = Object.values(dc.guilds).filter((g) => g.id !== GLOBAL_ID && /^scrollhuboff[a-z]{0,6}$/.test(norm(g.name)));
+  return hit.sort((a, b) => b.memberIds.length - a.memberIds.length)[0] || null;
+}
+function autoJoin(g, me) {
+  if (!g || (g.left && g.left.includes(me.id))) return;
+  if (!g.memberIds.includes(me.id)) { addMember(g, me.id); (g.names = g.names || {})[me.id] = me.username; }
+}
+export function discordGuildList() { const d = defaultGuild(); return { guilds: Object.values(dc.guilds).map((g) => ({ id: g.id, name: g.name, members: g.memberIds.length, builtin: g.id === GLOBAL_ID })), defaultId: d ? d.id : '' }; }
+export function discordSetDefault(gid, everyone) {
+  const g = dc.guilds[gid]; if (!g) return { error: 'no-such-server' };
+  dc.settings.defaultGuild = gid; let added = 0;
+  if (Array.isArray(everyone)) for (const a of everyone) { if (!g.memberIds.includes(a.id) && !(g.left && g.left.includes(a.id))) { addMember(g, a.id); (g.names = g.names || {})[a.id] = a.username; added++; } }
+  markDirty(); return { ok: true, added, name: g.name };
 }
 function isStaffAuth(auth) { return !!(auth && auth.role); }
 function canManage(g, auth) { return !!g && (g.ownerId === auth.id || (g.id === GLOBAL_ID && isStaffAuth(auth))); }
@@ -180,6 +200,7 @@ export async function handleDiscord(url, req, res) {
   if (path === '/api/dc/boot') {
     const gg = ensureGlobal();
     if (!gg.left || !gg.left.includes(me.id)) { if (!gg.memberIds.includes(me.id)) { addMember(gg, me.id); (gg.names = gg.names || {})[me.id] = me.username; } }
+    autoJoin(defaultGuild(), me);
     const gids = dc.userGuilds[me.id] || [];
     const guilds = gids.map((id) => dc.guilds[id]).filter(Boolean).map(guildPublic);
     const dms = Object.values(dc.dms).filter((d) => d.userIds.includes(me.id)).map((d) => {
@@ -225,7 +246,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/leave$/)) && req.method === 'POST') {
     const g = dc.guilds[m[1]];
     if (g) {
-      if (g.id === GLOBAL_ID) (g.left = g.left || []).push(me.id);
+      if (g.id === GLOBAL_ID || (defaultGuild() && g.id === defaultGuild().id)) (g.left = g.left || []).push(me.id);
       g.memberIds = g.memberIds.filter((u) => u !== me.id);
       dc.userGuilds[me.id] = (dc.userGuilds[me.id] || []).filter((x) => x !== g.id);
       markDirty();
@@ -333,7 +354,7 @@ export async function handleDiscord(url, req, res) {
       if (cid.startsWith('dm:')) { ids = (dc.dms[cid] || {}).userIds || []; where = 'DM'; }
       else { const ix = dc.channelIndex[cid]; const g = ix && dc.guilds[ix.guildId]; if (g) { ids = g.memberIds; const ch = (g.channels || []).find((x) => x.id === cid); where = g.name + (ch ? ' · #' + ch.name : ''); } }
       const set = new Set(ids.filter((u) => u !== me.id));
-      const out = JSON.stringify({ t: 'notify', channel: cid, from: me.username, where, text: content.slice(0, 140) || '📎 sent a file', dm: cid.startsWith('dm:'), ts: msg.ts });
+      const out = JSON.stringify({ t: 'notify', channel: cid, from: me.username, avatar: cosFull(me.id).avatar, where, text: content.slice(0, 140) || '📎 sent a file', dm: cid.startsWith('dm:'), ts: msg.ts });
       if (set.size) for (const c of conns) if (set.has(c.uid) && c.readyState === 1) { try { c.send(out); } catch {} }
     } catch {}
     return sendJson(res, 200, { ok: true, message: msg });

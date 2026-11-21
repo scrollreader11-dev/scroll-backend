@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#050a16">
+<title>Scroll Racing</title>
+<link rel="icon" type="image/png" href="/hub/icon-192.png">
+<style>
+:root { --ink: #03060d; --blue: #3b82f6; --blue-hi: #60a5fa; --text: #f2f6ff; --text2: #b9c6e4; --text3: #8294b8; --stroke: rgba(150, 185, 255, .22); --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px); --font: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, system-ui, sans-serif; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text); font-family: var(--font); overflow: hidden; overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body { position: fixed; inset: 0; width: 100%; }
+canvas#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #0a1a12; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; -webkit-appearance: none; appearance: none; touch-action: manipulation; }
+.layer { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; padding: calc(24px + var(--safe-t)) calc(20px + var(--safe-r)) calc(24px + var(--safe-b)) calc(20px + var(--safe-l)); overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.layer.on { display: flex; animation: fadeIn .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.glass { background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .03) 40%), rgba(8, 14, 32, .78); border: 1px solid var(--stroke); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 24px 60px rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(22px) saturate(1.5); backdrop-filter: blur(22px) saturate(1.5); border-radius: 26px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 50px; padding: 0 26px; border-radius: 14px; font-weight: 650; font-size: 16px; background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .06)); border: 1px solid rgba(255, 255, 255, .2); transition: transform .15s, background .15s; white-space: nowrap; }
+.btn:hover { background: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .09)); } .btn:active { transform: scale(.97); }
+.btn.primary { background: linear-gradient(180deg, #5aa0ff, #2f6df0 55%, #2358d4); border-color: rgba(147, 197, 253, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 10px 26px rgba(37, 99, 235, .5); }
+.btn.big { height: 60px; font-size: 19px; padding: 0 40px; border-radius: 18px; }
+.btn.sm { height: 40px; padding: 0 18px; font-size: 14.5px; border-radius: 11px; }
+/* title */
+#title { background: radial-gradient(120% 90% at 50% 0%, rgba(37, 99, 235, .35), rgba(3, 6, 13, 0) 60%), linear-gradient(180deg, rgba(4, 8, 20, .55), rgba(2, 5, 11, .84)); text-align: center; gap: 0; }
+#title .road { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: .55; }
+#title .road canvas { width: 100%; height: 100%; display: block; }
+.logo { position: relative; font-size: clamp(44px, 9vw, 96px); font-weight: 900; font-style: italic; letter-spacing: -.03em; line-height: .95; text-transform: uppercase; background: linear-gradient(180deg, #ffffff 0%, #bcd9ff 40%, #4f9bff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 24px rgba(37, 99, 235, .65)); transform: skewX(-6deg); }
+.logo small { display: block; font-size: .36em; letter-spacing: .5em; margin-bottom: .2em; font-style: normal; color: var(--blue-hi); -webkit-text-fill-color: var(--blue-hi); }
+.tag { position: relative; margin: 14px 0 30px; color: var(--text2); font-size: clamp(15px, 2.4vw, 19px); }
+.menu-row { position: relative; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.me-card { position: relative; margin-top: 30px; display: flex; align-items: center; gap: 14px; padding: 10px 20px 10px 10px; border-radius: 20px; }
+.me-card canvas { width: 64px; height: 64px; border-radius: 16px; background: rgba(255, 255, 255, .08); }
+.me-card b { display: block; font-size: 17px; } .me-card span { color: var(--text3); font-size: 13.5px; }
+/* pick */
+.panel { width: min(1080px, 100%); padding: 26px; }
+.panel h2 { margin: 0 0 4px; font-size: 30px; font-weight: 700; letter-spacing: -.01em; } .panel .sub { margin: 0 0 20px; color: var(--text2); }
+.tracks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.tk { position: relative; text-align: left; padding: 0; border-radius: 20px; overflow: hidden; border: 1px solid var(--stroke); background: rgba(255, 255, 255, .05); transition: transform .2s cubic-bezier(.2, .8, .2, 1), border-color .2s, box-shadow .2s; }
+.tk:hover { transform: translateY(-3px); } .tk.on { border-color: var(--blue-hi); box-shadow: 0 0 0 3px rgba(96, 165, 250, .35), 0 16px 40px rgba(37, 99, 235, .35); }
+.tk canvas { width: 100%; aspect-ratio: 4 / 3; display: block; }
+.tk .ti { padding: 12px 14px 14px; } .tk b { display: block; font-size: 16.5px; } .tk span { color: var(--text3); font-size: 13px; }
+.tk .best { display: block; margin-top: 6px; color: var(--blue-hi); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.opts { display: flex; flex-wrap: wrap; gap: 18px 30px; margin: 22px 0 6px; align-items: center; }
+.opt { display: flex; align-items: center; gap: 12px; } .opt label { color: var(--text3); font-size: 12.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
+.seg { display: inline-flex; padding: 3px; border-radius: 12px; background: rgba(255, 255, 255, .08); gap: 2px; } .seg button { padding: 8px 15px; border-radius: 9px; font-weight: 650; font-size: 14px; color: var(--text2); } .seg button.on { color: #fff; background: linear-gradient(180deg, #4f9bff, #2563eb); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
+.foot { display: flex; gap: 12px; justify-content: space-between; margin-top: 22px; flex-wrap: wrap; }
+/* results */
+#results .panel { width: min(640px, 100%); } .res-place { font-size: clamp(54px, 12vw, 92px); font-weight: 900; font-style: italic; line-height: 1; letter-spacing: -.03em; background: linear-gradient(180deg, #fff, #7dc0ff); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 20px rgba(37, 99, 235, .6)); }
+.board { margin: 16px 0; display: flex; flex-direction: column; gap: 6px; }
+.board .r { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); font-variant-numeric: tabular-nums; } .board .r.me { background: linear-gradient(90deg, rgba(59, 130, 246, .38), rgba(59, 130, 246, .12)); border: 1px solid rgba(125, 175, 255, .4); }
+.board .n { width: 28px; font-weight: 800; color: var(--text2); } .board .nm { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .board .t { color: var(--text2); font-size: 14px; }
+.reward { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; background: linear-gradient(160deg, rgba(251, 191, 36, .22), rgba(251, 191, 36, .06)); border: 1px solid rgba(251, 191, 36, .38); margin-bottom: 14px; font-weight: 650; }
+.reward.none { background: rgba(255, 255, 255, .06); border-color: var(--stroke); color: var(--text2); font-weight: 500; }
+/* hud + touch + pause */
+#hud { position: absolute; inset: 0; pointer-events: none; display: none; } #hud.on { display: block; }
+#touch { position: absolute; inset: 0; display: none; } #touch.on { display: block; }
+#touch .pad { position: absolute; left: 0; top: 18%; bottom: 0; width: 56%; touch-action: none; }
+#touch .stick { position: absolute; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .07); pointer-events: none; display: none; } #touch .stick i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: linear-gradient(180deg, rgba(255, 255, 255, .6), rgba(255, 255, 255, .25)); }
+#touch .tb { position: absolute; display: grid; place-items: center; border-radius: 50%; font-weight: 800; font-size: 14px; letter-spacing: .08em; background: rgba(8, 14, 32, .6); border: 2px solid rgba(255, 255, 255, .35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); touch-action: none; }
+#touch .tb.on { background: rgba(59, 130, 246, .7); border-color: #bfdbfe; }
+#tItem { right: calc(18px + var(--safe-r)); bottom: calc(34px + var(--safe-b)); width: 96px; height: 96px; } #tDrift { right: calc(130px + var(--safe-r)); bottom: calc(22px + var(--safe-b)); width: 80px; height: 80px; } #tBrake { right: calc(24px + var(--safe-r)); bottom: calc(146px + var(--safe-b)); width: 66px; height: 66px; font-size: 12px; } #tGas { right: calc(214px + var(--safe-r)); bottom: calc(22px + var(--safe-b)); width: 74px; height: 74px; font-size: 12px; }
+#pauseBtn { position: absolute; right: calc(14px + var(--safe-r)); top: calc(14px + var(--safe-t)); width: 46px; height: 46px; border-radius: 14px; display: none; place-items: center; pointer-events: auto; background: rgba(8, 14, 32, .6); border: 1px solid var(--stroke); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); } #pauseBtn.on { display: grid; } #pauseBtn svg { width: 22px; height: 22px; }
+#pause .panel { width: min(420px, 100%); text-align: center; } #pause .btn { width: 100%; margin-top: 10px; }
+#pause { background: rgba(2, 5, 12, .55); }
+#hint { position: absolute; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); padding: 8px 16px; border-radius: 12px; font-size: 13px; color: var(--text2); background: rgba(8, 14, 32, .6); border: 1px solid var(--stroke); pointer-events: none; display: none; white-space: nowrap; } #hint.on { display: block; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; background: #02050b; z-index: 5; transition: opacity .5s; } .loading.done { opacity: 0; pointer-events: none; }
+.loading .logo { font-size: 44px; }
+@media (max-width: 900px) { .tracks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .panel { padding: 18px; } }
+@media (max-height: 560px) { .logo { font-size: 44px; } .tag { margin: 8px 0 14px; } .me-card { margin-top: 14px; } .tk canvas { aspect-ratio: 16 / 9; } .tracks { grid-template-columns: repeat(4, minmax(0, 1fr)); } .panel h2 { font-size: 22px; } .panel .sub { margin-bottom: 10px; } .opts { margin: 12px 0 0; } }
+@media (prefers-reduced-motion: reduce) { .layer.on { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="Scroll Racing game"></canvas>
+<div id="hud"></div>
+<div id="touch"><div class="pad" id="tPad"><div class="stick" id="tStick"><i></i></div></div><button class="tb" id="tGas" type="button" aria-label="Gas">GAS</button><button class="tb" id="tBrake" type="button" aria-label="Brake">BRAKE</button><button class="tb" id="tDrift" type="button" aria-label="Drift">DRIFT</button><button class="tb" id="tItem" type="button" aria-label="Use item">ITEM</button></div>
+<button id="pauseBtn" type="button" aria-label="Pause"><svg viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5"/></svg></button>
+<div id="hint"></div>
+
+<section class="layer" id="title">
+  <div class="road"><canvas id="titleRoad"></canvas></div>
+  <div class="logo"><small>ScrollHub Original</small>Scroll<br>Racing</div>
+  <p class="tag">Drift, grab items and beat seven rival gims across four tracks.</p>
+  <div class="menu-row"><button class="btn primary big" id="bPlay" type="button">Race</button><button class="btn big" id="bHow" type="button">How to play</button></div>
+  <div class="glass me-card"><canvas id="meCv" width="128" height="128"></canvas><div><b id="meName">Racer</b><span id="meSub">Your equipped gim races for you</span></div></div>
+</section>
+
+<section class="layer" id="how">
+  <div class="glass panel" style="width:min(720px,100%)">
+    <h2>How to play</h2><p class="sub">Finish three laps in first place. Rivals get tougher on higher difficulty.</p>
+    <div id="howBody" style="line-height:1.7;color:var(--text2)"></div>
+    <div class="foot"><span></span><button class="btn primary" id="bHowBack" type="button">Got it</button></div>
+  </div>
+</section>
+
+<section class="layer" id="pick">
+  <div class="glass panel">
+    <h2>Choose a track</h2><p class="sub">Four tracks, three laps each. Your best times are saved on this device.</p>
+    <div class="tracks" id="trackList"></div>
+    <div class="opts">
+      <div class="opt"><label>Difficulty</label><div class="seg" id="segDiff"></div></div>
+      <div class="opt"><label>Laps</label><div class="seg" id="segLaps"></div></div>
+      <div class="opt" id="optAuto"><label>Gas</label><div class="seg" id="segAuto"></div></div>
+    </div>
+    <div class="foot"><button class="btn" id="bPickBack" type="button">Back</button><button class="btn primary big" id="bStart" type="button">Start race</button></div>
+  </div>
+</section>
+
+<section class="layer" id="pause"><div class="glass panel"><h2>Paused</h2><p class="sub" style="margin-bottom:8px">Take a breather.</p><button class="btn primary" id="bResume" type="button">Resume</button><button class="btn" id="bRestart" type="button">Restart race</button><button class="btn" id="bMute" type="button">Sound: on</button><button class="btn" id="bQuit" type="button">Quit to menu</button></div></section>
+
+<section class="layer" id="results">
+  <div class="glass panel">
+    <div class="res-place" id="resPlace">1st</div><p class="sub" id="resSub" style="margin:4px 0 6px">Race complete</p>
+    <div class="reward" id="resReward"></div>
+    <div class="board" id="resBoard"></div>
+    <div class="foot" style="margin-top:6px"><button class="btn" id="bResMenu" type="button">Menu</button><button class="btn primary" id="bResAgain" type="button">Race again</button></div>
+  </div>
+</section>
+<div class="loading" id="loading"><div class="logo">Scroll Racing</div></div>
+
+<script src="/casino/sfx.js?v=3"></script>
+<script src="/casino/art.js?v=11"></script>
+<script src="/racing/racing.js?v=1"></script>
+<script src="/hub/hub-back.js?v=1"></script>
+</body>
+</html>

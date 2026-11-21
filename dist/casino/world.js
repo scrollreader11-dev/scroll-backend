@@ -498,7 +498,7 @@
   var SHOP_TABS = [['skin', 'Characters'], ['body', 'Colors'], ['hat', 'Hats'], ['acc', 'Accessories'], ['trail', 'Trails'], ['emote', 'Emotes'], ['tag', 'Name Tags'], ['color', 'Name Colors'], ['profile', 'Profile FX']];
   var SHOP_HINT = { skin: 'Your character. Free ones are ready to wear — rarer ones are fancier.', body: 'Paint your character. Gold, Chrome, Lava, Galaxy and Rainbow are animated.', hat: 'Hats show up on your character for everyone to see.', acc: 'Glasses, chains, capes, wings and more.', trail: 'Leave something behind wherever you walk.', emote: 'Pop an emote over your head with T or the number keys.', tag: 'A title shown above your name — in the casino and in chat.', color: 'Color your name — in the casino and in chat.', profile: 'Profile banners, avatar rings and title effects for your ScrollHub profile.' };
   var shopTab = 'skin';
-  function owns(it) { var p = state.profile; return !!p && (it.price === 0 || p.inventory.indexOf(it.id) >= 0); }
+  function owns(it) { var p = state.profile; return !!p && ((it.price === 0 && !it.staff) || p.inventory.indexOf(it.id) >= 0); }
   function isEquipped(it) {
     var p = state.profile; if (!p) return false; var L = p.look || {};
     if (['skin', 'body', 'hat', 'acc', 'trail'].indexOf(it.type) >= 0) return L[it.type] === it.id;
@@ -513,7 +513,7 @@
     $('shopHint').textContent = SHOP_HINT[shopTab] || '';
     previews = previews.filter(function (p) { return p.cv.isConnected && !p.cv.closest('#shopGrid'); });
     var g = $('shopGrid'); g.innerHTML = '';
-    tabItems(shopTab).forEach(function (it) {
+    tabItems(shopTab).filter(function (it) { return !it.staff; }).forEach(function (it) {
       var d = document.createElement('div'); d.className = 'icard';
       var own = owns(it), eq = isEquipped(it), coins = state.profile ? state.profile.coins : 0, btn;
       if (it.type === 'emote') btn = own ? '<button class="own" disabled>✓ Owned</button>' : '<button data-buy="' + it.id + '"' + (coins < it.price ? ' disabled' : '') + '>Buy</button>';

@@ -699,3 +699,18 @@ select.input option, select.input optgroup { background: #0b1226; color: #f2f6ff
 .fr-who .sp { min-width: 0; } .fr-who .nn { font-weight: 650; } .fr-who .aa { font-size: 13px; color: var(--text3); } .fr-who .aa.on { color: #8dffc3; }
 .fr-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .fr-none { color: var(--text3); padding: 4px 2px; margin: 0; }
+
+/* art images always sit above the placeholder and fill the frame */
+.art > img, .gp-cover > img, .th > img, .tile > img, .ni > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.ph { transition: opacity .35s; }
+
+/* Discord opens full screen: no hub sidebar or top bar, edge to edge */
+body.in-dc #app { grid-template-columns: 1fr; }
+body.in-dc #side, body.in-dc #topbar, body.in-dc #tabbar { display: none; }
+body.in-dc .scroll.dcmode { padding: 0; }
+body.in-dc .view { max-width: none; }
+body.in-dc .dc { height: var(--app-h); border-radius: 0; border: 0; box-shadow: none; }
+.dc-rail .dr-i.exit { margin-top: auto; background: rgba(255, 255, 255, .08); color: var(--text2); }
+.dc-rail .dr-i.exit:hover { color: #fff; background: rgba(59, 130, 246, .5); }
+.dc-rail { padding-bottom: calc(10px + var(--safe-b)); }
+@media (max-width: 760px) { body.in-dc .scroll.dcmode { padding: 0; } body.in-dc .dc { height: var(--app-h); border-radius: 0; } }

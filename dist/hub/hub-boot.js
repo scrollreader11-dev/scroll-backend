@@ -194,7 +194,7 @@
       var W = kind === 'banner' ? 1200 : 320, H = kind === 'banner' ? 360 : 320, img = new Image(), url = URL.createObjectURL(f);
       img.onload = function () {
         var c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d'), s = Math.max(W / img.width, H / img.height), w = img.width * s, hh = img.height * s; x.drawImage(img, (W - w) / 2, (H - hh) / 2, w, hh); URL.revokeObjectURL(url);
-        c.toBlob(function (b) { if (!b) { Hub.toast('Could not read that image', { bad: true }); return; } Hub.api('/api/me/' + kind, { raw: b }).then(function (r) { var k = kind === 'banner' ? 'banner_url' : 'avatar_url'; if (r && r[k]) { Hub.me[kind === 'banner' ? 'banner' : 'avatar'] = r[k]; Hub.toast(kind === 'banner' ? 'Banner updated' : 'Profile picture updated'); Hub.renderChrome(); if (Hub.parse().name === 'profile') Hub.render(true); } else Hub.toast((r && r.error) || 'Upload failed', { bad: true }); }); }, 'image/jpeg', 0.86);
+        c.toBlob(function (b) { if (!b) { Hub.toast('Could not read that image', { bad: true }); return; } Hub.api('/api/me/' + kind, { raw: b }).then(function (r) { var k = kind === 'banner' ? 'banner_url' : 'avatar_url'; if (r && r[k]) { Hub.me[kind === 'banner' ? 'banner' : 'avatar'] = r[k]; Hub.toast(kind === 'banner' ? 'Banner updated' : 'Profile picture updated'); if (kind !== 'banner') Hub.emit('avatar'); Hub.renderChrome(); if (Hub.parse().name === 'profile') Hub.render(true); } else Hub.toast((r && r.error) || 'Upload failed', { bad: true }); }); }, 'image/jpeg', 0.86);
       };
       img.onerror = function () { Hub.toast('Could not read that image', { bad: true }); }; img.src = url;
     });

@@ -149,13 +149,14 @@ export function adminGiveItem(cid, itemId) {
 }
 export function adminGiveAllItems(cid) {
   const p = profileOf(cid); if (!p) return null;
-  for (const it of STORE) if (!p.inventory.includes(it.id)) p.inventory.push(it.id);
+  for (const it of STORE) if (!it.staff && !p.inventory.includes(it.id)) p.inventory.push(it.id);
   save(); flush(); return p.inventory.slice();
 }
 export function adminTakeItem(cid, itemId) {
   const p = profileOf(cid); if (!p) return null;
   p.inventory = p.inventory.filter((x) => x !== itemId);
-  if (p.tag === itemId) p.tag = '';
+  const gone = STORE.find((x) => x.id === itemId);
+  if (gone && gone.type === 'tag' && p.tag === gone.label) { p.tag = ''; if (gone.staff) p.titleFx = ''; }
   save(); flush(); return p.inventory.slice();
 }
 export function adminClearInventory(cid) {
@@ -313,6 +314,10 @@ export function deleteEventCode(code) {
 
 // ---- store catalog ----
 export const STORE = [
+  // Staff name tags: never sold, never in cases; an owner hands them out from the admin panel.
+  { id: 'tag_staff_owner', type: 'tag', label: 'OWNER MAN', price: 0, rarity: 'mythic', staff: true, fx: 'gold' },
+  { id: 'tag_staff_coowner', type: 'tag', label: 'CO OWNER MAN', price: 0, rarity: 'mythic', staff: true, fx: 'shimmer' },
+  { id: 'tag_staff_admin', type: 'tag', label: 'ADMIN DUDE', price: 0, rarity: 'legendary', staff: true, fx: 'pulse' },
   { id: 'tag_fire', type: 'tag', label: '🔥 Fire', price: 2000, rarity: 'common' },
   { id: 'tag_cool', type: 'tag', label: '😎 Cool', price: 2000, rarity: 'common' },
   { id: 'tag_gamer', type: 'tag', label: '🎮 Gamer', price: 3500, rarity: 'uncommon' },
@@ -599,7 +604,7 @@ async function handleSprites(path, req, res) {
 // School Mode: every paid cosmetic costs 100 Scrolls; prices go back to normal when it's off
 function schoolOn() { try { return !!(globalThis.SH_SCHOOL && globalThis.SH_SCHOOL()); } catch (e) { return false; } }
 export function priceOf(it) { return it && it.price > 0 && schoolOn() ? 100 : it ? it.price : 0; }
-function storeList() { const sc = schoolOn(); return sc ? STORE.map((it) => (it.price > 0 ? { ...it, was: it.price, price: 100 } : it)) : STORE; }
+function storeList(p) { const sc = schoolOn(); const base = STORE.filter((it) => !it.staff || (p && p.inventory.includes(it.id))); return sc ? base.map((it) => (it.price > 0 ? { ...it, was: it.price, price: 100 } : it)) : base; }
 // Character look (2D casino world). Slots hold item ids.
 const LOOK_SLOTS = ['skin', 'body', 'hat', 'acc', 'trail'];
 const LOOK_DEFAULT = { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' };
@@ -608,7 +613,7 @@ function ensureLook(p) {
   for (const k of LOOK_SLOTS) if (typeof p.look[k] !== 'string') p.look[k] = LOOK_DEFAULT[k];
   return p.look;
 }
-function ownsItem(p, it) { return !!it && (it.price === 0 || p.inventory.includes(it.id)); }
+function ownsItem(p, it) { return !!it && ((it.price === 0 && !it.staff) || p.inventory.includes(it.id)); }
 // Resolved look values the renderer needs (ids -> draw keys).
 function lookValues(p) {
   const l = ensureLook(p); const out = {};
@@ -785,7 +790,7 @@ export async function handleCasino(url, req, res) {
   try { checkTournamentRollover(); } catch (e) {} // pay out last week if the week just rolled over
   ensureWeek(p);
 
-  if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(), school: schoolOn(), season: (globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
+  if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(p), school: schoolOn(), season: (globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
 
   if (path === '/api/casino/daily' && req.method === 'POST') {
     const now = Date.now();
@@ -909,6 +914,7 @@ export async function handleCasino(url, req, res) {
   if (path === '/api/casino/buy' && req.method === 'POST') {
     const body = await readBody(req); const it = storeItem(String(body.itemId || ''));
     if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
+    if (it.staff) return (sendJson(res, 200, { error: 'not-for-sale' }), true);
     if (p.inventory.includes(it.id) || it.price === 0) return (sendJson(res, 200, { error: 'owned', profile: publicProfile(cid) }), true);
     const cost = priceOf(it);
     if (cost > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
@@ -927,7 +933,7 @@ export async function handleCasino(url, req, res) {
     if (!it || !ownsItem(p, it)) return (sendJson(res, 200, { error: 'not-owned' }), true);
     if (it.type === 'emote') return (sendJson(res, 200, { ok: true, profile: publicProfile(cid) }), true); // emotes are used, not equipped
     if (LOOK_SLOTS.includes(it.type)) ensureLook(p)[it.type] = it.id;
-    else if (it.type === 'tag') { p.tag = it.label; if (it.custom) p.titleFx = it.fx || ''; }
+    else if (it.type === 'tag') { p.tag = it.label; if (it.custom || it.staff) p.titleFx = it.fx || ''; }
     else if (it.type === 'banner') p.banner = it.ref || it.value;
     else if (it.type === 'avatar') p.avatarFx = it.value;
     else if (it.type === 'titlefx') p.titleFx = it.value;
@@ -1102,6 +1108,7 @@ export async function handleCasino(url, req, res) {
     const toCid = String(body.toCid || '').slice(0, 64);
     const it = storeItem(itemId);
     if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
+    if (it.staff) return (sendJson(res, 200, { error: 'not-giftable' }), true);
     if (!p.inventory.includes(itemId)) return (sendJson(res, 200, { error: 'not-owned' }), true);
     const rid = toCid && casino.users[toCid] ? toCid : null;
     if (!rid) return (sendJson(res, 200, { error: 'no-recipient' }), true);

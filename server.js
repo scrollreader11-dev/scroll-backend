@@ -22,7 +22,7 @@ import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
-import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers } from './discord.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -949,6 +949,14 @@ async function handleStaff(req, res) {
     audit(who, 'ban account', t.username, (mins ? mins + 'm ' : 'permanent ') + reason);
     return sendJson(res, 200, { ok: true });
   }
+  if (action === 'discord.servers') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, ...discordGuildList() }); }
+  if (action === 'discord.setdefault') {
+    if (!owner) return needOwner();
+    let everyone = null; if (body.everyone) { try { everyone = (await allAccounts()).map((a) => ({ id: a.id, username: a.username })); } catch (e) { everyone = []; } }
+    const r = discordSetDefault(String(body.id || ''), everyone); if (r.error) return sendJson(res, 400, r);
+    try { audit(who, 'discord.setdefault', r.name + (body.everyone ? ' (added ' + r.added + ' existing accounts)' : '')); } catch (e) {}
+    return sendJson(res, 200, r);
+  }
   if (action === 'audit.list') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, audit: admin.audit.slice(-200).reverse() }); }
 
   // ---- everything below is owner only ----
@@ -1002,6 +1010,46 @@ async function handleStaff(req, res) {
   }
   // anything else is a legacy tool action (settings, bans, announcements, chat tools ...)
   return handleAdmin(req, res, body, who);
+}
+
+
+// ============================================================
+// SCROLL RACING rewards. The client reports a finishing place; the server only pays if the race
+// lasted long enough, the token is unused, and the account is under today's cap.
+// ============================================================
+const racingRuns = new Map(); // token -> { uid, t0, laps, diff, used }
+const racingDaily = new Map(); // uid -> { day, total }
+const racingLast = new Map(); // uid -> last start time
+const RACE_PAY = [140, 95, 65, 40, 25, 15, 10, 10];
+async function handleRacing(req, res, url) {
+  const who = await resolveSession(req).catch(() => null);
+  const body = await readBody(req);
+  if (url === '/api/racing/start') {
+    if (!who) return sendJson(res, 200, { ok: true, token: '' });
+    const now = Date.now();
+    if (now - (racingLast.get(who.id) || 0) < 8000) return sendJson(res, 200, { ok: true, token: '' });
+    racingLast.set(who.id, now);
+    for (const [k, v] of racingRuns) if (now - v.t0 > 3600000) racingRuns.delete(k);
+    const laps = [1, 3, 5].includes(Number(body.laps)) ? Number(body.laps) : 3;
+    const diff = ['easy', 'normal', 'hard'].includes(body.diff) ? body.diff : 'normal';
+    const token = randomBytes(12).toString('hex');
+    racingRuns.set(token, { uid: who.id, t0: now + 3600, laps, diff, used: false }); // the countdown is about 3.6s
+    return sendJson(res, 200, { ok: true, token });
+  }
+  if (!who) return sendJson(res, 200, { error: 'login', message: 'Sign in to earn Scrolls.' });
+  const run = racingRuns.get(String(body.token || ''));
+  if (!run || run.uid !== who.id || run.used) return sendJson(res, 200, { error: 'bad-token', message: 'No reward for this race.' });
+  run.used = true;
+  const place = Math.floor(Number(body.place)), ms = Number(body.ms) || 0, elapsed = Date.now() - run.t0;
+  if (!(place >= 1 && place <= 8)) return sendJson(res, 200, { error: 'bad-place', message: 'No reward for this race.' });
+  if (elapsed < run.laps * 11000 || ms < run.laps * 11000 || ms > elapsed + 4000) return sendJson(res, 200, { error: 'too-fast', message: 'That race was too short to count.' });
+  const mult = { easy: 0.6, normal: 1, hard: 1.4 }[run.diff] * (run.laps === 1 ? 0.4 : run.laps === 5 ? 1.5 : 1);
+  let amount = Math.round(RACE_PAY[place - 1] * mult);
+  const day = new Date().toISOString().slice(0, 10);
+  let d = racingDaily.get(who.id); if (!d || d.day !== day) { d = { day, total: 0 }; racingDaily.set(who.id, d); }
+  const room = Math.max(0, 2500 - d.total), capped = amount > room; amount = Math.min(amount, room); d.total += amount;
+  let bal = null; if (amount > 0) { bal = grantCoins(who.id, amount); coinHistory.push({ ts: Date.now(), name: who.username, amount, reason: 'Scroll Racing ' + place + (place === 1 ? 'st' : place === 2 ? 'nd' : place === 3 ? 'rd' : 'th') }); if (coinHistory.length > 500) coinHistory.shift(); }
+  return sendJson(res, 200, { ok: true, coins: amount, capped, balance: bal });
 }
 
 // ---------- Movies (TMDB) ----------
@@ -1359,6 +1407,9 @@ const HUB_ORIGINALS = [
   { id: 'scrollhub-sprite-lab', title: 'Sprite Lab', dev: 'ScrollHub Studios', tagline: 'Draw it. Animate it. Wear it.',
     desc: 'A pixel editor for characters, hats and banners. Paint frames, preview the animation and see your work in the game world.',
     tags: ['Creative', 'Tools', 'Single Player'], players: '1', url: '/arcade/sprites', entry: '/arcade/sprites.html', art: '/hub/art/sprites.jpg', accent: '#38bdf8' },
+  { id: 'scrollhub-racing', title: 'Scroll Racing', dev: 'ScrollHub Studios', tagline: 'Drift. Grab items. Beat seven rival gims.',
+    desc: 'A top-down kart racer starring your own gim. Race seven rivals across four tracks, drift through corners for mini turbos, grab item boxes and fire Pulses, Seekers and Zaps. Finish high to earn Scrolls.',
+    tags: ['Racing', 'Arcade', 'Action'], players: '1', url: '/racing/index.html', entry: '/racing/index.html', art: '/hub/art/racing.jpg', accent: '#3b82f6' },
 ];
 const _hubHash = new Map(); // file -> { sig, h }
 function hubFileHash(rel) {
@@ -2343,6 +2394,7 @@ const httpServer = createServer(async (req, res) => {
   if (url === '/api/admin' && req.method === 'POST') { const who = await resolveSession(req).catch(() => null); return handleAdmin(req, res, await readBody(req), who); }
   if (url === '/api/staff/me') { const who = await resolveSession(req).catch(() => null); return sendJson(res, 200, { role: who ? who.role : null, username: who ? who.username : '' }); }
   if (url === '/api/staff/act' && req.method === 'POST') return handleStaff(req, res);
+  if ((url === '/api/racing/start' || url === '/api/racing/finish') && req.method === 'POST') return handleRacing(req, res, url);
   if (url === '/api/admin/gameimg' && req.method === 'POST') return handleGameImg(req, res);
   if (url.startsWith('/ci/')) return serveGameImg(req, res, url);
   // Which commit is live (Render sets RENDER_GIT_COMMIT). Open /api/version to check a deploy.

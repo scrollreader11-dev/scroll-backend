@@ -18,7 +18,7 @@
     var wrap = h('div', { class: cls || 'art' }); wrap.appendChild(phEl(g, small));
     if (g.art) {
       var img = new Image(); img.alt = ''; img.decoding = 'async'; img.loading = cls === 'gp-cover' ? 'eager' : 'lazy'; img.referrerPolicy = 'no-referrer'; img.style.opacity = '0'; img.style.transition = 'opacity .35s';
-      img.onload = function () { img.style.opacity = '1'; };
+      img.onload = function () { img.style.opacity = '1'; var ph = wrap.querySelector('.ph'); if (ph) ph.style.opacity = '0'; };
       img.onerror = function () { var alt = !img._t && fallbackSrc(img.getAttribute('src')); if (alt) { img._t = 1; img.src = alt; } else if (img.parentNode) img.parentNode.removeChild(img); };
       img.src = g.art; wrap.appendChild(img);
     }
@@ -79,7 +79,7 @@
   }
 
   // ---------- shell: sidebar / topbar / tabbar ----------
-  var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['casino', 'Casino', 'dices'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['admin', 'Admin tools', 'shield']];
+  var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['admin', 'Admin tools', 'shield']];
   function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
   function curRoot() { var r = Hub.parse().name; return r === 'genre' || r === 'search' ? 'store' : (r === 'game' ? Hub.lastRoot || 'home' : r); }
   function avatarEl(cls) {
@@ -160,6 +160,7 @@
   Hub.render = function (keepScroll) {
     var r = Hub.parse(), name = r.name, view = Hub.views[name]; if (!view) { location.replace('#/home'); return; }
     if (['home', 'originals', 'library', 'casino', 'store', 'discord', 'friends', 'admin'].indexOf(name) >= 0) Hub.lastRoot = name;
+    if (name === 'casino') { location.replace('#/game/scrollhub-casino'); return; }
     if ((name === 'casino' && !Hub.canCasino()) || (name === 'store' && !Hub.canStore()) || (name === 'genre' && !Hub.canStore())) { location.replace('#/home'); return; }
     Hub.closeMenu(); Hub.closeFly();
     var host = $('#view'), sc = $('#scroll'), top = sc.scrollTop; Hub.clear(host);
