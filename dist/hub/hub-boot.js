@@ -63,7 +63,8 @@
 
   // ---------- profile menu ----------
   Hub.profileMenu = function (anchor) {
-    var m = Hub.me, items = [{ label: 'View profile', icon: 'user', fn: function () { location.hash = '#/profile'; } }, { label: 'My Rewards', icon: 'gift', fn: Hub.rewardsModal }, { label: 'Redeem a code', icon: 'ticket', fn: Hub.redeemModal }, { label: 'Friends', icon: 'users', fn: function () { Hub.friendsPanel(true); } }];
+    var m = Hub.me, items = [{ label: 'View profile', icon: 'user', fn: function () { location.hash = '#/profile'; } }, { label: 'My Rewards', icon: 'gift', fn: Hub.rewardsModal }, { label: 'Redeem a code', icon: 'ticket', fn: Hub.redeemModal }, { label: 'Friends', icon: 'users', fn: function () { location.hash = '#/friends'; } }];
+    if (m.role) items.splice(1, 0, { label: 'Admin tools', icon: 'shield', fn: function () { location.hash = '#/admin'; } });
     if (m.owner) items.push({ label: 'Owner tools', icon: 'hammer', fn: function () { Hub.settingsModal('owner'); } });
     items.push({ label: 'Settings', icon: 'settings', fn: function () { Hub.settingsModal('account'); } }, { label: 'Support', icon: 'life-buoy', fn: Hub.supportModal }, { label: 'Feedback', icon: 'message-square', fn: Hub.feedbackModal }, { sep: true });
     if (m.kind === 'user') items.push({ label: 'Sign out', icon: 'log-out', fn: signOut }); else items.push({ label: 'Sign in or switch account', icon: 'log-out', fn: signOut });
@@ -72,7 +73,7 @@
   function signOut() {
     Hub.api('/api/auth/logout', { body: {} }).then(function () {
       Hub.ls.del('sh_token'); ['sh_sid', 'sh_cid', 'sh_nick'].forEach(function (n) { document.cookie = n + '=;Path=/;Max-Age=0;SameSite=Lax'; });
-      Hub.me = { kind: 'none', id: '', name: '', owner: false }; Hub.wallet = null; Hub.friends = { friends: [], incoming: [], outgoing: [], guest: true, loaded: true }; $('#frBar') && $('#frBar').remove(); Hub.closeFly(); showLogin();
+      Hub.me = { kind: 'none', id: '', name: '', owner: false }; Hub.dcReset && Hub.dcReset(); Hub.wallet = null; Hub.friends = { friends: [], incoming: [], outgoing: [], guest: true, loaded: true }; Hub.closeFly(); showLogin();
     });
   }
 
@@ -115,36 +116,45 @@
     if (window.innerWidth > 760) { var r = anchor.getBoundingClientRect(); f.el.style.left = Math.min(r.right + 14, window.innerWidth - f.el.offsetWidth - 10) + 'px'; f.el.style.top = Math.max(10, r.top) + 'px'; }
   };
 
-  // ---------- friends ----------
-  var frOpen = null;
-  function renderFriendsBar() {
-    var old = $('#frBar'); if (old) old.remove();
-    if (Hub.me.kind === 'none') return;
-    var on = Hub.onlineFriends().length, req = Hub.friends.incoming.length;
-    var bar = h('div', { class: 'fr-bar', id: 'frBar', role: 'button', tabindex: '0', 'aria-label': 'Friends' }, [h('div', {}, [h('b', { text: 'Friends' }), h('span', {}, [on ? h('i', { class: 'on-dot' }) : null, req ? req + ' new request' + (req === 1 ? '' : 's') : (Hub.friends.guest ? 'Sign in to add friends' : on + ' online')])]), h('span', { class: 'grow' }), h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Toggle friends list' }, icon('chevron-up')), h('a', { class: 'iconbtn pop', href: '/friends.html', target: '_blank', rel: 'noopener', 'aria-label': 'Open friends and messages in a new tab', onclick: function (e) { e.stopPropagation(); } }, icon('external-link'))]);
-    bar.addEventListener('click', function () { Hub.friendsPanel(); }); bar.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); Hub.friendsPanel(); } });
-    document.body.appendChild(bar);
+  // ---------- friends (a page in the main menu; the floating bar is gone) ----------
+  Hub.friendsPanel = function () { location.hash = '#/friends'; };
+  function syncFriendsUi() {
+    var n = $('.nav a[href="#/friends"]');
+    if (n) { var d = $('.dot', n), req = Hub.friends.incoming.length; if (req && !d) n.appendChild(h('i', { class: 'dot plain nav-dot' })); else if (!req && d) d.remove(); }
+    if (Hub.parse().name === 'friends' && Hub.ready && !document.querySelector('.fr-page input:focus')) Hub.render(true);
   }
-  Hub.friendsPanel = function (forceOpen) {
-    if (frOpen) { frOpen.close(); frOpen = null; if (!forceOpen) return; }
-    var body = h('div', { class: 'fly-b' }), wrap = h('div');
-    function paintF() {
-      Hub.clear(body); var F = Hub.friends;
-      if (F.guest) { body.appendChild(h('div', { class: 'empty', style: 'padding:26px 10px;border:0;background:none' }, [icon('users'), h('h3', { text: 'Sign in to add friends' }), h('p', { text: 'Friends need an account so they can find you.' }), h('button', { class: 'btn primary sm', type: 'button', text: 'Sign in', onclick: function () { if (frOpen) frOpen.close(); signOut(); } })])); return; }
-      var inp = h('input', { class: 'input', placeholder: 'Add a friend by username', maxlength: '20', autocapitalize: 'off', autocomplete: 'off', 'aria-label': 'Friend username' }), add = h('button', { class: 'btn primary sm', type: 'button', text: 'Add' });
-      function doAdd() { var u = inp.value.trim(); if (!u) return; add.disabled = true; Hub.api('/api/friends/add', { body: { username: u } }).then(function (r) { add.disabled = false; if (r && r.error) Hub.toast(r.message || 'Could not add that player', { bad: true }); else { Hub.toast('Request sent to ' + u, { icon: 'user-plus' }); inp.value = ''; Hub.loadFriends().then(paintF); } }); }
-      add.addEventListener('click', doAdd); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') doAdd(); });
-      body.appendChild(h('div', { class: 'fr-add' }, [inp, add]));
-      if (F.incoming.length) { body.appendChild(h('div', { class: 'mhead', text: 'Requests' })); F.incoming.forEach(function (f) { body.appendChild(h('div', { class: 'pr' }, [h('span', { class: 'avatar', text: Hub.initials(f.username) }), h('div', { class: 'sp' }, h('div', { class: 'nn', text: f.username })), h('button', { class: 'btn sm primary', type: 'button', text: 'Accept', onclick: function () { Hub.api('/api/friends/accept', { body: { id: f.id } }).then(function () { Hub.loadFriends().then(paintF); }); } }), h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Decline', onclick: function () { Hub.api('/api/friends/decline', { body: { id: f.id } }).then(function () { Hub.loadFriends().then(paintF); }); } }, icon('x'))])); }); }
-      body.appendChild(h('div', { class: 'mhead', text: 'Friends (' + F.friends.length + ')' }));
-      if (!F.friends.length) body.appendChild(h('p', { style: 'color:var(--text3);padding:6px 8px 14px', text: 'No friends yet. Add someone above.' }));
-      F.friends.forEach(function (f) { body.appendChild(h('a', { class: 'pr', href: '#/profile/' + encodeURIComponent(f.username), onclick: function () { if (frOpen) frOpen.close(); } }, [h('span', { class: 'avatar', text: Hub.initials(f.username) }), h('div', { class: 'sp' }, [h('div', { class: 'nn', text: f.username }), h('div', { class: 'aa' + (f.online ? ' on' : ''), text: f.online ? (Hub.clean(f.activity) || 'Online') : 'Offline' })])])); });
+  Hub.on('friends', syncFriendsUi);
+  var lastFrLoad = 0;
+  Hub.views.friends = function () {
+    if (Hub.me.kind === 'user' && Date.now() - lastFrLoad > 15000) { lastFrLoad = Date.now(); Hub.loadFriends(); }
+    var v = h('div', { class: 'fr-page' }), F = Hub.friends;
+    v.appendChild(h('h1', { class: 'page', text: 'Friends' }));
+    v.appendChild(h('p', { class: 'page-sub', text: 'See who is online, jump into a chat, or add someone new.' }));
+    if (Hub.me.kind !== 'user') { v.appendChild(Hub.emptyState('users', 'Sign in to add friends', 'Friends need an account so they can find you.', h('button', { class: 'btn primary', type: 'button', text: 'Sign in', onclick: function () { signOut(); } }))); return v; }
+    var inp = h('input', { class: 'input', placeholder: 'Add a friend by username', maxlength: '20', autocapitalize: 'off', autocomplete: 'off', 'aria-label': 'Friend username' }), add = h('button', { class: 'btn primary', type: 'button', text: 'Send request' });
+    function doAdd() { var u = inp.value.trim(); if (!u) return; add.disabled = true; Hub.api('/api/friends/add', { body: { username: u } }).then(function (r) { add.disabled = false; if (r && r.error) Hub.toast(r.message || 'Could not add that player', { bad: true }); else { Hub.toast('Request sent to ' + u, { icon: 'user-plus' }); inp.value = ''; Hub.loadFriends(); } }); }
+    add.addEventListener('click', doAdd); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') doAdd(); });
+    v.appendChild(h('div', { class: 'fr-card' }, [h('div', { class: 'fr-add2' }, [inp, add])]));
+    function person(f, extra, sub) {
+      return h('div', { class: 'fr-row' }, [h('a', { class: 'fr-who', href: '#/profile/' + encodeURIComponent(f.username) }, [h('span', { class: 'avatar' + (f.online ? ' live' : ''), text: Hub.initials(f.username) }), h('div', { class: 'sp' }, [h('div', { class: 'nn', text: f.username }), h('div', { class: 'aa' + (!sub && f.online ? ' on' : ''), text: sub || (f.online ? (Hub.clean(f.activity) || 'Online') : 'Offline') })])]), h('div', { class: 'fr-acts' }, extra)]);
     }
-    wrap.appendChild(h('div', { class: 'fly-h' }, [h('span', { text: 'Friends' }), h('span', { class: 'sp' }), h('a', { class: 'iconbtn', href: '/friends.html', target: '_blank', rel: 'noopener', 'aria-label': 'Open friends and messages in a new tab' }, icon('external-link')), h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Close', onclick: function () { if (frOpen) frOpen.close(); } }, icon('x'))])); wrap.appendChild(body); paintF();
-    var anchor = $('#frBar') || document.body, f = Hub.flyout(anchor, wrap, { cls: 'fr-panel', label: 'Friends', place: 'above', onClose: function () { frOpen = null; } });
-    f.el.style.top = 'auto'; f.el.style.left = 'auto'; frOpen = f;
+    if (F.incoming.length) {
+      var rq = h('div', { class: 'fr-list' });
+      F.incoming.forEach(function (f) { rq.appendChild(person(f, [h('button', { class: 'btn sm primary', type: 'button', text: 'Accept', onclick: function () { Hub.api('/api/friends/accept', { body: { id: f.id } }).then(function () { Hub.loadFriends(); }); } }), h('button', { class: 'btn sm', type: 'button', text: 'Decline', onclick: function () { Hub.api('/api/friends/decline', { body: { id: f.id } }).then(function () { Hub.loadFriends(); }); } })], 'Wants to be your friend')); });
+      v.appendChild(h('div', { class: 'sec' }, [h('div', { class: 'sec-h' }, h('h2', { text: 'Requests (' + F.incoming.length + ')' })), h('div', { style: 'height:12px' }), rq]));
+    }
+    var on = F.friends.filter(function (f) { return f.online; }), off = F.friends.filter(function (f) { return !f.online; });
+    function msgBtn(f) { return h('button', { class: 'btn sm', type: 'button', onclick: function () { if (Hub.openDm) Hub.openDm(f.username); } }, [Hub.icon('message-square'), 'Message']); }
+    function group(title, list, emptyText) {
+      var box = h('div', { class: 'fr-list' });
+      if (!list.length) box.appendChild(h('p', { class: 'fr-none', text: emptyText })); else list.forEach(function (f) { box.appendChild(person(f, [msgBtn(f), h('a', { class: 'btn sm ghost', href: '#/profile/' + encodeURIComponent(f.username), text: 'Profile' })])); });
+      return h('div', { class: 'sec' }, [h('div', { class: 'sec-h' }, h('h2', { text: title })), h('div', { style: 'height:12px' }), box]);
+    }
+    v.appendChild(group('Online (' + on.length + ')', on, F.friends.length ? 'Nobody is online right now.' : 'No friends yet. Add someone above.'));
+    if (off.length) v.appendChild(group('Offline (' + off.length + ')', off, ''));
+    if (F.outgoing && F.outgoing.length) v.appendChild(h('div', { class: 'sec' }, [h('div', { class: 'sec-h' }, h('h2', { text: 'Sent requests' })), h('div', { style: 'height:12px' }), h('p', { class: 'fr-none', text: F.outgoing.map(function (f) { return f.username; }).join(', ') + '. Waiting for them to accept.' })]));
+    return v;
   };
-  Hub.on('friends', renderFriendsBar);
 
   // ---------- profile page ----------
   Hub.views.profile = function (a) {
@@ -233,7 +243,7 @@
     },
     notifications: function (b) {
       b.appendChild(h('h3', { text: 'Notifications' })); b.appendChild(h('p', { class: 'hint', text: 'Choose what shows up in the bell.' }));
-      [['nUpd', 'Game updates', 'When an installed game has a new version.'], ['nDaily', 'Daily reward', 'When your reward is ready to claim.'], ['nFriends', 'Friend requests', 'When someone wants to be your friend.'], ['nNews', 'Announcements', 'New versions pushed by ScrollHub.']].forEach(function (x) { b.appendChild(kv(x[1], x[2], Hub.toggle('', '', Hub.prefs[x[0]], function (v) { Hub.setPref(x[0], v); Hub.emit('notifs'); }))); });
+      [['nUpd', 'Game updates', 'When an installed game has a new version.'], ['nDaily', 'Daily reward', 'When your reward is ready to claim.'], ['nFriends', 'Friend requests', 'When someone wants to be your friend.'], ['nDiscord', 'Discord pop-ups', 'Show a pop-up for direct messages and mentions while you are playing or browsing. Nothing pops up while Discord is open.'], ['nNews', 'Announcements', 'New versions pushed by ScrollHub.']].forEach(function (x) { b.appendChild(kv(x[1], x[2], Hub.toggle('', '', Hub.prefs[x[0]], function (v) { Hub.setPref(x[0], v); Hub.emit('notifs'); }))); });
     },
     storage: function (b, redo) {
       b.appendChild(h('h3', { text: 'Storage and updates' }));
@@ -262,7 +272,7 @@
     },
     owner: function (b) {
       b.appendChild(h('h3', { text: 'Owner tools' })); b.appendChild(h('p', { class: 'hint', text: 'Open any game page to publish an update. Recent pushes and player feedback are listed here.' }));
-      b.appendChild(h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px' }, [h('a', { class: 'btn sm', href: '/admin', target: '_blank', rel: 'noopener', text: 'Admin panel' }), h('button', { class: 'btn sm', type: 'button', text: 'Refresh versions', onclick: function () { Hub.loadManifest().then(function () { Hub.toast('Versions refreshed'); }); } })]));
+      b.appendChild(h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px' }, [h('a', { class: 'btn sm', href: '#/admin', text: 'Admin tools' }), h('button', { class: 'btn sm', type: 'button', text: 'Refresh versions', onclick: function () { Hub.loadManifest().then(function () { Hub.toast('Versions refreshed'); }); } })]));
       b.appendChild(h('h4', { text: 'Recent update pushes' })); var feed = (Hub.manifest.feed || []).slice(0, 8);
       if (!feed.length) b.appendChild(h('p', { class: 'hint', text: 'Nothing pushed yet.' })); feed.forEach(function (f) { b.appendChild(h('div', { class: 'fb' }, [h('b', { text: f.title + ' v' + f.v }), '  ' + Hub.ago(f.ts) + ' ago. ' + (f.notes || '')])); });
       b.appendChild(h('h4', { text: 'Player feedback' })); var box = h('div', {}, h('p', { class: 'hint', text: 'Loading...' })); b.appendChild(box);
@@ -347,12 +357,12 @@
 
   // ---------- startup ----------
   function startApp(fresh) {
-    Hub.loadLib(Hub.me.id); Hub.ready = true; $('#login').hidden = true;
+    Hub.loadLib(Hub.me.id); Hub.ready = true; $('#login').hidden = true; Hub.emit('ready');
     var app = $('#app'); app.classList.add('on'); Hub.renderChrome(); if (!location.hash || location.hash === '#') location.replace('#/home'); Hub.render(false);
-    Hub.loadWallet().then(function () { Hub.renderChrome(); }); Hub.loadFriends().then(renderFriendsBar);
+    Hub.loadWallet().then(function () { Hub.renderChrome(); }); Hub.loadFriends();
     if (!Hub.lib.checked || Date.now() - Hub.lib.checked > 120000) Hub.checkUpdates(true);
     setInterval(function () { if (!document.hidden) { Hub.checkUpdates(true); Hub.loadSchool(); } }, 5 * 60000);
-    setInterval(function () { if (!document.hidden && Hub.me.kind === 'user') Hub.loadFriends(); }, 60000);
+    setInterval(function () { if (!document.hidden && Hub.me.kind === 'user') Hub.loadFriends(); }, 30000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) { Hub.loadSchool(); if (Date.now() - (Hub.lib.checked || 0) > 60000) Hub.checkUpdates(true); } });
     setInterval(function () { if (!document.hidden) Hub.loadSchool(); }, 15000);
   }

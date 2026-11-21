@@ -79,8 +79,8 @@
   }
 
   // ---------- shell: sidebar / topbar / tabbar ----------
-  var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['casino', 'Casino', 'dices'], ['store', 'Store', 'shopping-bag']];
-  function navItems() { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()); }); }
+  var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['casino', 'Casino', 'dices'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['admin', 'Admin tools', 'shield']];
+  function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
   function curRoot() { var r = Hub.parse().name; return r === 'genre' || r === 'search' ? 'store' : (r === 'game' ? Hub.lastRoot || 'home' : r); }
   function avatarEl(cls) {
     var m = Hub.me, a = h('span', { class: 'avatar' + (cls ? ' ' + cls : '') });
@@ -96,7 +96,7 @@
     var gift = h('button', { class: 'iconbtn gift', type: 'button', 'aria-label': 'Daily reward' }, [icon('gift'), Hub.dailyReady() ? h('i', { class: 'dot plain' }) : null]); gift.addEventListener('click', function () { Hub.rewardsModal(); });
     var n = Hub.unreadCount(), bell = h('button', { class: 'iconbtn', type: 'button', id: 'bellBtn', 'aria-label': 'Notifications' + (n ? ', ' + n + ' unread' : ''), 'aria-haspopup': 'dialog' }, [icon('bell'), n ? h('i', { class: 'dot', text: n > 9 ? '9+' : String(n) }) : null]); bell.addEventListener('click', function () { Hub.notifFlyout(bell); });
     side.appendChild(h('div', { class: 'me' }, [who, gift, bell]));
-    var nav = h('nav', { class: 'nav', 'aria-label': 'Main' }); navItems().forEach(function (it) { nav.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] })])); });
+    var nav = h('nav', { class: 'nav', 'aria-label': 'Main' }); navItems().forEach(function (it) { nav.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] }), (it[0] === 'discord' && Hub.dcUnread) || (it[0] === 'friends' && Hub.friends.incoming.length) ? h('i', { class: 'dot plain nav-dot' }) : null])); });
     side.appendChild(nav);
     var rec = Hub.recents(6);
     if (Hub.prefs.recents && rec.length) {
@@ -113,7 +113,7 @@
     side.appendChild(q);
   }
   function renderTabbar() {
-    var bar = Hub.clear($('#tabbar')), root = curRoot(); navItems().forEach(function (it) { bar.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] === 'My Library' ? 'Library' : it[1] })])); });
+    var bar = Hub.clear($('#tabbar')), root = curRoot(); navItems(true).forEach(function (it) { bar.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] === 'My Library' ? 'Library' : it[1] })])); });
   }
   var DETAIL = { game: 1, search: 1, genre: 1, profile: 1 };
   function renderTop() {
@@ -122,7 +122,7 @@
     if (detail) { left = h('button', { class: 'back', type: 'button', 'aria-label': 'Back' }, icon('arrow-left')); left.addEventListener('click', function () { if (Hub.hasPrev) history.back(); else location.hash = '#/' + (Hub.lastRoot || 'home'); }); }
     else { left = h('button', { class: 'back avatar-btn', type: 'button', 'aria-label': 'Account menu' }, avatarEl()); left.style.padding = '0'; left.style.background = 'none'; left.style.border = '0'; left.addEventListener('click', function () { Hub.profileMenu(left); }); if (window.innerWidth > 760) { left = h('span', { class: 'top-spacer' }); } }
     top.appendChild(left);
-    top.appendChild(buildSearch());
+    if (r.name === 'discord') top.appendChild(h('span', { class: 'grow' })); else top.appendChild(buildSearch());
     var bell = h('button', { class: 'iconbtn only-m', type: 'button', 'aria-label': 'Notifications' }, [icon('bell'), Hub.unreadCount() ? h('i', { class: 'dot plain' }) : null]); bell.addEventListener('click', function () { Hub.notifFlyout(bell); });
     top.appendChild(bell); top.appendChild(h('span', { class: 'top-spacer only-d' }));
   }
@@ -149,7 +149,7 @@
     });
     input.addEventListener('focus', show); input.addEventListener('blur', function () { setTimeout(close, 160); });
     clr.addEventListener('click', function () { input.value = ''; clr.hidden = true; close(); input.focus(); });
-    document.addEventListener('keydown', function (e) { if ((e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '') && !$('.modal')) { e.preventDefault(); input.focus(); } });
+    document.addEventListener('keydown', function (e) { if ((e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '') && !$('.modal') && input.isConnected) { e.preventDefault(); input.focus(); } });
     return wrap;
   }
 
@@ -159,14 +159,14 @@
   var firstRoute = true, lastKey = '';
   Hub.render = function (keepScroll) {
     var r = Hub.parse(), name = r.name, view = Hub.views[name]; if (!view) { location.replace('#/home'); return; }
-    if (['home', 'originals', 'library', 'casino', 'store'].indexOf(name) >= 0) Hub.lastRoot = name;
+    if (['home', 'originals', 'library', 'casino', 'store', 'discord', 'friends', 'admin'].indexOf(name) >= 0) Hub.lastRoot = name;
     if ((name === 'casino' && !Hub.canCasino()) || (name === 'store' && !Hub.canStore()) || (name === 'genre' && !Hub.canStore())) { location.replace('#/home'); return; }
     Hub.closeMenu(); Hub.closeFly();
     var host = $('#view'), sc = $('#scroll'), top = sc.scrollTop; Hub.clear(host);
     var node; try { node = view(r.args); } catch (e) { if (window.console) console.error(e); node = emptyState('triangle-alert', 'Something went wrong', 'This page could not be shown. Try again.', h('a', { class: 'btn primary', href: '#/home', text: 'Back to Home' })); }
     host.appendChild(node); host.style.animation = 'none'; void host.offsetWidth; host.style.animation = ''; host.className = 'view';
     sc.scrollTop = keepScroll ? top : 0; renderTop(); renderSide(); renderTabbar();
-    var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search' }[name];
+    var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search', discord: 'Discord', friends: 'Friends', admin: 'Admin tools' }[name];
     if (!Hub.playing) document.title = (name === 'game' && Hub.byId[r.args[0]] ? Hub.byId[r.args[0]].title : (ttl || 'ScrollHub')) + ' - ScrollHub';
   };
   window.addEventListener('hashchange', function () { if (!firstRoute) Hub.hasPrev = true; firstRoute = false; if (!Hub.ready) return; Hub.render(false); });

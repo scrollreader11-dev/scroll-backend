@@ -20,8 +20,8 @@ import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
 import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta } from './casino.js';
-import { handleAuth, resolveSession, accountByName } from './auth.js';
+import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers } from './discord.js';
 await initCasino();
 
@@ -119,7 +119,7 @@ let _stateDirty = false, _chatDirty = false;
 async function kvFlush() {
   if (!kvEnabled) return;
   try {
-    if (_stateDirty) { _stateDirty = false; await kvSet('sh:state', JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners })); }
+    if (_stateDirty) { _stateDirty = false; await kvSet('sh:state', JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners, audit: admin.audit })); }
   } catch (e) { _stateDirty = true; }
   try {
     if (_chatDirty) { _chatDirty = false; const trimmed = {}; for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-800); await kvSet('sh:chat', JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev, announcements: chat.announcements })); }
@@ -135,7 +135,8 @@ const admin = {
   commands: {},   // clientId -> [ {type, ...} ]  (one-shot queue)
   frozen: {},     // clientId -> until (0 = indefinite)
   customGames: [],// admin-added games shown to everyone
-  chatOwners: {}  // clientId -> true  (designated chat owners)
+  chatOwners: {}, // clientId -> true  (designated chat owners)
+  audit: []       // staff action log: {ts, by, role, action, target, detail}
 };
 // ── Extended admin state ───────────────────────────────────────────────────
 const muted = {};        // ip -> { until (0=permanent), reason }
@@ -182,6 +183,7 @@ function applyState(saved) {
   if (saved.stats) Object.assign(stats, saved.stats);
   if (Array.isArray(saved.customGames)) admin.customGames = saved.customGames;
   if (saved.chatOwners) admin.chatOwners = saved.chatOwners;
+  if (Array.isArray(saved.audit)) admin.audit = saved.audit.slice(-400);
 }
 try {
   const fs = await import('node:fs');
@@ -195,7 +197,7 @@ async function saveState() {
   _stateDirty = true;
   try {
     const fs = await import('node:fs');
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners }));
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners, audit: admin.audit }));
   } catch {}
 }
 setInterval(saveState, 60000);
@@ -350,7 +352,8 @@ function extForCt(ct) {
 // in KV, and returns a same-origin /ci/<id>.<ext> URL to use as a game thumbnail.
 async function handleGameImg(req, res) {
   const body = await readBody(req);
-  if (!ADMIN_PASSWORD || body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
+  const who = await resolveSession(req);
+  if (!who || who.role !== 'owner') return sendJson(res, 403, { error: 'owner only' });
   const dataUrl = String(body.dataUrl || '');
   const m = /^data:(image\/[a-z.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(dataUrl);
   if (!m) return sendJson(res, 400, { error: 'Expected a base64 image data URL' });
@@ -434,10 +437,24 @@ globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.
 globalThis.SH_SET_SQUIZ = async (v) => { admin.settings.schoolQuiz = !!v; logEvent('admin', 'admin', '📝 School Mode questions ' + (v ? 'ON' : 'OFF')); try { await saveState(); } catch (e) {} };
 globalThis.SH_SET_GAMBLE = async (v) => { admin.settings.schoolGamble = !!v; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (v ? 'UNLOCKED' : 'locked')); try { await saveState(); } catch (e) {} };
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
-async function handleAdmin(req, res) {
-  const body = await readBody(req);
-  if (!ADMIN_PASSWORD || body.password !== ADMIN_PASSWORD) return sendJson(res, 403, { error: 'bad password' });
+// Actions a moderator may run through the legacy tool set. Everything else is owner-only.
+const MOD_ACTIONS = new Set(['state', 'kick', 'mute', 'unmute', 'freeze', 'announce', 'delannounce', 'broadcast', 'reports', 'clearreports', 'chatlog', 'deletemsg', 'playerhistory', 'setnote', 'wordfilterlist', 'addword', 'removeword', 'setslow', 'ban', 'unban', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory']);
+function audit(who, action, target, detail) {
+  admin.audit.push({ ts: Date.now(), by: who.username, role: who.role, action: String(action).slice(0, 40), target: String(target || '').slice(0, 60), detail: String(detail || '').slice(0, 160) });
+  if (admin.audit.length > 400) admin.audit.shift();
+  saveState().catch(() => {});
+}
+async function handleAdmin(req, res, body, who) {
   const action = body.action;
+  if (!who || !who.role) return sendJson(res, 403, { error: 'staff only' });
+  if (who.role === 'mod') {
+    if (!MOD_ACTIONS.has(action)) return sendJson(res, 403, { error: 'owner only' });
+    // Moderators can only issue timed bans (at most 7 days) so a permanent ban stays an owner call.
+    if (action === 'ban') { const m = Number(body.minutes) || 0; if (m <= 0 || m > 10080) body.minutes = 10080; }
+  }
+  if (!['state', 'chatlog', 'wordfilterlist', 'playerhistory', 'reports', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory'].includes(action)) {
+    audit(who, action, body.id || body.username || body.channel || '', body.reason || body.text || body.title || '');
+  }
 
   if (action === 'state') {
     prunePlayers();
@@ -844,6 +861,147 @@ async function handleAdmin(req, res) {
     return sendJson(res, 200, { ok: true, active });
   }
   return sendJson(res, 400, { error: 'unknown action' });
+}
+
+
+// ============================================================
+// STAFF PANEL — role based, no password. The caller's role comes from their login session.
+//   owner: everything, including granting/removing mods and editing any account.
+//   mod:   moderation tools only (see MOD_ACTIONS); cannot grant roles or touch economy.
+// ============================================================
+async function staffTarget(username) {
+  const acct = await accountByName(String(username || ''));
+  if (!acct) return null;
+  return acct;
+}
+async function handleStaff(req, res) {
+  const body = await readBody(req);
+  const who = await resolveSession(req).catch(() => null);
+  if (!who || !who.role) return sendJson(res, 403, { error: 'staff only' });
+  const owner = who.role === 'owner';
+  const action = String(body.action || '');
+  const needOwner = () => sendJson(res, 403, { error: 'owner only' });
+
+  if (action === 'staff.list') return sendJson(res, 200, { ok: true, staff: await listStaff() });
+  if (action === 'players.search') {
+    const q = String(body.q || '').slice(0, 30);
+    const names = await searchNames(q, 25);
+    const now = Date.now();
+    const live = new Map();
+    for (const p of players.values()) if (p.account && now - p.lastSeen < PLAYER_TTL) live.set(String(p.nickname || '').toLowerCase(), true);
+    const list = [];
+    for (const n of names) list.push({ username: n, online: live.has(n.toLowerCase()), role: await roleForName(n) });
+    return sendJson(res, 200, { ok: true, players: list });
+  }
+  if (action === 'player.get') {
+    const acct = await staffTarget(body.username);
+    if (!acct) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+    const live = players.get(acct.id) || null;
+    const now = Date.now();
+    const out = {
+      username: acct.username, id: acct.id, createdAt: acct.createdAt || 0, lastSeen: acct.lastSeen || 0, ban: accountBan(acct), role: await roleForName(acct.username),
+      live: live ? { online: now - live.lastSeen < PLAYER_TTL, location: live.location || '', activity: live.activity || '', since: live.firstSeen, frozen: frozenActive(acct.id), muted: !!(muted[live.ip] && (muted[live.ip].until === 0 || muted[live.ip].until > now)), ip: owner ? live.ip : undefined } : null,
+      note: playerNotes[acct.id] || '', chatOwner: !!admin.chatOwners[acct.id],
+    };
+    if (owner) out.casino = adminProfile(acct.id);
+    else { try { const c = publicUserCard(acct.id); out.card = c; } catch (e) {} }
+    return sendJson(res, 200, { ok: true, player: out });
+  }
+  if (action === 'players.live') {
+    prunePlayers();
+    const now = Date.now();
+    const list = [...players.values()].filter((p) => now - p.lastSeen < PLAYER_TTL).sort((a, b) => b.lastSeen - a.lastSeen).slice(0, 200).map((p) => ({ id: p.id, nickname: p.nickname, account: !!p.account, activity: p.activity || '', location: p.location || '', frozen: frozenActive(p.id), ip: owner ? p.ip : undefined }));
+    return sendJson(res, 200, { ok: true, players: list });
+  }
+  if (action === 'players.list') {
+    // Every account, online or offline. Filters: all | online | staff | banned. Sort: recent | name | joined | scrolls (owner).
+    const q = String(body.q || '').toLowerCase().trim().slice(0, 30);
+    const filter = String(body.filter || 'all'); const sort = String(body.sort || 'recent');
+    const limit = Math.max(10, Math.min(100, Number(body.limit) || 40)); const offset = Math.max(0, Number(body.offset) || 0);
+    const all = await allAccounts(!!body.refresh);
+    const now = Date.now(); const live = new Map();
+    for (const p of players.values()) if (p.account && now - p.lastSeen < PLAYER_TTL) live.set(p.id, p);
+    let list = all.map((a) => ({ username: a.username, id: a.id, createdAt: a.createdAt, lastSeen: Math.max(a.lastSeen || 0, (live.get(a.id) || {}).lastSeen || 0), role: a.role, banned: !!a.ban, online: live.has(a.id), activity: live.has(a.id) ? (live.get(a.id).activity || '') : '' }));
+    if (owner) list.forEach((x) => { x.coins = walletCoins(x.id); });
+    const counts = { all: list.length, online: list.filter((x) => x.online).length, staff: list.filter((x) => x.role).length, banned: list.filter((x) => x.banned).length };
+    if (q) list = list.filter((x) => x.username.toLowerCase().includes(q));
+    if (filter === 'online') list = list.filter((x) => x.online); else if (filter === 'staff') list = list.filter((x) => x.role); else if (filter === 'banned') list = list.filter((x) => x.banned);
+    if (sort === 'name') list.sort((a, b) => a.username.localeCompare(b.username));
+    else if (sort === 'joined') list.sort((a, b) => b.createdAt - a.createdAt);
+    else if (sort === 'scrolls' && owner) list.sort((a, b) => (b.coins || 0) - (a.coins || 0));
+    else list.sort((a, b) => (b.online - a.online) || (b.lastSeen - a.lastSeen) || (b.createdAt - a.createdAt));
+    return sendJson(res, 200, { ok: true, total: list.length, counts, players: list.slice(offset, offset + limit) });
+  }
+  if (action === 'player.ban' || action === 'player.unban') {
+    const t = await staffTarget(body.username);
+    if (!t) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+    const tr = await roleForName(t.username);
+    if (tr === 'owner' || (tr === 'mod' && !owner)) return sendJson(res, 200, { error: 'fixed', message: 'You cannot ban ' + (tr === 'owner' ? 'an owner' : 'another moderator') + '.' });
+    if (action === 'player.unban') {
+      if (!owner) return needOwner();
+      await setAccountBan(t.username, null); audit(who, 'unban account', t.username, ''); return sendJson(res, 200, { ok: true });
+    }
+    let mins = Math.floor(Number(body.minutes) || 0);
+    if (!owner && (mins <= 0 || mins > 10080)) mins = 10080;
+    const reason = String(body.reason || 'Banned by staff').slice(0, 120);
+    await setAccountBan(t.username, { until: mins > 0 ? Date.now() + mins * 60000 : 0, reason, by: who.username });
+    admin.kicks[t.id] = { message: 'Your account has been banned. ' + reason, ts: Date.now() };
+    audit(who, 'ban account', t.username, (mins ? mins + 'm ' : 'permanent ') + reason);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'audit.list') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, audit: admin.audit.slice(-200).reverse() }); }
+
+  // ---- everything below is owner only ----
+  const ownerActions = ['staff.setrole', 'player.coins', 'player.item', 'player.streak', 'player.dailyReset', 'player.resetProfile', 'player.signout', 'store.list'];
+  if (ownerActions.includes(action) && !owner) return needOwner();
+
+  if (action === 'store.list') return sendJson(res, 200, { ok: true, items: adminStoreList() });
+
+  if (action === 'staff.setrole') {
+    const acct = await staffTarget(body.username);
+    if (!acct) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+    if (isOwnerName(acct.username)) return sendJson(res, 200, { error: 'fixed', message: 'Owners cannot be changed.' });
+    const role = body.role === 'mod' ? 'mod' : null;
+    await setRole(acct.username, role);
+    audit(who, role ? 'grant mod' : 'remove mod', acct.username, '');
+    return sendJson(res, 200, { ok: true, staff: await listStaff() });
+  }
+
+  const acct = ownerActions.includes(action) ? await staffTarget(body.username) : null;
+  if (ownerActions.includes(action) && !acct) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+
+  if (action === 'player.coins') {
+    const mode = String(body.mode || 'give');
+    const amt = Math.max(0, Math.min(1e12, Math.floor(Number(body.amount) || 0)));
+    let bal;
+    if (mode === 'set') bal = adminSetCoins(acct.id, amt);
+    else bal = grantCoins(acct.id, mode === 'take' ? -amt : amt);
+    audit(who, 'scrolls ' + mode, acct.username, String(amt) + ' -> ' + bal);
+    coinHistory.push({ ts: Date.now(), name: acct.username, amount: mode === 'take' ? -amt : mode === 'set' ? 0 : amt, reason: 'Staff ' + mode + ' (' + who.username + ')' });
+    if (coinHistory.length > 500) coinHistory.shift();
+    return sendJson(res, 200, { ok: true, balance: bal });
+  }
+  if (action === 'player.item') {
+    const mode = String(body.mode || 'give'); const itemId = String(body.itemId || '');
+    let inv = null;
+    if (mode === 'give') inv = adminGiveItem(acct.id, itemId);
+    else if (mode === 'take') inv = adminTakeItem(acct.id, itemId);
+    else if (mode === 'giveall') inv = adminGiveAllItems(acct.id);
+    else if (mode === 'clear') inv = adminClearInventory(acct.id);
+    if (!inv) return sendJson(res, 200, { error: 'bad-item', message: 'Unknown item.' });
+    audit(who, 'item ' + mode, acct.username, itemId);
+    return sendJson(res, 200, { ok: true, inventory: inv });
+  }
+  if (action === 'player.streak') { adminSetField(acct.id, 'streak', body.value); audit(who, 'set streak', acct.username, String(body.value)); return sendJson(res, 200, { ok: true }); }
+  if (action === 'player.dailyReset') { adminSetField(acct.id, 'dailyReady', 0); audit(who, 'reset daily', acct.username, ''); return sendJson(res, 200, { ok: true }); }
+  if (action === 'player.resetProfile') { adminResetProfile(acct.id); audit(who, 'reset profile', acct.username, ''); return sendJson(res, 200, { ok: true }); }
+  if (action === 'player.signout') {
+    await revokeSessions(acct.username);
+    audit(who, 'sign out everywhere', acct.username, '');
+    return sendJson(res, 200, { ok: true });
+  }
+  // anything else is a legacy tool action (settings, bans, announcements, chat tools ...)
+  return handleAdmin(req, res, body, who);
 }
 
 // ---------- Movies (TMDB) ----------
@@ -1619,7 +1777,7 @@ function colorFor(seed) {
 }
 function isChatOwner(req) {
   const c = parseCookies(req);
-  if (ADMIN_PASSWORD && c.sh_owner === ADMIN_PASSWORD) return true;         // the admin
+  if (req._auth && req._auth.role) return true;                           // owner or mod account
   const cid = req._auth ? req._auth.id : c.sh_cid;
   return !!admin.chatOwners[cid];                          // a designated owner
 }
@@ -1983,6 +2141,7 @@ const httpServer = createServer(async (req, res) => {
     req.url = '/hub/index.html';
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
   }
+  if (url === '/admin' || url === '/admin/') { res.writeHead(302, { Location: '/#/admin', 'cache-control': 'no-store' }); res.end(); return; }
   if (url === '/hub' || url === '/hub/') {
     req.url = '/hub/index.html' + (parsed.search || '');
     return serve(req, res, () => { res.writeHead(404); res.end('Not found'); });
@@ -2181,7 +2340,9 @@ const httpServer = createServer(async (req, res) => {
 
   // Live presence (visitor heartbeat) + admin control.
   if (url === '/api/presence' && req.method === 'POST') return handlePresence(req, res);
-  if (url === '/api/admin' && req.method === 'POST') return handleAdmin(req, res);
+  if (url === '/api/admin' && req.method === 'POST') { const who = await resolveSession(req).catch(() => null); return handleAdmin(req, res, await readBody(req), who); }
+  if (url === '/api/staff/me') { const who = await resolveSession(req).catch(() => null); return sendJson(res, 200, { role: who ? who.role : null, username: who ? who.username : '' }); }
+  if (url === '/api/staff/act' && req.method === 'POST') return handleStaff(req, res);
   if (url === '/api/admin/gameimg' && req.method === 'POST') return handleGameImg(req, res);
   if (url.startsWith('/ci/')) return serveGameImg(req, res, url);
   // Which commit is live (Render sets RENDER_GIT_COMMIT). Open /api/version to check a deploy.

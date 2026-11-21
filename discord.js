@@ -9,7 +9,7 @@
 // ============================================================
 import { WebSocketServer } from 'ws';
 import crypto from 'crypto';
-import { resolveSession, accountByName, sessionFromToken } from './auth.js';
+import { resolveSession, accountByName, sessionFromToken, roleForName } from './auth.js';
 
 let getCosmetics = () => ({ color: '', tag: '' });
 let kvGet = async () => null;
@@ -56,8 +56,25 @@ export async function initDiscord(deps) {
       });
     }
   } catch (e) { console.log('discord load failed:', e.message); }
+  ensureGlobal();
   setInterval(flush, 12000);
 }
+// A built-in server every account joins, so the Discord is never empty.
+const GLOBAL_ID = 'g_global';
+function ensureGlobal() {
+  let g = dc.guilds[GLOBAL_ID];
+  if (!g) {
+    g = { id: GLOBAL_ID, name: 'ScrollHub', icon: 'S', ownerId: 'system', createdAt: Date.now(), channels: [], memberIds: [], invites: {}, names: { system: 'ScrollHub' } };
+    const mk = (nm, type, topic) => { const cid = GLOBAL_ID + '_' + slug(nm); g.channels.push({ id: cid, name: slug(nm), type, topic: topic || '' }); dc.channelIndex[cid] = { guildId: GLOBAL_ID, type }; if (type === 'text') { dc.messages[cid] = dc.messages[cid] || []; dc.rev[cid] = dc.rev[cid] || 1; } };
+    mk('welcome', 'text', 'Start here. Be kind and have fun.'); mk('general', 'text', 'Chat about anything.'); mk('games', 'text', 'Talk about games, tips and scores.'); mk('scroll-racing', 'text', 'Racing lobbies and lap times.'); mk('looking-for-group', 'text', 'Find people to play with.'); mk('Lounge', 'voice'); mk('Game night', 'voice');
+    dc.guilds[GLOBAL_ID] = g;
+    dc.messages[GLOBAL_ID + '_welcome'].push({ id: rid(14), uid: 'system', name: 'ScrollHub', color: '', title: '', titleFx: '', avatarFx: '', avatar: '', role: 'owner', content: 'Welcome to the ScrollHub Discord. Make your own server with the plus button, or hop into a voice channel to talk while you play.', attachments: [], ts: Date.now(), edited: false });
+    markDirty();
+  }
+  return g;
+}
+function isStaffAuth(auth) { return !!(auth && auth.role); }
+function canManage(g, auth) { return !!g && (g.ownerId === auth.id || (g.id === GLOBAL_ID && isStaffAuth(auth))); }
 
 // ---- helpers ----
 function rid(n = 12) { const c = 'abcdefghijklmnopqrstuvwxyz0123456789'; let s = ''; for (let i = 0; i < n; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
@@ -77,7 +94,7 @@ function dmId(a, b) { return 'dm:' + [a, b].sort().join(':'); }
 function bumpRev(cid) { dc.rev[cid] = (dc.rev[cid] || 0) + 1; }
 
 function guildPublic(g) {
-  return { id: g.id, name: g.name, icon: g.icon || '', ownerId: g.ownerId, channels: g.channels, memberCount: g.memberIds.length };
+  return { id: g.id, name: g.name, icon: g.icon || '', ownerId: g.ownerId, channels: g.channels, memberCount: g.memberIds.length, builtin: g.id === GLOBAL_ID };
 }
 function isMember(g, uid) { return g && g.memberIds.includes(uid); }
 
@@ -152,7 +169,8 @@ export async function iceServers() {
 export async function handleDiscord(url, req, res) {
   const auth = req._auth || await resolveSession(req);
   if (!auth) return sendJson(res, 401, { error: 'login-required' });
-  const me = auth; // {id, username}
+  const me = auth; // {id, username, role}
+  if (me.role) staffNames.add(String(me.username).toLowerCase());
   const path = url.split('?')[0];
   const q = new URL(req.url || url, 'http://x').searchParams;
 
@@ -160,6 +178,8 @@ export async function handleDiscord(url, req, res) {
   // (handled separately in server.js for /dcf/)
 
   if (path === '/api/dc/boot') {
+    const gg = ensureGlobal();
+    if (!gg.left || !gg.left.includes(me.id)) { if (!gg.memberIds.includes(me.id)) { addMember(gg, me.id); (gg.names = gg.names || {})[me.id] = me.username; } }
     const gids = dc.userGuilds[me.id] || [];
     const guilds = gids.map((id) => dc.guilds[id]).filter(Boolean).map(guildPublic);
     const dms = Object.values(dc.dms).filter((d) => d.userIds.includes(me.id)).map((d) => {
@@ -169,7 +189,7 @@ export async function handleDiscord(url, req, res) {
       return { id: d.id, user: { id: other, username: d.otherName && d.otherName[other] || 'User', color: oc.color, avatarFx: oc.avatarFx, avatar: oc.avatar }, lastTs: msgs.length ? msgs[msgs.length - 1].ts : d.ts };
     }).sort((a, b) => b.lastTs - a.lastTs);
     const mc = cosFull(me.id);
-    return sendJson(res, 200, { me: { id: me.id, username: me.username, color: mc.color, title: mc.title, titleFx: mc.titleFx, avatarFx: mc.avatarFx, avatar: mc.avatar }, guilds, dms });
+    return sendJson(res, 200, { me: { id: me.id, username: me.username, role: me.role || null, color: mc.color, title: mc.title, titleFx: mc.titleFx, avatarFx: mc.avatarFx, avatar: mc.avatar }, guilds, dms });
   }
 
   if (path === '/api/dc/guild' && req.method === 'POST') {
@@ -184,7 +204,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/channel$/)) && req.method === 'POST') {
     const g = dc.guilds[m[1]];
     if (!g) return sendJson(res, 404, { error: 'no-guild' });
-    if (!isMember(g, me.id)) return sendJson(res, 403, { error: 'not-member' });
+    if (!isMember(g, me.id) || (g.id === GLOBAL_ID && !canManage(g, me))) return sendJson(res, 403, { error: 'not-member' });
     const b = await readBody(req);
     const type = b.type === 'voice' ? 'voice' : 'text';
     const cid = g.id + '_' + slug(b.name) + '_' + rid(4);
@@ -205,6 +225,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/leave$/)) && req.method === 'POST') {
     const g = dc.guilds[m[1]];
     if (g) {
+      if (g.id === GLOBAL_ID) (g.left = g.left || []).push(me.id);
       g.memberIds = g.memberIds.filter((u) => u !== me.id);
       dc.userGuilds[me.id] = (dc.userGuilds[me.id] || []).filter((x) => x !== g.id);
       markDirty();
@@ -214,7 +235,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/delete$/)) && req.method === 'POST') {
     const g = dc.guilds[m[1]];
     if (!g) return sendJson(res, 200, { ok: true });
-    if (g.ownerId !== me.id) return sendJson(res, 403, { error: 'not-owner' });
+    if (g.ownerId !== me.id || g.id === GLOBAL_ID) return sendJson(res, 403, { error: 'not-owner' });
     for (const ch of g.channels) { delete dc.messages[ch.id]; delete dc.rev[ch.id]; delete dc.channelIndex[ch.id]; }
     for (const uid of g.memberIds) {
       if (dc.userGuilds[uid]) dc.userGuilds[uid] = dc.userGuilds[uid].filter((x) => x !== g.id);
@@ -226,7 +247,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/kick$/)) && req.method === 'POST') {
     const g = dc.guilds[m[1]];
     if (!g) return sendJson(res, 404, { error: 'no-guild' });
-    if (g.ownerId !== me.id) return sendJson(res, 403, { error: 'not-owner' });
+    if (!canManage(g, me)) return sendJson(res, 403, { error: 'not-owner' });
     const b = await readBody(req);
     const uid = clean(b.uid, 64);
     if (!uid || uid === g.ownerId) return sendJson(res, 400, { error: 'bad-target' });
@@ -239,7 +260,7 @@ export async function handleDiscord(url, req, res) {
   if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/members$/))) {
     const g = dc.guilds[m[1]];
     if (!g || !isMember(g, me.id)) return sendJson(res, 403, { error: 'not-member' });
-    const members = g.memberIds.map((uid) => { const c = cosFull(uid); return { id: uid, username: g.names && g.names[uid] || 'User', owner: uid === g.ownerId, color: c.color, title: c.title, titleFx: c.titleFx, avatarFx: c.avatarFx, avatar: c.avatar }; });
+    const members = g.memberIds.map((uid) => { const c = cosFull(uid); return { id: uid, username: g.names && g.names[uid] || 'User', owner: uid === g.ownerId, staff: !!(g.names && g.names[uid] && staffNames.has(String(g.names[uid]).toLowerCase())), color: c.color, title: c.title, titleFx: c.titleFx, avatarFx: c.avatarFx, avatar: c.avatar }; });
     return sendJson(res, 200, { members });
   }
 
@@ -297,7 +318,7 @@ export async function handleDiscord(url, req, res) {
     if (!content && !atts.length) return sendJson(res, 400, { error: 'empty' });
     const cc = cosFull(me.id);
     const msg = {
-      id: rid(14), uid: me.id, name: me.username, color: cc.color, title: cc.title, titleFx: cc.titleFx, avatarFx: cc.avatarFx, avatar: cc.avatar, content,
+      id: rid(14), uid: me.id, name: me.username, role: me.role || null, color: cc.color, title: cc.title, titleFx: cc.titleFx, avatarFx: cc.avatarFx, avatar: cc.avatar, content,
       attachments: atts.slice(0, 4).map((a) => ({ url: clean(a.url, 300), name: clean(a.name, 80), type: clean(a.type, 20), w: +a.w || 0, h: +a.h || 0 }))
         .filter((a) => a.url.startsWith('/dcf/') || /^https?:\/\//.test(a.url)),
       ts: Date.now(), edited: false,
@@ -318,6 +339,48 @@ export async function handleDiscord(url, req, res) {
     return sendJson(res, 200, { ok: true, message: msg });
   }
 
+  if (path === '/api/dc/delete' && req.method === 'POST') {
+    const b = await readBody(req);
+    const cid = clean(b.channel, 80), mid = clean(b.id, 40);
+    if (!canAccessChannel(cid, me.id)) return sendJson(res, 403, { error: 'no-access' });
+    const arr = dc.messages[cid] || [];
+    const i = arr.findIndex((x) => x.id === mid);
+    if (i < 0) return sendJson(res, 404, { error: 'no-message' });
+    const ix = dc.channelIndex[cid]; const g = ix && dc.guilds[ix.guildId];
+    if (arr[i].uid !== me.id && !canManage(g, me) && !(me.role === 'owner')) return sendJson(res, 403, { error: 'not-allowed' });
+    arr.splice(i, 1); bumpRev(cid); markDirty();
+    wsBroadcastChannel(cid, { t: 'del', channel: cid, id: mid });
+    return sendJson(res, 200, { ok: true });
+  }
+  if (path === '/api/dc/edit' && req.method === 'POST') {
+    const b = await readBody(req);
+    const cid = clean(b.channel, 80), mid = clean(b.id, 40), content = clean(b.content, 2000).trim();
+    if (!canAccessChannel(cid, me.id)) return sendJson(res, 403, { error: 'no-access' });
+    const m2 = (dc.messages[cid] || []).find((x) => x.id === mid);
+    if (!m2 || m2.uid !== me.id) return sendJson(res, 403, { error: 'not-allowed' });
+    if (!content) return sendJson(res, 400, { error: 'empty' });
+    m2.content = content; m2.edited = true; bumpRev(cid); markDirty();
+    wsBroadcastChannel(cid, { t: 'edit', channel: cid, message: m2 });
+    return sendJson(res, 200, { ok: true, message: m2 });
+  }
+  if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/channel\/delete$/)) && req.method === 'POST') {
+    const g = dc.guilds[m[1]];
+    if (!g) return sendJson(res, 404, { error: 'no-guild' });
+    if (!canManage(g, me)) return sendJson(res, 403, { error: 'not-owner' });
+    const b = await readBody(req); const cid = clean(b.channel, 80);
+    if (g.channels.length <= 1) return sendJson(res, 400, { error: 'last-channel' });
+    g.channels = g.channels.filter((c) => c.id !== cid);
+    delete dc.messages[cid]; delete dc.rev[cid]; delete dc.channelIndex[cid];
+    markDirty();
+    return sendJson(res, 200, { ok: true, guild: guildPublic(g) });
+  }
+  if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/rename$/)) && req.method === 'POST') {
+    const g = dc.guilds[m[1]];
+    if (!g || !canManage(g, me)) return sendJson(res, 403, { error: 'not-owner' });
+    const b = await readBody(req); const nm = clean(b.name, 40).trim();
+    if (nm) g.name = nm; markDirty();
+    return sendJson(res, 200, { ok: true, guild: guildPublic(g) });
+  }
   if (path === '/api/dc/upload' && req.method === 'POST') {
     const b = await readBody(req);
     const du = String(b.dataUrl || '');
@@ -365,6 +428,7 @@ export async function serveDiscordFile(req, res, url) {
 // ============================================================
 const wss = new WebSocketServer({ noServer: true });
 const conns = new Set();               // all live sockets
+const staffNames = new Set();          // lowercased usernames seen with a staff role
 const voiceRooms = new Map();          // channelId -> Set(conn)
 
 function wsBroadcastChannel(cid, obj) {
@@ -432,6 +496,9 @@ export function handleDiscordUpgrade(req, socket, head) {
         if (d.t === 'sub' && typeof d.channel === 'string') {
           if (canAccessChannel(d.channel, ws.uid)) ws.subs.add(d.channel);
         } else if (d.t === 'unsub') { ws.subs.delete(d.channel); }
+        else if (d.t === 'typing' && typeof d.channel === 'string') {
+          if (canAccessChannel(d.channel, ws.uid)) { const o = JSON.stringify({ t: 'typing', channel: d.channel, uid: ws.uid, name: ws.uname }); for (const c of conns) if (c !== ws && c.readyState === 1 && c.subs && c.subs.has(d.channel)) { try { c.send(o); } catch {} } }
+        }
         else if (d.t === 'voice-join' && typeof d.channel === 'string') {
           if (!canAccessChannel(d.channel, ws.uid)) return;
           leaveVoice(ws);

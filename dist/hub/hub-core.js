@@ -68,7 +68,7 @@
   };
 
   // ---------- preferences ----------
-  var PREF_DEFAULT = { video: 'on', size: 'md', motion: 'auto', contrast: false, auto: true, nUpd: true, nDaily: true, nFriends: true, nNews: true, recents: true };
+  var PREF_DEFAULT = { video: 'on', size: 'md', motion: 'auto', contrast: false, auto: true, nUpd: true, nDaily: true, nFriends: true, nDiscord: true, nNews: true, recents: true };
   Hub.prefs = (function () { var p = Hub.ls.get('sh_hub_prefs', {}) || {}, o = {}, k; for (k in PREF_DEFAULT) o[k] = k in p ? p[k] : PREF_DEFAULT[k]; return o; })();
   Hub.setPref = function (k, v) { Hub.prefs[k] = v; Hub.ls.set('sh_hub_prefs', Hub.prefs); Hub.applyPrefs(); Hub.emit('prefs', k); };
   Hub.applyPrefs = function () {

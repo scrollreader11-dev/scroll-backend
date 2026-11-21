@@ -128,6 +128,53 @@ export function grantCoins(cid, amount) {
   return p.coins;
 }
 
+// ---- staff panel helpers (no HTTP here; server.js checks the caller's role first) ----
+export function adminStoreList() { return STORE.map((it) => ({ id: it.id, type: it.type, label: it.label, price: it.price, rarity: it.rarity || 'common' })); }
+export function adminProfile(cid) {
+  if (!cid) return null;
+  const p = profileOf(cid);
+  return { coins: p.coins, streak: p.streak || 0, lastDaily: p.lastDaily || 0, inventory: p.inventory.slice(), tag: p.tag || '', color: p.color || '', look: { ...ensureLook(p) }, stats: { ...p.stats }, nick: p.nick || '' };
+}
+export function adminSetCoins(cid, amount) {
+  const p = profileOf(cid); if (!p) return null;
+  p.coins = Math.max(0, Math.min(1e12, Math.floor(Number(amount) || 0)));
+  if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+  save(); flush(); return p.coins;
+}
+export function adminGiveItem(cid, itemId) {
+  const it = STORE.find((x) => x.id === itemId); const p = profileOf(cid);
+  if (!it || !p) return null;
+  if (!p.inventory.includes(itemId)) p.inventory.push(itemId);
+  save(); flush(); return p.inventory.slice();
+}
+export function adminGiveAllItems(cid) {
+  const p = profileOf(cid); if (!p) return null;
+  for (const it of STORE) if (!p.inventory.includes(it.id)) p.inventory.push(it.id);
+  save(); flush(); return p.inventory.slice();
+}
+export function adminTakeItem(cid, itemId) {
+  const p = profileOf(cid); if (!p) return null;
+  p.inventory = p.inventory.filter((x) => x !== itemId);
+  if (p.tag === itemId) p.tag = '';
+  save(); flush(); return p.inventory.slice();
+}
+export function adminClearInventory(cid) {
+  const p = profileOf(cid); if (!p) return null;
+  p.inventory = []; p.tag = ''; p.color = '';
+  save(); flush(); return [];
+}
+export function adminSetField(cid, field, value) {
+  const p = profileOf(cid); if (!p) return null;
+  if (field === 'streak') p.streak = Math.max(0, Math.min(100000, Math.floor(Number(value) || 0)));
+  else if (field === 'dailyReady') p.lastDaily = 0;
+  else return null;
+  save(); flush(); return true;
+}
+export function adminResetProfile(cid) {
+  if (!cid || !casino.users[cid]) return null;
+  casino.users[cid] = blankProfile(); save(); flush(); return true;
+}
+
 // Admin event: grant Scrolls to EVERY account (online or not). Returns count.
 export function grantEveryone(amount) {
   const a = Math.floor(Number(amount) || 0); let n = 0;
