@@ -98,7 +98,6 @@
   add('sign', 350, 26, { text: 'SLOT ALLEY', color: '#ff6ec7', size: 26, v: 1 });
   add('plant', 70, 1012); add('plant', 640, 400);
   station('poker', 170, 385, true); station('keno', 310, 385, true); station('scratch', 450, 385, true);
-  station('limbo', 150, 780, true); station('hilo', 290, 780, true); station('penalty', 470, 780, true);
   // --- The Lounge
   add('bottles', 240, 1094, { w: 290, text: '' });
   add('bar', 240, 1250, { w: 300 });
@@ -115,7 +114,7 @@
   var wheelObj = add('wheel', 1440, 330);
   var crashObj = add('crash', 1100, 470);
   add('plinko', 1760, 460); add('plinko', 1890, 460);
-  station('sicbo', 1600, 460);
+  station('limbo', 1300, 480, true); station('sicbo', 1600, 460);
   add('sign', 1440, 26, { text: 'HIGH STAKES', color: '#5cf2ff', size: 26, v: 2 });
   add('rope', 820, 540); add('rope', 2060, 540);
   // --- Main floor
@@ -129,6 +128,7 @@
   // --- Lobby
   add('rug', 1440, 1800, { w: 320, h: 110, text: 'SCROLLS CASINO', col: '#7d1d36', size: 22 });
   add('atm', 790, 1640); add('atm', 872, 1640);
+  station('hilo', 1000, 1650, true); station('penalty', 1860, 1650, true);
   add('wardrobe', 2060, 1640);
   add('easel', 1660, 1640, { title: 'WELCOME!', lines: ['Walk: WASD or click', 'E use · Q chat · T emote', 'Dance floor: the Lounge'] });
   add('couch', 1150, 2010, { col: '#5a189a' }); add('couch', 1730, 2010, { col: '#5a189a' });
