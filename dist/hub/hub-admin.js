@@ -36,6 +36,7 @@
     ['staff', 'Roles and staff', 'shield', 0],
     ['announce', 'Announcements', 'megaphone', 0],
     ['moderation', 'Moderation', 'hammer', 0],
+    ['chats', 'Discord monitor', 'message-square', 0],
     ['site', 'Site controls', 'server', 1],
     ['audit', 'Audit log', 'list-checks', 1],
   ];
@@ -63,6 +64,52 @@
 
   var PANES = {};
 
+
+  // ---------- Discord monitor: every channel, live feed, search, delete ----------
+  PANES.chats = function (host) {
+    var own = isOwner(), state = { mode: 'live', channel: '', since: 0, timer: 0, rows: [] };
+    var list = h('div', { class: 'mon-list' }), pane = h('div', { class: 'mon-pane' }), q = inp('Search every message or a username');
+    var notice = h('p', { class: 'hint', text: own ? 'You can read every server channel and every direct message. Opening a direct message is written to the audit log. Members are told in Discord that messages can be reviewed.' : 'You can read every server channel. Direct messages are owner only. Deleting a message is written to the audit log.' });
+    var wrap = h('div', { class: 'mon' }, [list, pane]);
+    host.appendChild(card('Discord monitor', 'Read every channel in the Discord, search it, and remove messages that break the rules.', [notice, h('div', { class: 'adm-row', style: 'margin:12px 0' }, [q, btn('Search', function () { runSearch(); }, { primary: true }), btn('Live feed', function () { go('live'); }, { icon: 'zap' })]), wrap]));
+    q.addEventListener('keydown', function (e) { if (e.key === 'Enter') runSearch(); });
+    function alive() { return host.isConnected; }
+    function stop() { clearInterval(state.timer); state.timer = 0; }
+    function msgRow(m, showWhere) {
+      var row = h('div', { class: 'mon-m' }, [
+        h('div', { class: 'mh' }, [h('b', { text: Hub.clean(m.name) }), m.role ? badge(m.role) : null, showWhere && m.where ? h('span', { class: 'mw', text: Hub.clean(m.where) }) : null, h('span', { class: 'mt', text: new Date(m.ts).toLocaleString() })]),
+        h('div', { class: 'mc', text: Hub.clean(m.content) || (m.attachments && m.attachments.length ? '' : '(empty)') })]);
+      (m.attachments || []).forEach(function (u) { row.appendChild(h('a', { class: 'ma', href: u, target: '_blank', rel: 'noopener noreferrer' }, [h('img', { src: u, alt: 'attachment', loading: 'lazy' })])); });
+      row.appendChild(h('div', { class: 'mx' }, [btn('Delete', function (e) { confirmBox('Delete this message?', Hub.clean(m.name) + ': ' + Hub.clean(m.content).slice(0, 120), 'Delete').then(function (ok) { if (!ok) return; post({ action: 'discord.del', channel: m.channel, id: m.id }).then(function (r) { if (r && r.ok) { row.remove(); Hub.toast('Message deleted'); } else toastErr(r); }); }); }, { danger: true, ghost: true, icon: 'trash-2' })]));
+      return row;
+    }
+    function paint(rows, title, whereCol) { Hub.clear(pane); pane.appendChild(h('div', { class: 'mon-t', text: title })); var box = h('div', { class: 'mon-msgs' }); if (!rows.length) box.appendChild(empty('Nothing here yet.')); rows.forEach(function (m) { box.appendChild(msgRow(m, whereCol)); }); pane.appendChild(box); }
+    function go(mode, channel, label) {
+      stop(); state.mode = mode; state.channel = channel || ''; markList();
+      if (mode === 'live') {
+        Hub.clear(pane); pane.appendChild(loading());
+        function poll() { if (!alive()) { stop(); return; } post({ action: 'discord.recent', limit: 60 }).then(function (r) { if (!alive() || state.mode !== 'live') return; paint((r && r.messages) || [], 'Live feed: newest messages from every channel (refreshes every 4 seconds)', true); }); }
+        poll(); state.timer = setInterval(poll, 4000);
+      } else {
+        Hub.clear(pane); pane.appendChild(loading());
+        post({ action: 'discord.msgs', channel: channel, limit: 150 }).then(function (r) { if (!alive()) return; if (!r || r.error) { Hub.clear(pane); pane.appendChild(empty(r && r.error === 'owner only' ? 'Only the owner can read direct messages.' : 'Could not load that channel.')); return; } paint(r.messages.slice().reverse(), r.label, false); });
+      }
+    }
+    function runSearch() { var t = q.value.trim(); if (t.length < 2) { Hub.toast('Type at least two letters'); return; } stop(); state.mode = 'search'; markList(); Hub.clear(pane); pane.appendChild(loading()); post({ action: 'discord.search', q: t, limit: 100 }).then(function (r) { if (!alive()) return; paint((r && r.messages) || [], 'Search results for "' + t + '"', true); }); }
+    function markList() { $$('.mon-i', list).forEach(function (e) { e.classList.toggle('on', (state.mode === 'live' && e.dataset.k === 'live') || (state.mode === 'chan' && e.dataset.k === state.channel)); }); }
+    function item(label, k, fn, sub) { var b = h('button', { type: 'button', class: 'mon-i', 'data-k': k }, [h('span', { text: Hub.clean(label) }), sub != null ? h('i', { text: String(sub) }) : null]); b.addEventListener('click', fn); return b; }
+    post({ action: 'discord.chans' }).then(function (r) {
+      if (!alive()) return; Hub.clear(list); list.appendChild(item('Live feed', 'live', function () { go('live'); }));
+      ((r && r.guilds) || []).forEach(function (g) {
+        list.appendChild(h('div', { class: 'mon-g', text: Hub.clean(g.name) + '  ·  ' + g.members + ' members' }));
+        g.channels.forEach(function (c) { list.appendChild(item('#' + c.name, c.id, function () { go('chan', c.id); }, c.count)); });
+      });
+      if (own && r && r.dms && r.dms.length) { list.appendChild(h('div', { class: 'mon-g', text: 'Direct messages (owner only)' })); r.dms.forEach(function (d) { list.appendChild(item(d.users.join(' and '), d.id, function () { go('chan', d.id); }, d.count)); }); }
+      markList();
+    });
+    go('live');
+    var obs = new MutationObserver(function () { if (!alive()) { stop(); obs.disconnect(); } }); obs.observe(document.body, { childList: true, subtree: true });
+  };
   // ---------- overview ----------
   PANES.overview = function (host) {
     host.appendChild(loading());

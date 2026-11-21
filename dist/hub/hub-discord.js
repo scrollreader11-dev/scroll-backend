@@ -232,6 +232,7 @@
     dom.scroller = h('div', { class: 'dc-msgs', role: 'log', 'aria-live': 'polite' }); c.appendChild(dom.scroller);
     dom.typing = h('div', { class: 'dc-typing', 'aria-live': 'polite' }); c.appendChild(dom.typing);
     c.appendChild(composer(title));
+    c.appendChild(h('div', { class: 'dc-note', text: S.view === 'dm' ? 'Staff safety notice: the site owner can review direct messages.' : 'Staff safety notice: site staff can review messages in servers.' }));
     paintMsgs(true);
   }
   function paintTyping() { if (!dom.typing) return; var n = Date.now(), names = []; for (var k in S.typing) { if (S.typing[k].until > n) names.push(S.typing[k].name); else delete S.typing[k]; } dom.typing.textContent = names.length ? (names.length > 2 ? 'Several people are typing' : names.join(' and ') + (names.length > 1 ? ' are typing' : ' is typing')) : ''; }

@@ -22,7 +22,7 @@ import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
 import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
-import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault } from './discord.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -948,6 +948,21 @@ async function handleStaff(req, res) {
     admin.kicks[t.id] = { message: 'Your account has been banned. ' + reason, ts: Date.now() };
     audit(who, 'ban account', t.username, (mins ? mins + 'm ' : 'permanent ') + reason);
     return sendJson(res, 200, { ok: true });
+  }
+  if (action === 'discord.chans') return sendJson(res, 200, { ok: true, ...monChannels(owner) });
+  if (action === 'discord.msgs') {
+    const cid = String(body.channel || '').slice(0, 80); const r = monMessages(cid, owner, +body.limit || 100);
+    if (r.error) return sendJson(res, r.error === 'owner only' ? 403 : 404, r);
+    if (cid.startsWith('dm:')) { try { audit(who, 'discord.viewdm', r.label, ''); } catch (e) {} }
+    return sendJson(res, 200, r);
+  }
+  if (action === 'discord.recent') return sendJson(res, 200, monRecent(owner, +body.limit || 60, +body.since || 0));
+  if (action === 'discord.search') return sendJson(res, 200, monSearch(body.q, owner, +body.limit || 80));
+  if (action === 'discord.del') {
+    const r = monDelete(String(body.channel || '').slice(0, 80), String(body.id || '').slice(0, 40), owner);
+    if (r.error) return sendJson(res, r.error === 'owner only' ? 403 : 404, r);
+    try { audit(who, 'discord.delete', r.who + ' in ' + r.where, ''); } catch (e) {}
+    return sendJson(res, 200, r);
   }
   if (action === 'discord.servers') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, ...discordGuildList() }); }
   if (action === 'discord.setdefault') {

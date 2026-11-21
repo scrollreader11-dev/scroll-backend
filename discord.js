@@ -106,6 +106,52 @@ export function discordSetDefault(gid, everyone) {
   if (Array.isArray(everyone)) for (const a of everyone) { if (!g.memberIds.includes(a.id) && !(g.left && g.left.includes(a.id))) { addMember(g, a.id); (g.names = g.names || {})[a.id] = a.username; added++; } }
   markDirty(); return { ok: true, added, name: g.name };
 }
+
+// ---- Staff monitor: read-only view over every channel (DMs are owner-only) ----
+function monMsg(m, cid) { return { id: m.id, channel: cid, uid: m.uid, name: m.name, role: m.role || null, content: String(m.content || '').slice(0, 2000), ts: m.ts, attachments: (m.attachments || []).map((a) => a.url), edited: !!m.edited }; }
+function monChannelLabel(cid) {
+  if (cid.startsWith('dm:')) { const d = dc.dms[cid]; return d ? 'DM: ' + Object.values(d.otherName || {}).join(' and ') : 'DM'; }
+  const ix = dc.channelIndex[cid]; const g = ix && dc.guilds[ix.guildId]; const c = g && g.channels.find((x) => x.id === cid);
+  return g && c ? g.name + ' / ' + c.name : cid;
+}
+export function monChannels(owner) {
+  const guilds = Object.values(dc.guilds).map((g) => ({ id: g.id, name: g.name, members: g.memberIds.length, channels: g.channels.filter((c) => c.type === 'text').map((c) => { const a = dc.messages[c.id] || []; return { id: c.id, name: c.name, count: a.length, last: a.length ? a[a.length - 1].ts : 0 }; }) }));
+  const dms = owner ? Object.values(dc.dms).map((d) => { const a = dc.messages[d.id] || []; return { id: d.id, users: Object.values(d.otherName || {}), count: a.length, last: a.length ? a[a.length - 1].ts : d.ts || 0 }; }).filter((d) => d.count).sort((x, y) => y.last - x.last) : [];
+  return { guilds, dms };
+}
+export function monMessages(cid, owner, limit) {
+  if (cid.startsWith('dm:') && !owner) return { error: 'owner only' };
+  if (!cid.startsWith('dm:') && !dc.channelIndex[cid]) return { error: 'no-such-channel' };
+  const a = dc.messages[cid] || [];
+  return { ok: true, label: monChannelLabel(cid), messages: a.slice(-Math.min(300, limit || 100)).map((m) => monMsg(m, cid)) };
+}
+export function monRecent(owner, limit, since) {
+  const out = [];
+  for (const cid in dc.messages) {
+    if (cid.startsWith('dm:') && !owner) continue;
+    if (!cid.startsWith('dm:') && !dc.channelIndex[cid]) continue;
+    const a = dc.messages[cid]; for (let i = a.length - 1; i >= 0 && i >= a.length - 30; i--) { if (a[i].ts <= (since || 0)) break; out.push({ ...monMsg(a[i], cid), where: monChannelLabel(cid) }); }
+  }
+  out.sort((x, y) => y.ts - x.ts); return { ok: true, messages: out.slice(0, Math.min(200, limit || 60)) };
+}
+export function monSearch(q, owner, limit) {
+  q = String(q || '').toLowerCase().trim(); if (q.length < 2) return { ok: true, messages: [] };
+  const out = [];
+  for (const cid in dc.messages) {
+    if (cid.startsWith('dm:') && !owner) continue;
+    if (!cid.startsWith('dm:') && !dc.channelIndex[cid]) continue;
+    for (const m of dc.messages[cid]) { if (String(m.content || '').toLowerCase().includes(q) || String(m.name || '').toLowerCase() === q) out.push({ ...monMsg(m, cid), where: monChannelLabel(cid) }); }
+  }
+  out.sort((x, y) => y.ts - x.ts); return { ok: true, messages: out.slice(0, Math.min(200, limit || 80)) };
+}
+export function monDelete(cid, mid, owner) {
+  if (cid.startsWith('dm:') && !owner) return { error: 'owner only' };
+  const arr = dc.messages[cid]; if (!arr) return { error: 'no-message' };
+  const i = arr.findIndex((x) => x.id === mid); if (i < 0) return { error: 'no-message' };
+  const m = arr[i]; arr.splice(i, 1); bumpRev(cid); markDirty();
+  try { wsBroadcastChannel(cid, { t: 'del', channel: cid, id: mid }); } catch {}
+  return { ok: true, who: m.name, where: monChannelLabel(cid) };
+}
 function isStaffAuth(auth) { return !!(auth && auth.role); }
 function canManage(g, auth) { return !!g && (g.ownerId === auth.id || (g.id === GLOBAL_ID && isStaffAuth(auth))); }
 
