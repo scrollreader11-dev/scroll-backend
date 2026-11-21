@@ -471,7 +471,7 @@ export async function handleDiscord(url, req, res) {
     const i = arr.findIndex((x) => x.id === mid);
     if (i < 0) return sendJson(res, 404, { error: 'no-message' });
     const ix = dc.channelIndex[cid]; const g = ix && dc.guilds[ix.guildId];
-    if (arr[i].uid !== me.id && !canManage(g, me) && !(me.role === 'owner')) return sendJson(res, 403, { error: 'not-allowed' });
+    if (arr[i].uid !== me.id && !canManage(g, me) && !(me.role === 'owner' || me.role === 'coowner')) return sendJson(res, 403, { error: 'not-allowed' });
     arr.splice(i, 1); bumpRev(cid); markDirty();
     wsBroadcastChannel(cid, { t: 'del', channel: cid, id: mid });
     return sendJson(res, 200, { ok: true });

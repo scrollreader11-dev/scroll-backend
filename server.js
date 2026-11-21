@@ -353,7 +353,7 @@ function extForCt(ct) {
 async function handleGameImg(req, res) {
   const body = await readBody(req);
   const who = await resolveSession(req);
-  if (!who || who.role !== 'owner') return sendJson(res, 403, { error: 'owner only' });
+  if (!who || (who.role !== 'owner' && who.role !== 'coowner')) return sendJson(res, 403, { error: 'owner only' });
   const dataUrl = String(body.dataUrl || '');
   const m = /^data:(image\/[a-z.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(dataUrl);
   if (!m) return sendJson(res, 400, { error: 'Expected a base64 image data URL' });
@@ -878,9 +878,15 @@ async function handleStaff(req, res) {
   const body = await readBody(req);
   const who = await resolveSession(req).catch(() => null);
   if (!who || !who.role) return sendJson(res, 403, { error: 'staff only' });
-  const owner = who.role === 'owner';
+  const owner = who.role === 'owner' || who.role === 'coowner';   // full tools
+  const trueOwner = who.role === 'owner';                          // only the owner changes roles or acts on owners
   const action = String(body.action || '');
   const needOwner = () => sendJson(res, 403, { error: 'owner only' });
+  // Co-owners can do almost everything, but never act on the owner, and never on another co-owner.
+  if (trueOwner === false && owner && body.username && /^(player\.(ban|coins|item|streak|dailyReset|resetProfile|signout|op)|dc\.op)$/.test(action) && (action !== 'dc.op' || ['mute', 'purgeuser', 'kickuser'].includes(String(body.op)))) {
+    const tr0 = await roleForName(String(body.username)).catch(() => null);
+    if (tr0 === 'owner' || (tr0 === 'coowner' && String(body.username).toLowerCase() !== String(who.username).toLowerCase())) return sendJson(res, 200, { error: 'fixed', message: 'Only the owner can do that to ' + (tr0 === 'owner' ? 'the owner' : 'a co-owner') + '.' });
+  }
 
   if (action === 'staff.list') return sendJson(res, 200, { ok: true, staff: await listStaff() });
   if (action === 'players.search') {
@@ -936,7 +942,7 @@ async function handleStaff(req, res) {
     const t = await staffTarget(body.username);
     if (!t) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
     const tr = await roleForName(t.username);
-    if (tr === 'owner' || (tr === 'mod' && !owner)) return sendJson(res, 200, { error: 'fixed', message: 'You cannot ban ' + (tr === 'owner' ? 'an owner' : 'another moderator') + '.' });
+    if (tr === 'owner' || (tr === 'coowner' && !trueOwner) || (tr === 'mod' && !owner)) return sendJson(res, 200, { error: 'fixed', message: 'You cannot ban ' + (tr === 'owner' ? 'an owner' : tr === 'coowner' ? 'a co-owner' : 'another moderator') + '.' });
     if (action === 'player.unban') {
       if (!owner) return needOwner();
       await setAccountBan(t.username, null); audit(who, 'unban account', t.username, ''); return sendJson(res, 200, { ok: true });
@@ -1004,6 +1010,7 @@ async function handleStaff(req, res) {
   // ---- everything below is owner only ----
   const ownerActions = ['staff.setrole', 'player.coins', 'player.item', 'player.streak', 'player.dailyReset', 'player.resetProfile', 'player.signout', 'store.list'];
   if (ownerActions.includes(action) && !owner) return needOwner();
+  if (action === 'staff.setrole' && !trueOwner) return needOwner();
 
   if (action === 'store.list') return sendJson(res, 200, { ok: true, items: adminStoreList() });
 
@@ -1011,9 +1018,10 @@ async function handleStaff(req, res) {
     const acct = await staffTarget(body.username);
     if (!acct) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
     if (isOwnerName(acct.username)) return sendJson(res, 200, { error: 'fixed', message: 'Owners cannot be changed.' });
-    const role = body.role === 'mod' ? 'mod' : null;
+    const role = body.role === 'mod' ? 'mod' : body.role === 'coowner' ? 'coowner' : null;
+    const before = await roleForName(acct.username).catch(() => null);
     await setRole(acct.username, role);
-    audit(who, role ? 'grant mod' : 'remove mod', acct.username, '');
+    audit(who, role ? 'grant ' + role : 'remove ' + (before || 'role'), acct.username, '');
     return sendJson(res, 200, { ok: true, staff: await listStaff() });
   }
 

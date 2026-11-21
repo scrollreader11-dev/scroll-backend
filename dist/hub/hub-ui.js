@@ -142,7 +142,7 @@
       { t: 'Settings', s: 'Account, notifications, display', i: 'settings', k: 'settings account notifications display options preferences', go: function () { Hub.settingsModal('account'); } },
       { t: 'Daily reward', s: 'Claim your Scrolls', i: 'gift', k: 'daily reward gift claim scrolls streak', go: function () { Hub.rewardsModal(); }, need: me.kind === 'user' },
       { t: 'Notifications', s: 'Your latest alerts', i: 'bell', k: 'notifications alerts bell', go: function () { var b = $('#bellBtn'); if (b) b.click(); } },
-      { t: 'Admin tools', s: me.role === 'owner' ? 'Owner panel' : 'Moderator panel', i: 'shield', k: 'admin owner mod staff panel ban players', go: function () { location.hash = '#/admin'; }, need: !!me.role }
+      { t: 'Admin tools', s: me.role === 'owner' ? 'Owner panel' : me.role === 'coowner' ? 'Co-owner panel' : 'Moderator panel', i: 'shield', k: 'admin owner mod staff panel ban players', go: function () { location.hash = '#/admin'; }, need: !!me.role }
     ];
     return L.filter(function (x) { return x.need !== false; });
   }

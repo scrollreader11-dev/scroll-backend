@@ -5,7 +5,8 @@
   var cache = { state: null, at: 0 };
 
   function role() { return Hub.me && Hub.me.role || null; }
-  function isOwner() { return role() === 'owner'; }
+  function isOwner() { return role() === 'owner' || role() === 'coowner'; }   // full tools
+  function isTrueOwner() { return role() === 'owner'; }                       // only the owner changes roles
   function post(body) { return Hub.api('/api/staff/act', { body: body }); }
   function toastErr(r, fallback) { Hub.toast((r && (r.message || (r.error === 'owner only' ? 'Only an owner can do that' : r.error))) || fallback || 'That did not work', { bad: true }); }
   function field(label, input) { return h('label', { class: 'field' }, [h('span', { text: label }), input]); }
@@ -21,7 +22,7 @@
       m = Hub.modal(body, { small: true, label: title, onClose: function () { if (!done) { done = true; resolve(false); } } });
     });
   }
-  function badge(r) { return h('span', { class: 'adm-badge ' + (r || 'none'), text: r === 'owner' ? 'Owner' : r === 'mod' ? 'Mod' : 'Player' }); }
+  function badge(r) { return h('span', { class: 'adm-badge ' + (r || 'none'), text: r === 'owner' ? 'Owner' : r === 'coowner' ? 'Co-owner' : r === 'mod' ? 'Mod' : 'Player' }); }
   function statTile(label, value, ic, hint) { return h('div', { class: 'adm-stat' }, [h('div', { class: 'si' }, icon(ic)), h('div', { class: 'sv', text: value }), h('div', { class: 'sl', text: label }), hint ? h('div', { class: 'sh', text: hint }) : null]); }
   function empty(t) { return h('p', { class: 'adm-empty', text: t }); }
   function loading() { return h('div', { class: 'adm-loading' }, [h('i'), h('i'), h('i')]); }
@@ -52,7 +53,7 @@
     var own = isOwner();
     var hero = h('div', { class: 'adm-hero' }, [
       h('div', { class: 'ah-ic' }, icon(own ? 'crown' : 'shield')),
-      h('div', { class: 'ah-tx' }, [h('div', { class: 'ah-k', text: 'Admin tools' }), h('h1', { text: own ? 'Owner panel' : 'Moderator panel' }), h('p', { text: own ? 'Full control of the site: players, Scrolls, items, staff and settings.' : 'Moderation tools. Owners can change what you have access to.' })]),
+      h('div', { class: 'ah-tx' }, [h('div', { class: 'ah-k', text: 'Admin tools' }), h('h1', { text: role() === 'coowner' ? 'Co-owner panel' : own ? 'Owner panel' : 'Moderator panel' }), h('p', { text: role() === 'coowner' ? 'Nearly full control of the site. Only the owner changes roles or acts on owners.' : own ? 'Full control of the site: players, Scrolls, items, staff and settings.' : 'Moderation tools. Owners can change what you have access to.' })]),
       h('div', { class: 'ah-r' }, [badge(role()), h('span', { class: 'ah-n', text: Hub.me.name })]),
     ]);
     var nav = h('nav', { class: 'adm-nav', 'aria-label': 'Admin sections' });
@@ -305,7 +306,7 @@
         liveBtn('Freeze 10m', function (b) { busy(b, post({ action: 'freeze', id: p.id, on: true, minutes: 10 })).then(function (x) { x && x.ok ? Hub.toast('Frozen for 10 minutes') : toastErr(x); }); }, { ghost: true }),
         liveBtn('Unfreeze', function (b) { busy(b, post({ action: 'freeze', id: p.id, on: false })).then(function (x) { x && x.ok ? Hub.toast('Unfrozen') : toastErr(x); }); }, { ghost: true }),
         p.ban ? (own ? btn('Lift ban', function (b) { busy(b, post({ action: 'player.unban', username: p.username })).then(function (x) { if (x && x.ok) { Hub.toast('Ban lifted'); onChange && onChange(); Hub.clear(body); load(); } else toastErr(x); }); }, { primary: true }) : null)
-          : (p.role === 'owner' || (p.role === 'mod' && !own) ? null : btn(own ? 'Ban account' : 'Ban 7 days', function () { confirmBox('Ban ' + p.username + '?', own ? 'Blocks this account from signing in until you lift the ban.' : 'Blocks this account from signing in for 7 days.', 'Ban').then(function (ok) { if (ok) post({ action: 'player.ban', username: p.username, minutes: own ? 0 : 10080, reason: 'Banned by staff' }).then(function (x) { if (x && x.ok) { Hub.toast('Banned ' + p.username); onChange && onChange(); Hub.clear(body); load(); } else toastErr(x); }); }); }, { danger: true })),
+          : (p.role === 'owner' || (p.role === 'coowner' && !isTrueOwner() && p.username !== Hub.me.name) || (p.role === 'mod' && !own) ? null : btn(own ? 'Ban account' : 'Ban 7 days', function () { confirmBox('Ban ' + p.username + '?', own ? 'Blocks this account from signing in until you lift the ban.' : 'Blocks this account from signing in for 7 days.', 'Ban').then(function (ok) { if (ok) post({ action: 'player.ban', username: p.username, minutes: own ? 0 : 10080, reason: 'Banned by staff' }).then(function (x) { if (x && x.ok) { Hub.toast('Banned ' + p.username); onChange && onChange(); Hub.clear(body); load(); } else toastErr(x); }); }); }, { danger: true })),
       ]);
       body.appendChild(h('h4', { text: 'Moderation' })); body.appendChild(mod); if (!online) body.appendChild(h('p', { class: 'hint', text: 'Kick, mute and freeze work while they are online. Bans, notes and everything below work any time.' }));
       body.appendChild(h('div', { class: 'adm-row', style: 'margin-top:12px' }, [h('div', { style: 'flex:1' }, note), btn('Save note', function (b) { busy(b, post({ action: 'setnote', id: p.id, note: note.value })).then(function (x) { x && x.ok ? Hub.toast('Note saved') : toastErr(x); }); })]));
@@ -338,9 +339,12 @@
       body.appendChild(h('h4', { text: 'Daily reward' }));
       body.appendChild(h('div', { class: 'adm-row wrap' }, [h('div', { style: 'width:120px' }, streak), btn('Set streak', function (b) { busy(b, post({ action: 'player.streak', username: p.username, value: Number(streak.value) || 0 })).then(function (x) { x && x.ok ? Hub.toast('Streak set') : toastErr(x); }); }), btn('Make reward claimable now', function (b) { busy(b, post({ action: 'player.dailyReset', username: p.username })).then(function (x) { x && x.ok ? Hub.toast('Daily reward is ready for them') : toastErr(x); }); }, { ghost: true })]));
       body.appendChild(h('h4', { text: 'Account' }));
-      var isMod = p.role === 'mod', fixed = p.role === 'owner';
+      var isMod = p.role === 'mod', isCo = p.role === 'coowner', fixed = p.role === 'owner' || (isCo && !isTrueOwner() && p.username !== Hub.me.name);
+      function setRole(b, rl, msg) { busy(b, post({ action: 'staff.setrole', username: p.username, role: rl })).then(function (x) { if (x && x.ok) { Hub.toast(msg); Hub.clear(body); load(); } else toastErr(x); }); }
       body.appendChild(h('div', { class: 'adm-row wrap' }, [
-        fixed ? null : btn(isMod ? 'Remove moderator' : 'Make moderator', function (b) { busy(b, post({ action: 'staff.setrole', username: p.username, role: isMod ? 'none' : 'mod' })).then(function (x) { if (x && x.ok) { Hub.toast(isMod ? 'Moderator removed' : p.username + ' is now a moderator'); Hub.clear(body); load(); } else toastErr(x); }); }, { primary: !isMod, ghost: isMod }),
+        isTrueOwner() && p.role !== 'owner' ? btn(isMod ? 'Remove moderator' : 'Make moderator', function (b) { setRole(b, isMod ? 'none' : 'mod', isMod ? 'Moderator removed' : p.username + ' is now a moderator'); }, { primary: !isMod && !isCo, ghost: isMod }) : null,
+        isTrueOwner() && p.role !== 'owner' ? btn(isCo ? 'Switch to moderator' : 'Make co-owner', function (b) { setRole(b, isCo ? 'mod' : 'coowner', isCo ? p.username + ' is now a moderator' : p.username + ' is now a co-owner'); }, { primary: !isCo, ghost: isCo }) : null,
+        isTrueOwner() && isCo ? btn('Remove co-owner', function (b) { setRole(b, 'none', 'Co-owner removed'); }, { ghost: true }) : null,
         btn('Sign out everywhere', function (b) { confirmBox('Reset ' + p.username + '\'s login?', 'Every device signed in as them is signed out. Their password is unchanged.', 'Sign out').then(function (ok) { if (ok) busy(b, post({ action: 'player.signout', username: p.username })).then(function (x) { x && x.ok ? Hub.toast('Signed out everywhere') : toastErr(x); }); }); }, { ghost: true }),
         fixed ? null : btn('Reset profile', function (b) { confirmBox('Reset ' + p.username + '\'s profile?', 'Wipes their Scrolls, items, stats and streak back to a new account. This cannot be undone.', 'Reset profile').then(function (ok) { if (ok) busy(b, post({ action: 'player.resetProfile', username: p.username })).then(function (x) { if (x && x.ok) { Hub.toast('Profile reset'); Hub.clear(body); load(); } else toastErr(x); }); }); }, { danger: true }),
       ]));
@@ -373,20 +377,20 @@
     var list = h('div', { class: 'adm-list' });
     function paint(staff) {
       Hub.clear(list);
-      (staff || []).forEach(function (s) { list.appendChild(h('div', { class: 'adm-pr' }, [h('span', { class: 'avatar', text: Hub.initials(s.username) }), h('div', { class: 'sp' }, [h('div', { class: 'nn', text: s.username }), h('div', { class: 'ss', text: s.role === 'owner' ? 'Owner. Full access.' : 'Moderator' })]), badge(s.role), isOwner() && s.role === 'mod' ? btn('Remove', function (b) { confirmBox('Remove ' + s.username + ' as moderator?', 'They lose the moderator panel right away.', 'Remove').then(function (ok) { if (ok) busy(b, post({ action: 'staff.setrole', username: s.username, role: 'none' })).then(function (x) { if (x && x.ok) { Hub.toast('Removed'); paint(x.staff); } else toastErr(x); }); }); }, { ghost: true }) : null])); });
+      (staff || []).forEach(function (s) { list.appendChild(h('div', { class: 'adm-pr' }, [h('span', { class: 'avatar', text: Hub.initials(s.username) }), h('div', { class: 'sp' }, [h('div', { class: 'nn', text: s.username }), h('div', { class: 'ss', text: s.role === 'owner' ? 'Owner. Full access.' : s.role === 'coowner' ? 'Co-owner. Almost full access.' : 'Moderator' })]), badge(s.role), isTrueOwner() && s.role === 'mod' ? btn('Make co-owner', function (b) { busy(b, post({ action: 'staff.setrole', username: s.username, role: 'coowner' })).then(function (x) { if (x && x.ok) { Hub.toast(s.username + ' is now a co-owner'); paint(x.staff); } else toastErr(x); }); }, { ghost: true }) : null, isTrueOwner() && s.role === 'coowner' ? btn('Switch to mod', function (b) { busy(b, post({ action: 'staff.setrole', username: s.username, role: 'mod' })).then(function (x) { if (x && x.ok) { Hub.toast(s.username + ' is now a moderator'); paint(x.staff); } else toastErr(x); }); }, { ghost: true }) : null, isTrueOwner() && (s.role === 'mod' || s.role === 'coowner') ? btn('Remove', function (b) { confirmBox('Remove ' + s.username + ' as ' + (s.role === 'coowner' ? 'co-owner' : 'moderator') + '?', 'They lose the staff panel right away.', 'Remove').then(function (ok) { if (ok) busy(b, post({ action: 'staff.setrole', username: s.username, role: 'none' })).then(function (x) { if (x && x.ok) { Hub.toast('Removed'); paint(x.staff); } else toastErr(x); }); }); }, { ghost: true }) : null])); });
       if (!staff || !staff.length) list.appendChild(empty('No staff yet.'));
     }
     host.appendChild(card('Staff', 'Everyone who can open Admin tools.', list));
     post({ action: 'staff.list' }).then(function (r) { paint(r && r.staff); });
-    if (isOwner()) {
-      var who = inp('Username to make a moderator'), res = h('div', { class: 'adm-list' });
+    if (isTrueOwner()) {
+      var who = inp('Username to give a staff role'), res = h('div', { class: 'adm-list' });
       var deb = Hub.debounce(function () { var t = who.value.trim(); if (t.length < 2) { Hub.clear(res); return; } post({ action: 'players.search', q: t }).then(function (r) { Hub.clear(res); ((r && r.players) || []).slice(0, 5).forEach(function (p) { res.appendChild(h('button', { type: 'button', class: 'adm-pr', onclick: function () { who.value = p.username; Hub.clear(res); } }, [h('span', { class: 'avatar', text: Hub.initials(p.username) }), h('div', { class: 'sp' }, h('div', { class: 'nn', text: p.username })), p.role ? badge(p.role) : null])); }); }); }, 220);
       who.addEventListener('input', deb);
-      host.appendChild(card('Grant moderator', 'Moderators get the Moderator panel. They can never give the role to anyone else.', [h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:200px' }, who), btn('Make moderator', function (b) { var n = who.value.trim(); if (!n) { Hub.toast('Enter a username', { bad: true }); return; } busy(b, post({ action: 'staff.setrole', username: n, role: 'mod' })).then(function (x) { if (x && x.ok) { Hub.toast(n + ' is now a moderator'); who.value = ''; paint(x.staff); } else toastErr(x); }); }, { primary: true })]), res]));
+      host.appendChild(card('Grant a staff role', 'Moderators get the Moderator panel. Co-owners get nearly everything you have. Neither can give roles to anyone else, and you can switch a person between the two at any time.', [h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:200px' }, who), btn('Make moderator', function (b) { var n = who.value.trim(); if (!n) { Hub.toast('Enter a username', { bad: true }); return; } busy(b, post({ action: 'staff.setrole', username: n, role: 'mod' })).then(function (x) { if (x && x.ok) { Hub.toast(n + ' is now a moderator'); who.value = ''; paint(x.staff); } else toastErr(x); }); }, { primary: true }), btn('Make co-owner', function (b) { var n = who.value.trim(); if (!n) { Hub.toast('Enter a username', { bad: true }); return; } busy(b, post({ action: 'staff.setrole', username: n, role: 'coowner' })).then(function (x) { if (x && x.ok) { Hub.toast(n + ' is now a co-owner'); who.value = ''; paint(x.staff); } else toastErr(x); }); }, { ghost: true })]), res]));
     }
-    var yes = '#i-check', rows = [['See who is online and open player profiles', 1, 1], ['Kick, mute and freeze players', 1, 1], ['Timed bans (mods up to 7 days)', 1, 1], ['Announcements and chat tools', 1, 1], ['Permanent bans and lifting bans', 0, 1], ['Give or take Scrolls and items', 0, 1], ['Reset a login or profile', 0, 1], ['Grant or remove moderators', 0, 1], ['Site controls and audit log', 0, 1]];
-    var tbl = h('div', { class: 'adm-perm' }, [h('div', { class: 'pr head' }, [h('span', { text: 'Permission' }), h('span', { text: 'Mod' }), h('span', { text: 'Owner' })])]);
-    rows.forEach(function (r) { tbl.appendChild(h('div', { class: 'pr' }, [h('span', { text: r[0] }), h('span', { class: r[1] ? 'y' : 'n' }, r[1] ? icon('check') : h('i')), h('span', { class: r[2] ? 'y' : 'n' }, r[2] ? icon('check') : h('i'))])); });
+    var yes = '#i-check', rows = [['See who is online and open player profiles', 1, 1, 1], ['Kick, mute and freeze players', 1, 1, 1], ['Timed bans (mods up to 7 days)', 1, 1, 1], ['Announcements and chat tools', 1, 1, 1], ['Permanent bans and lifting bans', 0, 1, 1], ['Give or take Scrolls and items', 0, 1, 1], ['Reset a login or profile', 0, 1, 1], ['Toolbox, casino and site controls, audit log', 0, 1, 1], ['Act on the owner or another co-owner', 0, 0, 1], ['Grant, switch or remove staff roles', 0, 0, 1]];
+    var tbl = h('div', { class: 'adm-perm' }, [h('div', { class: 'pr head' }, [h('span', { text: 'Permission' }), h('span', { text: 'Mod' }), h('span', { text: 'Co-owner' }), h('span', { text: 'Owner' })])]);
+    rows.forEach(function (r) { tbl.appendChild(h('div', { class: 'pr' }, [h('span', { text: r[0] }), h('span', { class: r[1] ? 'y' : 'n' }, r[1] ? icon('check') : h('i')), h('span', { class: r[2] ? 'y' : 'n' }, r[2] ? icon('check') : h('i')), h('span', { class: r[3] ? 'y' : 'n' }, r[3] ? icon('check') : h('i'))])); });
     host.appendChild(card('What each role can do', '', tbl));
   };
 

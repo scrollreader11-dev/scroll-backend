@@ -253,7 +253,7 @@
     list.forEach(function (m) {
       if (!prev || !sameDay(prev.ts, m.ts)) sc.appendChild(h('div', { class: 'dsep' }, h('span', { text: dayLabel(m.ts) })));
       var cont = prev && prev.uid === m.uid && m.ts - prev.ts < 5 * 60 * 1000 && sameDay(prev.ts, m.ts);
-      var mine = S.me && m.uid === S.me.id, can = mine || isMgr(guild()) || (S.me && S.me.role === 'owner');
+      var mine = S.me && m.uid === S.me.id, can = mine || isMgr(guild()) || (S.me && (S.me.role === 'owner' || S.me.role === 'coowner'));
       var acts = h('div', { class: 'macts' }); if (mine) acts.appendChild(h('button', { type: 'button', 'aria-label': 'Edit message', onclick: function () { editMsg(m, el); } }, icon('pencil'))); if (can) acts.appendChild(h('button', { type: 'button', 'aria-label': 'Delete message', onclick: function () { api('/api/dc/delete', { channel: S.cid, id: m.id }).then(function (r) { if (r && r.ok) { S.msgs[S.cid] = (S.msgs[S.cid] || []).filter(function (x) { return x.id !== m.id; }); paintMsgs(false); } else Hub.toast('Could not delete that message', { bad: true }); }); } }, icon('trash-2')));
       var content = h('div', { class: 'mt' }, [body(m.content), m.edited ? h('span', { class: 'ed', text: ' (edited)' }) : null]);
       var atts = null; if (m.attachments && m.attachments.length) { atts = h('div', { class: 'matt' }); m.attachments.forEach(function (a) { var im = h('img', { src: a.url, alt: a.name || 'Image', loading: 'lazy', referrerpolicy: 'no-referrer' }); im.addEventListener('click', function () { window.open(a.url, '_blank', 'noopener'); }); im.addEventListener('error', function () { im.replaceWith(h('a', { href: a.url, target: '_blank', rel: 'noopener', text: a.name || 'Attachment' })); }); atts.appendChild(im); }); }
@@ -261,7 +261,7 @@
       if (cont) el = h('div', { class: 'dm-msg cont' }, [h('span', { class: 'mtime', text: timeStr(m.ts) }), h('div', { class: 'mb' }, [content, atts]), acts]);
       else {
         var nm = h('span', { class: 'mn', style: m.color ? 'color:' + m.color : '', text: m.name }); nm.addEventListener('click', function () { location.hash = '#/profile/' + encodeURIComponent(m.name); });
-        el = h('div', { class: 'dm-msg' }, [avatar(m, 40), h('div', { class: 'mb' }, [h('div', { class: 'mh' }, [nm, m.role ? h('span', { class: 'adm-badge ' + m.role, text: m.role === 'owner' ? 'Owner' : 'Mod' }) : null, m.title ? h('span', { class: 'mtag', text: Hub.clean(m.title) }) : null, h('span', { class: 'mts', text: timeStr(m.ts) })]), content, atts]), acts]);
+        el = h('div', { class: 'dm-msg' }, [avatar(m, 40), h('div', { class: 'mb' }, [h('div', { class: 'mh' }, [nm, m.role ? h('span', { class: 'adm-badge ' + m.role, text: m.role === 'owner' ? 'Owner' : m.role === 'coowner' ? 'Co-owner' : 'Mod' }) : null, m.title ? h('span', { class: 'mtag', text: Hub.clean(m.title) }) : null, h('span', { class: 'mts', text: timeStr(m.ts) })]), content, atts]), acts]);
       }
       sc.appendChild(el); prev = m;
     });

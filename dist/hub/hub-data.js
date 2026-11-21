@@ -8,7 +8,7 @@
   Hub.loadMe = function () {
     return Hub.api('/api/auth/me').then(function (a) {
       if (a && a.loggedIn) {
-        Hub.me = { kind: 'user', id: a.id, name: a.username, owner: a.role === 'owner' || String(a.username).toLowerCase() === 'scrollreader11', role: a.role || null, avatar: '', banner: '', color: '', pub: true };
+        Hub.me = { kind: 'user', id: a.id, name: a.username, owner: a.role === 'owner' || a.role === 'coowner' || String(a.username).toLowerCase() === 'scrollreader11', role: a.role || null, avatar: '', banner: '', color: '', pub: true };
         return Hub.api('/api/me').then(function (m) { var u = (m && m.user) || {}; Hub.me.avatar = u.avatar_url || ''; Hub.me.banner = u.banner_url || ''; Hub.me.color = u.profile_color || ''; Hub.me.pub = u.profile_public !== false; return Hub.me; });
       }
       var nick = Hub.cookie('sh_nick'), cid = Hub.cookie('sh_cid');

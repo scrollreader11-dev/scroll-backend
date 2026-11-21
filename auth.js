@@ -59,7 +59,7 @@ async function getAccount(username) {
   try { const raw = await kvGet(userKey(username)); if (raw) { const a = JSON.parse(raw); acctCache.set(key, a); return a; } } catch (e) {}
   return null;
 }
-function summarize(a) { return { username: a.username, id: a.id, createdAt: a.createdAt || 0, lastSeen: a.lastSeen || 0, role: isOwnerName(a.username) ? 'owner' : (a.role === 'mod' ? 'mod' : null), ban: accountBan(a) }; }
+function summarize(a) { return { username: a.username, id: a.id, createdAt: a.createdAt || 0, lastSeen: a.lastSeen || 0, role: isOwnerName(a.username) ? 'owner' : (a.role === 'coowner' ? 'coowner' : a.role === 'mod' ? 'mod' : null), ban: accountBan(a) }; }
 function patchList(a) { // keep the cached all-accounts list fresh without rescanning
   if (!scanList) return;
   const i = scanList.findIndex((x) => x.username.toLowerCase() === a.username.toLowerCase());
@@ -110,19 +110,19 @@ export function accountBan(a) { return banActive(a) ? { until: a.ban.until, reas
 
 // ---- staff roles ----
 // Owners are fixed by username (plus anything listed in the OWNER_NAMES env var).
-// Mods are stored on the account and can only be granted or removed by an owner.
+// Mods and co-owners are stored on the account and can only be granted or removed by the owner.
 const OWNER_NAMES = new Set(['scrollreader11'].concat(String(process.env.OWNER_NAMES || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)));
 export function isOwnerName(username) { return OWNER_NAMES.has(String(username || '').toLowerCase()); }
 export async function roleForName(username) {
   if (isOwnerName(username)) return 'owner';
   const a = await getAccount(username);
-  return a && a.role === 'mod' ? 'mod' : null;
+  return a && a.role === 'coowner' ? 'coowner' : a && a.role === 'mod' ? 'mod' : null;
 }
 export async function setRole(username, role) {
   const a = await accountByName(username);
   if (!a) return null;
   if (isOwnerName(a.username)) return a;
-  if (role === 'mod') a.role = 'mod'; else delete a.role;
+  if (role === 'mod' || role === 'coowner') a.role = role; else delete a.role;
   await putAccount(a);
   return a;
 }
@@ -188,7 +188,7 @@ export async function listStaff() {
   await loadNames();
   const out = [];
   for (const n of OWNER_NAMES) out.push({ username: knownNames.get(n) || n, role: 'owner' });
-  for (const n of knownNames.values()) { if (isOwnerName(n)) continue; const a = await getAccount(n); if (a && a.role === 'mod') out.push({ username: a.username, role: 'mod' }); }
+  for (const n of knownNames.values()) { if (isOwnerName(n)) continue; const a = await getAccount(n); if (a && (a.role === 'mod' || a.role === 'coowner')) out.push({ username: a.username, role: a.role }); }
   return out;
 }
 
