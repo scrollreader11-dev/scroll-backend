@@ -26,7 +26,7 @@ const RES = BW.RES;
 
 const conns = new Set();
 // Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
-const OWNERS = new Set(['scrollreader11', 'pakajo']);
+const OWNERS = new Set(['scrollreader11', 'pakajo', 'hihihi', 'SuperCoolAdminDude25']);
 ;
 globalThis.SH_NAME_BANNED = (n) => (GMS.store.nameBans || []).includes(String(n || '').toLowerCase()); // only Scrollreader11 gets the owner panel
 let LOCKED = false; // owners can pause new matches
