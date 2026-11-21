@@ -37,6 +37,7 @@
     ['announce', 'Announcements', 'megaphone', 0],
     ['moderation', 'Moderation', 'hammer', 0],
     ['chats', 'Discord monitor', 'message-square', 0],
+    ['toolbox', 'Toolbox', 'hammer', 0],
     ['site', 'Site controls', 'server', 1],
     ['audit', 'Audit log', 'list-checks', 1],
   ];
@@ -109,6 +110,95 @@
     });
     go('live');
     var obs = new MutationObserver(function () { if (!alive()) { stop(); obs.disconnect(); } }); obs.observe(document.body, { childList: true, subtree: true });
+  };
+
+  // ---------- Toolbox: a searchable catalog of controls; every entry calls a real server action ----------
+  PANES.toolbox = function (host) {
+    var own = isOwner(), T = { cfg: null, games: [], items: [], chans: [], target: inp('Player username (for player controls)'), chan: h('select', { class: 'input' }), shown: 120, group: 'all', q: '' };
+    var listEl = h('div', { class: 'tb-list' }), countEl = h('div', { class: 'tb-count' }), chips = h('div', { class: 'tb-chips' }), search = inp('Search controls, for example "keno", "mute", "price"');
+    var ENTRIES = [];
+    function cfgSet(patch) { return post(Object.assign({ action: 'casino.cfg.set' }, patch)).then(function (r) { if (r && r.ok) { T.cfg = r.cfg; Hub.toast('Saved'); } else toastErr(r); return r; }); }
+    function userOp(op, val, label) { var u = T.target.value.trim(); if (!u) { Hub.toast('Type a player username at the top first', { bad: true }); return Promise.resolve(); } return post({ action: 'player.op', username: u, op: op, value: val }).then(function (r) { if (r && r.ok) Hub.toast(label + ' done for ' + u); else toastErr(r); }); }
+    function dcOp(op, extra, label, needUser, needChan) {
+      var body = Object.assign({ action: 'dc.op', op: op }, extra || {});
+      if (needUser) { var u = T.target.value.trim(); if (!u) { Hub.toast('Type a player username at the top first', { bad: true }); return Promise.resolve(); } body.username = u; }
+      if (needChan) { if (!T.chan.value) { Hub.toast('Pick a channel at the top first', { bad: true }); return Promise.resolve(); } body.channel = T.chan.value; }
+      return post(body).then(function (r) { if (r && r.ok) Hub.toast(label + ' done' + (r.removed != null ? ' (' + r.removed + ' messages)' : '')); else toastErr(r); return r; });
+    }
+    function sw(get, set) { var b = h('button', { type: 'button', class: 'tb-sw', role: 'switch' }); function paint() { var on = !!get(); b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); b.textContent = on ? 'On' : 'Off'; } b.addEventListener('click', function () { set(!get()).then(paint); }); paint(); return b; }
+    function num(get, set, ph) { var i = h('input', { class: 'input tb-n', type: 'text', inputmode: 'numeric', placeholder: ph || '0' }); i.value = get() || ''; return h('div', { class: 'tb-ctl' }, [i, btn('Save', function (e) { set(i.value.trim() === '' ? 0 : Number(i.value)); }, { primary: true })]); }
+    function opBtn(label, fn, danger) { return h('div', { class: 'tb-ctl' }, btn(label, fn, { danger: !!danger })); }
+    function numOp(label, fn, ph) { var i = h('input', { class: 'input tb-n', type: 'text', inputmode: 'numeric', placeholder: ph || 'amount' }); return h('div', { class: 'tb-ctl' }, [i, btn(label, function () { fn(i.value.trim()); })]); }
+    function add(group, title, desc, ownerOnly, make) { ENTRIES.push({ group: group, title: title, desc: desc, owner: !!ownerOnly, make: make }); }
+    function build() {
+      ENTRIES = []; var cf = function () { return T.cfg || {}; };
+      // Casino house
+      add('Casino house', 'Casino open or closed', 'Closing the casino blocks every bet in every game.', 1, function () { return sw(function () { return !cf().closed; }, function (v) { return cfgSet({ closed: !v }).then(function () { return !cf().closed; }).then(function () { return v; }); }); });
+      add('Casino house', 'Minimum bet, all games', 'Smallest bet allowed anywhere. 0 means no minimum.', 1, function () { return num(function () { return cf().minBet; }, function (v) { cfgSet({ minBet: v }); }); });
+      add('Casino house', 'Maximum bet, all games', 'Largest bet allowed anywhere. 0 means no limit.', 1, function () { return num(function () { return cf().maxBet; }, function (v) { cfgSet({ maxBet: v }); }); });
+      add('Casino house', 'Maximum payout (ten newer games)', 'Caps what one round of keno, scratch, limbo, baccarat, shells, penalty, war, sic bo, hi-lo or poker can pay. 0 means no cap.', 1, function () { return num(function () { return cf().maxPayout; }, function (v) { cfgSet({ maxPayout: v }); }); });
+      add('Casino house', 'Daily reward base amount', 'Base Scrolls for the daily reward (streak bonus is added on top). 0 uses the default.', 1, function () { return num(function () { return cf().dailyCoins; }, function (v) { cfgSet({ dailyCoins: v }); }); });
+      add('Casino house', 'Starting Scrolls for new accounts', 'What a brand new account starts with. 0 uses the default.', 1, function () { return num(function () { return cf().startCoins; }, function (v) { cfgSet({ startCoins: v }); }); });
+      // Per game
+      T.games.forEach(function (g) {
+        function gc() { return (cf().games || {})[g.id] || {}; }
+        add('Casino games', g.name + ': switch', 'Turn ' + g.name + ' on or off for everyone.', 1, function () { return sw(function () { return !gc().off; }, function (v) { return cfgSet({ game: { id: g.id, off: !v } }).then(function () { return !gc().off; }).then(function () { return v; }); }); });
+        add('Casino games', g.name + ': minimum bet', 'Smallest bet for ' + g.name + '. 0 uses the house minimum.', 1, function () { return num(function () { return gc().min; }, function (v) { cfgSet({ game: { id: g.id, min: v } }); }); });
+        add('Casino games', g.name + ': maximum bet', 'Largest bet for ' + g.name + '. 0 uses the house maximum.', 1, function () { return num(function () { return gc().max; }, function (v) { cfgSet({ game: { id: g.id, max: v } }); }); });
+      });
+      // Store items
+      T.items.forEach(function (it) {
+        function ic() { return (cf().items || {})[it.id] || {}; }
+        add('Store items', it.label + ': for sale', 'Hide ' + it.label + ' (' + it.type + ', ' + it.price + ' Scrolls) from the shop. Players who own it keep it.', 1, function () { return sw(function () { return !ic().off; }, function (v) { return cfgSet({ item: { id: it.id, off: !v } }).then(function () { return !ic().off; }).then(function () { return v; }); }); });
+        add('Store items', it.label + ': price', 'Set the price of ' + it.label + '. Default is ' + it.price + '. Empty or 0 puts it back to default.', 1, function () { return num(function () { return ic().price; }, function (v) { cfgSet({ item: { id: it.id, price: v ? v : '' } }); }, String(it.price)); });
+      });
+      // Player economy (owner)
+      add('Player Scrolls', 'Set Scrolls', 'Set the target player\'s Scrolls to an exact amount.', 1, function () { return numOp('Set', function (v) { userOp('coins.set', v, 'Set Scrolls'); }); });
+      add('Player Scrolls', 'Add Scrolls', 'Give the target player Scrolls.', 1, function () { return numOp('Add', function (v) { userOp('coins.add', v, 'Add Scrolls'); }); });
+      add('Player Scrolls', 'Take Scrolls', 'Take Scrolls from the target player (never below 0).', 1, function () { return numOp('Take', function (v) { userOp('coins.take', v, 'Take Scrolls'); }); });
+      [['coins.reset', 'Reset Scrolls to the starting amount', 'Reset', 0], ['coins.zero', 'Set Scrolls to zero', 'Zero', 1], ['coins.double', 'Double Scrolls', 'Double', 0], ['coins.halve', 'Halve Scrolls', 'Halve', 0]].forEach(function (o) { add('Player Scrolls', o[1], 'Applies to the target player.', 1, function () { return opBtn(o[2], function () { userOp(o[0], null, o[1]); }, o[3]); }); });
+      add('Player Scrolls', 'Set daily streak', 'Set the target player\'s daily streak.', 1, function () { return numOp('Set', function (v) { userOp('streak.set', v, 'Set streak'); }, 'days'); });
+      [['streak.clear', 'Clear daily streak'], ['stats.reset', 'Reset casino stats'], ['weekly.reset', 'Reset this week\'s net'], ['peak.reset', 'Reset peak Scrolls']].forEach(function (o) { add('Player Scrolls', o[1], 'Applies to the target player.', 1, function () { return opBtn('Run', function () { userOp(o[0], null, o[1]); }, true); }); });
+      // Player look (mods too)
+      [['tag.clear', 'Remove name tag'], ['color.clear', 'Remove name color'], ['banner.clear', 'Remove chosen banner item'], ['avatarfx.clear', 'Remove avatar effect'], ['titlefx.clear', 'Remove name tag effect'], ['avatar.clear', 'Remove profile picture'], ['bannerimage.clear', 'Remove profile banner image'], ['look.reset', 'Reset casino character outfit'], ['cosmetics.clear', 'Remove every cosmetic and picture'], ['nick.clear', 'Clear casino nickname'], ['profile.private', 'Make profile private'], ['profile.public', 'Make profile public']].forEach(function (o) { add('Player profile', o[1], 'Applies to the target player. Moderators can use this.', 0, function () { return opBtn('Run', function () { userOp(o[0], null, o[1]); }); }); });
+      // Discord
+      add('Discord', 'Mute a player', 'Stops the target player posting anywhere in the Discord. Moderators are limited to 60 minutes.', 0, function () { return numOp('Mute', function (v) { dcOp('mute', { minutes: v || 10 }, 'Mute', true); }, 'minutes'); });
+      add('Discord', 'Unmute a player', 'Lets the target player post again.', 0, function () { return opBtn('Unmute', function () { dcOp('unmute', {}, 'Unmute', true); }); });
+      add('Discord', 'Delete every message by a player', 'Removes everything the target player ever posted in the Discord.', 1, function () { return opBtn('Purge', function () { dcOp('purgeuser', {}, 'Purge', true); }, true); });
+      add('Discord', 'Lock channel', 'Only staff and the server owner can post in the chosen channel.', 0, function () { return opBtn('Lock', function () { dcOp('lock', {}, 'Lock', false, true); }); });
+      add('Discord', 'Unlock channel', 'Lets everyone post in the chosen channel again.', 0, function () { return opBtn('Unlock', function () { dcOp('unlock', {}, 'Unlock', false, true); }); });
+      add('Discord', 'Slow mode for channel', 'Seconds a player must wait between messages in the chosen channel. 0 turns it off.', 0, function () { return numOp('Set', function (v) { dcOp('slow', { seconds: v || 0 }, 'Slow mode', false, true); }, 'seconds'); });
+      add('Discord', 'Clear all messages in channel', 'Wipes the chosen channel.', 1, function () { return opBtn('Clear', function () { dcOp('clearchannel', {}, 'Clear', false, true); }, true); });
+      add('Discord', 'Post as ScrollHub in channel', 'Sends a message from the ScrollHub account into the chosen channel.', 1, function () { var i = h('input', { class: 'input', placeholder: 'Message' }); return h('div', { class: 'tb-ctl' }, [i, btn('Send', function () { if (i.value.trim()) dcOp('say', { text: i.value }, 'Post', false, true).then(function () { i.value = ''; }); })]); });
+      var flags = {};
+      [['dmsOff', 'Turn off direct messages for players'], ['voiceOff', 'Turn off voice and video calls'], ['uploadsOff', 'Turn off image uploads']].forEach(function (f) { add('Discord', f[1], 'Staff are not affected.', 1, function () { return sw(function () { return !!flags[f[0]]; }, function (v) { return dcOp('flag', { flag: f[0], on: v }, f[1]).then(function (r) { if (r && r.ok) flags[f[0]] = v; return v; }); }); }); });
+      post({ action: 'dc.state' }).then(function (r) { if (r && r.flags) { Object.keys(r.flags).forEach(function (k) { flags[k] = r.flags[k]; }); render(); } });
+      add('Discord', 'Maximum message length', 'Characters allowed per message (50 to 2000). 0 uses the default of 2000.', 1, function () { return num(function () { return 0; }, function (v) { dcOp('maxlen', { value: v }, 'Message length'); }); });
+      add('Discord', 'Remove a player from a server', 'Uses the player above and the server of the chosen channel.', 0, function () { return opBtn('Remove', function () { var ch = T.chans.filter(function (c) { return c.id === T.chan.value; })[0]; if (!ch) { Hub.toast('Pick a channel at the top first', { bad: true }); return; } dcOp('kickuser', { guild: ch.gid }, 'Remove', true); }, true); });
+      add('Discord', 'Rename the chosen channel\'s server', 'Type the new name.', 1, function () { var i = h('input', { class: 'input', placeholder: 'New name' }); return h('div', { class: 'tb-ctl' }, [i, btn('Rename', function () { var ch = T.chans.filter(function (c) { return c.id === T.chan.value; })[0]; if (!ch || !i.value.trim()) { Hub.toast('Pick a channel and type a name', { bad: true }); return; } dcOp('renameserver', { guild: ch.gid, name: i.value }, 'Rename'); })]); });
+      add('Discord', 'Remove the chosen channel\'s server picture', 'Clears the server icon.', 1, function () { return opBtn('Remove', function () { var ch = T.chans.filter(function (c) { return c.id === T.chan.value; })[0]; if (!ch) { Hub.toast('Pick a channel at the top first', { bad: true }); return; } dcOp('clearicon', { guild: ch.gid }, 'Remove picture'); }); });
+      add('Discord', 'Delete the chosen channel\'s server', 'Deletes the whole server and its messages. The built-in server cannot be deleted.', 1, function () { return opBtn('Delete', function () { var ch = T.chans.filter(function (c) { return c.id === T.chan.value; })[0]; if (!ch) { Hub.toast('Pick a channel at the top first', { bad: true }); return; } confirmBox('Delete this server?', ch.gname + ' and every message in it will be gone.', 'Delete').then(function (ok) { if (ok) dcOp('deleteserver', { guild: ch.gid }, 'Delete server'); }); }, true); });
+      if (!own) ENTRIES = ENTRIES.filter(function (e) { return !e.owner; });
+    }
+    function groups() { var g = {}; ENTRIES.forEach(function (e) { g[e.group] = (g[e.group] || 0) + 1; }); return g; }
+    function render() {
+      var g = groups(), total = ENTRIES.length, words = T.q.toLowerCase().split(/\s+/).filter(Boolean);
+      var rows = ENTRIES.filter(function (e) { if (T.group !== 'all' && e.group !== T.group) return false; var hay = (e.group + ' ' + e.title + ' ' + e.desc).toLowerCase(); return words.every(function (w) { return hay.indexOf(w) >= 0; }); });
+      var types = ENTRIES.filter(function (e) { return e.group !== 'Casino games' && e.group !== 'Store items'; }).length;
+      countEl.textContent = total + ' controls available to you: ' + types + ' standard controls, ' + (g['Casino games'] || 0) + ' per-game controls, ' + (g['Store items'] || 0) + ' per-item shop controls.' + (T.q || T.group !== 'all' ? '  Showing ' + rows.length + '.' : '');
+      Hub.clear(chips);
+      [['all', 'All']].concat(Object.keys(g).map(function (k) { return [k, k + ' (' + g[k] + ')']; })).forEach(function (o) { var b = h('button', { type: 'button', class: 'tb-chip' + (T.group === o[0] ? ' on' : ''), text: o[1] }); b.addEventListener('click', function () { T.group = o[0]; T.shown = 120; render(); }); chips.appendChild(b); });
+      Hub.clear(listEl);
+      if (!rows.length) listEl.appendChild(empty('No controls match that search.'));
+      rows.slice(0, T.shown).forEach(function (e) { listEl.appendChild(h('div', { class: 'tb-row' }, [h('div', { class: 'tb-t' }, [h('div', { class: 'tb-n1', text: e.title }), h('div', { class: 'tb-d', text: e.desc }), h('div', { class: 'tb-g', text: e.group })]), e.make()])); });
+      if (rows.length > T.shown) listEl.appendChild(h('div', { class: 'tb-more' }, btn('Show more (' + (rows.length - T.shown) + ' left)', function () { T.shown += 120; render(); })));
+    }
+    search.addEventListener('input', function () { T.q = search.value; T.shown = 120; render(); });
+    host.appendChild(card('Toolbox', 'Every control here changes something real. Pick a player and a channel, then search for what you need.', [
+      h('div', { class: 'tb-top' }, [field('Target player', T.target), field('Target channel', T.chan)]), field('Search', search), countEl, chips, listEl]));
+    var loads = [post({ action: 'discord.chans' }).then(function (r) { T.chans = []; Hub.clear(T.chan); T.chan.appendChild(h('option', { value: '', text: 'No channel picked' })); ((r && r.guilds) || []).forEach(function (gd) { gd.channels.forEach(function (ch) { T.chans.push({ id: ch.id, gid: gd.id, gname: gd.name }); T.chan.appendChild(h('option', { value: ch.id, text: gd.name + ' / #' + ch.name })); }); }); })];
+    if (own) loads.push(post({ action: 'casino.cfg.get' }).then(function (r) { if (r && r.ok) { T.cfg = r.cfg; T.games = r.games || []; T.items = r.items || []; } }));
+    Promise.all(loads).then(function () { build(); render(); });
   };
   // ---------- overview ----------
   PANES.overview = function (host) {

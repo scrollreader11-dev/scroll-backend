@@ -77,6 +77,7 @@
     if (d.t === 'del') { var a2 = S.msgs[d.channel]; if (a2) { S.msgs[d.channel] = a2.filter(function (x) { return x.id !== d.id; }); if (d.channel === S.cid) paintMsgs(false); } return; }
     if (d.t === 'edit') { var a3 = S.msgs[d.channel]; if (a3) { for (var i = 0; i < a3.length; i++) if (a3[i].id === d.message.id) a3[i] = d.message; if (d.channel === S.cid) paintMsgs(false); } return; }
     if (d.t === 'typing') { if (d.channel === S.cid) { S.typing[d.uid] = { name: d.name, until: Date.now() + 4000 }; paintTyping(); setTimeout(paintTyping, 4200); } return; }
+    if (d.t === 'voice-off') { Hub.toast('Voice chat is switched off right now', { bad: true }); leaveVoice(); return; }
     if (d.t.indexOf('call-') === 0) { callWs(d); return; }
     if (d.t.indexOf('voice') === 0 || d.t === 'signal') { voiceWs(d); return; }
   }
@@ -298,7 +299,7 @@
       }).then(function (r) {
         busy = false; send.disabled = false;
         if (r && r.ok) { ta.value = ''; grow(); S.pending = []; paintPend(); var arr = S.msgs[cid] || (S.msgs[cid] = []); if (!arr.some(function (x) { return x.id === r.message.id; })) { arr.push(r.message); S.rev[cid] = (S.rev[cid] || 0) + 1; } if (cid === S.cid) paintMsgs(true); ta.focus(); }
-        else Hub.toast(r && r.error === 'no-access' ? 'You cannot post here' : 'Message not sent', { bad: true });
+        else Hub.toast(r && r.message ? r.message : (r && r.error === 'no-access' ? 'You cannot post here' : 'Message not sent'), { bad: true });
       }, function () { busy = false; send.disabled = false; Hub.toast('Image upload failed. Try a smaller picture.', { bad: true }); });
     }
     send.addEventListener('click', go);
@@ -375,7 +376,7 @@
   function openDm(name) {
     if (!name) return;
     api('/api/dc/dm/open', { username: name }).then(function (r) {
-      if (!r || !r.dm) { Hub.toast(r && r.error === 'self' ? 'That is you' : 'No player with that name', { bad: true }); return; }
+      if (!r || !r.dm) { Hub.toast(r && r.message ? r.message : (r && r.error === 'self' ? 'That is you' : 'No player with that name'), { bad: true }); return; }
       if (!S.dms.some(function (d) { return d.id === r.dm.id; })) { S.dms.unshift({ id: r.dm.id, user: r.dm.user, lastTs: Date.now() }); wsSend({ t: 'sub', channel: r.dm.id }); }
       S.view = 'dm'; S.gid = null; S.cid = r.dm.id; setPane('chat'); if (Hub.parse().name !== 'discord') location.hash = '#/discord'; else { paintAll(); loadMsgs(r.dm.id, true); }
     });

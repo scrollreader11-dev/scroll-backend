@@ -115,7 +115,7 @@ function monChannelLabel(cid) {
   return g && c ? g.name + ' / ' + c.name : cid;
 }
 export function monChannels(owner) {
-  const guilds = Object.values(dc.guilds).map((g) => ({ id: g.id, name: g.name, members: g.memberIds.length, channels: g.channels.filter((c) => c.type === 'text').map((c) => { const a = dc.messages[c.id] || []; return { id: c.id, name: c.name, count: a.length, last: a.length ? a[a.length - 1].ts : 0 }; }) }));
+  const guilds = Object.values(dc.guilds).map((g) => ({ id: g.id, name: g.name, members: g.memberIds.length, channels: g.channels.filter((c) => c.type === 'text').map((c) => { const a = dc.messages[c.id] || []; return { id: c.id, name: c.name, count: a.length, last: a.length ? a[a.length - 1].ts : 0, locked: !!c.locked, slow: c.slow || 0 }; }) }));
   const dms = owner ? Object.values(dc.dms).map((d) => { const a = dc.messages[d.id] || []; return { id: d.id, users: Object.values(d.otherName || {}), count: a.length, last: a.length ? a[a.length - 1].ts : d.ts || 0 }; }).filter((d) => d.count).sort((x, y) => y.last - x.last) : [];
   return { guilds, dms };
 }
@@ -151,6 +151,48 @@ export function monDelete(cid, mid, owner) {
   const m = arr[i]; arr.splice(i, 1); bumpRev(cid); markDirty();
   try { wsBroadcastChannel(cid, { t: 'del', channel: cid, id: mid }); } catch {}
   return { ok: true, who: m.name, where: monChannelLabel(cid) };
+}
+
+// ---- Staff controls: mutes, locks, slow mode, global switches ----
+const lastSend = new Map();
+function sendBlock(me, cid) {
+  const staff = isStaffAuth(me);
+  const mu = dc.settings.muted && dc.settings.muted[me.id];
+  if (mu && mu > Date.now() && !staff) return { error: 'muted', message: 'You are muted in the Discord until ' + new Date(mu).toLocaleTimeString() + '.' };
+  const ix = dc.channelIndex[cid], g = ix && dc.guilds[ix.guildId], ch = g && g.channels.find((c) => c.id === cid);
+  if (ch && ch.locked && !staff && g.ownerId !== me.id) return { error: 'locked', message: 'This channel is locked.' };
+  if (ch && ch.slow > 0 && !staff) { const k = me.id + cid, wait = ch.slow * 1000 - (Date.now() - (lastSend.get(k) || 0)); if (wait > 0) return { error: 'slow', message: 'Slow mode is on. Wait ' + Math.ceil(wait / 1000) + 's.' }; lastSend.set(k, Date.now()); }
+  return null;
+}
+export function dcAdminState() {
+  const s = dc.settings, now = Date.now();
+  return { flags: s.flags || {}, maxLen: s.maxLen || 0, muted: Object.keys(s.muted || {}).filter((u) => s.muted[u] > now).length, servers: Object.keys(dc.guilds).length, channels: Object.keys(dc.channelIndex).length, dms: Object.keys(dc.dms).length };
+}
+export function dcAdminOp(op, a) {
+  const s = dc.settings; s.muted = s.muted || {}; s.flags = s.flags || {};
+  const chan = (cid) => { const ix = dc.channelIndex[cid], g = ix && dc.guilds[ix.guildId]; return g && g.channels.find((c) => c.id === cid); };
+  const clampN = (v, lo, hi, d) => Math.max(lo, Math.min(hi, Math.floor(Number(v)) || d));
+  let c;
+  switch (op) {
+    case 'mute': s.muted[a.uid] = Date.now() + clampN(a.minutes, 1, 43200, 10) * 60000; markDirty(); return { ok: true };
+    case 'unmute': delete s.muted[a.uid]; markDirty(); return { ok: true };
+    case 'purgeuser': { let n = 0; for (const cid in dc.messages) { const arr = dc.messages[cid], keep = arr.filter((m) => m.uid !== a.uid); if (keep.length !== arr.length) { n += arr.length - keep.length; dc.messages[cid] = keep; bumpRev(cid); } } markDirty(); return { ok: true, removed: n }; }
+    case 'lock': case 'unlock': c = chan(a.channel); if (!c) return { error: 'no-channel' }; c.locked = op === 'lock'; markDirty(); return { ok: true };
+    case 'slow': c = chan(a.channel); if (!c) return { error: 'no-channel' }; c.slow = clampN(a.seconds, 0, 3600, 0); markDirty(); return { ok: true };
+    case 'clearchannel': c = chan(a.channel); if (!c) return { error: 'no-channel' }; { const n = (dc.messages[a.channel] || []).length; dc.messages[a.channel] = []; bumpRev(a.channel); markDirty(); return { ok: true, removed: n }; }
+    case 'say': {
+      c = chan(a.channel); if (!c) return { error: 'no-channel' }; const text = clean(a.text, 1000).trim(); if (!text) return { error: 'empty' };
+      const msg = { id: rid(14), uid: 'system', name: 'ScrollHub', color: '', title: '', titleFx: '', avatarFx: '', avatar: '', role: 'owner', content: text, attachments: [], ts: Date.now(), edited: false };
+      (dc.messages[a.channel] = dc.messages[a.channel] || []).push(msg); bumpRev(a.channel); markDirty(); wsBroadcastChannel(a.channel, { t: 'msg', channel: a.channel, message: msg }); return { ok: true };
+    }
+    case 'flag': if (!['dmsOff', 'voiceOff', 'uploadsOff'].includes(a.flag)) return { error: 'bad-flag' }; s.flags[a.flag] = !!a.on; markDirty(); return { ok: true };
+    case 'maxlen': s.maxLen = a.value ? clampN(a.value, 50, 2000, 2000) : 0; markDirty(); return { ok: true };
+    case 'kickuser': { const g = dc.guilds[a.guild]; if (!g || a.uid === g.ownerId) return { error: 'bad-target' }; g.memberIds = g.memberIds.filter((u) => u !== a.uid); if (dc.userGuilds[a.uid]) dc.userGuilds[a.uid] = dc.userGuilds[a.uid].filter((x) => x !== g.id); (g.left = g.left || []).push(a.uid); markDirty(); return { ok: true }; }
+    case 'renameserver': { const g = dc.guilds[a.guild]; const nm = clean(a.name, 40).trim(); if (!g || !nm) return { error: 'bad-target' }; g.name = nm; markDirty(); return { ok: true }; }
+    case 'clearicon': { const g = dc.guilds[a.guild]; if (!g) return { error: 'bad-target' }; g.iconUrl = ''; markDirty(); return { ok: true }; }
+    case 'deleteserver': { const g = dc.guilds[a.guild]; if (!g || g.id === GLOBAL_ID) return { error: 'bad-target' }; for (const ch of g.channels) { delete dc.messages[ch.id]; delete dc.rev[ch.id]; delete dc.channelIndex[ch.id]; } for (const uid of g.memberIds) { if (dc.userGuilds[uid]) dc.userGuilds[uid] = dc.userGuilds[uid].filter((x) => x !== g.id); } delete dc.guilds[g.id]; if (dc.settings.defaultGuild === g.id) dc.settings.defaultGuild = ''; markDirty(); return { ok: true }; }
+    default: return { error: 'bad-op' };
+  }
 }
 function isStaffAuth(auth) { return !!(auth && auth.role); }
 function canManage(g, auth) { return !!g && (g.ownerId === auth.id || (g.id === GLOBAL_ID && isStaffAuth(auth))); }
@@ -355,6 +397,7 @@ export async function handleDiscord(url, req, res) {
   }
 
   if (path === '/api/dc/dm/open' && req.method === 'POST') {
+    if (dc.settings.flags && dc.settings.flags.dmsOff && !isStaffAuth(me)) return sendJson(res, 403, { error: 'dms-off', message: 'Direct messages are switched off right now.' });
     const b = await readBody(req);
     const other = clean(b.username, 40).trim();
     const acct = await accountByName(other);
@@ -393,7 +436,8 @@ export async function handleDiscord(url, req, res) {
     const b = await readBody(req);
     const cid = clean(b.channel, 80);
     if (!canAccessChannel(cid, me.id)) return sendJson(res, 403, { error: 'no-access' });
-    const content = clean(b.content, 2000).trim();
+    const blk = sendBlock(me, cid); if (blk) return sendJson(res, 403, blk);
+    const content = clean(b.content, (dc.settings && dc.settings.maxLen) || 2000).trim();
     const atts = Array.isArray(b.attachments) ? b.attachments : [];
     if (!content && !atts.length) return sendJson(res, 400, { error: 'empty' });
     const cc = cosFull(me.id);
@@ -475,6 +519,7 @@ export async function handleDiscord(url, req, res) {
     return sendJson(res, 200, { ok: true, guild: guildPublic(g) });
   }
   if (path === '/api/dc/upload' && req.method === 'POST') {
+    if (dc.settings.flags && dc.settings.flags.uploadsOff && !isStaffAuth(me)) return sendJson(res, 403, { error: 'uploads-off', message: 'Image uploads are switched off right now.' });
     const b = await readBody(req);
     const du = String(b.dataUrl || '');
     const mt = du.match(/^data:([\w/+.-]+);base64,(.+)$/);
@@ -581,7 +626,7 @@ export function handleDiscordUpgrade(req, socket, head) {
   Promise.resolve(idP).then((auth) => {
     if (!auth) { try { socket.destroy(); } catch {} return; }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      ws.uid = auth.id; ws.uname = auth.username; ws.peerId = rid(10); ws.subs = new Set(); ws.voiceCid = null;
+      ws.uid = auth.id; ws.uname = auth.username; ws.peerId = rid(10); ws.subs = new Set(); ws.voiceCid = null; ws.staff = !!auth.role;
       conns.add(ws);
       ws.send(JSON.stringify({ t: 'hello', peer: ws.peerId }));
       ws.on('message', (raw) => {
@@ -594,6 +639,7 @@ export function handleDiscordUpgrade(req, socket, head) {
         }
         else if (d.t === 'voice-join' && typeof d.channel === 'string') {
           if (!canAccessChannel(d.channel, ws.uid)) return;
+          if (dc.settings.flags && dc.settings.flags.voiceOff && !ws.staff) { try { ws.send(JSON.stringify({ t: 'voice-off' })); } catch {} return; }
           leaveVoice(ws);
           clearGhosts(ws.uid, d.channel); // drop any stale copy of us from a dropped socket
           const set = voiceRooms.get(d.channel) || new Set();

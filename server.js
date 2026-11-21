@@ -20,9 +20,9 @@ import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
 import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
-import { handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
-import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -962,6 +962,33 @@ async function handleStaff(req, res) {
     const r = monDelete(String(body.channel || '').slice(0, 80), String(body.id || '').slice(0, 40), owner);
     if (r.error) return sendJson(res, r.error === 'owner only' ? 403 : 404, r);
     try { audit(who, 'discord.delete', r.who + ' in ' + r.where, ''); } catch (e) {}
+    return sendJson(res, 200, r);
+  }
+  if (action === 'casino.cfg.get') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, ...casinoCfgGet() }); }
+  if (action === 'casino.cfg.set') {
+    if (!owner) return needOwner();
+    const r = casinoCfgSet(body); if (r.error) return sendJson(res, 400, r);
+    try { const keys = Object.keys(body).filter((k) => k !== 'action'); audit(who, 'casino.cfg', keys.join(','), JSON.stringify(body.game || body.item || {}).slice(0, 120)); } catch (e) {}
+    return sendJson(res, 200, { ok: true, ...casinoCfgGet() });
+  }
+  if (action === 'player.op') {
+    const t = await staffTarget(body.username);
+    if (!t) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' });
+    const r = adminPlayerOp(t.id, String(body.op || ''), body.value, owner);
+    if (r.error) return sendJson(res, r.error === 'owner only' ? 403 : 400, r);
+    try { audit(who, 'player.' + body.op, t.username, body.value != null ? String(body.value).slice(0, 40) : ''); } catch (e) {}
+    return sendJson(res, 200, r);
+  }
+  if (action === 'dc.state') return sendJson(res, 200, { ok: true, ...dcAdminState() });
+  if (action === 'dc.op') {
+    const op = String(body.op || ''); const OWNER_OPS = ['purgeuser', 'clearchannel', 'say', 'flag', 'maxlen', 'deleteserver', 'renameserver', 'clearicon'];
+    if (OWNER_OPS.includes(op) && !owner) return needOwner();
+    const a = { channel: String(body.channel || ''), guild: String(body.guild || ''), text: body.text, seconds: body.seconds, minutes: body.minutes, flag: body.flag, on: body.on, value: body.value, name: body.name };
+    let label = a.channel || a.guild || a.flag || '';
+    if (['mute', 'unmute', 'purgeuser', 'kickuser'].includes(op)) { const t = await staffTarget(body.username); if (!t) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' }); a.uid = t.id; label = t.username; }
+    if (op === 'mute' && !owner) a.minutes = Math.min(60, Number(a.minutes) || 10);
+    const r = dcAdminOp(op, a); if (r.error) return sendJson(res, 400, r);
+    try { audit(who, 'discord.' + op, label, ''); } catch (e) {}
     return sendJson(res, 200, r);
   }
   if (action === 'discord.servers') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, ...discordGuildList() }); }

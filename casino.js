@@ -34,7 +34,7 @@ export async function kvSet(key, value) {
 
 const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 function blankProfile() {
-  return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
+  return { coins: (casino.cfg && casino.cfg.startCoins) || START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
 // Uploaded images live at /ci/<id>.<ext> on every server (shared KV). Old uploads were
 // saved with the full address of whatever link they were uploaded on, which breaks when
@@ -120,6 +120,77 @@ export function getProfileMeta(cid) {
   return { avatar_url: relImg(p.avatar), banner_url: relImg(p.banner_url), profile_color: p.profile_color || '', profile_public: p.profile_public !== false };
 }
 // Admin: add (or remove, if negative) Scrolls for a player by client id.
+
+// ---- Owner tools: casino limits, per-game switches, store item controls, player operations ----
+export const GAME_LIST = [
+  ['slots', 'Slots'], ['coinflip', 'Coinflip'], ['dice', 'Dice'], ['roulette', 'Roulette'], ['plinko', 'Plinko'], ['wheel', 'Big Wheel'], ['blackjack', 'Blackjack'], ['mines', 'Mines'], ['crash', 'Crash'], ['cases', 'Cases'],
+  ['keno', 'Keno'], ['scratch', 'Scratch Cards'], ['limbo', 'Limbo'], ['baccarat', 'Baccarat'], ['shell', 'Shell Game'], ['penalty', 'Penalty Shootout'], ['war', 'Casino War'], ['sicbo', 'Sic Bo'], ['hilo', 'Hi-Lo'], ['poker', 'Video Poker'],
+];
+function cfgNorm() { const c = casino.cfg; c.games = c.games || {}; c.items = c.items || {}; return c; }
+export function casinoCfgGet() {
+  const c = cfgNorm();
+  return { cfg: { closed: !!c.closed, minBet: c.minBet || 0, maxBet: c.maxBet || 0, maxPayout: c.maxPayout || 0, dailyCoins: c.dailyCoins || 0, startCoins: c.startCoins || 0, games: c.games, items: c.items }, defaults: { dailyCoins: DAILY_COINS, startCoins: START_COINS }, games: GAME_LIST.map((g) => ({ id: g[0], name: g[1] })),
+    items: STORE.filter((it) => !it.staff && it.price > 0).map((it) => ({ id: it.id, label: it.label, type: it.type, price: it.price, rarity: it.rarity || '' })) };
+}
+export function casinoCfgSet(a) {
+  const c = cfgNorm(); const n = (v, hi) => Math.max(0, Math.min(hi, Math.floor(Number(v)) || 0));
+  if (a.closed !== undefined) c.closed = !!a.closed;
+  if (a.minBet !== undefined) c.minBet = n(a.minBet, 1e9);
+  if (a.maxBet !== undefined) c.maxBet = n(a.maxBet, 1e12);
+  if (a.maxPayout !== undefined) c.maxPayout = n(a.maxPayout, 1e12);
+  if (a.dailyCoins !== undefined) c.dailyCoins = n(a.dailyCoins, 1e7);
+  if (a.startCoins !== undefined) c.startCoins = n(a.startCoins, 1e9);
+  if (a.game && a.game.id) {
+    if (!GAME_LIST.some((g) => g[0] === a.game.id)) return { error: 'bad-game' };
+    const g = (c.games[a.game.id] = c.games[a.game.id] || {});
+    if (a.game.off !== undefined) g.off = !!a.game.off;
+    if (a.game.min !== undefined) g.min = n(a.game.min, 1e9);
+    if (a.game.max !== undefined) g.max = n(a.game.max, 1e12);
+    if (!g.off && !g.min && !g.max) delete c.games[a.game.id];
+  }
+  if (a.item && a.item.id) {
+    const it = STORE.find((x) => x.id === a.item.id); if (!it || it.staff) return { error: 'bad-item' };
+    const o = (c.items[it.id] = c.items[it.id] || {});
+    if (a.item.off !== undefined) o.off = !!a.item.off;
+    if (a.item.price !== undefined) { if (a.item.price === '' || a.item.price === null) delete o.price; else o.price = n(a.item.price, 1e9); }
+    if (!o.off && o.price == null) delete c.items[it.id];
+  }
+  save(); flush(); return { ok: true };
+}
+// Player operations. `mod` ops are safe for moderators; the rest touch the economy and are owner only.
+export const PLAYER_OPS = {
+  'coins.set': { eco: 1, arg: 'number', run: (p, v) => { p.coins = Math.max(0, Math.min(1e12, Math.floor(v))); } },
+  'coins.add': { eco: 1, arg: 'number', run: (p, v) => { p.coins = Math.max(0, Math.min(1e12, p.coins + Math.floor(v))); } },
+  'coins.take': { eco: 1, arg: 'number', run: (p, v) => { p.coins = Math.max(0, p.coins - Math.floor(Math.abs(v))); } },
+  'coins.reset': { eco: 1, run: (p) => { p.coins = (casino.cfg && casino.cfg.startCoins) || START_COINS; } },
+  'coins.zero': { eco: 1, run: (p) => { p.coins = 0; } },
+  'coins.double': { eco: 1, run: (p) => { p.coins = Math.min(1e12, p.coins * 2); } },
+  'coins.halve': { eco: 1, run: (p) => { p.coins = Math.floor(p.coins / 2); } },
+  'streak.set': { eco: 1, arg: 'number', run: (p, v) => { p.streak = Math.max(0, Math.min(1000, Math.floor(v))); } },
+  'streak.clear': { eco: 1, run: (p) => { p.streak = 0; } },
+  'stats.reset': { eco: 1, run: (p) => { p.stats = { plays: 0, won: 0, biggest: 0, wagered: 0, peak: p.coins }; } },
+  'weekly.reset': { eco: 1, run: (p) => { p.weekNet = 0; } },
+  'peak.reset': { eco: 1, run: (p) => { if (p.stats) p.stats.peak = p.coins; } },
+  'tag.clear': { run: (p) => { p.tag = ''; p.titleFx = ''; } },
+  'color.clear': { run: (p) => { p.color = ''; } },
+  'banner.clear': { run: (p) => { p.banner = ''; } },
+  'avatarfx.clear': { run: (p) => { p.avatarFx = ''; } },
+  'titlefx.clear': { run: (p) => { p.titleFx = ''; } },
+  'avatar.clear': { run: (p) => { p.avatar = ''; } },
+  'bannerimage.clear': { run: (p) => { p.banner_url = ''; } },
+  'look.reset': { run: (p) => { p.look = { ...LOOK_DEFAULT }; } },
+  'cosmetics.clear': { run: (p) => { p.tag = ''; p.titleFx = ''; p.color = ''; p.banner = ''; p.avatarFx = ''; p.avatar = ''; p.banner_url = ''; p.look = { ...LOOK_DEFAULT }; } },
+  'profile.private': { run: (p) => { p.profile_public = false; } },
+  'profile.public': { run: (p) => { p.profile_public = true; } },
+  'nick.clear': { run: (p) => { p.nick = ''; } },
+};
+export function adminPlayerOp(cid, op, val, owner) {
+  const o = PLAYER_OPS[op]; if (!o) return { error: 'bad-op' };
+  if (o.eco && !owner) return { error: 'owner only' };
+  if (o.arg === 'number' && !Number.isFinite(Number(val))) return { error: 'bad-value', message: 'That needs a number.' };
+  const p = profileOf(cid); o.run(p, Number(val)); save(); flush();
+  return { ok: true, coins: p.coins };
+}
 export function grantCoins(cid, amount) {
   if (!cid) return null;
   const p = profileOf(cid);
@@ -604,8 +675,12 @@ async function handleSprites(path, req, res) {
 }
 // School Mode: every paid cosmetic costs 100 Scrolls; prices go back to normal when it's off
 function schoolOn() { try { return !!(globalThis.SH_SCHOOL && globalThis.SH_SCHOOL()); } catch (e) { return false; } }
-export function priceOf(it) { return it && it.price > 0 && schoolOn() ? 100 : it ? it.price : 0; }
-function storeList(p) { const sc = schoolOn(); const base = STORE.filter((it) => !it.staff || (p && p.inventory.includes(it.id))); return sc ? base.map((it) => (it.price > 0 ? { ...it, was: it.price, price: 100 } : it)) : base; }
+function itemCfg(it) { const m = casino.cfg && casino.cfg.items; return (m && it && m[it.id]) || null; }
+export function priceOf(it) { if (!it) return 0; const o = itemCfg(it); const base = o && o.price != null && it.price > 0 ? o.price : it.price; return base > 0 && schoolOn() ? 100 : base; }
+function storeList(p) {
+  const base = STORE.filter((it) => (!it.staff || (p && p.inventory.includes(it.id))) && !((itemCfg(it) || {}).off && !(p && p.inventory.includes(it.id))));
+  return base.map((it) => { const pr = priceOf(it); return pr !== it.price ? { ...it, was: it.price, price: pr } : it; });
+}
 // Character look (2D casino world). Slots hold item ids.
 const LOOK_SLOTS = ['skin', 'body', 'hat', 'acc', 'trail'];
 const LOOK_DEFAULT = { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' };
@@ -819,7 +894,7 @@ export async function handleCasino(url, req, res) {
     const cont = p.lastDaily && gap <= STREAK_GRACE;
     p.streak = (cont ? (p.streak || 0) : 0) + 1;
     // Base reward grows with streak (capped), plus a milestone bonus every 7 days.
-    const base = DAILY_COINS + Math.min(p.streak, 14) * 120;
+    const base = (casino.cfg.dailyCoins || DAILY_COINS) + Math.min(p.streak, 14) * 120;
     const milestone = p.streak % 7 === 0 ? 3000 : 0;
     const gained = base + milestone;
     p.lastDaily = now; p.coins += gained;
@@ -933,6 +1008,7 @@ export async function handleCasino(url, req, res) {
     const body = await readBody(req); const it = storeItem(String(body.itemId || ''));
     if (!it) return (sendJson(res, 200, { error: 'bad-item' }), true);
     if (it.staff) return (sendJson(res, 200, { error: 'not-for-sale' }), true);
+    if ((itemCfg(it) || {}).off) return (sendJson(res, 200, { error: 'unavailable', message: 'That item is not for sale right now.' }), true);
     if (p.inventory.includes(it.id) || it.price === 0) return (sendJson(res, 200, { error: 'owned', profile: publicProfile(cid) }), true);
     const cost = priceOf(it);
     if (cost > p.coins) return (sendJson(res, 200, { error: 'broke', profile: publicProfile(cid) }), true);
