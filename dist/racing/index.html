@@ -92,7 +92,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <div class="road"><canvas id="titleRoad"></canvas></div>
   <div class="logo"><small>ScrollHub Original</small>Scroll<br>Racing</div>
   <p class="tag">Drift, grab items and beat seven rival gims across four tracks.</p>
-  <div class="menu-row"><button class="btn primary big" id="bPlay" type="button">Race</button><button class="btn big" id="bHow" type="button">How to play</button></div>
+  <div class="menu-row"><button class="btn primary big" id="bOnline" type="button">Race online</button><button class="btn big" id="bPlay" type="button">Race bots</button><button class="btn big" id="bHow" type="button">How to play</button></div>
   <div class="glass me-card"><canvas id="meCv" width="128" height="128"></canvas><div><b id="meName">Racer</b><span id="meSub">Your equipped gim races for you</span></div></div>
 </section>
 
@@ -133,7 +133,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <script src="/casino/sfx.js?v=3"></script>
 <script src="/casino/art.js?v=11"></script>
 <script src="/racing/cars.js?v=2"></script>
-<script src="/racing/racing.js?v=3"></script>
-<script src="/hub/hub-back.js?v=1"></script>
+<script src="/racing/racing.js?v=5"></script>
+<script>if (!/[?&]mp=1/.test(location.search)) document.write('<script src="/hub/hub-back.js?v=1"><\/script>');</script>
 </body>
 </html>

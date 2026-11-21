@@ -107,6 +107,7 @@
     if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; var qWas = S.squiz; S.squiz = m.quiz !== false; if (S.school === !!m.on && gWas === S.gamble && qWas !== S.squiz) { if (S.screen === 'game' && !S.squiz) closeQuiz(true); quizHud(); if (S.owner) { try { renderAdmin(); } catch (e2) {} } return; } if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? 'The casino is OPEN! Walk through the casino portal to gamble & play.' : 'The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? 'School Mode is ON — portals are locked, your teacher picks the games!' : 'School Mode is off — portals are open!', 3000); return; }
     if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
+    if ((t === 'rcf' || t === 'rcfix') && window.RMP) return RMP.msg(m);
     if (t === 's') return onSnap(m);
     if (t === 'pong') { var r = Date.now() - m.c; rtt = r; if (r <= bestRtt * 1.3 || !offset) { bestRtt = Math.min(bestRtt, r); offset = m.n + r / 2 - Date.now(); } return; }
     if (t === 'me') return onMe(m);
@@ -543,7 +544,7 @@
     if (!host && r.mapName) $('wHint').innerHTML += '<br><svg class="ui-i" aria-hidden="true"><use href="#ui-map"/></svg> Map: <b>' + esc(r.mapName) + '</b>';
     $('wHint').innerHTML = (rg !== 'bw' ? '<b>' + md.icon + ' ' + esc(md.desc) + '</b><br>' : '') + (r.kind === 'private' && (rg === 'bw' || rg === 'ctf') ? 'Stand on a colored pad to join that team' : r.kind === 'practice' ? 'Bots are getting ready…' : 'Empty slots get filled with bots');
     var html = '';
-    if (rg === 'spleef' || rg === 'hide' || rg === 'duel' || rg === 'murder' || rg === 'build' || rg === 'royale') {
+    if (rg === 'spleef' || rg === 'hide' || rg === 'duel' || rg === 'murder' || rg === 'build' || rg === 'royale' || rg === 'race') {
       var row2 = ''; for (var k2 = 0; k2 < (r.slots || r.cap || 8); k2++) { var mm = r.members[k2]; row2 += mm ? '<span class="wp' + (mm.cid === r.you ? ' you' : '') + '">' + esc(mm.nick) + '</span>' : '<span class="wp bot">' + (r.bots === false ? '·' : '') + '</span>'; }
       $('wRoster').innerHTML = '<div class="wt">' + row2 + '</div>' + (rg === 'hide' ? '<div class="whint">Seekers are picked at random when the round starts</div>' : rg === 'murder' ? '<div class="whint">The murderer and detective are secret!</div>' : '');
       r.members.forEach(function (m) { var e = S.ents.get(m.pid); if (e) e.team = rg === 'spleef' || rg === 'duel' ? m.team : -1; });
@@ -581,7 +582,7 @@
   function startGame(m) {
     S.ended = null; closeShop(); closeModals(); if (window.BWV) BWV.reset();
     S.game = m.game || 'bw';
-    ['bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build', 'royale'].forEach(function (g) { document.body.classList.toggle('g-' + g, g === S.game); });
+    ['bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build', 'royale', 'race'].forEach(function (g) { document.body.classList.toggle('g-' + g, g === S.game); });
     document.body.classList.toggle('mg', isMini());
     if (m.cfg && MG.GAMES[S.game]) Object.assign(MG.GAMES[S.game], m.cfg);
     S.custom = m.custom || null;
@@ -623,6 +624,7 @@
     miniBase = null;
     if (me.elim && !S.watching) showDeath(null, true);
     mgHudInit(); tutStart();
+    if (S.game === 'race' && window.RMP) RMP.open(m); else if (window.RMP) RMP.close();
   }
   function intro() {
     var el = $('intro'), tm = B.TEAMS[S.team];
@@ -647,6 +649,7 @@
   var HELD = B.HOTBAR_ORDER;
   function onSnap(m) {
     if (S.screen === 'loading') return;
+    if (m.rc && S.game === 'race' && window.RMP) RMP.snap(m);
     var ts = m.n;
     for (var k = 0; k < m.p.length; k++) {
       var a = m.p[k], e = S.ents.get(a[0]); if (!e) continue;
@@ -1908,7 +1911,7 @@
 
   // ------------------------------------------------------------------ end
   var podium = null;
-  function onEnd(m) { if (!m.watch && potgStart(m)) return; onEndReal(m); }
+  function onEnd(m) { if (window.RMP) RMP.close(); if (!m.watch && m.game !== 'race' && potgStart(m)) return; onEndReal(m); }
   function onEndReal(m) {
     S.ended = m; mouse.l = mouse.r = false; closeShop();
     if (m.watch) { $('watchBar').classList.add('hidden'); var wn = m.winner >= 0 ? (S.game === 'murder' ? (m.winner ? 'The murderer' : 'The innocents') : S.game === 'hide' ? (m.winner ? 'Seekers' : 'Hiders') : tname(m.winner) + ' team') + ' won!' : 'It’s a draw!'; banner('MATCH OVER', wn + ' Heading back to the hub…', '#9b6bff'); return; }
@@ -1924,7 +1927,7 @@
     if (m.game && m.game !== 'bw') $('eTable').innerHTML = mgEndTable(m); else $('eTable').innerHTML = '<tr><th>#</th><th>Player</th><th>Kills</th><th>Finals</th><th>Beds</th><th>Deaths</th></tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + teamCol(s.team) + '">' + (s.bot ? '' : '') + esc(s.nick) + '</b></td><td>' + s.kills + '</td><td>' + s.finals + '</td><td>' + s.beds + '</td><td>' + s.deaths + '</td></tr>'; }).join('');
     if (m.quiz && m.quiz.length) $('eTable').innerHTML += '<tr><th colspan="6" style="padding-top:14px;color:#ffd166"><svg class="ui-i" aria-hidden="true"><use href="#ui-pen-line"/></svg> Quiz standings</th></tr><tr><th>#</th><th>Player</th><th><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-check"/></svg> Right</th><th>Wrong</th><th>Best</th><th></th></tr>' + m.quiz.map(function (q, i) { return '<tr><td>' + (['1st', '2nd', '3rd'][i] || (i + 1)) + '</td><td>' + esc(q.nick) + '</td><td>' + q.right + '</td><td>' + q.wrong + '</td><td>' + q.best + '</td><td></td></tr>'; }).join('');
     closeQuiz(true); $('qHud').classList.add('hidden');
-    podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now(), label: m.game === 'hide' ? (m.winner === 0 ? 'HIDERS' : 'SEEKERS') : m.game === 'spleef' ? 'LAST ONE STANDING' : null };
+    podium = { team: m.winner, players: m.stats.filter(function (s) { return s.team === m.winner; }), conf: [], t0: now(), label: m.game === 'hide' ? (m.winner === 0 ? 'HIDERS' : 'SEEKERS') : m.game === 'spleef' ? 'LAST ONE STANDING' : m.game === 'race' ? 'RACE WINNER' : null };
     if (m.game === 'hide') podium.team = m.winner === 0 ? 2 : 0;
     if (S.hello && rw) { S.hello.stats = Object.assign(S.hello.stats || {}, rw.stats, { coins: rw.coins, earnedToday: rw.stats.earned, cap: (S.hello.stats && S.hello.stats.cap) || 1500 }); }
     setTimeout(function () { show('end'); SC.sfx(win ? 'bigwin' : 'lose'); }, S.potgShown ? 250 : 1600); S.potgShown = false;
@@ -2113,8 +2116,8 @@
     clearTimeout(S.cqT); S.cqT = setTimeout(function () { if (S.qMode === 'cq') closeQuiz(true); }, (m.secs || 45) * 1000);
   }
   // ---- class game vote (cards are little live scenes: each game's portal, with everyone who voted for it lined up in front)
-  var VNAME = { bw: ['BED', 'WARS'], ctf: ['CAPTURE', 'FLAG'], spleef: ['TNT', 'SPLEEF'], hide: ['PROP', 'HUNT'], murder: ['MURDER', 'MYSTERY'], build: ['BUILD', 'BATTLE'], duel: ['', 'DUELS'], royale: ['SCROLL', 'ROYAL'] };
-  var VGROUND = { bw: ['#5ccf62', '#52c45a'], ctf: ['#5ccf62', '#52c45a'], spleef: ['#cfe9ff', '#bfe0fb'], hide: ['#8fd16a', '#84c661'], murder: ['#b48a5a', '#a87f50'], build: ['#c8a46a', '#bd9a61'], duel: ['#9aa3b5', '#8e97aa'], royale: ['#7fb35a', '#74a850'] };
+  var VNAME = { bw: ['BED', 'WARS'], ctf: ['CAPTURE', 'FLAG'], spleef: ['TNT', 'SPLEEF'], hide: ['PROP', 'HUNT'], murder: ['MURDER', 'MYSTERY'], build: ['BUILD', 'BATTLE'], duel: ['', 'DUELS'], royale: ['SCROLL', 'ROYAL'], race: ['SCROLL', 'RACING'] };
+  var VGROUND = { bw: ['#5ccf62', '#52c45a'], ctf: ['#5ccf62', '#52c45a'], spleef: ['#cfe9ff', '#bfe0fb'], hide: ['#8fd16a', '#84c661'], murder: ['#b48a5a', '#a87f50'], build: ['#c8a46a', '#bd9a61'], duel: ['#9aa3b5', '#8e97aa'], royale: ['#7fb35a', '#74a850'], race: ['#6f7a8c', '#657084'] };
   function onVote(m) {
     var box = $('voteBox');
     if (m.done) {
@@ -2134,7 +2137,7 @@
       requestAnimationFrame(voteDraw);
     }
     S.voteEnd = now() + (m.left || 0); S.vote = m;
-    var games = m.games || ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel', 'royale'], top = 0;
+    var games = m.games || ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel', 'royale', 'race'], top = 0;
     games.forEach(function (g) { top = Math.max(top, m.counts[g] || 0); });
     if (!S.voteCards || S.voteCards.join() !== games.join()) {
       S.voteCards = games.slice();
@@ -2635,7 +2638,7 @@
     $('mgTop').classList.toggle('hidden', !isMini());
     $('blind').classList.add('hidden');
     var ic = { bw: ['swords', 'brick-wall', 'sparkles'], ctf: ['swords', 'brick-wall', 'sparkles'], spleef: ['pickaxe', 'arrow-up', 'snowflake'], hide: S.team === 0 ? ['drama', 'music', ''] : ['swords', '', 'radar'],
-      duel: ['swords', '', ''], murder: S.mrole === 'm' ? ['sword', 'hand', ''] : ['hand', '', 'target'], build: ['brick-wall', 'eraser', ''], royale: ['crosshair', 'package', 'refresh-cw'] }[S.game];
+      duel: ['swords', '', ''], murder: S.mrole === 'm' ? ['sword', 'hand', ''] : ['hand', '', 'target'], build: ['brick-wall', 'eraser', ''], royale: ['crosshair', 'package', 'refresh-cw'], race: ['swords', '', ''] }[S.game];
     if (S.game === 'murder' && S.mrole === 'm') ic = ['sword', 'hand', ''];
     $('mgRole').classList.toggle('hidden', S.game !== 'hide' && S.game !== 'murder');
     if (S.game === 'murder') $('mgRole').innerHTML = S.mrole === 'm' ? '<span class="ic"></span><div>MURDERER<small>Hold the knife to strike · don’t get seen</small></div>' : S.mrole === 'd' ? '<span class="ic"></span><div>DETECTIVE<small>Shoot the murderer · don’t miss</small></div>' : '<span class="ic"></span><div>INNOCENT<small>Collect 10 for a bow · survive</small></div>';
@@ -2757,9 +2760,11 @@
     }
     if (m.game === 'murder') { var mm2 = (m.stats || []).find(function (x) { return x.id === m.murderer; }); $('eSub').innerHTML = (m.winner === 1 ? 'The murderer wins!' : 'The innocents win!') + (mm2 ? ' The murderer was <b style="color:#ff5c6c">' + esc(mm2.nick) + '</b>' : ''); }
     if (m.game === 'royale') { try { RG.end(m); } catch (e9) {} var rw = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (rw ? '<span style="color:' + teamCol(rw.team) + '">' + esc(rw.nick) + '</span> wins the match!' : 'Nobody survived!') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
+    if (m.game === 'race') { var rw2 = (m.stats || []).find(function (x) { return x.team === m.winner; }); $('eSub').innerHTML = (rw2 ? '<span style="color:' + teamCol(rw2.team) + '">' + esc(rw2.nick) + '</span> wins on ' + esc(m.trackName || 'the track') : 'Race over') + ' · You placed <b style="color:#ffd166">#' + (me.place || '?') + '</b>'; }
     if (m.game === 'build') { var r1 = m.results && m.results[0]; $('eSub').innerHTML = 'Theme: <b>' + esc(m.theme || '') + '</b>' + (r1 ? ' · <span style="color:#ffd166">' + esc(r1.nick) + '</span> won with ' + r1.avg + '' : ''); }
     void win;
   }
+  function fmtRace(ms) { var mn = Math.floor(ms / 60000), sc = Math.floor(ms / 1000) % 60, t = Math.floor(ms) % 1000; return mn + ':' + (sc < 10 ? '0' : '') + sc + '.' + (t < 10 ? '00' : t < 100 ? '0' : '') + t; }
   function mgEndTable(m) {
     var st = m.stats.slice(), head, row;
     if (m.game === 'ctf') { st.sort(function (a, b) { return (b.caps * 5 + b.kills + b.rets * 2) - (a.caps * 5 + a.kills + a.rets * 2); }); head = '<th>Caps</th><th>Kills</th><th>Returns</th><th>Deaths</th>'; row = function (s) { return '<td>' + (s.caps || 0) + '</td><td>' + s.kills + '</td><td>' + (s.rets || 0) + '</td><td>' + s.deaths + '</td>'; }; }
@@ -2767,6 +2772,7 @@
     else if (m.game === 'duel') { st.sort(function (a, b) { return b.kills - a.kills; }); head = '<th>Kills</th><th>Best streak</th>'; row = function (s) { return '<td>' + s.kills + '</td><td>' + (s.best || 0) + '</td>'; }; }
     else if (m.game === 'murder') { st.sort(function (a, b) { return (b.role === 'm' ? 5 : 0) + b.kills - ((a.role === 'm' ? 5 : 0) + a.kills); }); head = '<th>Role</th><th>Kills</th><th>Gold</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.role === 'm' ? 'Murderer' : s.role === 'd' ? 'Detective' : 'Innocent') + '</td><td>' + s.kills + '</td><td>' + (s.gold || 0) + '</td><td>' + (s.survived ? '' : '–') + '</td>'; }; }
     else if (m.game === 'royale') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Eliminations</th><th>Shots</th>'; row = function (s) { return '<td>' + (['1st', '2nd', '3rd'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + s.kills + '</td><td>' + (s.shots || 0) + '</td>'; }; }
+    else if (m.game === 'race') { st.sort(function (a, b) { return (a.place || 99) - (b.place || 99); }); head = '<th>Place</th><th>Time</th>'; row = function (s) { return '<td>' + (['1st', '2nd', '3rd'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.ft ? fmtRace(s.ft) : 'DNF') + '</td>'; }; }
     else if (m.game === 'build') { st.sort(function (a, b) { return (a.place || 9) - (b.place || 9); }); head = '<th>Place</th><th>Stars</th><th>Pieces</th>'; row = function (s) { return '<td>' + (['1st', '2nd', '3rd'][s.place - 1] || '#' + (s.place || '?')) + '</td><td>' + (s.score || '–') + '</td><td>' + (s.placed || 0) + '</td>'; }; }
     else { st.sort(function (a, b) { return (b.finds * 3 + b.taunts + (b.survived ? 5 : 0)) - (a.finds * 3 + a.taunts + (a.survived ? 5 : 0)); }); head = '<th>Started as</th><th>Found</th><th>Taunts</th><th>Survived</th>'; row = function (s) { return '<td>' + (s.team === 0 || s.survived ? '' : '') + '</td><td>' + (s.finds || 0) + '</td><td>' + (s.taunts || 0) + '</td><td>' + (s.survived ? '' : '–') + '</td>'; }; }
     return '<tr><th>#</th><th>Player</th>' + head + '</tr>' + st.map(function (s, i) { return '<tr' + (s.id === m.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td><b style="color:' + (m.game === 'hide' ? (s.team === 0 ? '#2bd576' : '#ff8b98') : teamCol(s.team)) + '">' + (s.bot ? '' : '') + esc(s.nick) + '</b></td>' + row(s) + '</tr>'; }).join('');
@@ -3094,6 +3100,11 @@
     { h: 'Loot & rarity', p: 'Open <b>gold chests</b> and walk over loot. <b style="color:#b0b6bd">Common</b> → <b style="color:#2bd576">Uncommon</b> → <b style="color:#4aa8ff">Rare</b> → <b style="color:#b55cff">Epic</b> → <b style="color:#ffb02e">Legendary</b>. 5 slots: <kbd>1</kbd>–<kbd>5</kbd>, <kbd>R</kbd> reload, <kbd>H</kbd> heal, <kbd>X</kbd> drop, <kbd>E</kbd> chests, swaps and jeeps.', art: function (x, t) { artBg(x, '#4a3a10'); ['pistol', 'smg', 'ar', 'shotgun', 'sniper'].forEach(function (k, i) { itemAt(x, k, 50 + i * 50, 150 + Math.sin(t * 3 + i) * 6, 1.6); }); } },
     { h: 'Beat the storm', p: 'The purple <b style="color:#b27cff">storm</b> shrinks to the white ring. Shields soak damage first. Break trees, rocks and walls with your pickaxe or explosives, hide inside buildings, and press <kbd>M</kbd> for the big map.', art: function (x, t) { artBg(x, '#3b1a6e'); x.strokeStyle = '#d6b8ff'; x.lineWidth = 4; x.beginPath(); x.arc(150, 150, 110 - (t % 4) * 18, 0, 6.3); x.stroke(); gimAt(x, 150, 200, YOU(), t); } },
   ] };
+  HELP.race = { name: 'Scroll Racing', icon: '', pages: [
+    { h: 'Race up to 8 karts', p: 'Hit the track with other players and bots. <kbd>W</kbd>/<kbd>A</kbd>/<kbd>S</kbd>/<kbd>D</kbd> or the arrow keys drive. Finish three laps first.', tk: 'Drag on the left to steer. Tap ITEM to use what you picked up.', art: function (x, t) { artBg(x, '#2a3350'); x.strokeStyle = '#8a93a8'; x.lineWidth = 36; x.beginPath(); x.ellipse(90, 130, 60, 36, 0, 0, 6.3); x.stroke(); x.fillStyle = '#ffd166'; x.beginPath(); x.arc(90 + Math.cos(t * 2) * 60, 130 + Math.sin(t * 2) * 36, 9, 0, 6.3); x.fill(); } },
+    { h: 'Drift and items', p: 'Hold <kbd>Space</kbd> in a turn to drift, then let go for a mini turbo. Drive through the glowing boxes for items, and use them with <kbd>E</kbd>.', art: function (x, t) { artBg(x, '#2a3350'); x.fillStyle = '#60a5fa'; x.fillRect(70, 100, 40, 40); x.fillStyle = '#fff'; x.font = '700 28px system-ui'; x.fillText('?', 82, 130); } },
+    { h: 'Scrolls for finishing', p: 'Everyone who races earns Scrolls, and the higher you place the more you get. Bots fill empty places.', art: function (x, t) { artBg(x, '#3a2a6a'); x.font = '900 60px system-ui'; x.fillStyle = '#ffd166'; x.fillText('1st', 60, 140); } },
+  ] };
   HELP.build = { name: 'Build Battle', icon: '', pages: [
     { h: 'One theme, one plot', p: 'Everyone gets the same theme and their own plot. You have ' + MG.GAMES.build.buildSec + ' seconds — make something amazing.', art: function (x, t) { artBg(x, '#1d4a3a'); x.strokeStyle = '#2bd576'; x.lineWidth = 5; x.strokeRect(40, 90, 100, 100); x.strokeStyle = 'rgba(255,255,255,.3)'; x.strokeRect(160, 90, 100, 100); D.prop(x, 'snowman', 90, 180, t, { sc: 1.4 }); D.tag && null; } },
     { h: 'The palette', p: 'Pick ground, walls and props from the palette. <b>Left click</b> places, <b>right click</b> erases, <kbd>R</kbd> cycles. Dig pits, build walls, place pumpkins!', tk: 'Tap a palette item, then tap your plot. erases.', art: function (x, t) { artBg(x); ['wool', 'wood', 'end'].forEach(function (id, k) { itemAt(x, id, 70 + k * 80, 130 + Math.sin(t * 3 + k) * 6, 2, { team: 0 }); }); D.prop(x, 'pot', 110, 250, t, { sc: 1.3 }); D.prop(x, 'lamp', 190, 250, t, { sc: 1.2 }); } },
@@ -3102,7 +3113,7 @@
   var help = { g: 'bw', i: 0, raf: 0 };
   function openHelp(g) {
     help.g = HELP[g] ? g : 'bw'; help.i = 0; S.helpGame = help.g;
-    $('hGames').innerHTML = ['bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build', 'royale'].map(function (k) { return '<button data-hg="' + k + '"' + (k === help.g ? ' class="on"' : '') + '>' + HELP[k].icon + ' ' + HELP[k].name + '</button>'; }).join('');
+    $('hGames').innerHTML = ['bw', 'ctf', 'spleef', 'hide', 'duel', 'murder', 'build', 'royale', 'race'].map(function (k) { return '<button data-hg="' + k + '"' + (k === help.g ? ' class="on"' : '') + '>' + HELP[k].icon + ' ' + HELP[k].name + '</button>'; }).join('');
     openModal('mHelp'); helpRender();
     cancelAnimationFrame(help.raf); (function loop() { if ($('mHelp').classList.contains('hidden')) return; var cvh = $('hArt'); if (cvh) { var x = cvh.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 300, 300); try { HELP[help.g].pages[help.i].art(x, now() / 1000); } catch (e) {} } help.raf = requestAnimationFrame(loop); })();
   }
@@ -3128,6 +3139,7 @@
 
   // debug hook for automated tests
   D.gunCol = function (e) { return S.game === 'royale' && window.MG && MG.RRAR[e.rrar | 0] ? MG.RRAR[e.rrar | 0].c : null; };
+  if (window.RMP) RMP.attach({ S: S, send: send, toast: toast });
   if (window.RG) RG.attach({ S: S, getP: function () { return P; }, ctx: c, cam: cam, send: send, now: now, snow: snow, toast: toast, toastBig: toastBig, mouse: mouse, keys: keys, entPos: entPos, playAgain: playAgain, shake: function (v) { S.shake = Math.max(S.shake, v); }, get touch() { return touch; } });
   window.BWG = { openHelp: function (g) { openHelp(g); }, skinShop: function () { openSkinShop(); }, viewZ: function () { return viewZ(); }, dbg: function () { return { ct: cursorTile(), act: canAct(), r: mouse.r, wx: mouse.wx, wy: mouse.wy }; }, S: S, get P() { return P; }, send: send, cam: cam, mouse: mouse, keys: keys, openShop: openShop, selectSlot: selectSlot };
 

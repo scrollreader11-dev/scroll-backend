@@ -239,23 +239,23 @@
     obj(m, { kind: 'npc', tx: 39, ty: 44, act: 'how', game: 'bw', mode: 'bw', label: 'GAME GUIDE', sub: 'how to play everything', look: { skin: 'penguin', body: '#4a4f6a', hat: 'wizard' } });
     // ---- the PORTAL HALL: all 7 game portals side by side in one plaza.
     // Walk straight into a portal to play; the name banner stands BEHIND each one.
-    fill(m, 12, 15, 60, 26, G2.COBBLE);
-    fill(m, 13, 16, 59, 25, G2.MID);
+    fill(m, 12, 15, 66, 26, G2.COBBLE);
+    fill(m, 13, 16, 65, 25, G2.MID);
     fill(m, 35, 26, 37, 32, G2.PATH);
     var ports = [
       { g: 'spleef', tx: 16, ty: 21 }, { g: 'ctf', tx: 22, ty: 21 }, { g: 'hide', tx: 28, ty: 21 }, { g: 'bw', tx: 34, ty: 21 },
-      { g: 'royale', tx: 40, ty: 21 }, { g: 'murder', tx: 46, ty: 21 }, { g: 'duel', tx: 52, ty: 21 }, { g: 'build', tx: 58, ty: 21 },
+      { g: 'royale', tx: 40, ty: 21 }, { g: 'murder', tx: 46, ty: 21 }, { g: 'duel', tx: 52, ty: 21 }, { g: 'build', tx: 58, ty: 21 }, { g: 'race', tx: 64, ty: 21 },
     ];
     B.HUB_PORTS = ports;
     ports.forEach(function (q) {
-      var names = { bw: 'BEDWARS', ctf: 'CAPTURE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER', build: 'BUILD BATTLE', royale: 'SCROLL ROYAL' };
+      var names = { bw: 'BEDWARS', ctf: 'CAPTURE FLAG', spleef: 'TNT SPLEEF', hide: 'PROP HUNT', duel: 'DUELS', murder: 'MURDER', build: 'BUILD BATTLE', royale: 'SCROLL ROYAL', race: 'SCROLL RACING' };
       fill(m, q.tx - 1, q.ty, q.tx + 1, q.ty + 1, G2.PAD);
       // the name banner stands BEHIND (north of) the portal
       obj(m, { kind: 'banner', tx: q.tx, ty: q.ty - 2, text: names[q.g], game: q.g, small: true }, [[q.tx - 2, q.ty - 2], [q.tx + 2, q.ty - 2]]);
       // portals are NOT solid: you walk into them
       obj(m, { kind: 'gport', tx: q.tx, ty: q.ty, game: q.g, act: 'gmenu', walk: true }, []);
     });
-    [[13, 16], [59, 16], [13, 25], [59, 25], [21, 25], [27, 25], [33, 25], [39, 25], [45, 25], [51, 25]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
+    [[13, 16], [65, 16], [13, 25], [65, 25], [21, 25], [27, 25], [33, 25], [39, 25], [45, 25], [51, 25], [57, 25], [63, 25]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
     obj(m, { kind: 'sign', tx: 33, ty: 28, text: 'PORTAL HALL', lines: ['Walk into a portal', 'to start playing!', 'E = more options'], dy: 10 }, [[33, 28]]);
     obj(m, { kind: 'bedDeco', tx: 40, ty: 28 }, [[40, 27], [40, 28]]);
     // ---- leaderboard plaza (west)

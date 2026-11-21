@@ -7,6 +7,7 @@
 import { WebSocketServer } from 'ws';
 import './dist/arcade/bedwars/shared.js';
 import './dist/arcade/bedwars/mg.js';
+import './dist/arcade/bedwars/racecore.js';
 import { MINI, initMini } from './minigames.js';
 import * as GMS from './gamemaps.js';
 import { nextQuestion, SETS as QSETS } from './quizbank.js';
@@ -524,7 +525,7 @@ function classAnswer(c, m) {
   send(c, { t: 'qr', ok, ans: cq.ans, gain, en: e && e.quiz ? Math.ceil(e.energy) : -1, qz: e && e.quiz ? e.qz : { right: 0, wrong: 0, streak: 0 }, cq: 1 });
 }
 // ---- class game vote (owner starts it; everyone not mid-match votes; winner launches a room with everyone in it)
-const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel', 'royale'];
+const VOTE_GAMES = ['bw', 'ctf', 'spleef', 'hide', 'murder', 'build', 'duel', 'royale', 'race'];
 function voteCounts() { const n = {}; VOTE_GAMES.forEach((g) => { n[g] = 0; }); if (CLASS.vote) for (const g of CLASS.vote.votes.values()) n[g]++; return n; }
 function voteTargets() { return [...conns].filter((c) => !c.spectator && !(c.room && c.room.state === 'play')); }
 function voteVoters() { const out = {}; if (!CLASS.vote) return out; for (const c of conns) { const g = c.cid && CLASS.vote.votes.get(c.cid); if (!g) continue; (out[g] || (out[g] = [])).length < 12 && out[g].push({ n: c.nick, l: c.look }); } return out; }
@@ -1278,7 +1279,7 @@ setInterval(() => {
 
 // ============================================================ connections
 function lobbyList() {
-  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, royale: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, royale: 0 } };
+  const out = { solo: 0, duos: 0, squads: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, royale: 0, race: 0, playing: 0, hub: HUB.conns.size, inGame: { bw: 0, ctf: 0, spleef: 0, hide: 0, duel: 0, murder: 0, build: 0, royale: 0, race: 0 } };
   for (const r of rooms.values()) {
     if (r.state === 'lobby' && r.kind === 'public') out[r.mode] = (out[r.mode] || 0) + r.members.length;
     if (r.state === 'play') { const n = humans(r).length; out.playing += n; out.inGame[r.game] = (out.inGame[r.game] || 0) + n; }
@@ -1401,7 +1402,7 @@ function onMsg(c, m, now) {
   if (t === 'qc') { if (now - (e.qcAt || 0) < 1200) return; e.qcAt = now; const i = m.i | 0; if (i >= 0 && i < BW_QC.length) r.ev(['qc', e.id, i]); return; }
   if (t === 'qz' || t === 'qa') { quizMsg(r, e, c, m, now); return; }
   if (e.dead || e.elim) return;
-  if (now < r.goAt) return;
+  if (now < r.goAt && !(r.game === 'race' && t === 'rcc')) return;
   if (r.game !== 'bw' && MINI.onMsg(r, e, m, now)) return;
   if (t === 'mv') {
     let x = Number(m.x), y = Number(m.y); if (!Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -1654,6 +1655,7 @@ function adminMsg(c, m, now) {
     const r2 = rooms.get(Number(m.room)); if (!r2 || r2.state !== 'play') return no('That match isn’t running.');
     if (c.room && c.room.state === 'play') return no('Leave your match first.');
     if (r2.game === 'royale') return no('You can’t drop into a Scroll Royal match — wait for the next one.');
+    if (r2.game === 'race') return no('You can’t join a race that already started — wait for the next one.');
     if (r2.game === 'spleef') return no('You can’t drop into a Spleef round — wait for the next one.');
     const tm = r2.game === 'hide' ? 1 : clamp(Number(m.team) || 0, 0, r2.game === 'ctf' ? 1 : 3);
     if (r2.game === 'bw' && !r2.teams[tm].bed) return no('That team has no bed — pick another.');
@@ -1763,7 +1765,7 @@ function adminMsg(c, m, now) {
       return ok('TNT rain incoming (' + n2 + ')');
     }
     if (op === 'addbot') {
-      if (r.game === 'spleef' || r.game === 'duel' || r.game === 'build' || r.game === 'royale') return no('Bots can’t join a running ' + MG.GAMES[r.game].name + ' match.');
+      if (r.game === 'spleef' || r.game === 'duel' || r.game === 'build' || r.game === 'royale' || r.game === 'race') return no('Bots can’t join a running ' + MG.GAMES[r.game].name + ' match.');
       const used = new Set([...r.ents.values()].map((e) => e.nick));
       let name; do { name = BOT_NAMES[(rnd() * BOT_NAMES.length) | 0]; } while (used.has(name) && used.size < BOT_NAMES.length);
       let team = 0;

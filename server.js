@@ -1484,9 +1484,9 @@ const HUB_ORIGINALS = [
   { id: 'scrollhub-sprite-lab', title: 'Sprite Lab', dev: 'ScrollHub Studios', tagline: 'Draw it. Animate it. Wear it.',
     desc: 'A pixel editor for characters, hats and banners. Paint frames, preview the animation and see your work in the game world.',
     tags: ['Creative', 'Tools', 'Single Player'], players: '1', url: '/arcade/sprites', entry: '/arcade/sprites.html', art: '/hub/art/sprites.jpg', accent: '#38bdf8' },
-  { id: 'scrollhub-racing', title: 'Scroll Racing', dev: 'ScrollHub Studios', tagline: 'Drift. Grab items. Beat seven rival gims.',
-    desc: 'A top-down kart racer starring your own gim. Race seven rivals across four tracks, drift through corners for mini turbos, grab item boxes and fire Pulses, Seekers and Zaps. Finish high to earn Scrolls.',
-    tags: ['Racing', 'Arcade', 'Action'], players: '1', url: '/racing/index.html', entry: '/racing/index.html', art: '/hub/art/racing.jpg', accent: '#3b82f6' },
+  { id: 'scrollhub-racing', title: 'Scroll Racing', dev: 'ScrollHub Studios', tagline: 'Drift. Grab items. Beat seven rivals online.',
+    desc: 'A top-down kart racer starring your own gim. Race up to eight players (bots fill empty places) across four tracks, drift through corners for mini turbos, grab item boxes and fire Pulses, Seekers and Zaps. Finish high to earn Scrolls.',
+    tags: ['Racing', 'Multiplayer', 'Arcade'], players: '1 to 8', url: '/arcade?play=race', entry: '/arcade/bedwars/index.html', art: '/hub/art/racing.jpg', accent: '#3b82f6' },
 ];
 const _hubHash = new Map(); // file -> { sig, h }
 function hubFileHash(rel) {

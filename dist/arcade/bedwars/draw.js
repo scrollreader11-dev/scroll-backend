@@ -682,7 +682,7 @@
     D.tag(c, label || o.label, px, py - 178, { size: 14, color: '#ffd166', bg: '#1a0f3d' });
     if (Math.random() < 0.3) D.spawn({ k: 'spark', x: px + (Math.random() - 0.5) * 80, y: py - 20 - Math.random() * 120, vx: 0, vy: -30, col: '#ffd166', size: 2, life: 0.7, drag: 1 });
   };
-  D.GCOL = { royale: '#ffb02e', bw: '#ff4b5c', ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b', duel: '#ffd166', murder: '#c1121f', build: '#2bd576' };
+  D.GCOL = { royale: '#ffb02e', race: '#38bdf8', bw: '#ff4b5c', ctf: '#3fa9ff', spleef: '#7dd3fc', hide: '#ff922b', duel: '#ffd166', murder: '#c1121f', build: '#2bd576' };
   // A game gateway: a glowing colored arch with the game's icon floating inside.
   D.gport = function (c, o, t, count) {
     var px = o.x, py = o.y + 14, col = D.GCOL[o.game] || '#7b5cff';

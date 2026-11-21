@@ -62,6 +62,7 @@
   var DIFF = { easy: { top: 0.86, mult: 0.6, slot: 3 }, normal: { top: 0.93, mult: 1, slot: 5 }, hard: { top: 1.0, mult: 1.4, slot: 6 } };
   var S = { mode: 'boot', track: null, racers: [], me: null, proj: [], slicks: [], parts: [], pops: [], laps: 3, t: 0, count: 0, raceT: 0, finishedN: 0, afterT: 0, results: null, flash: 0, shake: 0, token: '', run: null, wrong: 0, hintT: 0, gasAt: -1, early: false, focus: null, zapT: 0 };
   var cam = { x: 0, y: 0, a: 0, z: 1 };
+  var MPS = /[?&]mp=1/.test(location.search) && window.parent !== window; // running inside the Bedwars-engine lobby (online race)
   var keys = {}, touch = { steer: 0, drift: false, item: false, brake: false, gas: false };
   var player = { look: { skin: 'gim', body: '#3fa9ff', hat: '', acc: '', trail: '' }, name: 'Racer', signed: false };
   var NAMES = ['Pip', 'Mochi', 'Zed', 'Nova', 'Biscuit', 'Turbo', 'Echo', 'Jinx', 'Kiwi', 'Bolt', 'Sprout', 'Tango', 'Pebble', 'Waffle', 'Comet'];
@@ -213,8 +214,9 @@
     else if (it === 'pulse') { S.proj.push({ t: 'pulse', x: r.x + fx * 30, y: r.y + fy * 30, vx: fx * 820 + r.vx * 0.3, vy: fy * 820 + r.vy * 0.3, life: 1.7, owner: r, age: 0 }); if (r.me) tone(520, 0.15, 'square', 0.12, 0, 220); }
     else if (it === 'seeker') { S.proj.push({ t: 'seeker', x: r.x + fx * 30, y: r.y + fy * 30, vx: fx * 600, vy: fy * 600, life: 4.5, owner: r, age: 0, a: r.a }); if (r.me) tone(380, 0.25, 'sawtooth', 0.1, 0, 700); }
     else if (it === 'slick') { S.slicks.push({ x: r.x - fx * 38, y: r.y - fy * 38, life: 14, owner: r, age: 0 }); if (r.me) tone(240, 0.12, 'triangle', 0.14, 0, 120); }
-    else if (it === 'zap') { var me = placeOf(r); S.racers.forEach(function (o) { if (o !== r && ((o.finished && !r.finished) || (!o.finished && !r.finished && o.u > r.u))) hit(o, 'zap'); }); S.flash = 0.35; if (r.me || (S.me && placeOf(S.me) > me)) { noise(0.5, 0.3, 0, 200); tone(120, 0.5, 'sawtooth', 0.14, 0, 900); } }
+    else if (it === 'zap') { var me = placeOf(r); S.racers.forEach(function (o) { if (o !== r && ((o.finished && !r.finished) || (!o.finished && !r.finished && o.u > r.u)) && !o.remote) hit(o, 'zap'); }); S.flash = 0.35; if (r.me || (S.me && placeOf(S.me) > me)) { noise(0.5, 0.3, 0, 200); tone(120, 0.5, 'sawtooth', 0.14, 0, 900); } }
     if (r.me) popText(ITEMS[it].n, '#93c5fd');
+    if (MPS && r.me) mpSend({ t: 'rci', k: it, x: Math.round(r.x), y: Math.round(r.y), vx: Math.round(r.vx), vy: Math.round(r.vy), a: r.a });
   }
   function popText(t, col) { S.pops.push({ t: t, col: col || '#fff', life: 1.6, max: 1.6 }); if (S.pops.length > 3) S.pops.shift(); }
 
@@ -259,7 +261,7 @@
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return; keys[e.code] = true;
     if (e.code === 'KeyE' || e.code === 'KeyX' || e.code === 'Enter' || e.code === 'KeyF') keys.__item = true;
-    if (e.code === 'KeyR' && (S.mode === 'race' || S.mode === 'count') && S.me) { respawn(S.me); S.me.spin = 0.6; S.me.inv = 1.6; }
+    if (e.code === 'KeyR' && (S.mode === 'race' || S.mode === 'count') && S.me) { if (MPS) mpSend({ t: 'rcr' }); respawn(S.me); S.me.spin = 0.6; S.me.inv = 1.6; }
     if ((e.code === 'KeyP' || e.code === 'Escape') && (S.mode === 'race' || S.mode === 'count' || S.mode === 'paused')) togglePause();
     if (S.mode === 'count' && (e.code === 'ArrowUp' || e.code === 'KeyW') && S.gasAt < 0) S.gasAt = S.count;
   });
@@ -287,9 +289,10 @@
     var R = S.racers, n = R.length, i, j;
     for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
       var a = R[i], b = R[j], dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy; if (d2 > 44 * 44 || d2 < 0.01) continue;
+      var wa = a.remote ? 0 : 1, wb = b.remote ? 0 : 1, sh = wa + wb; if (!sh) continue; wa /= sh; wb /= sh; // online karts are driven by their own player, only ours gets pushed
       var d = Math.sqrt(d2), nx = dx / d, ny = dy / d, ov = 44 - d;
-      a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5; b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
-      var rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny; if (rv < 0) { var imp = -rv * 0.6; a.vx -= nx * imp; a.vy -= ny * imp; b.vx += nx * imp; b.vy += ny * imp; if ((a.me || b.me) && -rv > 60) { noise(0.1, 0.2, 0, 400); S.shake = Math.max(S.shake, 0.12); } }
+      a.x -= nx * ov * wa; a.y -= ny * ov * wa; b.x += nx * ov * wb; b.y += ny * ov * wb;
+      var rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny; if (rv < 0) { var imp = -rv * 0.6; a.vx -= nx * imp * wa * 2; a.vy -= ny * imp * wa * 2; b.vx += nx * imp * wb * 2; b.vy += ny * imp * wb * 2; if ((a.me || b.me) && -rv > 60) { noise(0.1, 0.2, 0, 400); S.shake = Math.max(S.shake, 0.12); } }
     }
   }
   function updateProj(dt) {
@@ -303,7 +306,7 @@
       }
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (Math.random() < 0.6) puff(p.x, p.y, 0, 0, 0.3, 4, p.t === 'seeker' ? '#fca5a5' : '#93c5fd');
-      for (var k = 0; k < R.length; k++) { var o = R[k]; if (o === p.owner && p.age < 0.3) continue; var dx2 = o.x - p.x, dy2 = o.y - p.y; if (dx2 * dx2 + dy2 * dy2 < 30 * 30) { hit(o, p.t); p.life = 0; for (var q = 0; q < 12; q++) puff(p.x, p.y, (Math.random() - 0.5) * 420, (Math.random() - 0.5) * 420, 0.5, 5, '#fde68a'); if (o.me) popText('Hit by ' + p.owner.name, '#fca5a5'); break; } }
+      for (var k = 0; k < R.length; k++) { var o = R[k]; if (o === p.owner && p.age < 0.3) continue; var dx2 = o.x - p.x, dy2 = o.y - p.y; if (dx2 * dx2 + dy2 * dy2 < 30 * 30) { if (!o.remote) hit(o, p.t); p.life = 0; for (var q = 0; q < 12; q++) puff(p.x, p.y, (Math.random() - 0.5) * 420, (Math.random() - 0.5) * 420, 0.5, 5, '#fde68a'); if (o.me) popText('Hit by ' + p.owner.name, '#fca5a5'); break; } }
       if (p.life <= 0) S.proj.splice(i, 1);
     }
     for (var s = S.slicks.length - 1; s >= 0; s--) { S.slicks[s].life -= dt; S.slicks[s].age += dt; if (S.slicks[s].life <= 0) S.slicks.splice(s, 1); }
@@ -316,23 +319,23 @@
     for (i = S.parts.length - 1; i >= 0; i--) { var q = S.parts[i]; q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.96; q.vy *= 0.96; if (q.life <= 0) S.parts.splice(i, 1); }
     var racing = S.mode === 'race' || S.mode === 'demo' || S.mode === 'after';
     if (S.mode === 'count') {
-      var prev = S.count; S.count -= dt; var a = Math.ceil(prev), b = Math.ceil(S.count);
+      var prev = S.count; S.count = MPS ? Math.max(-0.05, (S.goLocal - Date.now()) / 1000) : S.count - dt; var a = Math.ceil(prev), b = Math.ceil(S.count);
       if (a !== b && b > 0 && b <= 3) tone(440, 0.16, 'square', 0.16);
-      S.racers.forEach(function (r) { stepKart(r, { steer: 0, thr: 0, brake: 0, drift: false, item: false }, dt); r.vx = r.vy = 0; });
+      S.racers.forEach(function (r) { if (r.remote) return; stepKart(r, { steer: 0, thr: 0, brake: 0, drift: false, item: false }, dt); r.vx = r.vy = 0; });
       if (S.count <= 0) {
         S.mode = 'race'; S.raceT = 0; tone(880, 0.4, 'square', 0.2); sfx('launch');
         var me = S.me, early = S.gasAt >= 0 && S.gasAt > 1.0, good = (S.gasAt >= 0 && S.gasAt <= 1.0 && S.gasAt > 0.0) || (TOUCH && opts.auto);
         if (me) { if (early) { me.slow = 0.9; popText('Too early', '#fca5a5'); } else if (good) { me.boost = 1.3; me.boostTier = 3; popText('Rocket start', '#fde68a'); } }
-        S.racers.forEach(function (r) { if (!r.me && Math.random() < 0.55) { r.boost = 1.0 + Math.random() * 0.5; } });
+        S.racers.forEach(function (r) { if (!MPS && !r.me && Math.random() < 0.55) { r.boost = 1.0 + Math.random() * 0.5; } });
       }
       return;
     }
     if (racing) { if (S.mode !== 'demo') S.raceT += dt; }
     var R = S.racers;
     if (S.me && S.me.finished && S.mode === 'race') { S.mode = 'after'; S.afterT = 0; popText('Finished ' + ord(S.me.place), '#fde68a'); sfx('win'); }
-    if (S.mode === 'after') { S.afterT += dt; var allDone = R.every(function (r) { return r.finished; }); if (allDone || S.afterT > 7) finishRace(); }
+    if (S.mode === 'after') { S.afterT += dt; var allDone = R.every(function (r) { return r.finished; }); if (!MPS && (allDone || S.afterT > 7)) finishRace(); }
     R.forEach(function (r) {
-      var inp, bot = !r.me || S.mode === 'after' || r.finished || (S.auto && r.me);
+      if (r.remote) { remoteStep(r, dt); return; } var inp, bot = !r.me || S.mode === 'after' || r.finished || (S.auto && r.me);
       if (r.finished && S.mode !== 'after' && !S.demo) { inp = botInput(r, dt); inp.item = false; } else inp = bot ? botInput(r, dt) : playerInput();
       if (!r.me && !S.demo) { var d = S.me ? (r.u - S.me.u) : 0; var rb = d > 40 ? 0.95 : d < -40 ? 1.05 : 1; r.top = r.top * 0.98 + (DIFF[opts.diff] || DIFF.normal).top * rb * (0.97 + r.rnd * 0.06) * 0.02; }
       stepKart(r, inp, dt);
@@ -344,6 +347,7 @@
       m.place = m.finished ? m.place : placeOf(m);
     }
     R.forEach(function (r) { if (!r.finished) r.place = placeOf(r); });
+    if (MPS) mpTick();
   }
   function finishRace() {
     var T = S.track, rows = S.racers.map(function (r) {
@@ -391,6 +395,7 @@
     g.drawImage(r.sprite, -100 * s, -170 * s, 200 * s, 220 * s);
     g.restore();
     if (r.me && S.mode !== 'results') { g.save(); g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; var ty = sy - 150 * s - 8 * z; g.beginPath(); g.moveTo(sx - 9 * z, ty - 10 * z); g.lineTo(sx + 9 * z, ty - 10 * z); g.lineTo(sx, ty + 2 * z); g.closePath(); g.stroke(); g.fill(); g.restore(); }
+    if (MPS && !r.me && r.name) { g.save(); g.font = '800 ' + Math.round(13 * z) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.6)'; g.fillStyle = r.bot ? '#cbd5e1' : '#fff'; g.strokeText(r.name, sx, sy - 158 * s); g.fillText(r.name, sx, sy - 158 * s); g.restore(); }
     if (r.shield > 0) { g.save(); g.strokeStyle = 'rgba(125,211,252,' + (0.5 + 0.3 * Math.sin(S.t * 8)) + ')'; g.lineWidth = 3 * z; g.fillStyle = 'rgba(125,211,252,.12)'; g.beginPath(); g.ellipse(sx, sy - 24 * z, 40 * z, 46 * z, 0, 0, TAU); g.fill(); g.stroke(); g.restore(); }
   }
   function drawDeco(d, sx, sy, z) {
@@ -470,7 +475,7 @@
     function txt(t, x, y, size, col, align, weight, italic) { g.font = (italic ? 'italic ' : '') + (weight || 800) + ' ' + Math.round(size * u) + 'px system-ui,"Segoe UI",sans-serif'; g.textAlign = align || 'left'; g.lineWidth = 5 * u; g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineJoin = 'round'; g.strokeText(t, x, y); g.fillStyle = col || '#fff'; g.fillText(t, x, y); }
     var pl = me.finished ? me.place : placeOf(me), lx = 18 * u + 8, ty = 54 * u + safeT;
     txt(String(pl), lx, ty + 14 * u, 66, '#fff', 'left', 900, true); txt(ord(pl).slice(String(pl).length), lx + g.measureText(String(pl)).width + 2, ty - 18 * u + 14 * u, 22, '#bcd9ff', 'left', 800, true);
-    txt('/ 8', lx + 64 * u, ty + 14 * u, 22, '#9fb4d6', 'left', 700, true);
+    txt('/ ' + S.racers.length, lx + 64 * u, ty + 14 * u, 22, '#9fb4d6', 'left', 700, true);
     txt('Lap ' + Math.min(S.laps, me.lap) + '/' + S.laps, lx, ty + 44 * u, 22, '#fff', 'left', 800);
     txt(fmt(me.finished ? me.ft : S.raceT * 1000), W / 2, 34 * u + safeT, 24, '#fff', 'center', 800);
     // item slot
@@ -487,9 +492,86 @@
     if (S.wrong > 1.1 && S.mode === 'race') { g.globalAlpha = 0.6 + 0.4 * Math.sin(S.t * 10); txt('WRONG WAY', W / 2, H * 0.42, 46, '#fca5a5', 'center', 900, true); g.globalAlpha = 1; }
     if (S.mode === 'count') { var n = Math.ceil(S.count), frac = S.count - Math.floor(S.count), label = n > 3 ? '' : String(n); if (label) { g.globalAlpha = Math.min(1, frac * 2 + 0.3); txt(label, W / 2, H * 0.4, 130 * (0.9 + frac * 0.35), '#fff', 'center', 900, true); g.globalAlpha = 1; } }
     else if (S.mode === 'race' && S.raceT < 1.1) { g.globalAlpha = clamp(1.1 - S.raceT, 0, 1); txt('GO', W / 2, H * 0.4, 150 * (1 + S.raceT * 0.3), '#8dffc3', 'center', 900, true); g.globalAlpha = 1; }
-    if (S.mode === 'after') { txt('Finished ' + ord(me.place), W / 2, H * 0.28, 44, '#fde68a', 'center', 900, true); }
+    if (S.mode === 'after') { txt('Finished ' + ord(me.place), W / 2, H * 0.28, 44, '#fde68a', 'center', 900, true); if (MPS) txt('Waiting for the other racers', W / 2, H * 0.28 + 34 * u, 20, '#bcd9ff', 'center', 700, false); }
     g.restore();
     if (S.flash > 0) { g.fillStyle = 'rgba(255,255,255,' + clamp(S.flash * 1.6, 0, 0.6) + ')'; g.fillRect(0, 0, W, H); }
+  }
+
+  // ---------------------------------------------------------------- online race (Bedwars engine lobby)
+  // The parent page (arcade/bedwars) owns the connection. It posts us the race setup and one snapshot per server tick,
+  // and forwards whatever we post back. Our own kart is driven locally, everyone else is shown from the server.
+  var ITEM_KEYS = ['turbo', 'pulse', 'seeker', 'slick', 'shield', 'zap'], mpLastSend = 0, mpLeaveAt = 0, mpById = {};
+  function mpSend(msg) { try { window.parent.postMessage({ sr: 'send', msg: msg }, location.origin); } catch (e) {} }
+  function mpLeave() {
+    var now = Date.now(); if (now - mpLeaveAt < 3000) { try { window.parent.postMessage({ sr: 'leave' }, location.origin); } catch (e) {} return; }
+    mpLeaveAt = now; popText('Press again to leave the race', '#fca5a5');
+  }
+  function mpBoot() {
+    var pb = $('pauseBtn'); if (pb) { pb.setAttribute('aria-label', 'Leave race'); pb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4"/><path d="M4 12h10"/><path d="m8 8-4 4 4 4"/></svg>'; }
+    window.addEventListener('message', function (e) {
+      if (e.source !== window.parent || e.origin !== location.origin) return;
+      var d = e.data || {}; if (d.sr === 'init') startMP(d.init); else if (d.sr === 'snap') mpSnap(d); else if (d.sr === 'msg') mpMsg(d.m);
+    });
+    window.addEventListener('keydown', function () { try { engineOn(); } catch (e) {} }, { once: true });
+    window.addEventListener('pointerdown', function () { try { engineOn(); } catch (e) {} }, { once: true });
+    window.parent.postMessage({ sr: 'ready' }, location.origin);
+  }
+  function startMP(init) {
+    var T = getTrack(init.track), R = rng(init.track.length * 31 + 5), M = window.SRCars ? SRCars.MODELS : [{ id: 'kart', seatX: -4 }];
+    S.track = T; S.racers = []; S.proj = []; S.slicks = []; S.parts = []; S.pops = []; S.laps = init.laps; S.finishedN = 0; S.results = null; S.afterT = 0; S.raceT = 0; S.wrong = 0; S.gasAt = -1; S.early = false; S.demo = false; S.mp = true; S.flash = 0; S.auto = false;
+    T.boxes.forEach(function (b) { b.t = 0; }); mpById = {};
+    init.racers.forEach(function (x, i) {
+      var isMe = x.id === init.you, look = x.look && x.look.body ? x.look : randomLook(R), r = mkRacer(i, T, x.slot, look, x.nick || 'Racer', isMe, isMe ? 1 : 0.95, R);
+      r.id = x.id; r.remote = !isMe; r.bot = !!x.bot; r.srv = null; r.rnd = R();
+      if (!isMe) { var mm = M[(x.id * 7 + 3) % M.length]; r.car = mm.id; r.seatX = mm.seatX; }
+      S.racers.push(r); mpById[x.id] = r; if (isMe) S.me = r;
+    });
+    S.focus = S.me; S.goLocal = init.goAt - (init.serverNow - init.localNow); S.count = Math.max(0, (S.goLocal - Date.now()) / 1000); S.mode = 'count'; S.hintT = 6;
+    snapCam(); try { engineOn(); } catch (e) {} show(null);
+    var hint = $('hint'); hint.textContent = TOUCH ? 'Drag on the left to steer. Hold DRIFT through turns. Tap ITEM to use it.' : 'Arrow keys or WASD to steer. Hold Space in a turn to drift. E uses your item.'; hint.classList.add('on'); showHint = hint;
+    $('tGas').style.display = 'none'; opts.auto = TOUCH; S.auto = false;
+    mpSend({ t: 'rcc', car: opts.car || 'kart' }); try { window.focus(); } catch (e) {}
+  }
+  function mpSnap(d) {
+    var now = performance.now();
+    (d.rc || []).forEach(function (q) {
+      var r = mpById[q[0]]; if (!r || r === S.me) { if (r === S.me && q[10]) { r.place = q[10]; } return; }
+      var first = !r.srv; r.srv = { x: q[1], y: q[2], a: q[3], vx: q[4], vy: q[5], f: q[6], st: q[7], u: q[9], place: q[10], at: now };
+      r.bot = !!(q[6] & 64);
+      if (first) { r.x = q[1]; r.y = q[2]; r.a = q[3]; }
+    });
+    (d.rcc || []).forEach(function (q) { var r = mpById[q[0]]; if (r && r !== S.me && q[1] && window.SRCars) { var mm = SRCars.MODELS.filter(function (m) { return m.id === q[1]; })[0]; if (mm) { r.car = mm.id; r.seatX = mm.seatX; } } });
+    (d.rce || []).forEach(function (ev) { if (mpById[ev[0]] && mpById[ev[0]] !== S.me) mpEvent(mpById[ev[0]], ev); });
+  }
+  function mpMsg(m) {
+    if (m.t === 'rcfix' && S.me) { S.me.x = m.x; S.me.y = m.y; S.me.vx = S.me.vy = 0; if (m.a != null) S.me.a = m.a; }
+    else if (m.t === 'rcf' && S.me) { S.me.place = m.place; S.me.ft = m.ft; S.me.finished = true; }
+  }
+  function mpEvent(o, ev) {   // someone else used an item: run it here too, it only ever hurts our own kart
+    var k = ITEM_KEYS[ev[1]], x = ev[2], y = ev[3], a = ev[6], fx = Math.cos(a), fy = Math.sin(a);
+    if (k === 'pulse') S.proj.push({ t: 'pulse', x: x + fx * 30, y: y + fy * 30, vx: fx * 820 + ev[4] * 0.3, vy: fy * 820 + ev[5] * 0.3, life: 1.7, owner: o, age: 0 });
+    else if (k === 'seeker') S.proj.push({ t: 'seeker', x: x + fx * 30, y: y + fy * 30, vx: fx * 600, vy: fy * 600, life: 4.5, owner: o, age: 0, a: a });
+    else if (k === 'slick') S.slicks.push({ x: x - fx * 38, y: y - fy * 38, life: 14, owner: o, age: 0 });
+    else if (k === 'zap' && S.me && !S.me.finished && S.me.u > o.u) { hit(S.me, 'zap'); S.flash = 0.35; }
+  }
+  function remoteStep(r, dt) {
+    var s = r.srv; if (!s) return;
+    var age = Math.min(0.25, (performance.now() - s.at) / 1000), tx = s.x + s.vx * age, ty = s.y + s.vy * age, k = 1 - Math.exp(-14 * dt);
+    r.x += (tx - r.x) * k; r.y += (ty - r.y) * k; r.a += angd(s.a, r.a) * k; r.vx = s.vx; r.vy = s.vy;
+    var f = s.f, wasSpin = r.spin > 0;
+    r.drift = !!(f & 1); r.driftDir = s.st >= 0 ? 1 : -1; r.driftT = r.drift ? r.driftT + dt : 0;
+    r.spin = f & 2 ? 0.1 : 0; r.spinA = r.spin ? r.spinA + dt * 11 : 0; r.boost = f & 4 ? 0.1 : 0; r.shield = f & 8 ? 1 : 0; r.off = !!(f & 16); r.inv = f & 32 ? 0.1 : 0; r.steerV = s.st / 100;
+    r.u = s.u; r.finished = s.place > 0; if (s.place) r.place = s.place;
+    if (r.hop > 0) r.hop -= dt;
+    var fx = Math.cos(r.a), fy = Math.sin(r.a);
+    if (r.boost > 0) puff(r.x - fx * 24, r.y - fy * 24, -fx * 160 + (Math.random() - 0.5) * 50, -fy * 160 + (Math.random() - 0.5) * 50, 0.3, 6 + Math.random() * 4, Math.random() < 0.5 ? '#ffb347' : '#ff6b3d');
+    if (r.drift) { var col = r.driftT > 2.4 ? '#c084fc' : r.driftT > 1.5 ? '#fb923c' : r.driftT > 0.8 ? '#60a5fa' : '#e5e7eb'; puff(r.x - fx * 16, r.y - fy * 16, -fx * 80 + (Math.random() - 0.5) * 160, -fy * 80 + (Math.random() - 0.5) * 160, 0.35, 4, col); }
+    if (!wasSpin && r.spin > 0) { for (var q = 0; q < 8; q++) puff(r.x, r.y, (Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300, 0.5, 5, '#ffd34d'); }
+  }
+  function mpTick() {
+    var now = performance.now(), me = S.me; if (!me || now - mpLastSend < 50 || S.mode === 'boot') return; mpLastSend = now;
+    var f = (me.drift ? 1 : 0) | (me.spin > 0 ? 2 : 0) | (me.boost > 0 ? 4 : 0) | (me.shield > 0 ? 8 : 0) | (me.off ? 16 : 0) | (me.inv > 0 ? 32 : 0);
+    mpSend({ t: 'rc', x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, a: Math.round(me.a * 100) / 100, vx: Math.round(me.vx), vy: Math.round(me.vy), f: f, st: Math.round(clamp(me.steerV, -1, 1) * 100), it: me.item ? ITEM_KEYS.indexOf(me.item) + 1 : 0 });
   }
 
   // ---------------------------------------------------------------- frame loop
@@ -517,6 +599,7 @@
   var LAYERS = ['title', 'how', 'pick', 'pause', 'results'];
   function show(id) { LAYERS.forEach(function (l) { $(l).classList.toggle('on', l === id); }); var inRace = !id || id === 'pause'; $('pauseBtn').classList.toggle('on', S.mode === 'race' || S.mode === 'count' || S.mode === 'after'); $('touch').classList.toggle('on', TOUCH && (S.mode === 'race' || S.mode === 'count' || S.mode === 'after') && !id); }
   function togglePause(force) {
+    if (MPS) return;
     if (S.mode === 'paused') { S.mode = S.prevMode || 'race'; show(null); return; }
     if (S.mode !== 'race' && S.mode !== 'count') return; S.prevMode = S.mode; S.mode = 'paused'; $('bMute').textContent = 'Sound: ' + (muted() ? 'off' : 'on'); show('pause'); engineSet(0, false);
   }
@@ -570,9 +653,10 @@
   }
   function wire() {
     $('bPlay').addEventListener('click', function () { try { engineOn(); } catch (e) {} sfx('click'); try { buildPick(); } catch (e) { if (window.console) console.error(e); } show('pick'); });
+    $('bOnline').addEventListener('click', function () { sfx('click'); location.href = '/arcade?play=race'; });
     $('bHow').addEventListener('click', function () { sfx('click'); show('how'); }); $('bHowBack').addEventListener('click', function () { show('title'); });
     $('bPickBack').addEventListener('click', function () { show('title'); }); $('bStart').addEventListener('click', beginRace);
-    $('pauseBtn').addEventListener('click', function () { togglePause(); }); $('bResume').addEventListener('click', function () { togglePause(); });
+    $('pauseBtn').addEventListener('click', function () { if (MPS) { mpLeave(); return; } togglePause(); }); $('bResume').addEventListener('click', function () { togglePause(); });
     $('bRestart').addEventListener('click', function () { S.mode = 'race'; beginRace(); });
     $('bMute').addEventListener('click', function () { var m = SC.sfxToggle ? SC.sfxToggle() : false; $('bMute').textContent = 'Sound: ' + (m ? 'off' : 'on'); });
     $('bQuit').addEventListener('click', function () { toDemo(); });
@@ -582,7 +666,7 @@
   // title screen hides its own decorative canvas; the live demo race runs behind the menu
   var tr = document.querySelector('#title .road'); if (tr) tr.style.display = 'none';
   wire(); loadPlayer(); drawMe();
-  S.mode = 'demo'; startRace(true); show('title'); requestAnimationFrame(frame);
+  if (MPS) { S.mode = 'boot'; show(null); requestAnimationFrame(frame); mpBoot(); } else { S.mode = 'demo'; startRace(true); show('title'); requestAnimationFrame(frame); }
   setTimeout(function () { $('loading').classList.add('done'); }, 500);
   // handy for testing
   window.__sr = { sim: function (sec) { var n = Math.round(sec * 60); for (var i = 0; i < n; i++) { if (S.mode === 'results') break; update(1 / 60); } }, S: S, opts: opts, player: player, TRACKS: TRACKS, cam: cam, startRace: startRace, beginRace: beginRace };

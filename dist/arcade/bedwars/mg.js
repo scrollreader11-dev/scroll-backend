@@ -37,6 +37,8 @@
       desc: 'Build the theme, then everyone votes', tag: 'Creative' },
     royale: { key: 'royale', name: 'Scroll Royale', short: 'ROYALE', icon: '', teams: 100, per: 1, max: 24, mins: 15,
       desc: 'Drop from the bus, loot, outlast the storm', tag: 'Battle royale' },
+    race: { key: 'race', name: 'Scroll Racing', short: 'RACING', icon: '', teams: 8, per: 1, max: 8, mins: 9,
+      desc: 'Kart race with up to 8 racers. Drift, grab items, cross the line first', tag: 'Kart racing' },
   };
   // ================================================================ SCROLL ROYALE data (shared by server + client)
   // Health and shield are 0–100. dmg = per bullet, rate = ms between shots, mag = clip, rl = reload ms, sp = spread (rad),
@@ -98,7 +100,7 @@
   M.GUNS = {}; M.GUN_ORDER = [];
   M.RW_KEYS.forEach(function (k) { var w = M.RW[k]; M.GUNS[k] = { n: w.n, a: w.am, r: w.rate || 500, d: w.dmg || 0, p: w.pel || 1 }; M.GUN_ORDER.push(k); if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); B.ITEM_NAMES[k] = w.n; });
   if (B.HOTBAR_ORDER.indexOf('pickaxe') < 0) B.HOTBAR_ORDER.push('pickaxe'); B.ITEM_NAMES.pickaxe = 'Pickaxe';
-  M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide' || g === 'duel' || g === 'murder' || g === 'build' || g === 'royale'; };
+  M.isMini = function (g) { return g === 'ctf' || g === 'spleef' || g === 'hide' || g === 'duel' || g === 'murder' || g === 'build' || g === 'royale' || g === 'race'; };
   M.RANKS = [
     { key: 'bronze', name: 'Bronze', at: 0, color: '#c67b4e' },
     { key: 'silver', name: 'Silver', at: 1100, color: '#c5cfe2' },
@@ -573,7 +575,7 @@
   };
   M.inPlot = function (m, plot, i) { var p = m.plots[plot]; if (!p) return false; var x = i % W, y = (i / W) | 0; return x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1; };
 
-  M.genMap = function (game, seed, custom) { if (game !== 'royale' && game !== 'bw') B.setDims(72, 72); if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : game === 'royale' ? M.genRoyale(seed) : B.genMap(); };
+  M.genMap = function (game, seed, custom) { if (game !== 'royale' && game !== 'bw') B.setDims(72, 72); if (custom) return M.buildCustom(custom); return game === 'ctf' ? M.genCTF(seed) : game === 'spleef' ? M.genSpleef(seed) : game === 'hide' ? M.genHide(seed) : game === 'duel' ? M.genDuel(seed) : game === 'murder' ? M.genMurder(seed) : game === 'build' ? M.genBuild(seed) : game === 'royale' ? M.genRoyale(seed) : game === 'race' ? M.genDuel(seed) : B.genMap(); };
 
   // Hotbar per game.
   M.hotbar = function (game, inv, role) {
@@ -583,6 +585,7 @@
     if (game === 'murder') { var o2 = ['fists']; if (role === 'm') o2.push('knife'); if (inv.bow > 0) o2.push('bow'); return o2; }
     if (game === 'build') return ['fists'];
     if (game === 'royale') return ['pickaxe'];
+    if (game === 'race') return ['fists'];
     return B.hotbar(inv);
   };
   root.MG = M;

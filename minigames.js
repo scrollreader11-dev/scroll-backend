@@ -5,12 +5,13 @@
 // its helpers through initMini(api).
 // ============================================================
 import * as RGS from './royale.js';
+import * as RACE from './racegame.js';
 const BW = globalThis.BW, MG = globalThis.MG;
 const { T } = BW;
 let W = BW.W, H = BW.H, N = W * H;
 BW.onDims((w, h) => { W = w; H = h; N = w * h; });
 let A = null;
-export function initMini(api) { A = api; RGS.initRoyale(api); }
+export function initMini(api) { A = api; RGS.initRoyale(api); RACE.initRace(api); }
 
 const rnd = Math.random;
 const pick = (a) => a[(rnd() * a.length) | 0];
@@ -96,6 +97,8 @@ function start(r) {
     r.endAt = r.goAt + GM.mins * 60000; r.golds = new Map(); r.goldSeq = 0; r.goldAt = r.goAt + 3000; r.detId = all[1].id;
   } else if (r.game === 'royale') {
     RGS.start(r, addBot);
+  } else if (r.game === 'race') {
+    RACE.start(r, addBot);
   } else if (r.game === 'build') {
     while (r.ents.size < (r.noBots ? 2 : GM.max)) addBot(r.ents.size);
     r.phase = 'build'; r.theme = pick(MG.BB_THEMES); r.buildEnd = r.goAt + GM.buildSec * 1000;
@@ -142,6 +145,7 @@ function setSeeker(r, e, first) {
 function tick(r, now) {
   const m = r.map, DT = A.DT;
   if (r.game === 'royale') { RGS.tick(r, now); checkEnd(r, now); return; }
+  if (r.game === 'race') { RACE.tick(r, now); checkEnd(r, now); return; }
   if (r.game === 'hide') hidePhase(r, now);
   if (r.game === 'build') { buildTick(r, now); checkEnd(r, now); return; }
   for (const e of r.ents.values()) {
@@ -418,6 +422,8 @@ function checkEnd(r, now) {
     else if (now >= r.endAt) { winner = 0; inno.forEach((e) => { e.stats.survived = 1; }); }
   } else if (r.game === 'royale') {
     winner = RGS.checkEnd(r, now); if (winner === null) return;
+  } else if (r.game === 'race') {
+    winner = RACE.checkEnd(r, now); if (winner === null) return;
   } else if (r.game === 'build') {
     if (r.results && now >= r.podiumAt) winner = r.results[0].team;
   }
@@ -434,12 +440,14 @@ function reward(r, e, win) {
   if (r.game === 'spleef') return 15 + ([0, 110, 65, 40, 25][s.place] || 0) + Math.min(30, s.digs) + s.knocks * 6;
   if (r.game === 'duel') return 20 + (win ? 90 : 0) + s.kills * 8;
   if (r.game === 'royale') return RGS.reward(r, e, win);
+  if (r.game === 'race') return RACE.reward(r, e, win);
   if (r.game === 'murder') return 15 + (win ? 90 : 0) + s.kills * 6 + Math.min(20, s.gold) + (s.role === 'm' ? 15 : 0);
   if (r.game === 'build') return 20 + ([0, 110, 60, 35, 20][s.place] || 0) + Math.min(40, (s.placed / 4) | 0);
   return 15 + (win ? 100 : 0) + s.finds * 12 + s.taunts * 3 + (s.survived ? 20 : 0);
 }
 function endInfo(r) {
   if (r.game === 'royale') return RGS.endInfo(r);
+  if (r.game === 'race') return RACE.endInfo(r);
   if (r.game === 'ctf' || r.game === 'duel') return { score: r.score };
   if (r.game === 'murder') { const mur = [...r.ents.values()].find((e) => e.mrole === 'm'); return { murderer: mur ? mur.id : 0 }; }
   if (r.game === 'build') return { theme: r.theme, results: r.results };
@@ -450,6 +458,7 @@ function endInfo(r) {
 function state(r, e) {
   const o = { game: r.game, seed: r.seed };
   if (r.game === 'royale') Object.assign(o, RGS.state(r, e));
+  if (r.game === 'race') Object.assign(o, RACE.state(r, e));
   if (r.game === 'ctf') { o.flags = r.flags.map((f) => [f.state, f.carrier, Math.round(f.x), Math.round(f.y)]); o.score = r.score; o.endAt = r.endAt; o.pick = r.pick.map((p) => p.item); }
   if (r.game === 'spleef') {
     const fresh = (r.custom ? MG.buildCustom(r.custom) : MG.genSpleef(r.seed)).L, diff = [];
@@ -483,6 +492,7 @@ function extra(r, e) {
 }
 function snapExtra(r, msg, now) {
   if (r.game === 'royale') { RGS.snapExtra(r, msg, now); return; }
+  if (r.game === 'race') { RACE.snapExtra(r, msg, now); return; }
   if (r.game === 'ctf' && (r.flagsDirty || now - (r.flAt || 0) > 500)) {
     r.flagsDirty = false; r.flAt = now;
     msg.fl = r.flags.map((f) => [f.state, f.carrier, Math.round(f.x), Math.round(f.y)]); msg.sc = r.score;
@@ -492,12 +502,13 @@ function swingBlocked(r, e, now) {
   if (r.game === 'hide') return e.team === 0 || now < r.seekAt;
   if (r.game === 'spleef') return !!e.fallUntil;
   if (r.game === 'murder') return !(e.mrole === 'm' && (e.held === 'knife' || e.held === 'sword'));
-  if (r.game === 'build' || r.game === 'royale') return true;
+  if (r.game === 'build' || r.game === 'royale' || r.game === 'race') return true;
   return false;
 }
 function onMsg(r, e, m, now) {
   const t = m.t;
   if (r.game === 'royale') return RGS.onMsg(r, e, m, now);
+  if (r.game === 'race') return RACE.onMsg(r, e, m, now);
   if (r.game === 'spleef') {
     if (t === 'mv' && e.fallUntil) return true;
     if (t === 'dig') { dig(r, e, m.i | 0, now); return true; }
@@ -536,6 +547,7 @@ function adminInfo(r) {
   if (r.game === 'murder') return [...r.ents.values()].filter((e) => e.mrole !== 'm' && !e.dead).length + ' innocents left';
   if (r.game === 'build') return r.phase === 'build' ? 'Building: ' + r.theme : r.phase === 'vote' ? 'Voting' : 'Results';
   if (r.game === 'royale') return RGS.adminInfo(r);
+  if (r.game === 'race') return RACE.adminInfo(r);
   if (r.game === 'spleef') return alive(r).length + ' still standing';
   if (r.game === 'hide') return (r.phase === 'hide' ? 'Hiding' : 'Seeking') + ' · ' + [...r.ents.values()].filter((e) => e.team === 0 && !e.dead).length + ' hiders left';
   return '';

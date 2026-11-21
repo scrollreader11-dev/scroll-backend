@@ -152,7 +152,7 @@ export function recordResult(cid, nick, game, win, st) {
   g.nick = nick;
   const q = g[game] || (g[game] = { w: 0, g: 0, x: 0 });
   q.g++; if (win) q.w++;
-  q.x += game === 'ctf' ? (st.caps | 0) : game === 'hide' ? (st.finds | 0) : game === 'spleef' ? (st.place === 1 ? 1 : 0) : game === 'murder' ? (st.kills | 0) : game === 'build' ? (st.place === 1 ? 1 : 0) : (st.finals | 0);
+  q.x += game === 'ctf' ? (st.caps | 0) : game === 'hide' ? (st.finds | 0) : game === 'spleef' ? (st.place === 1 ? 1 : 0) : game === 'murder' ? (st.kills | 0) : game === 'build' || game === 'race' ? (st.place === 1 ? 1 : 0) : (st.finals | 0);
   dirty = true;
 }
 export function recordQuiz(cid, nick, ok, streak) {
