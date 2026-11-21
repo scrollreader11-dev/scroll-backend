@@ -77,6 +77,7 @@
     if (d.t === 'del') { var a2 = S.msgs[d.channel]; if (a2) { S.msgs[d.channel] = a2.filter(function (x) { return x.id !== d.id; }); if (d.channel === S.cid) paintMsgs(false); } return; }
     if (d.t === 'edit') { var a3 = S.msgs[d.channel]; if (a3) { for (var i = 0; i < a3.length; i++) if (a3[i].id === d.message.id) a3[i] = d.message; if (d.channel === S.cid) paintMsgs(false); } return; }
     if (d.t === 'typing') { if (d.channel === S.cid) { S.typing[d.uid] = { name: d.name, until: Date.now() + 4000 }; paintTyping(); setTimeout(paintTyping, 4200); } return; }
+    if (d.t.indexOf('call-') === 0) { callWs(d); return; }
     if (d.t.indexOf('voice') === 0 || d.t === 'signal') { voiceWs(d); return; }
   }
   // ---------- pop-up notifications (never while the Discord page itself is open) ----------
@@ -160,7 +161,7 @@
     r.appendChild(home); r.appendChild(h('div', { class: 'dr-sep' }));
     S.guilds.forEach(function (g) {
       var un = 0; g.channels.forEach(function (c) { un += S.unread[c.id] || 0; });
-      var b = h('button', { type: 'button', class: 'dr-i' + (S.view === 'guild' && S.gid === g.id ? ' on' : ''), title: g.name, 'aria-label': g.name, style: 'background:' + tint(g.id) }, [h('span', { text: Hub.initials(g.name) }), un ? h('i', { class: 'bd', text: un > 9 ? '9+' : String(un) }) : null]);
+      var b = h('button', { type: 'button', class: 'dr-i' + (S.view === 'guild' && S.gid === g.id ? ' on' : ''), title: g.name, 'aria-label': g.name, style: 'background:' + tint(g.id) }, [g.iconUrl ? h('img', { src: g.iconUrl, alt: '', class: 'dr-img', onerror: function (e) { e.target.remove(); } }) : h('span', { text: Hub.initials(g.name) }), un ? h('i', { class: 'bd', text: un > 9 ? '9+' : String(un) }) : null]);
       b.addEventListener('click', function () { S.view = 'guild'; S.gid = g.id; var t = (chan(g, S.cid) && chan(g, S.cid).type === 'text') ? chan(g, S.cid) : firstText(g); S.cid = t && t.id; setPane('list'); paintAll(); if (S.cid) loadMsgs(S.cid, true).then(markSeen); loadMembers(g.id); });
       r.appendChild(b);
     });
@@ -179,7 +180,7 @@
       var l = h('div', { class: 'ds-list' });
       if (!S.dms.length) l.appendChild(h('p', { class: 'ds-empty', text: 'No conversations yet. Type a username above to start one.' }));
       S.dms.forEach(function (d) { var un = S.unread[d.id] || 0; var b = h('button', { type: 'button', class: 'dch dm' + (S.cid === d.id ? ' on' : ''), 'aria-current': S.cid === d.id ? 'true' : null }, [avatar(d.user, 28), h('span', { class: 'cn', text: d.user.username }), un ? h('i', { class: 'bd', text: String(un) }) : null]); b.addEventListener('click', function () { S.cid = d.id; setPane('chat'); paintChannels(); paintChat(); loadMsgs(d.id, true).then(markSeen); }); l.appendChild(b); });
-      s.appendChild(l); return;
+      s.appendChild(l); if (S.voice) s.appendChild(voiceBar()); return;
     }
     var g = guild(); if (!g) { s.appendChild(h('p', { class: 'ds-empty', text: 'Pick a server on the left.' })); return; }
     var head = h('button', { type: 'button', class: 'ds-head srv', 'aria-haspopup': 'menu' }, [h('h2', { text: g.name }), icon('chevron-down')]); head.addEventListener('click', function () { serverMenu(head, g); }); s.appendChild(head);
@@ -198,12 +199,12 @@
 
   function voiceBar() {
     var v = S.voice, g = guild();
-    return h('div', { class: 'dvbar' }, [h('div', { class: 'vt' }, [h('b', { text: v.connected ? 'Voice connected' : 'Connecting' }), h('span', { text: v.name })]), h('button', { type: 'button', class: 'iconbtn' + (v.muted ? ' off' : ''), 'aria-label': v.muted ? 'Unmute' : 'Mute', onclick: function () { toggleMute(); } }, icon(v.muted ? 'eraser' : 'volume-2')), h('button', { type: 'button', class: 'iconbtn leave', 'aria-label': 'Leave voice', onclick: function () { leaveVoice(); } }, icon('power'))]);
+    return h('div', { class: 'dvbar' }, [h('div', { class: 'vt' }, [h('b', { text: !v.connected ? 'Connecting' : (S.call && S.call.ringing ? 'Calling' : (S.call ? 'In call' : 'Voice connected')) }), h('span', { text: v.name })]), h('button', { type: 'button', class: 'iconbtn' + (v.muted ? ' off' : ''), 'aria-label': v.muted ? 'Unmute' : 'Mute', onclick: function () { toggleMute(); } }, icon(v.muted ? 'mic-off' : 'mic')), h('button', { type: 'button', class: 'iconbtn leave', 'aria-label': 'Leave voice', onclick: function () { leaveVoice(); } }, icon('power'))]);
   }
 
   function paintMembers() {
     if (!dom.mem) return; var m = Hub.clear(dom.mem);
-    if (S.view === 'dm') { var d = curDm(); if (d) { m.appendChild(h('div', { class: 'dm-card' }, [avatar(d.user, 84), h('h3', { text: d.user.username }), h('a', { class: 'btn sm', href: '#/profile/' + encodeURIComponent(d.user.username) }, [icon('user'), 'View profile'])])); } return; }
+    if (S.view === 'dm') { var d = curDm(); if (d) { m.appendChild(h('div', { class: 'dm-card' }, [callButtons(d), avatar(d.user, 84), h('h3', { text: d.user.username }), h('a', { class: 'btn sm', href: '#/profile/' + encodeURIComponent(d.user.username) }, [icon('user'), 'View profile'])])); } return; }
     var g = guild(); if (!g) return; var list = S.members[g.id] || [];
     m.appendChild(h('div', { class: 'dmh', text: 'Members, ' + (list.length || g.memberCount) }));
     list.slice().sort(function (a, b) { return (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || a.username.localeCompare(b.username); }).forEach(function (u) {
@@ -226,7 +227,7 @@
     else { var ch = chan(g, S.cid); title = ch ? ch.name : ''; sub = ch && ch.topic || ''; }
     if (!S.cid) { c.appendChild(h('div', { class: 'dc-none' }, [icon('message-square'), h('h3', { text: S.view === 'dm' ? 'Your messages' : 'Pick a channel' }), h('p', { text: S.view === 'dm' ? 'Start a conversation with a username in the box on the left.' : 'Choose a text channel to start chatting.' })])); return; }
     var back = h('button', { type: 'button', class: 'iconbtn dc-back', 'aria-label': 'Back to channels', onclick: function () { setPane('list'); } }, icon('arrow-left'));
-    c.appendChild(h('div', { class: 'dc-top' }, [back, h('span', { class: 'hs', text: S.view === 'dm' ? '@' : '#' }), h('h2', { text: title }), sub ? h('span', { class: 'tp', text: sub }) : null, h('span', { class: 'grow' }), h('button', { type: 'button', class: 'iconbtn only-m2', 'aria-label': 'Members', onclick: function () { dom.root.classList.toggle('show-mem'); } }, icon('users'))]));
+    c.appendChild(h('div', { class: 'dc-top' }, [back, h('span', { class: 'hs', text: S.view === 'dm' ? '@' : '#' }), h('h2', { text: title }), sub ? h('span', { class: 'tp', text: sub }) : null, h('span', { class: 'grow' }), S.view === 'dm' && curDm() ? h('button', { type: 'button', class: 'iconbtn', 'aria-label': 'Voice call', title: 'Voice call', onclick: function () { toggleCall(curDm()); } }, icon('phone')) : null, h('button', { type: 'button', class: 'iconbtn only-m2', 'aria-label': 'Members', onclick: function () { dom.root.classList.toggle('show-mem'); } }, icon('users'))]));
     dom.scroller = h('div', { class: 'dc-msgs', role: 'log', 'aria-live': 'polite' }); c.appendChild(dom.scroller);
     dom.typing = h('div', { class: 'dc-typing', 'aria-live': 'polite' }); c.appendChild(dom.typing);
     c.appendChild(composer(title));
@@ -330,10 +331,34 @@
     var body = h('div', { class: 'mbody' }, [h('h3', { text: 'New ' + type + ' channel' }), h('label', { class: 'field', style: 'margin-top:14px' }, [h('span', { text: 'Name' }), nm]), h('button', { class: 'btn primary block', type: 'button', text: 'Create channel', onclick: function (e) { if (!nm.value.trim()) return; var b = e.currentTarget; b.disabled = true; api('/api/dc/guild/' + g.id + '/channel', { name: nm.value, type: type }).then(function (r) { b.disabled = false; if (r && r.guild) { replaceGuild(r.guild); m.close(); subAll(); paintAll(); } else Hub.toast('Could not create that channel', { bad: true }); }); } })]);
     m = Hub.modal(body, { small: true, label: 'New channel' });
   }
+  function squarePrep(file) {
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var s = Math.min(img.naturalWidth, img.naturalHeight), out = Math.min(256, s), c = document.createElement('canvas'); c.width = out; c.height = out;
+        c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, out, out);
+        URL.revokeObjectURL(url); resolve({ dataUrl: c.toDataURL('image/jpeg', 0.88), w: out, h: out, name: 'server-icon' });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); Hub.toast('Could not read that image', { bad: true }); resolve(null); }; img.src = url;
+    });
+  }
+  function serverPicture(g) {
+    var f = h('input', { type: 'file', accept: 'image/*', hidden: true }), m;
+    var prev = h('div', { class: 'dc-iconprev' }); function paintPrev() { Hub.clear(prev); prev.style.background = tint(g.id); if (g.iconUrl) prev.appendChild(h('img', { src: g.iconUrl, alt: '' })); else prev.appendChild(h('span', { text: Hub.initials(g.name) })); }
+    paintPrev();
+    f.addEventListener('change', function () {
+      var file = f.files && f.files[0]; if (!file) return;
+      squarePrep(file).then(function (p) { if (!p) return; return api('/api/dc/upload', p).then(function (r) { if (!r || !r.url) { Hub.toast('Could not upload that picture', { bad: true }); return; } return api('/api/dc/guild/' + g.id + '/icon', { url: r.url }).then(function (r2) { if (r2 && r2.guild) { replaceGuild(r2.guild); g = r2.guild; paintPrev(); paintAll(); Hub.toast('Server picture updated'); } else Hub.toast('Could not save that picture', { bad: true }); }); }); });
+      f.value = '';
+    });
+    m = Hub.modal(h('div', { class: 'mbody' }, [h('h3', { text: 'Server picture' }), h('p', { class: 'hint', text: 'Pick a square-ish image. It is cropped to the middle.' }), prev,
+      h('div', { class: 'adm-row', style: 'margin-top:14px' }, [h('button', { class: 'btn primary', type: 'button', text: 'Choose image', onclick: function () { f.click(); } }), h('button', { class: 'btn', type: 'button', text: 'Remove picture', onclick: function () { api('/api/dc/guild/' + g.id + '/icon', { url: '' }).then(function (r2) { if (r2 && r2.guild) { replaceGuild(r2.guild); g = r2.guild; paintPrev(); paintAll(); } }); } })]), f]), { small: true, label: 'Server picture' });
+  }
   function replaceGuild(ng) { S.guilds = S.guilds.map(function (g) { return g.id === ng.id ? ng : g; }); }
   function serverMenu(anchor, g) {
     var items = [{ label: 'Invite people', icon: 'user-plus', fn: function () { api('/api/dc/guild/' + g.id + '/invite', {}).then(function (r) { if (!r || !r.code) { Hub.toast('Could not make an invite', { bad: true }); return; } var link = location.origin + '/#/discord/join/' + r.code; var body = h('div', { class: 'mbody' }, [h('h3', { text: 'Invite to ' + g.name }), h('p', { class: 'hint', text: 'Send this link to a friend. They need a ScrollHub account.' }), h('div', { class: 'dc-inv' }, [h('code', { text: link })]), h('div', { class: 'adm-row', style: 'margin-top:14px' }, [h('button', { class: 'btn primary', type: 'button', text: 'Copy link', onclick: function () { if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { Hub.toast('Link copied', { icon: 'link' }); }, function () { Hub.toast(link); }); else Hub.toast(link); } }), h('span', { class: 'hint', style: 'margin:0', text: 'Code: ' + r.code })])]); Hub.modal(body, { small: true, label: 'Invite' }); }); } }];
-    if (isMgr(g)) { items.push({ label: 'Rename server', icon: 'pencil', fn: function () { var inp = h('input', { class: 'input', value: g.name, maxlength: '40' }), m; m = Hub.modal(h('div', { class: 'mbody' }, [h('h3', { text: 'Rename server' }), h('label', { class: 'field', style: 'margin-top:14px' }, [h('span', { text: 'Name' }), inp]), h('button', { class: 'btn primary block', type: 'button', text: 'Save', onclick: function () { api('/api/dc/guild/' + g.id + '/rename', { name: inp.value }).then(function (r) { if (r && r.guild) { replaceGuild(r.guild); m.close(); paintAll(); } }); } })]), { small: true, label: 'Rename server' }); } });
+    if (isMgr(g)) { items.push({ label: 'Change server picture', icon: 'image-plus', fn: function () { serverPicture(g); } });
+      items.push({ label: 'Rename server', icon: 'pencil', fn: function () { var inp = h('input', { class: 'input', value: g.name, maxlength: '40' }), m; m = Hub.modal(h('div', { class: 'mbody' }, [h('h3', { text: 'Rename server' }), h('label', { class: 'field', style: 'margin-top:14px' }, [h('span', { text: 'Name' }), inp]), h('button', { class: 'btn primary block', type: 'button', text: 'Save', onclick: function () { api('/api/dc/guild/' + g.id + '/rename', { name: inp.value }).then(function (r) { if (r && r.guild) { replaceGuild(r.guild); m.close(); paintAll(); } }); } })]), { small: true, label: 'Rename server' }); } });
       var cur = chan(g, S.cid); if (cur && g.channels.length > 1) items.push({ label: 'Delete channel #' + cur.name, icon: 'trash-2', danger: true, fn: function () { api('/api/dc/guild/' + g.id + '/channel/delete', { channel: cur.id }).then(function (r) { if (r && r.guild) { replaceGuild(r.guild); var t = firstText(r.guild); S.cid = t && t.id; paintAll(); if (S.cid) loadMsgs(S.cid, true); } else Hub.toast('Could not delete that channel', { bad: true }); }); } }); }
     if (g.ownerId === S.me.id && !g.builtin) items.push({ label: 'Delete server', icon: 'trash-2', danger: true, fn: function () { api('/api/dc/guild/' + g.id + '/delete', {}).then(function (r) { if (r && r.ok) leaveLocal(g); }); } });
     else if (!g.builtin) items.push({ label: 'Leave server', icon: 'log-out', danger: true, fn: function () { api('/api/dc/guild/' + g.id + '/leave', {}).then(function () { leaveLocal(g); }); } });
@@ -356,25 +381,27 @@
   Hub.openDm = function (name) { S.boot === true ? openDm(name) : boot().then(function () { openDm(name); }); };
 
   // ---------- voice (WebRTC mesh, signalled over the same socket) ----------
-  function joinVoice(g, c) {
+  function joinVoice(g, c, opts) {
+    opts = opts || {};
     if (S.voice && S.voice.cid === c.id) { leaveVoice(); return; }
     if (S.voice) leaveVoice();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.RTCPeerConnection) { Hub.toast('Voice is not supported on this browser', { bad: true }); return; }
     if (!S.wsOpen) { Hub.toast('Still connecting. Try again in a moment.', { bad: true }); return; }
-    var v = S.voice = { cid: c.id, name: g.name + ' / ' + c.name, stream: null, peers: {}, rooms: {}, connected: false, muted: false, ice: null, audioBox: h('div', { style: 'display:none' }) };
+    var v = S.voice = { cid: c.id, name: opts.label || (g.name + ' / ' + c.name), stream: null, peers: {}, rooms: {}, connected: false, muted: false, ice: null, audioBox: h('div', { style: 'display:none' }) };
     document.body.appendChild(v.audioBox);
     paintChannels();
     Promise.all([navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }), Hub.api('/api/ice')]).then(function (rs) {
       if (S.voice !== v) { rs[0].getTracks().forEach(function (t) { t.stop(); }); return; }
       v.stream = rs[0]; v.ice = (rs[1] && rs[1].iceServers) || [{ urls: 'stun:stun.l.google.com:19302' }]; v.connected = true;
       v.rooms[c.id] = [{ peer: S.peer, name: S.me.username, speaking: false, me: true }]; watch(v.stream, v.rooms[c.id][0]);
-      wsSend({ t: 'voice-join', channel: c.id }); paintChannels();
+      wsSend({ t: 'voice-join', channel: c.id }); paintChannels(); paintMembers(); callBar(); if (opts.onJoined) opts.onJoined(v);
     }, function () { Hub.toast('Microphone access was blocked', { bad: true }); leaveVoice(); });
   }
   function leaveVoice() {
     var v = S.voice; if (!v) return; wsSend({ t: 'voice-leave' });
+    if (S.call) { var cl = S.call; S.call = null; clearTimeout(cl.timer); if (cl.ringing) wsSend({ t: 'call-cancel', toUid: cl.uid, dmId: cl.dmId }); }
     Object.keys(v.peers).forEach(function (k) { try { v.peers[k].pc.close(); } catch (e) {} }); if (v.stream) v.stream.getTracks().forEach(function (t) { t.stop(); }); if (v.audioBox.parentNode) v.audioBox.parentNode.removeChild(v.audioBox); if (v.ctx) try { v.ctx.close(); } catch (e) {} clearInterval(v.tick);
-    S.voice = null; if (Hub.parse().name === 'discord') paintChannels();
+    S.voice = null; if (Hub.parse().name === 'discord') { paintChannels(); paintMembers(); } callBar();
   }
   function toggleMute() { var v = S.voice; if (!v || !v.stream) return; v.muted = !v.muted; v.stream.getAudioTracks().forEach(function (t) { t.enabled = !v.muted; }); wsSend({ t: 'voice-mute', muted: v.muted }); paintChannels(); }
   function watch(stream, entry) {
@@ -398,13 +425,84 @@
     var v = S.voice; if (!v || !v.connected) return;
     if (d.t === 'voice-peers') { setRoom((d.peers || []).map(function (p) { return { peer: p.peer, name: p.name, speaking: false }; })); }
     else if (d.t === 'voice-join') { var rm = (v.rooms[v.cid] || []).filter(function (p) { return p.peer !== d.peer; }); rm.push({ peer: d.peer, name: d.name, speaking: false }); v.rooms[v.cid] = rm; mkPeer(d.peer, d.name, true); if (Hub.parse().name === 'discord') paintChannels(); }
-    else if (d.t === 'voice-leave') { var e = v.peers[d.peer]; if (e) { try { e.pc.close(); } catch (x) {} if (e.audio && e.audio.parentNode) e.audio.parentNode.removeChild(e.audio); delete v.peers[d.peer]; } v.rooms[v.cid] = (v.rooms[v.cid] || []).filter(function (p) { return p.peer !== d.peer; }); if (Hub.parse().name === 'discord') paintChannels(); }
+    else if (d.t === 'voice-leave') { var e = v.peers[d.peer]; if (e) { try { e.pc.close(); } catch (x) {} if (e.audio && e.audio.parentNode) e.audio.parentNode.removeChild(e.audio); delete v.peers[d.peer]; } v.rooms[v.cid] = (v.rooms[v.cid] || []).filter(function (p) { return p.peer !== d.peer; }); if (S.call && !S.call.ringing && v.rooms[v.cid].length <= 1) { Hub.toast('Call ended'); leaveVoice(); return; } if (Hub.parse().name === 'discord') paintChannels(); }
     else if (d.t === 'signal') {
       var ent = v.peers[d.from] || mkPeer(d.from, '', false); if (!ent) return; var pc = ent.pc, data = d.data || {};
       if (data.sdp) { pc.setRemoteDescription(data.sdp).then(function () { if (data.sdp.type === 'offer') return pc.createAnswer().then(function (an) { return pc.setLocalDescription(an).then(function () { wsSend({ t: 'signal', to: d.from, data: { sdp: pc.localDescription } }); }); }); }).catch(function () {}); }
       else if (data.candidate) pc.addIceCandidate(data.candidate).catch(function () {});
     }
   }
+
+  // ---------- 1:1 voice calls in direct messages ----------
+  var ringEl = null, ringTone = null;
+  function inCallWith(d) { return !!(S.voice && S.call && S.call.dmId === d.id); }
+  function callButtons(d) {
+    var mine = inCallWith(d), row = h('div', { class: 'dm-calls' });
+    if (mine) {
+      row.appendChild(h('button', { type: 'button', class: 'btn sm call-end', onclick: function () { leaveVoice(); } }, [icon('phone'), S.call.ringing ? 'Cancel call' : 'Hang up']));
+      row.appendChild(h('button', { type: 'button', class: 'btn sm', onclick: function () { toggleMute(); paintMembers(); } }, [icon(S.voice.muted ? 'mic-off' : 'mic'), S.voice.muted ? 'Unmute' : 'Mute']));
+    } else row.appendChild(h('button', { type: 'button', class: 'btn sm call-go', onclick: function () { toggleCall(d); } }, [icon('phone'), 'Voice call']));
+    return row;
+  }
+  function toggleCall(d) { if (!d) return; if (inCallWith(d)) { leaveVoice(); return; } startCall(d); }
+  function startCall(d) {
+    if (!S.wsOpen) { Hub.toast('Still connecting. Try again in a moment.', { bad: true }); return; }
+    if (S.voice) leaveVoice();
+    var call = { dmId: d.id, uid: d.user.id, name: d.user.username, ringing: true, timer: 0 };
+    joinVoice(null, { id: d.id, name: d.user.username }, { label: 'Call with ' + d.user.username, onJoined: function () {
+      S.call = call; wsSend({ t: 'call-ring', toUid: d.user.id, dmId: d.id });
+      call.timer = setTimeout(function () { if (S.call === call && call.ringing) { Hub.toast(d.user.username + ' did not answer'); leaveVoice(); } }, 45000);
+      paintChannels(); paintMembers(); callBar();
+    } });
+  }
+  function stopRing() { if (ringTone) { clearInterval(ringTone.t); try { ringTone.ctx.close(); } catch (e) {} ringTone = null; } if (ringEl) { if (ringEl.parentNode) ringEl.parentNode.removeChild(ringEl); clearTimeout(ringEl._t); ringEl = null; } }
+  function ringSound() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume();
+      function beep() { var o = ctx.createOscillator(), gn = ctx.createGain(); o.frequency.value = 520; o.connect(gn); gn.connect(ctx.destination); gn.gain.setValueAtTime(0.0001, ctx.currentTime); gn.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.03); gn.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5); o.start(); o.stop(ctx.currentTime + 0.55); }
+      beep(); ringTone = { ctx: ctx, t: setInterval(beep, 1800) };
+    } catch (e) {}
+  }
+  function incoming(d) {
+    stopRing();
+    var from = d.fromName || 'Someone', dm = S.dms.filter(function (x) { return x.id === d.dmId; })[0];
+    var el = h('div', { class: 'dc-ring', role: 'alertdialog', 'aria-label': 'Incoming call from ' + from }, [
+      avatar(dm ? dm.user : { username: from }, 48),
+      h('div', { class: 'rb' }, [h('b', { text: from }), h('span', { text: 'Incoming voice call' })]),
+      h('button', { type: 'button', class: 'btn sm call-end', onclick: function () { wsSend({ t: 'call-decline', toUid: d.fromUid, dmId: d.dmId }); stopRing(); } }, 'Decline'),
+      h('button', { type: 'button', class: 'btn sm call-go', onclick: function () { acceptCall(d, dm); } }, 'Accept')]);
+    el._from = d.fromUid; el._t = setTimeout(stopRing, 45000); ringEl = el; document.body.appendChild(el); ringSound();
+  }
+  function acceptCall(d, dm) {
+    stopRing();
+    if (S.voice) leaveVoice();
+    if (!dm) refreshDms();
+    S.view = 'dm'; S.gid = null; S.cid = d.dmId;
+    var call = { dmId: d.dmId, uid: d.fromUid, name: d.fromName, ringing: false, timer: 0 };
+    if (Hub.parse().name !== 'discord') location.hash = '#/discord'; else { paintAll(); loadMsgs(d.dmId, true); }
+    joinVoice(null, { id: d.dmId, name: d.fromName }, { label: 'Call with ' + d.fromName, onJoined: function () { S.call = call; wsSend({ t: 'call-accept', toUid: d.fromUid, dmId: d.dmId }); paintChannels(); paintMembers(); callBar(); } });
+  }
+  function callWs(d) {
+    if (d.t === 'call-ring') {
+      if (S.voice) { wsSend({ t: 'call-decline', toUid: d.fromUid, dmId: d.dmId }); return; }
+      incoming(d); return;
+    }
+    if (d.t === 'call-cancel') { if (ringEl && ringEl._from === d.fromUid) { stopRing(); Hub.toast('Missed call from ' + (d.fromName || 'someone')); } return; }
+    if (d.t === 'call-accept') { if (S.call && S.call.uid === d.fromUid) { S.call.ringing = false; clearTimeout(S.call.timer); paintChannels(); paintMembers(); callBar(); } return; }
+    if (d.t === 'call-decline') { if (S.call && S.call.uid === d.fromUid) { Hub.toast((d.fromName || 'They') + ' declined the call'); S.call.ringing = false; leaveVoice(); } }
+  }
+  // Small floating bar so a call stays controllable outside the Discord page.
+  var barEl = null;
+  function callBar() {
+    var show = !!(S.voice && Hub.parse().name !== 'discord');
+    if (!show) { if (barEl && barEl.parentNode) barEl.parentNode.removeChild(barEl); barEl = null; return; }
+    if (barEl && barEl.parentNode) barEl.parentNode.removeChild(barEl);
+    barEl = h('div', { class: 'dc-callbar' }, [h('span', { class: 'cd' }), h('div', { class: 'cb' }, [h('b', { text: S.call && S.call.ringing ? 'Calling' : (S.call ? 'In call' : 'In voice') }), h('span', { text: S.voice.name })]),
+      h('button', { type: 'button', class: 'iconbtn', 'aria-label': S.voice.muted ? 'Unmute' : 'Mute', onclick: function () { toggleMute(); callBar(); } }, icon(S.voice.muted ? 'mic-off' : 'mic')),
+      h('button', { type: 'button', class: 'iconbtn leave', 'aria-label': 'Leave call', onclick: function () { leaveVoice(); } }, icon('phone'))]);
+    document.body.appendChild(barEl);
+  }
+  window.addEventListener('hashchange', function () { if (S.voice) callBar(); });
   window.addEventListener('beforeunload', function () { if (S.voice) leaveVoice(); });
 
   // keep unread badge and sign-out state in sync

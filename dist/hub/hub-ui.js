@@ -82,8 +82,8 @@
   var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['admin', 'Admin tools', 'shield']];
   function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
   function curRoot() { var r = Hub.parse().name; return r === 'genre' || r === 'search' ? 'store' : (r === 'game' ? Hub.lastRoot || 'home' : r); }
-  function avatarEl(cls) {
-    var m = Hub.me, a = h('span', { class: 'avatar' + (cls ? ' ' + cls : '') });
+  function avatarEl(cls, who) {
+    var m = who || Hub.me, a = h('span', { class: 'avatar' + (cls ? ' ' + cls : '') });
     if (m.avatar) { var i = new Image(); i.alt = ''; i.src = m.avatar; i.onerror = function () { i.remove(); a.textContent = Hub.initials(m.name); }; a.appendChild(i); } else a.textContent = Hub.initials(m.name);
     if (m.color && /^#[0-9a-f]{3,8}$/i.test(m.color) && !m.avatar) a.style.background = m.color;
     return a;

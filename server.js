@@ -2335,8 +2335,9 @@ const httpServer = createServer(async (req, res) => {
     const badges = ach.achievements.filter((a) => a.unlocked).map((a) => ({ name: a.name, icon: a.icon, color: a.color, rarity: a.rarity }));
     const p = players.get(acct.id);
     const online = !!(p && (Date.now() - p.lastSeen < PLAYER_TTL));
+    const pmeta = getProfileMeta(acct.id);
     return sendJson(res, 200, {
-      username: acct.username, id: acct.id, owner, createdAt: acct.createdAt || 0,
+      username: acct.username, id: acct.id, owner, avatar: pmeta.avatar_url || '', banner: pmeta.banner_url || '', createdAt: acct.createdAt || 0,
       online, activity: online ? (p.activity || '') : '',
       rank: coinRank(acct.id),
       coins: card ? card.coins : 0, weekNet: card ? card.weekNet : 0,

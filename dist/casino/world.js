@@ -49,6 +49,7 @@
     plinko: { box: [-54, -30, 54, 0], act: 'plinko', label: 'Play Plinko', ia: [0, 26], pr: -176, ar: 64 },
     wheel: { box: [-56, -26, 56, 0], act: 'wheel', label: 'Bet on the Big Wheel', ia: [0, 30], pr: -214, ar: 80 },
     crash: { box: [-70, -28, 100, 0], act: 'crash', label: 'Ride the Rocket', ia: [0, 28], pr: -186, ar: 90 },
+    cabinet: { box: [-30, -30, 30, 0], ia: [0, 26], pr: -128, ar: 62 },
     casebox: { box: [-43, -30, 43, 0], act: 'cases', label: 'Open Cases', ia: [0, 26], pr: -130 },
     arena: { layer: 'decal', act: 'battles', label: 'Join Case Battles', ia: [0, 14], pr: -142, ar: 104 },
     shop: { box: [-136, -62, 136, 0], act: 'shop', label: 'Browse the Shop', ia: [0, 30], pr: -132, ar: 120 },
@@ -83,6 +84,11 @@
     if (ob.act) { var ia = ob.ia || d.ia || [0, 24]; ob.ax = x + ia[0]; ob.ay = y + ia[1]; ob.ar = ob.ar || d.ar || 58; ob.py = y + (ob.pr != null ? ob.pr : (d.pr != null ? d.pr : -110)); }
     OBJ.push(ob); return ob;
   }
+  var MORE_META = {
+    keno: ['🔢', 'Keno', 'Pick up to 10 numbers. Ten get drawn.'], scratch: ['🎟️', 'Scratch Cards', 'Match three symbols to win'], limbo: ['🎯', 'Limbo', 'Set a target multiplier and beat the roll'],
+    baccarat: ['🂡', 'Baccarat', 'Player, Banker or Tie'], shell: ['🥥', 'Shell Game', 'Find the ball under the cup'], penalty: ['⚽', 'Penalty Shootout', 'Pick a corner and beat the keeper'],
+    war: ['⚔️', 'Casino War', 'High card wins. Ties go to war.'], sicbo: ['🎲', 'Sic Bo', 'Three dice, many ways to win'], hilo: ['🃏', 'Hi-Lo', 'Higher or lower. Cash out any time.'], poker: ['♠️', 'Video Poker', 'Jacks or Better, 8/5 pay table'],
+  };
   // --- Slot Alley
   [110, 206, 302, 398, 494, 590].forEach(function (x, i) { add('slot', x, 190, { v: i }); add('slot', x, 920, { v: i + 3 }); });
   [110, 206, 448, 544, 630].forEach(function (x, i) { add('slot', x, 600, { v: i + 1 }); });
@@ -111,6 +117,13 @@
   var bjTables = [add('blackjack', 980, 720, { v: 1, table: 'bj1' }), add('blackjack', 1440, 720, { v: 2, table: 'bj2' }), add('blackjack', 1900, 720, { v: 3, table: 'bj3' })];
   add('fountain', 1440, 1060);
   var roulObjs = [add('roulette', 980, 1250, { v: 0 }), add('roulette', 1900, 1250, { v: 1 })];
+  // --- Game Row: the ten newer games, one cabinet each
+  var GAME_ROW = [
+    ['keno', 'KENO', '🔢', '#1f6fd1'], ['scratch', 'SCRATCH', '🎟️', '#c2410c'], ['limbo', 'LIMBO', '🎯', '#0f766e'], ['baccarat', 'BACCARAT', '🂡', '#9f1239'], ['shell', 'SHELLS', '🥥', '#a16207'],
+    ['penalty', 'PENALTY', '⚽', '#15803d'], ['war', 'WAR', '⚔️', '#7c2d12'], ['sicbo', 'SIC BO', '🎲', '#6d28d9'], ['hilo', 'HI-LO', '🃏', '#be185d'], ['poker', 'POKER', '♠️', '#1d4ed8'],
+  ];
+  GAME_ROW.forEach(function (g, i) { var gx = 1190 + (i % 5) * 125, gy = i < 5 ? 1262 : 1388; add('cabinet', gx, gy, { act: g[0], label: 'Play ' + MORE_META[g[0]][1], name: g[1], icon: g[2], col: g[3], v: i }); });
+  add('sign', 1440, 1176, { text: 'GAME ROW', color: '#5cf2ff', size: 22, v: 9 });
   add('pillar', 770, 580); add('pillar', 2110, 580); add('pillar', 770, 1400); add('pillar', 2110, 1400);
   // --- Lobby
   add('rug', 1440, 1800, { w: 320, h: 110, text: 'SCROLLS CASINO', col: '#7d1d36', size: 22 });
@@ -414,12 +427,14 @@
     slots: ['🎰', 'Slots', 'Every spin feeds the progressive jackpot'], blackjack: ['🃏', 'Blackjack', 'Up to 5 players · beat the dealer'], roulette: ['🔴', 'Roulette', 'One wheel, everyone bets on the same spin'],
     dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
     plinko: ['🔵', 'Plinko', 'Drop it and pray'], wheel: ['🎡', 'The Big Wheel', 'Pick a color — everyone spins together'], crash: ['🚀', 'Crash', 'One rocket for everyone — cash out in time'],
-    cases: ['📦', 'Case Vault', 'Open a case'], battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
+    cases: ['📦', 'Case Vault', 'Open a case'],
+    keno: MORE_META.keno, scratch: MORE_META.scratch, limbo: MORE_META.limbo, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, war: MORE_META.war, sicbo: MORE_META.sicbo, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
     leaderboard: ['🏆', 'Richest Players', 'Top balances on ScrollHub'], tournament: ['🥇', 'Weekly Tournament', 'Most Scrolls won this week'],
     atm: ['🏧', 'ATM', 'Daily Scrolls & event codes'], shop: ['🛍️', 'The Shop', 'Characters, colors, hats, trails & more'],
     wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
+  setTimeout(function () { SC.openPanel = openPanel; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;

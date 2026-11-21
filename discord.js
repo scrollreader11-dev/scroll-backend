@@ -58,7 +58,20 @@ export async function initDiscord(deps) {
     }
   } catch (e) { console.log('discord load failed:', e.message); }
   ensureGlobal();
+  ensureVoiceChannels();
   setInterval(flush, 12000);
+}
+// Every server should have somewhere to talk. Servers that lost (or never had) a voice channel get one.
+function ensureVoiceChannels() {
+  let changed = false;
+  for (const g of Object.values(dc.guilds)) {
+    if (g.channels.some((c) => c.type === 'voice')) continue;
+    const cid = g.id + '_voice_' + rid(4);
+    g.channels.push({ id: cid, name: 'voice', type: 'voice' });
+    dc.channelIndex[cid] = { guildId: g.id, type: 'voice' }; dc.messages[cid] = []; dc.rev[cid] = 0;
+    changed = true;
+  }
+  if (changed) markDirty();
 }
 // A built-in server every account joins, so the Discord is never empty.
 const GLOBAL_ID = 'g_global';
@@ -114,7 +127,7 @@ function dmId(a, b) { return 'dm:' + [a, b].sort().join(':'); }
 function bumpRev(cid) { dc.rev[cid] = (dc.rev[cid] || 0) + 1; }
 
 function guildPublic(g) {
-  return { id: g.id, name: g.name, icon: g.icon || '', ownerId: g.ownerId, channels: g.channels, memberCount: g.memberIds.length, builtin: g.id === GLOBAL_ID };
+  return { id: g.id, name: g.name, icon: g.icon || '', iconUrl: g.iconUrl || '', ownerId: g.ownerId, channels: g.channels, memberCount: g.memberIds.length, builtin: g.id === GLOBAL_ID };
 }
 function isMember(g, uid) { return g && g.memberIds.includes(uid); }
 
@@ -392,6 +405,19 @@ export async function handleDiscord(url, req, res) {
     if (g.channels.length <= 1) return sendJson(res, 400, { error: 'last-channel' });
     g.channels = g.channels.filter((c) => c.id !== cid);
     delete dc.messages[cid]; delete dc.rev[cid]; delete dc.channelIndex[cid];
+    markDirty();
+    return sendJson(res, 200, { ok: true, guild: guildPublic(g) });
+  }
+  if ((m = path.match(/^\/api\/dc\/guild\/([^/]+)\/icon$/)) && req.method === 'POST') {
+    const g = dc.guilds[m[1]];
+    if (!g || !canManage(g, me)) return sendJson(res, 403, { error: 'not-owner' });
+    const b = await readBody(req); const u = String(b.url || '');
+    if (!u) g.iconUrl = '';
+    else {
+      const mm = u.match(/\/dcf\/([A-Za-z0-9]+\.(?:png|jpg|webp|gif))$/);
+      if (!mm) return sendJson(res, 400, { error: 'bad-url' });
+      g.iconUrl = '/dcf/' + mm[1];
+    }
     markDirty();
     return sendJson(res, 200, { ok: true, guild: guildPublic(g) });
   }

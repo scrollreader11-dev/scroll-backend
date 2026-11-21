@@ -6,6 +6,7 @@
 // ============================================================
 import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
+import { handleMore } from './casinomore.js';
 import './dist/arcade/bannergen.js'; // sets globalThis.SHBanner (custom banners from the Sprite Studio)
 
 const CASINO_FILE = '/tmp/scrollhub-casino.json';
@@ -31,7 +32,7 @@ export async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [] }; // cid -> profile; gotd override; event codes; weekly tournament
+const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 function blankProfile() {
   return { coins: START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
@@ -44,7 +45,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; } catch (e) {} }
+function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -62,7 +63,7 @@ export async function initCasino() {
   } catch (e) { console.log('reset check failed:', e.message); }
 }
 let dirty = false;
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg }); }
 function save() { dirty = true; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -712,7 +713,8 @@ export { openCase };
 // ---- helpers ----
 function sendJson(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); }
 function readBody(req) {
-  return new Promise((resolve) => { let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e5) req.destroy(); }); req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch (e) { resolve({}); } }); });
+  if (req._bodyP) return req._bodyP;
+  return (req._bodyP = new Promise((resolve) => { let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e5) req.destroy(); }); req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch (e) { resolve({}); } }); }));
 }
 function clampBet(bet, coins) { bet = Math.floor(Number(bet) || 0); return bet; }
 function publicProfile(cid) {
@@ -731,6 +733,7 @@ function recordPlay(p, bet, payout) {
   if (playHook) { try { playHook(p, bet, payout); } catch (e) {} }
 }
 
+const OLD_GAMES = { '/api/casino/slots': 'slots', '/api/casino/coinflip': 'coinflip', '/api/casino/dice': 'dice', '/api/casino/roulette': 'roulette', '/api/casino/plinko': 'plinko', '/api/casino/wheel': 'wheel', '/api/casino/bj/start': 'blackjack', '/api/casino/mines/start': 'mines', '/api/casino/crash/start': 'crash', '/api/casino/case': 'cases' };
 // ---- blackjack (transient per-user hands) ----
 const bj = {}; // cid -> {deck, player, dealer, bet, done}
 const SUITS = ['♠', '♥', '♦', '♣'];
@@ -789,6 +792,21 @@ export async function handleCasino(url, req, res) {
   if (nick && nick !== 'Guest' && p.nick !== nick) { p.nick = nick; save(); } // keep a name for the leaderboard/tips
   try { checkTournamentRollover(); } catch (e) {} // pay out last week if the week just rolled over
   ensureWeek(p);
+
+  // Owner table limits apply to every game, old and new.
+  if (req.method === 'POST' && OLD_GAMES[path]) {
+    const gid = OLD_GAMES[path], cf = casino.cfg || {}, gc = (cf.games && cf.games[gid]) || {}, bb = await readBody(req), bet = Math.floor(Number(bb.bet || bb.price || 0)) || 0;
+    const max = gc.max || cf.maxBet || 0, min = gc.min || cf.minBet || 0;
+    if (cf.closed) { sendJson(res, 200, { error: 'closed', message: 'The casino is closed for now.' }); return true; }
+    if (gc.off) { sendJson(res, 200, { error: 'disabled', message: 'That game is switched off right now.' }); return true; }
+    if (max && bet > max) { sendJson(res, 200, { error: 'max-bet', max, message: 'The table limit is ' + max + ' Scrolls.' }); return true; }
+    if (min && bet > 0 && bet < min) { sendJson(res, 200, { error: 'min-bet', min, message: 'The minimum bet is ' + min + ' Scrolls.' }); return true; }
+  }
+  if (path.startsWith('/api/casino/g/')) {
+    const mb = req.method === 'POST' ? await readBody(req) : {};
+    const r = handleMore(path, mb, { cid, p, cfg: () => casino.cfg, save, recordPlay, publicProfile: () => publicProfile(cid) });
+    if (r) { sendJson(res, 200, r); return true; }
+  }
 
   if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(p), school: schoolOn(), season: (globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
 

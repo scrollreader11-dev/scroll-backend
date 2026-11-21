@@ -1127,6 +1127,22 @@
     rr(c, x - 16, y - 18, 32, 6, 3); fs(c, '#0b1d2e', OL, 1.5);
     if (Math.floor(t * 2) % 2) { circ(c, x + 20, y - H + 50, 2.5); c.fillStyle = '#2bd576'; c.fill(); }
   };
+  // Game cabinet used by the newer games: colour and label come from the object.
+  O.cabinet = function (c, o, t) {
+    var x = o.x, y = o.y, W = 58, H = 104, col = o.col || '#5a189a', ph = (o.v || 0) * 1.7;
+    shadow(c, x, y, 38, 8);
+    rr(c, x - W / 2, y - H, W, H, 10); fs(c, col, OL, 3);
+    c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(x - W / 2 + 5, y - H + 6, 5, H - 12);
+    rr(c, x - W / 2 + 4, y - H - 12, W - 8, 20, 7); fs(c, '#140d33', OL, 2.5);
+    A.label(c, o.name || 'GAME', x, y - H - 2, { size: 10, color: '#fff', stroke: false, glow: o.glow || '#5cf2ff', maxW: W - 16 });
+    rr(c, x - 21, y - H + 14, 42, 40, 6); fs(c, '#071126', OL, 2.5);
+    var g = c.createLinearGradient(0, y - H + 16, 0, y - H + 52); g.addColorStop(0, 'rgba(92,242,255,.35)'); g.addColorStop(1, 'rgba(92,242,255,.05)'); c.fillStyle = g; c.fillRect(x - 19, y - H + 16, 38, 36);
+    A.label(c, o.icon || '?', x, y - H + 35 + Math.sin(t * 2 + ph) * 1.5, { size: 22, stroke: false });
+    rr(c, x - 17, y - 40, 34, 11, 5); fs(c, '#0b0a1f', OL, 2);
+    [[-9, '#ff5c6c'], [0, '#ffd23f'], [9, '#37e2a1']].forEach(function (b, i) { circ(c, x + b[0], y - 34.5, 3.2); c.fillStyle = Math.floor(t * 2 + i + ph) % 3 === i ? b[1] : 'rgba(255,255,255,.28)'; c.fill(); });
+    rr(c, x - 20, y - 20, 40, 8, 4); fs(c, '#0b0a1f', OL, 1.5);
+    if (Math.floor(t * 3 + ph) % 2) { circ(c, x + 24, y - H + 18, 2.4); c.fillStyle = o.glow || '#5cf2ff'; c.fill(); }
+  };
   O.board = function (c, o, t) {
     var x = o.x, y = o.y, W = o.w || 170, H = 108, top = y - H;
     rr(c, x - W / 2 - 5, top - 5, W + 10, H + 10, 10); fs(c, '#d4a63a', OL, 3);

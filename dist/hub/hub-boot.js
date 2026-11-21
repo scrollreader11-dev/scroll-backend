@@ -161,11 +161,11 @@
     var who = a[0] ? a[0] : Hub.me.name, mine = !a[0] || String(a[0]).toLowerCase() === String(Hub.me.name).toLowerCase(), v = h('div'), host = h('div');
     v.appendChild(host); host.appendChild(h('div', { class: 'skel', style: 'height:200px' }));
     function draw(u) {
-      Hub.clear(host); var banner = h('div', { class: 'pf-banner' }), bsrc = mine ? Hub.me.banner : (u && u.cosmetics && u.cosmetics.banner && u.cosmetics.banner.url) || '';
+      Hub.clear(host); var banner = h('div', { class: 'pf-banner' }), bsrc = mine ? Hub.me.banner : (u && (u.banner || (u.cosmetics && u.cosmetics.banner && u.cosmetics.banner.url))) || '';
       if (bsrc) banner.appendChild(h('img', { src: bsrc, alt: '', onerror: function (e) { e.target.remove(); } }));
       if (mine && Hub.me.kind === 'user') banner.appendChild(h('button', { class: 'btn sm edit', type: 'button', onclick: function () { pickImage('banner'); } }, [icon('camera'), 'Change banner']));
       host.appendChild(banner);
-      var av = mine ? Hub.avatarEl('lg') : h('span', { class: 'avatar lg', text: Hub.initials(who) });
+      var av = mine ? Hub.avatarEl('lg') : Hub.avatarEl('lg', { name: who, avatar: u && u.avatar, color: u && u.cosmetics && u.cosmetics.color });
       var coins = mine ? (Hub.wallet && Hub.wallet.profile ? Hub.wallet.profile.coins : null) : (u && u.coins);
       var head = h('div', { class: 'pf-head' }, [av, h('div', { class: 'nm' }, [h('h1', { text: who }), h('div', { class: 'sub', text: mine ? (Hub.me.kind === 'user' ? 'ScrollHub account' : 'Guest') : (u && u.online ? 'Online now' : 'Offline') })])]);
       if (mine) head.appendChild(h('div', { class: 'pf-edit' }, [Hub.me.kind === 'user' ? h('button', { class: 'btn sm', type: 'button', onclick: function () { pickImage('avatar'); } }, [icon('camera'), 'Change picture']) : null, h('button', { class: 'btn sm', type: 'button', onclick: function () { Hub.settingsModal('account'); } }, [icon('settings'), 'Edit profile'])]));
