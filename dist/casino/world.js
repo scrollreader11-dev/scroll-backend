@@ -50,6 +50,8 @@
     wheel: { box: [-56, -26, 56, 0], act: 'wheel', label: 'Bet on the Big Wheel', ia: [0, 30], pr: -214, ar: 80 },
     crash: { box: [-70, -28, 100, 0], act: 'crash', label: 'Ride the Rocket', ia: [0, 28], pr: -186, ar: 90 },
     cabinet: { box: [-30, -30, 30, 0], ia: [0, 26], pr: -128, ar: 62 },
+    gtable: { box: [-78, -50, 78, 4], ia: [0, 34], pr: -124, ar: 92 },
+    gstand: { box: [-44, -30, 44, 0], ia: [0, 28], pr: -132, ar: 66 },
     casebox: { box: [-43, -30, 43, 0], act: 'cases', label: 'Open Cases', ia: [0, 26], pr: -130 },
     arena: { layer: 'decal', act: 'battles', label: 'Join Case Battles', ia: [0, 14], pr: -142, ar: 104 },
     shop: { box: [-136, -62, 136, 0], act: 'shop', label: 'Browse the Shop', ia: [0, 30], pr: -132, ar: 120 },
@@ -95,6 +97,8 @@
   var megaSlot = add('slot', 330, 620, { big: true, v: 3, label: 'Play MEGA Jackpot Slots', pr: -238 });
   add('sign', 350, 26, { text: 'SLOT ALLEY', color: '#ff6ec7', size: 26, v: 1 });
   add('plant', 70, 1012); add('plant', 640, 400);
+  station('poker', 170, 385, true); station('keno', 310, 385, true); station('scratch', 450, 385, true);
+  station('limbo', 150, 780, true); station('hilo', 290, 780, true); station('penalty', 470, 780, true);
   // --- The Lounge
   add('bottles', 240, 1094, { w: 290, text: '' });
   add('bar', 240, 1250, { w: 300 });
@@ -111,19 +115,16 @@
   var wheelObj = add('wheel', 1440, 330);
   var crashObj = add('crash', 1100, 470);
   add('plinko', 1760, 460); add('plinko', 1890, 460);
+  station('sicbo', 1600, 460);
   add('sign', 1440, 26, { text: 'HIGH STAKES', color: '#5cf2ff', size: 26, v: 2 });
   add('rope', 820, 540); add('rope', 2060, 540);
   // --- Main floor
   var bjTables = [add('blackjack', 980, 720, { v: 1, table: 'bj1' }), add('blackjack', 1440, 720, { v: 2, table: 'bj2' }), add('blackjack', 1900, 720, { v: 3, table: 'bj3' })];
   add('fountain', 1440, 1060);
   var roulObjs = [add('roulette', 980, 1250, { v: 0 }), add('roulette', 1900, 1250, { v: 1 })];
-  // --- Game Row: the ten newer games, one cabinet each
-  var GAME_ROW = [
-    ['keno', 'KENO', '🔢', '#1f6fd1'], ['scratch', 'SCRATCH', '🎟️', '#c2410c'], ['limbo', 'LIMBO', '🎯', '#0f766e'], ['baccarat', 'BACCARAT', '🂡', '#9f1239'], ['shell', 'SHELLS', '🥥', '#a16207'],
-    ['penalty', 'PENALTY', '⚽', '#15803d'], ['war', 'WAR', '⚔️', '#7c2d12'], ['sicbo', 'SIC BO', '🎲', '#6d28d9'], ['hilo', 'HI-LO', '🃏', '#be185d'], ['poker', 'POKER', '♠️', '#1d4ed8'],
-  ];
-  GAME_ROW.forEach(function (g, i) { var gx = 1190 + (i % 5) * 125, gy = i < 5 ? 1262 : 1388; add('cabinet', gx, gy, { act: g[0], label: 'Play ' + MORE_META[g[0]][1], name: g[1], icon: g[2], col: g[3], v: i }); });
-  add('sign', 1440, 1176, { text: 'GAME ROW', color: '#5cf2ff', size: 22, v: 9 });
+  // --- The ten newer games, placed through the casino like the originals
+  function station(kind, x, y, stand) { var m = MORE_META[kind]; return add(stand ? 'gstand' : 'gtable', x, y, { kind: kind, act: kind, label: 'Play ' + m[1], v: x }); }
+  station('baccarat', 1230, 1290); station('shell', 1440, 1290); station('war', 1650, 1290);
   add('pillar', 770, 580); add('pillar', 2110, 580); add('pillar', 770, 1400); add('pillar', 2110, 1400);
   // --- Lobby
   add('rug', 1440, 1800, { w: 320, h: 110, text: 'SCROLLS CASINO', col: '#7d1d36', size: 22 });
@@ -434,7 +435,7 @@
     wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
-  setTimeout(function () { SC.openPanel = openPanel; }, 0);
+  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T }; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;

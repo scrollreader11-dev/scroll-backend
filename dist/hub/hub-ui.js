@@ -206,7 +206,7 @@
     var byNew = orig.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }), fresh = byNew[0] && byNew[0].ts && Date.now() - byNew[0].ts < 14 * 86400e3 ? byNew[0] : null;
     var feat = fresh || Hub.byId['scrollhub-royale'] || orig[0], second = (Hub.canCasino() ? Hub.byId['scrollhub-casino'] : null) || Hub.byId['scrollhub-bedwars'] || orig[1];
     if (feat === second) second = orig.filter(function (g) { return g !== feat; })[0];
-    var jumps = [['Scroll Racing', 'car', '#/game/scrollhub-racing'], ['Casino', 'dices', '#/game/scrollhub-casino', Hub.canCasino()], ['Discord', 'message-square', '#/discord', Hub.me.kind === 'user'], ['Friends', 'users', '#/friends', Hub.me.kind === 'user'], ['My Library', 'library-big', '#/library'], ['Browse games', 'shopping-bag', '#/store/all', Hub.canStore()]].filter(function (j) { return j[3] !== false && (j[0] !== 'Scroll Racing' || Hub.byId['scrollhub-racing']); });
+    var jumps = [['Casino', 'dices', '#/game/scrollhub-casino', Hub.canCasino()], ['Discord', 'message-square', '#/discord', Hub.me.kind === 'user'], ['Friends', 'users', '#/friends', Hub.me.kind === 'user'], ['My Library', 'library-big', '#/library'], ['Browse games', 'shopping-bag', '#/store/all', Hub.canStore()]].filter(function (j) { return j[3] !== false && (j[0] !== 'Scroll Racing' || Hub.byId['scrollhub-racing']); });
     v.appendChild(h('nav', { class: 'jump', 'aria-label': 'Quick links' }, jumps.map(function (j) { return h('a', { class: 'chip', href: j[2] }, [icon(j[1]), j[0]]); })));
     if (feat) {
       var hero = h('div', { class: 'hero' }), right = h('div', { class: 'hero-r' }), season = Hub.wallet && Hub.wallet.season, sl = SEASONS[season];

@@ -1143,6 +1143,42 @@
     rr(c, x - 20, y - 20, 40, 8, 4); fs(c, '#0b0a1f', OL, 1.5);
     if (Math.floor(t * 3 + ph) % 2) { circ(c, x + 24, y - H + 18, 2.4); c.fillStyle = o.glow || '#5cf2ff'; c.fill(); }
   };
+
+  // ---- Stations for the newer games: each looks like what it is (tables and stands) ----
+  function gcard(c, x, y, w, h, face, txt, col) {
+    rr(c, x - w / 2, y - h / 2, w, h, 3); fs(c, face ? '#fffdf2' : '#7c1d3a', OL, 1.6);
+    if (face && txt) A.label(c, txt, x, y, { size: Math.max(8, w * 0.55), color: col || '#b91c1c', stroke: false });
+    else if (!face) { c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1; c.strokeRect(x - w / 2 + 3, y - h / 2 + 3, w - 6, h - 6); }
+  }
+  function gtop(c, x, y, W, felt, name, glow) {
+    shadow(c, x, y + 4, W / 2 + 6, 10);
+    rr(c, x - W / 2 + 6, y - 30, 12, 30, 3); fs(c, '#3b2a1a', OL, 2.5); rr(c, x + W / 2 - 18, y - 30, 12, 30, 3); fs(c, '#3b2a1a', OL, 2.5);
+    rr(c, x - W / 2, y - 62, W, 38, 14); fs(c, '#5b3a1e', OL, 3);
+    rr(c, x - W / 2 + 6, y - 58, W - 12, 28, 10); fs(c, felt, 'rgba(0,0,0,.35)', 2);
+    rr(c, x - 48, y - 108, 96, 20, 8); fs(c, '#140d33', OL, 2.5);
+    A.label(c, name, x, y - 98, { size: 11, color: '#fff', stroke: false, glow: glow || '#5cf2ff', maxW: 86 });
+  }
+  function gbody(c, x, y, W, H, col, name, glow) {
+    shadow(c, x, y, W / 2 + 8, 8);
+    rr(c, x - W / 2, y - H, W, H, 10); fs(c, col, OL, 3);
+    c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(x - W / 2 + 5, y - H + 6, 5, H - 12);
+    rr(c, x - W / 2 + 4, y - H - 14, W - 8, 22, 7); fs(c, '#140d33', OL, 2.5);
+    A.label(c, name, x, y - H - 3, { size: 11, color: '#fff', stroke: false, glow: glow || '#5cf2ff', maxW: W - 14 });
+  }
+  var GS = {
+    baccarat: function (c, o, t) { var x = o.x, y = o.y; gtop(c, x, y, 150, '#0f6b45', 'BACCARAT', '#ffd166'); gcard(c, x - 24, y - 44, 18, 25, true, 'K', '#111'); gcard(c, x - 4, y - 44, 18, 25, true, '7'); gcard(c, x + 26, y - 44, 18, 25, false); gcard(c, x + 46, y - 44, 18, 25, true, 'A', '#111'); circ(c, x, y - 36 + Math.sin(t * 2) * 0, 0); },
+    war: function (c, o, t) { var x = o.x, y = o.y, fl = Math.abs(Math.cos(t * 1.4)); gtop(c, x, y, 140, '#7f1d1d', 'WAR', '#ff7b7b'); gcard(c, x - 24, y - 44, 22, 30, false); c.save(); c.translate(x + 24, y - 44); c.scale(Math.max(0.12, fl), 1); gcard(c, 0, 0, 22, 30, Math.cos(t * 1.4) > 0, 'Q', '#b91c1c'); c.restore(); },
+    sicbo: function (c, o, t) { var x = o.x, y = o.y; gtop(c, x, y, 150, '#3b1d7a', 'SIC BO', '#c4a1ff'); [[-26, 0], [0, 5], [26, 0]].forEach(function (d, i) { var by = y - 46 - Math.abs(Math.sin(t * 2.6 + i * 1.3)) * 6; rr(c, x + d[0] - 9, by - 9 + d[1] * 0, 18, 18, 4); fs(c, '#fff', OL, 2); var n = 1 + Math.floor((t * 1.2 + i * 2) % 6); c.fillStyle = '#111'; for (var k = 0; k < n; k++) { var a = k / n * TAU; circ(c, x + d[0] + Math.cos(a) * 4.5 * (n > 1 ? 1 : 0), by + Math.sin(a) * 4.5 * (n > 1 ? 1 : 0), 1.5); c.fill(); } }); },
+    shell: function (c, o, t) { var x = o.x, y = o.y; gtop(c, x, y, 150, '#7a4e1a', 'SHELLS', '#ffd166'); [-30, 0, 30].forEach(function (d, i) { var lift = Math.max(0, Math.sin(t * 2 + i * 2.1)) * 5, cx = x + d, cy = y - 38 - lift; c.beginPath(); c.moveTo(cx - 12, cy + 8); c.quadraticCurveTo(cx - 12, cy - 14, cx, cy - 14); c.quadraticCurveTo(cx + 12, cy - 14, cx + 12, cy + 8); c.closePath(); fs(c, ['#e63946', '#2a9d8f', '#e9c46a'][i], OL, 2.5); }); },
+    keno: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 92, 104, '#1f6fd1', 'KENO', '#5cf2ff'); rr(c, x - 38, y - 96, 76, 62, 5); fs(c, '#071126', OL, 2.5); for (var r = 0; r < 5; r++) for (var q = 0; q < 8; q++) { var on = ((q * 7 + r * 13 + Math.floor(t * 2.2)) % 9) === 0; c.fillStyle = on ? '#ffd23f' : 'rgba(150,190,255,.35)'; c.fillRect(x - 34 + q * 9, y - 92 + r * 11, 7, 8); } rr(c, x - 22, y - 26, 44, 12, 5); fs(c, '#0b0a1f', OL, 2); },
+    scratch: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 78, 100, '#c2410c', 'SCRATCH', '#ffd166'); for (var i = 0; i < 3; i++) { rr(c, x - 28 + i * 20, y - 82 + (i % 2) * 3, 17, 26, 3); fs(c, ['#ffd23f', '#37e2a1', '#ff7ab6'][i], OL, 2); A.label(c, '?', x - 19.5 + i * 20, y - 69 + (i % 2) * 3, { size: 13, color: '#1b1636', stroke: false }); } rr(c, x - 30, y - 44, 60, 26, 5); fs(c, '#071126', OL, 2.5); A.label(c, 'WIN ' + (Math.floor(t) % 2 ? '1000' : '5000'), x, y - 31, { size: 10, color: '#b8ff5c', stroke: false }); },
+    limbo: function (c, o, t) { var x = o.x, y = o.y, m = 1 + ((t * 0.9) % 3) * 1.7; gbody(c, x, y, 84, 100, '#0f766e', 'LIMBO', '#5eead4'); rr(c, x - 34, y - 92, 68, 52, 6); fs(c, '#04141a', OL, 2.5); A.label(c, m.toFixed(2) + 'x', x, y - 70, { size: 18, color: m > 3 ? '#ff7b7b' : '#b8ff5c', stroke: false, glow: '#5eead4' }); c.strokeStyle = '#5eead4'; c.lineWidth = 2; c.beginPath(); c.moveTo(x - 28, y - 48); c.lineTo(x - 28 + (m - 1) * 17, y - 48 - (m - 1) * 6); c.stroke(); },
+    penalty: function (c, o, t) { var x = o.x, y = o.y, k = Math.sin(t * 2.2) * 24, by = y - 18 - Math.abs(Math.sin(t * 2.2)) * 22; shadow(c, x, y, 62, 8); c.strokeStyle = '#fff'; c.lineWidth = 5; c.lineJoin = 'round'; c.beginPath(); c.moveTo(x - 54, y); c.lineTo(x - 54, y - 80); c.lineTo(x + 54, y - 80); c.lineTo(x + 54, y); c.stroke(); c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1; for (var i = -48; i <= 48; i += 12) { c.beginPath(); c.moveTo(x + i, y - 78); c.lineTo(x + i, y - 2); c.stroke(); } for (var j = -70; j < 0; j += 12) { c.beginPath(); c.moveTo(x - 52, y + j); c.lineTo(x + 52, y + j); c.stroke(); } rr(c, x - 10 + k, y - 56, 20, 34, 6); fs(c, '#facc15', OL, 2.5); circ(c, x + k * -0.6, by, 8); fs(c, '#fff', OL, 2); rr(c, x - 36, y - 104, 72, 18, 7); fs(c, '#140d33', OL, 2.5); A.label(c, 'PENALTY', x, y - 95, { size: 10, color: '#fff', stroke: false, glow: '#b8ff5c', maxW: 64 }); },
+    hilo: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 84, 96, '#be185d', 'HI-LO', '#ff9ad0'); var up = Math.floor(t * 1.2) % 2; gcard(c, x, y - 64, 40, 54, true, ['9', 'K', '3', 'A'][Math.floor(t * 1.2) % 4], '#b91c1c'); c.fillStyle = up ? '#b8ff5c' : 'rgba(255,255,255,.3)'; c.beginPath(); c.moveTo(x - 30, y - 56); c.lineTo(x - 22, y - 74); c.lineTo(x - 14, y - 56); c.closePath(); c.fill(); c.fillStyle = up ? 'rgba(255,255,255,.3)' : '#ff7b7b'; c.beginPath(); c.moveTo(x + 14, y - 72); c.lineTo(x + 22, y - 54); c.lineTo(x + 30, y - 72); c.closePath(); c.fill(); },
+    poker: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 96, 100, '#1d4ed8', 'POKER', '#93c5fd'); rr(c, x - 40, y - 92, 80, 46, 5); fs(c, '#061436', OL, 2.5); ['A', 'K', 'Q', 'J', '10'].forEach(function (cd, i) { gcard(c, x - 32 + i * 16, y - 70, 13, 22, true, cd, i % 2 ? '#111' : '#b91c1c'); }); rr(c, x - 24, y - 36, 48, 12, 5); fs(c, '#0b0a1f', OL, 2); if (Math.floor(t * 2) % 2) { circ(c, x + 34, y - 36, 3); c.fillStyle = '#ffd23f'; c.fill(); } }
+  };
+  O.gstation = function (c, o, t) { var f = GS[o.kind]; if (f) f(c, o, t); else O.cabinet(c, o, t); };
+  O.gtable = O.gstand = O.gstation;
   O.board = function (c, o, t) {
     var x = o.x, y = o.y, W = o.w || 170, H = 108, top = y - H;
     rr(c, x - W / 2 - 5, top - 5, W + 10, H + 10, 10); fs(c, '#d4a63a', OL, 3);
