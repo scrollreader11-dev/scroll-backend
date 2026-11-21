@@ -125,7 +125,7 @@ export function getProfileMeta(cid) {
 // ---- Owner tools: casino limits, per-game switches, store item controls, player operations ----
 export const GAME_LIST = [
   ['slots', 'Slots'], ['coinflip', 'Coinflip'], ['dice', 'Dice'], ['roulette', 'Roulette'], ['plinko', 'Plinko'], ['wheel', 'Big Wheel'], ['blackjack', 'Blackjack'], ['mines', 'Mines'], ['crash', 'Crash'], ['cases', 'Cases'],
-  ['keno', 'Keno'], ['scratch', 'Scratch Cards'], ['limbo', 'Limbo'], ['baccarat', 'Baccarat'], ['shell', 'Shell Game'], ['penalty', 'Penalty Shootout'], ['war', 'Casino War'], ['sicbo', 'Sic Bo'], ['hilo', 'Hi-Lo'], ['poker', 'Video Poker'],
+  ['keno', 'Keno'], ['scratch', 'Scratch Cards'], ['baccarat', 'Baccarat'], ['shell', 'Shell Game'], ['penalty', 'Penalty Shootout'], ['war', 'Casino War'], ['sicbo', 'Sic Bo'], ['hilo', 'Hi-Lo'], ['poker', 'Video Poker'],
 ];
 function cfgNorm() { const c = casino.cfg; c.games = c.games || {}; c.items = c.items || {}; return c; }
 export function casinoCfgGet() {

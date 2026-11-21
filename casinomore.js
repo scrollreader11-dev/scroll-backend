@@ -1,4 +1,4 @@
-/* Scrolls Casino: ten more games. Every outcome is rolled here with a secure random source;
+/* Scrolls Casino: nine more games. Every outcome is rolled here with a secure random source;
    the browser only draws what this file returns. Wallet changes go through the same
    profile, stats, tournament and play-hook path as the older games (env.recordPlay). */
 import crypto from 'crypto';
@@ -6,8 +6,8 @@ import crypto from 'crypto';
 const rnd = (n) => crypto.randomInt(n);                                     // 0 .. n-1
 const rf = () => crypto.randomInt(1, 281474976710655) / 281474976710656;    // (0, 1)
 
-export const MORE_GAMES = ['keno', 'scratch', 'limbo', 'baccarat', 'shell', 'penalty', 'war', 'sicbo', 'hilo', 'poker'];
-export const MORE_NAMES = { keno: 'Keno', scratch: 'Scratch Cards', limbo: 'Limbo', baccarat: 'Baccarat', shell: 'Shell Game', penalty: 'Penalty Shootout', war: 'Casino War', sicbo: 'Sic Bo', hilo: 'Hi-Lo', poker: 'Video Poker' };
+export const MORE_GAMES = ['keno', 'scratch', 'baccarat', 'shell', 'penalty', 'war', 'sicbo', 'hilo', 'poker'];
+export const MORE_NAMES = { keno: 'Keno', scratch: 'Scratch Cards', baccarat: 'Baccarat', shell: 'Shell Game', penalty: 'Penalty Shootout', war: 'Casino War', sicbo: 'Sic Bo', hilo: 'Hi-Lo', poker: 'Video Poker' };
 
 // ---------------------------------------------------------------- helpers
 function gate(env, game, bet) {
@@ -167,17 +167,6 @@ export function handleMore(path, body, env) {
     const cells = scratchBoard(win);
     const payout = payOut(env, game, t.bet, win ? t.bet * win.m : 0);
     return done(env, { cells, sym: win ? win.sym : '', mult: win ? win.m : 0 }, t.bet, payout);
-  }
-
-  // ---- limbo
-  if (game === 'limbo') {
-    let target = Math.round(Number(body.target) * 100) / 100; if (!Number.isFinite(target)) target = 2;
-    target = Math.max(1.01, Math.min(1000, target));
-    const t = takeBet(env, game, body.bet); if (t.error) return t;
-    const result = Math.min(1000000, Math.max(1, Math.floor((0.99 / rf()) * 100) / 100));
-    const won = result >= target;
-    const payout = payOut(env, game, t.bet, won ? t.bet * target : 0);
-    return done(env, { result, target, won, chance: +(99 / target).toFixed(2) }, t.bet, payout);
   }
 
   // ---- baccarat

@@ -88,18 +88,6 @@
   section('scratch', '<div class="hint">Buy a ticket, then tap each tile to scratch it. Three matching symbols win. Crowns pay 100&times;.</div><div class="mg-scr" id="scGrid"></div>' + betRow('scratch') +
     '<div class="mg-row"><button class="btn gold act" id="scGo">Buy ticket</button><button class="btn small dark" id="scAll" style="display:none">Reveal all</button></div><div class="mg-pay"><span>🍒 <b>2&times;</b></span><span>🍋 <b>3&times;</b></span><span>🔔 <b>5&times;</b></span><span>⭐ <b>10&times;</b></span><span>💎 <b>25&times;</b></span><span>👑 <b>100&times;</b></span></div><div class="msg center" id="scMsg"></div>');
 
-  // ------------------------------------------------ LIMBO
-  function limboChance() { var t = Math.max(1.01, Math.min(1000, +$('lbTarget').value || 2)); $('lbChance').textContent = 'Win chance ' + (99 / t).toFixed(2) + '%  ·  Pays ' + t.toFixed(2) + '×'; }
-  function limboPlay() {
-    if (busy.limbo) return; lock('limbo', true); var big = $('lbBig'); big.className = 'mg-big'; msg('lbMsg', '');
-    post('limbo', 'play', { bet: bet('limbo'), target: +$('lbTarget').value || 2 }).then(function (d) {
-      if (d.error) { lock('limbo', false); return err(d); }
-      var t0 = performance.now(), dur = 900;
-      (function tick(now) { var k = Math.min(1, (now - t0) / dur), v = 1 + (d.result - 1) * (1 - Math.pow(1 - k, 3)); big.textContent = v.toFixed(2) + '×'; if (k < 1) requestAnimationFrame(tick); else { big.textContent = d.result.toFixed(2) + '×'; big.className = 'mg-big ' + (d.won ? 'win' : 'lose'); applyProfile(d); lock('limbo', false); result('lbMsg', d); } })(t0);
-    });
-  }
-  section('limbo', '<div class="hint">Pick a target multiplier. If the roll lands at or above it, you win bet &times; target.</div><div class="mg-big" id="lbBig">1.00&times;</div><div class="betrow c"><label>Target</label><input type="number" id="lbTarget" value="2" min="1.01" max="1000" step="0.01" /><button class="chip" data-t="1.5">1.5&times;</button><button class="chip" data-t="2">2&times;</button><button class="chip" data-t="5">5&times;</button><button class="chip" data-t="10">10&times;</button></div><div class="hint" id="lbChance"></div>' + betRow('limbo') + '<div class="mg-row"><button class="btn gold act" id="lbGo">Roll</button></div><div class="msg center" id="lbMsg"></div>');
-
   // ------------------------------------------------ BACCARAT
   var bacSide = 'player';
   function bacPlay() {
@@ -242,7 +230,6 @@
     $('knQuick').onclick = function () { if (busy.keno) return; kenoPick = []; while (kenoPick.length < 5) { var n = 1 + Math.floor(Math.random() * 40); if (kenoPick.indexOf(n) < 0) kenoPick.push(n); } kenoPaint(); };
     $('knClear').onclick = function () { if (busy.keno) return; kenoPick = []; kenoPaint(); $('knMsg').textContent = ''; };
     $('knGo').onclick = kenoPlay; $('scGo').onclick = scratchBuy; $('scAll').onclick = function () { for (var i = 0; i < 9; i++) scratchReveal(i); };
-    $('lbGo').onclick = limboPlay; $('lbTarget').oninput = limboChance; document.querySelectorAll('[data-t]').forEach(function (b) { if (b.closest('[data-panel="limbo"]')) b.onclick = function () { $('lbTarget').value = b.dataset.t; limboChance(); }; });
     $('bcGo').onclick = bacPlay; $('bcSide').onclick = function (e) { var b = e.target.closest('[data-s]'); if (!b) return; bacSide = b.dataset.s; [].forEach.call($('bcSide').children, function (x) { x.classList.toggle('on', x === b); }); };
     $('shCups').onclick = function (e) { var c = e.target.closest('.mg-cup'); if (!c || busy.shell) return; shellPick = +c.dataset.i; [].forEach.call($('shCups').children, function (x) { x.classList.toggle('pick', x === c); }); sfx('click'); }; $('shGo').onclick = shellPlay;
     $('pnGoal').onclick = function (e) { var z = e.target.closest('.mg-zone'); if (!z || busy.penalty) return; penAim = +z.dataset.a; [].forEach.call($('pnGoal').querySelectorAll('.mg-zone'), function (x) { x.classList.toggle('pick', x === z); }); sfx('click'); }; $('pnGo').onclick = penPlay;
@@ -254,7 +241,7 @@
     $('pkDeal').onclick = pkDeal; $('pkDraw').onclick = pkDraw;
   }
   var OPEN = {
-    keno: function () { kenoPaint(); }, scratch: function () {}, limbo: function () { limboChance(); }, baccarat: function () {}, shell: function () {}, penalty: function () {},
+    keno: function () { kenoPaint(); }, scratch: function () {}, baccarat: function () {}, shell: function () {}, penalty: function () {},
     war: function () { post('war', 'state').then(function (d) { if (d && d.active) { warShow({ pc: d.pc, dc: d.dc }); $('wrChoice').style.display = ''; lock('war', true); msg('wrMsg', 'Tie! Go to war or surrender for half your bet.'); } }); },
     sicbo: function () { sicBuild(); }, hilo: hlRestore, poker: pkRestore,
   };

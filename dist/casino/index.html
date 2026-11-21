@@ -282,6 +282,23 @@
     .phead .sub{display:none}
     #feed{top:52px}
   }
+  /* owner panel */
+  .ow-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ow-grid label{display:flex;flex-direction:column;gap:5px;color:var(--mut);font-size:14px;font-weight:500}
+  .ow-grid label.wide{grid-column:1/-1}
+  .ow-grid input,.ow-grid select{width:100%}
+  .ow-check{display:flex;gap:8px;align-items:center;color:var(--mut);font-size:14px;margin:6px 0 4px;cursor:pointer}
+  .ow-check input{width:18px;height:18px}
+  .ow-h{margin:20px 0 4px;font-size:18px}
+  .ow-row{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.22);border:3px solid var(--line);border-radius:14px;padding:9px 11px;margin:8px 0;flex-wrap:wrap}
+  .ow-tx{flex:1;min-width:180px}
+  .ow-t{font-weight:700;font-size:15px}
+  .ow-s{color:var(--mut);font-size:13px}
+  .ow-b{font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:rgba(255,255,255,.1);color:var(--mut)}
+  .ow-b.on{background:rgba(43,213,118,.22);color:var(--green)}
+  .ow-empty{color:var(--mut);text-align:center;padding:14px}
+  .chip.red{background:#b3364a}
+  @media(max-width:560px){.ow-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -294,6 +311,7 @@
   <div class="pill" id="netState">Reconnecting…</div>
 </div>
 <div class="hud tr">
+  <button class="hbtn" id="ownerBtn" title="Owner panel" style="display:none">Owner</button>
   <button class="hbtn" id="onlineBtn" title="Who's here">👥 <span id="onlineN" style="margin-left:5px">1</span></button>
   <button class="hbtn" id="vcBtn" title="Talk to people near you (V = mute)">🎙️ Talk</button>
   <button class="hbtn" id="qcBtn" title="Quick chat (Q)">💬</button>
@@ -475,6 +493,8 @@
         <div id="tourLast" style="margin-top:14px"></div>
       </section>
 
+      <section class="view" data-panel="owner"></section>
+
       <section class="view center" data-panel="atm">
         <div class="hint">Your Scrolls balance</div>
         <div class="atm-bal">📜 <span id="atmBal">0</span></div>
@@ -540,14 +560,15 @@
 <div id="loading"><div class="spin"></div>Opening the casino doors…</div>
 
 <script src="/casino/sfx.js?v=3"></script>
-<script src="/casino/art.js?v=13"></script>
+<script src="/casino/art.js?v=14"></script>
 <script src="/casino/games.js?v=2"></script>
-<script src="/casino/more.js?v=1"></script>
+<script src="/casino/more.js?v=2"></script>
+<script src="/casino/owner.js?v=1"></script>
 <script src="/casino/scenes.js?v=2"></script>
 <script src="/casino/mp.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
 <script src="/music.js?v=4"></script>
-<script src="/casino/world.js?v=15"></script>
+<script src="/casino/world.js?v=18"></script>
 <script src="/dc-notify.js?v=1" defer></script>
 <script src="/hub/hub-back.js?v=1"></script>
 </body>

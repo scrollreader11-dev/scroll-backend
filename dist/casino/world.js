@@ -87,7 +87,7 @@
     OBJ.push(ob); return ob;
   }
   var MORE_META = {
-    keno: ['🔢', 'Keno', 'Pick up to 10 numbers. Ten get drawn.'], scratch: ['🎟️', 'Scratch Cards', 'Match three symbols to win'], limbo: ['🎯', 'Limbo', 'Set a target multiplier and beat the roll'],
+    keno: ['🔢', 'Keno', 'Pick up to 10 numbers. Ten get drawn.'], scratch: ['🎟️', 'Scratch Cards', 'Match three symbols to win'],
     baccarat: ['🂡', 'Baccarat', 'Player, Banker or Tie'], shell: ['🥥', 'Shell Game', 'Find the ball under the cup'], penalty: ['⚽', 'Penalty Shootout', 'Pick a corner and beat the keeper'],
     war: ['⚔️', 'Casino War', 'High card wins. Ties go to war.'], sicbo: ['🎲', 'Sic Bo', 'Three dice, many ways to win'], hilo: ['🃏', 'Hi-Lo', 'Higher or lower. Cash out any time.'], poker: ['♠️', 'Video Poker', 'Jacks or Better, 8/5 pay table'],
   };
@@ -96,8 +96,8 @@
   [110, 206, 448, 544, 630].forEach(function (x, i) { add('slot', x, 600, { v: i + 1 }); });
   var megaSlot = add('slot', 330, 620, { big: true, v: 3, label: 'Play MEGA Jackpot Slots', pr: -238 });
   add('sign', 350, 26, { text: 'SLOT ALLEY', color: '#ff6ec7', size: 26, v: 1 });
-  add('plant', 70, 1012); add('plant', 640, 400);
-  station('poker', 170, 385, true); station('keno', 310, 385, true); station('scratch', 450, 385, true);
+  add('plant', 70, 1012); add('plant', 676, 470);
+  station('poker', 170, 385, true); station('keno', 310, 385, true); station('scratch', 450, 385, true); station('hilo', 590, 385, true);
   // --- The Lounge
   add('bottles', 240, 1094, { w: 290, text: '' });
   add('bar', 240, 1250, { w: 300 });
@@ -114,7 +114,7 @@
   var wheelObj = add('wheel', 1440, 330);
   var crashObj = add('crash', 1100, 470);
   add('plinko', 1760, 460); add('plinko', 1890, 460);
-  station('limbo', 1300, 480, true); station('sicbo', 1600, 460);
+  station('sicbo', 1600, 460);
   add('sign', 1440, 26, { text: 'HIGH STAKES', color: '#5cf2ff', size: 26, v: 2 });
   add('rope', 820, 540); add('rope', 2060, 540);
   // --- Main floor
@@ -128,7 +128,7 @@
   // --- Lobby
   add('rug', 1440, 1800, { w: 320, h: 110, text: 'SCROLLS CASINO', col: '#7d1d36', size: 22 });
   add('atm', 790, 1640); add('atm', 872, 1640);
-  station('hilo', 1000, 1650, true); station('penalty', 1860, 1650, true);
+  station('penalty', 1860, 1650, true);
   add('wardrobe', 2060, 1640);
   add('easel', 1660, 1640, { title: 'WELCOME!', lines: ['Walk: WASD or click', 'E use · Q chat · T emote', 'Dance floor: the Lounge'] });
   add('couch', 1150, 2010, { col: '#5a189a' }); add('couch', 1730, 2010, { col: '#5a189a' });
@@ -429,10 +429,10 @@
     dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
     plinko: ['🔵', 'Plinko', 'Drop it and pray'], wheel: ['🎡', 'The Big Wheel', 'Pick a color — everyone spins together'], crash: ['🚀', 'Crash', 'One rocket for everyone — cash out in time'],
     cases: ['📦', 'Case Vault', 'Open a case'],
-    keno: MORE_META.keno, scratch: MORE_META.scratch, limbo: MORE_META.limbo, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, war: MORE_META.war, sicbo: MORE_META.sicbo, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
+    keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, war: MORE_META.war, sicbo: MORE_META.sicbo, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
     leaderboard: ['🏆', 'Richest Players', 'Top balances on ScrollHub'], tournament: ['🥇', 'Weekly Tournament', 'Most Scrolls won this week'],
     atm: ['🏧', 'ATM', 'Daily Scrolls & event codes'], shop: ['🛍️', 'The Shop', 'Characters, colors, hats, trails & more'],
-    wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
+    owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
   setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T }; }, 0);

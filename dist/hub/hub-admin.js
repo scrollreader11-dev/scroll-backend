@@ -39,7 +39,6 @@
     ['moderation', 'Moderation', 'hammer', 0],
     ['chats', 'Discord monitor', 'message-square', 0],
     ['toolbox', 'Toolbox', 'hammer', 0],
-    ['rig', 'Casino rigging', 'coins', 1],
     ['site', 'Site controls', 'server', 1],
     ['audit', 'Audit log', 'list-checks', 1],
   ];
@@ -114,78 +113,6 @@
     var obs = new MutationObserver(function () { if (!alive()) { stop(); obs.disconnect(); } }); obs.observe(document.body, { childList: true, subtree: true });
   };
 
-  // ---------- Casino rigging: decide what happens in a game for a player or for everyone ----------
-  PANES.rig = function (host) {
-    var S = { rules: [], log: [], games: [] };
-    var game = h('select', { class: 'input' }), mode = h('select', { class: 'input' }, [
-      h('option', { value: 'win', text: 'They win the round' }), h('option', { value: 'lose', text: 'They lose the round' }),
-      h('option', { value: 'payout', text: 'It pays out a set multiplier' }), h('option', { value: 'chance', text: 'They win a set share of rounds' })]);
-    var who = inp('Player username, or leave empty for everyone'), minX = inp('e.g. 20', { type: 'number' }), maxX = inp('empty = no upper limit', { type: 'number' }), chance = inp('e.g. 70', { type: 'number' }),
-      uses = inp('0 = until I turn it off', { type: 'number' }), mins = inp('0 = never', { type: 'number' }), note = inp('Optional note for yourself'), staff = h('input', { type: 'checkbox' });
-    uses.value = '1'; minX.value = '10'; chance.value = '70'; mins.value = '0';
-    var rowRange = h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:150px' }, field('Pays at least (x the bet)', minX)), h('div', { style: 'flex:1;min-width:150px' }, field('and at most (x the bet)', maxX))]);
-    var rowChance = h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:150px' }, field('Win chance, percent', chance))]);
-    var hint = h('p', { class: 'hint' });
-    function sync() {
-      var m = mode.value; rowRange.style.display = m === 'payout' ? '' : 'none'; rowChance.style.display = m === 'chance' ? '' : 'none';
-      hint.textContent = m === 'win' ? 'Every counted round ends in a win for the player.' : m === 'lose' ? 'Every counted round ends in a loss.' : m === 'payout' ? 'Pays between those multipliers when the game has one that fits. Slots pays 3x, 4x, 6x, 10x, 20x, 50x or 150x for a line, for example. If nothing fits, the closest one is used.' : 'Each round is decided up front with that chance, so over time they win about that share.';
-    }
-    mode.addEventListener('change', sync); sync();
-    function describe(r) {
-      var g = r.game === '*' ? 'every game' : ((S.games.filter(function (x) { return x[0] === r.game; })[0] || [0, r.game])[1]);
-      var m = r.mode === 'win' ? 'wins' : r.mode === 'lose' ? 'loses' : r.mode === 'payout' ? 'pays ' + r.min + 'x' + (r.max ? ' to ' + r.max + 'x' : ' or more') : 'wins ' + r.chance + '% of rounds';
-      return (r.name && r.name !== '*' ? r.name : 'Everyone') + ' · ' + g + ' · ' + m;
-    }
-    function detail(r) {
-      var bits = [r.uses ? (Math.max(0, r.left) + ' of ' + r.uses + ' rounds left') : 'no round limit'];
-      if (r.expires) bits.push(r.expires < Date.now() ? 'expired' : 'ends ' + new Date(r.expires).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
-      bits.push(r.hits + ' used'); if (r.cid === '*' && r.staff) bits.push('staff included'); if (r.note) bits.push(r.note);
-      return bits.join(' · ');
-    }
-    var listEl = h('div', { class: 'adm-list' }), logEl = h('div', { class: 'adm-list' });
-    function paint() {
-      Hub.clear(listEl);
-      if (!S.rules.length) listEl.appendChild(empty('No rigs yet. Everything plays fair.'));
-      S.rules.slice().reverse().forEach(function (r) {
-        var live = r.on && !(r.expires && r.expires < Date.now()) && !(r.uses && r.left <= 0);
-        listEl.appendChild(h('div', { class: 'adm-pr' }, [
-          h('div', { class: 'sp' }, [h('div', { class: 'nn', text: describe(r) }), h('div', { class: 'ss', text: detail(r) })]),
-          h('span', { class: 'adm-badge ' + (live ? 'owner' : 'none'), text: live ? 'Active' : 'Off' }),
-          btn(r.on ? 'Turn off' : 'Turn on', function (b) { busy(b, post({ action: 'casino.rig.toggle', id: r.id })).then(function (x) { if (x && x.ok) { S.rules = x.rules; S.log = x.log; paint(); } else toastErr(x); }); }, { ghost: true }),
-          btn('Delete', function (b) { busy(b, post({ action: 'casino.rig.del', id: r.id })).then(function (x) { if (x && x.ok) { S.rules = x.rules; S.log = x.log; paint(); } else toastErr(x); }); }, { danger: true })]));
-      });
-      Hub.clear(logEl);
-      if (!S.log.length) logEl.appendChild(empty('Rigged rounds will show up here.'));
-      S.log.slice(0, 40).forEach(function (l) {
-        var g = (S.games.filter(function (x) { return x[0] === l.game; })[0] || [0, l.game])[1], x = l.bet ? (l.payout / l.bet) : 0;
-        logEl.appendChild(h('div', { class: 'adm-pr' }, [h('div', { class: 'sp' }, [h('div', { class: 'nn', text: (l.name || 'Player') + ' · ' + g }), h('div', { class: 'ss', text: 'Bet ' + l.bet + ', paid ' + l.payout + (l.bet ? ' (' + (Math.round(x * 100) / 100) + 'x)' : '') + ' · ' + new Date(l.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }) + (l.ok ? '' : ' · closest match') })])]));
-      });
-    }
-    function add() {
-      var body = { action: 'casino.rig.add', game: game.value, mode: mode.value, username: who.value.trim(), min: minX.value, max: maxX.value, chance: chance.value, uses: uses.value, minutes: mins.value, staff: staff.checked, note: note.value.trim() };
-      if (mode.value === 'payout' && !(Number(minX.value) > 0)) { Hub.toast('Enter the multiplier it should pay', { bad: true }); return Promise.resolve(); }
-      return post(body).then(function (x) { if (x && x.ok) { S.rules = x.rules; S.log = x.log; paint(); Hub.toast('Rig added'); } else toastErr(x); });
-    }
-    function preset(label, p) { return btn(label, function () { if (p.game != null) game.value = p.game; mode.value = p.mode; if (p.min != null) minX.value = p.min; if (p.max != null) maxX.value = p.max; if (p.chance != null) chance.value = p.chance; if (p.uses != null) uses.value = p.uses; sync(); }, { ghost: true }); }
-    var addBtn = btn('Add rig', function (b) { busy(b, add()); }, { primary: true });
-    host.appendChild(card('Rig a game', 'Pick the game, the player and what should happen. It is applied on the server, so the player sees an ordinary round. Every rig you add or remove is written to the audit log.', [
-      h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:200px' }, field('Game', game)), h('div', { style: 'flex:1;min-width:200px' }, field('Player', who))]),
-      h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:240px' }, field('What happens', mode))]),
-      rowRange, rowChance, hint,
-      h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:170px' }, field('For how many rounds', uses)), h('div', { style: 'flex:1;min-width:170px' }, field('Stops after (minutes)', mins)), h('div', { style: 'flex:2;min-width:200px' }, field('Note', note))]),
-      h('label', { class: 'adm-row', style: 'gap:10px;align-items:center' }, [staff, h('span', { class: 'hint', style: 'margin:0', text: 'When the player is empty, also apply to staff accounts (they are skipped by default)' })]),
-      h('div', { class: 'adm-row wrap' }, [preset('Next round wins', { mode: 'win', uses: 1 }), preset('Next 3 lose', { mode: 'lose', uses: 3 }), preset('Pay 10x once', { mode: 'payout', min: 10, max: 10, uses: 1 }), preset('Jackpot once', { mode: 'payout', min: 100, max: '', uses: 1 }), preset('Win 70% of rounds', { mode: 'chance', chance: 70, uses: 0 }), preset('Win 30% of rounds', { mode: 'chance', chance: 30, uses: 0 })]),
-      h('div', { class: 'adm-row' }, addBtn)]));
-    host.appendChild(card('Active rigs', 'The most specific rig wins: a player rig beats an everyone rig, and a single game beats all games. A round counts when it finishes.', [listEl, h('div', { class: 'adm-row' }, btn('Delete all rigs', function (b) { confirmBox('Delete every rig?', 'All rigs are removed and every game plays normally again.', 'Delete all').then(function (ok) { if (ok) busy(b, post({ action: 'casino.rig.clear' })).then(function (x) { if (x && x.ok) { S.rules = x.rules; S.log = x.log; paint(); Hub.toast('All rigs deleted'); } else toastErr(x); }); }); }, { ghost: true }))]));
-    host.appendChild(card('Recent rigged rounds', 'What the rigged rounds paid.', logEl));
-    post({ action: 'casino.rig.list' }).then(function (x) {
-      if (!x || !x.ok) { toastErr(x); return; }
-      S.rules = x.rules; S.log = x.log; S.games = x.games;
-      game.appendChild(h('option', { value: '*', text: 'All games' })); x.games.forEach(function (g) { game.appendChild(h('option', { value: g[0], text: g[1] })); });
-      paint();
-    });
-  };
-
   // ---------- Toolbox: a searchable catalog of controls; every entry calls a real server action ----------
   PANES.toolbox = function (host) {
     var own = isOwner(), T = { cfg: null, games: [], items: [], chans: [], target: inp('Player username (for player controls)'), chan: h('select', { class: 'input' }), shown: 120, group: 'all', q: '' };
@@ -210,7 +137,7 @@
       add('Casino house', 'Casino open or closed', 'Closing the casino blocks every bet in every game.', 1, function () { return sw(function () { return !cf().closed; }, function (v) { return cfgSet({ closed: !v }).then(function () { return !cf().closed; }).then(function () { return v; }); }); });
       add('Casino house', 'Minimum bet, all games', 'Smallest bet allowed anywhere. 0 means no minimum.', 1, function () { return num(function () { return cf().minBet; }, function (v) { cfgSet({ minBet: v }); }); });
       add('Casino house', 'Maximum bet, all games', 'Largest bet allowed anywhere. 0 means no limit.', 1, function () { return num(function () { return cf().maxBet; }, function (v) { cfgSet({ maxBet: v }); }); });
-      add('Casino house', 'Maximum payout (ten newer games)', 'Caps what one round of keno, scratch, limbo, baccarat, shells, penalty, war, sic bo, hi-lo or poker can pay. 0 means no cap.', 1, function () { return num(function () { return cf().maxPayout; }, function (v) { cfgSet({ maxPayout: v }); }); });
+      add('Casino house', 'Maximum payout (nine newer games)', 'Caps what one round of keno, scratch, baccarat, shells, penalty, war, sic bo, hi-lo or poker can pay. 0 means no cap.', 1, function () { return num(function () { return cf().maxPayout; }, function (v) { cfgSet({ maxPayout: v }); }); });
       add('Casino house', 'Daily reward base amount', 'Base Scrolls for the daily reward (streak bonus is added on top). 0 uses the default.', 1, function () { return num(function () { return cf().dailyCoins; }, function (v) { cfgSet({ dailyCoins: v }); }); });
       add('Casino house', 'Starting Scrolls for new accounts', 'What a brand new account starts with. 0 uses the default.', 1, function () { return num(function () { return cf().startCoins; }, function (v) { cfgSet({ startCoins: v }); }); });
       // Per game
