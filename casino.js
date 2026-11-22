@@ -33,6 +33,7 @@ export async function kvSet(key, value) {
 }
 
 const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
+const TUT_PLAYS = 3, TUT_REWARD = 1000000; // tutorial: casino rounds required, one-time Scroll reward
 function blankProfile() {
   return { coins: (casino.cfg && casino.cfg.startCoins) || START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
@@ -798,6 +799,7 @@ function publicProfile(cid) {
   return { coins: p.coins, lastDaily: p.lastDaily, streak: p.streak || 0, gotdClaimed: p.gotdClaimed || '', inventory: p.inventory, tag: p.tag, color: p.color, banner: banOut(p.banner), avatarFx: p.avatarFx || '', titleFx: p.titleFx || '', look: { ...ensureLook(p) }, lookValues: lookValues(p), stats: p.stats };
 }
 function recordPlay(p, bet, payout) {
+  if (p.tut && p.tut.on && !p.tut.done && bet >= 1) p.tut.n = Math.min(99, (p.tut.n | 0) + 1); // tutorial progress
   p.stats.plays++; p.stats.wagered += bet;
   const net = payout - bet;
   if (net > 0) p.stats.won += net;
@@ -1023,6 +1025,26 @@ export async function handleCasino(url, req, res) {
     const mb = req.method === 'POST' ? await readBody(req) : {};
     const r = handleMore(path, mb, { cid, p, cfg: () => casino.cfg, save, recordPlay, publicProfile: () => publicProfile(cid) });
     if (r) { sendJson(res, 200, r); return true; }
+  }
+
+  // First-visit tutorial: the casino step only counts real bets (recordPlay) made after it was started,
+  // and the one-time reward is paid here on the server, once per identity.
+  if (path === '/api/casino/tut') {
+    if (!p.tut) p.tut = (p.stats.plays || 0) > 0 ? { done: true, legacy: true, n: 0 } : { done: false, on: false, n: 0 }; // players who already gamble skip it
+    const t = p.tut, tstat = () => ({ show: !t.done, started: !!t.on, done: !!t.done, n: t.n | 0, need: TUT_PLAYS, reward: TUT_REWARD, coins: p.coins });
+    if (req.method === 'POST') {
+      const tb = await readBody(req), act = String(tb.action || '');
+      if (act === 'start' && !t.done && !t.on) { t.on = true; t.n = 0; save(); }
+      else if (act === 'finish') {
+        if (t.done) { sendJson(res, 200, { ...tstat(), error: 'already', message: 'The tutorial reward was already claimed.' }); return true; }
+        if (!t.on || (t.n | 0) < TUT_PLAYS) { sendJson(res, 200, { ...tstat(), error: 'not-yet', message: 'Play ' + TUT_PLAYS + ' casino rounds first.' }); return true; }
+        t.done = true; t.at = Date.now(); p.coins += TUT_REWARD;
+        if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+        save(); flush();
+        sendJson(res, 200, { ...tstat(), ok: true, paid: TUT_REWARD }); return true;
+      }
+    }
+    sendJson(res, 200, tstat()); return true;
   }
 
   if (path === '/api/casino/me') { sendJson(res, 200, { profile: publicProfile(cid), store: storeList(p), school: schoolOn(), season: (globalThis.SH_SEASON ? globalThis.SH_SEASON() : 'xmas'), cases: CASES, nick, dailyMs: DAILY_MS, dailyCoins: DAILY_COINS }); return true; }
