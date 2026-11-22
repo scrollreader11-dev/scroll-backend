@@ -339,6 +339,14 @@
     path = [[sx, sy]]; pathAct = null; seatFace = { x: sx, y: sy };
   };
   var seatFace = null;
+  // Tutorial hook: screen rectangle (CSS px) of the nearest object of a type, so the hub can spotlight it.
+  SC.tourRect = function (type) {
+    var best = null, bd = 1e9;
+    OBJ.forEach(function (o) { if (o.type !== type) return; var d = Math.hypot(me.x - o.x, me.y - o.y); if (d < bd) { bd = d; best = o; } });
+    if (!best) return null;
+    var x0 = (best.x - 40 - cam.x) * Z, y0 = (best.y - 92 - cam.y) * Z, w = 80 * Z, hh = 100 * Z;
+    return { x: x0, y: y0, w: w, h: hh, on: x0 > 0 && y0 > 0 && x0 + w < VW && y0 + hh < VH, dx: best.x - me.x, dy: best.y - me.y };
+  };
   SC.nearType = function (type) { var b = 1e9; OBJ.forEach(function (o) { if (o.type === type) b = Math.min(b, Math.hypot(me.x - o.x, me.y - o.y)); }); return b; };
 
   // ================================================================ MOVEMENT
