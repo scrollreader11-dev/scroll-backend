@@ -19,6 +19,8 @@
   function frame() { return document.querySelector('#player iframe'); }
   function sc() { var f = frame(); try { return f && f.contentWindow && f.contentWindow.SC && f.contentWindow.SC.tourRect ? f.contentWindow.SC : null; } catch (e) { return null; } }
   function offset() { var f = frame(); return f ? f.getBoundingClientRect() : { left: 0, top: 0 }; }
+  function inDc() { return route() === 'discord'; }
+  function noAcct() { return Hub.me.kind !== 'user'; }
   function onCasinoPage() { return route() === 'game' && arg0() === 'scrollhub-casino'; }
 
   // ---- stages ----------------------------------------------------------------
@@ -29,7 +31,14 @@
     { id: 'back', sel: function () { return qv(['#topbar .back']); }, t: 'Go back', p: 'The arrow takes you back to where you were. Click it.', done: function () { return route() !== 'game'; } },
     { id: 'home', sel: navEl('home'), t: 'Home', p: 'Home is your starting page. Click Home.', done: function () { return route() === 'home'; } },
     { id: 'gift', info: true, optional: true, sel: function () { return qv(['#side .me .gift']); }, t: 'Daily reward', p: 'Claim free Scrolls here every day. Scrolls are the currency for the Store and the casino. They are virtual and have no cash value.', btn: 'Next' },
-    { id: 'discord', info: true, skip: function () { return !navEl('discord')(); }, sel: navEl('discord'), t: 'Discord', p: 'Chat with other players, join voice channels and message friends from this tab. It needs an account, not a guest name.', btn: 'Next' },
+    { id: 'dc', dc: true, skip: noAcct, sel: navEl('discord'), t: 'Discord', p: 'Chat, voice channels and private messages live in the Discord tab. Click Discord.', done: inDc },
+    { id: 'dcchan', dc: true, skip: noAcct, ok: inDc, go: '#/discord', clickDone: true, sel: function () { return qv(['.dch:not(.voice):not(.dm)']); }, t: 'A text channel', p: 'Servers are split into text channels. Click one to read the chat.' },
+    { id: 'dcvoice', dc: true, skip: function () { return noAcct() || (inDc() && !qv(['.dch.voice'])); }, ok: inDc, go: '#/discord', sel: function () { return qv(['.dch.voice']); }, t: 'A voice channel', p: 'Click a voice channel to join the call. Your browser will ask to use the microphone.', done: function () { return !!document.querySelector('.dvbar'); } },
+    { id: 'dcleave', dc: true, skip: noAcct, ok: inDc, go: '#/discord', sel: function () { return qv(['.dvbar .iconbtn.leave']); }, t: 'Leave the call', p: 'Click the red power button to hang up and leave the voice channel.', done: function () { return !document.querySelector('.dvbar'); } },
+    { id: 'dcdm', dc: true, skip: noAcct, ok: inDc, go: '#/discord', clickDone: true, sel: function () { return qv(['.dr-i.home']); }, t: 'Personal chat', p: 'Direct messages are private chats with one person. Click the speech bubble to open yours.' },
+    { id: 'dcname', dc: true, skip: noAcct, ok: inDc, go: '#/discord', sel: function () { return qv(['.ds-find input']); }, t: 'Message someone', p: 'Type Scrollreader11 here, the owner of ScrollHub. Press Enter to open a chat with them.', done: function () {
+        var i = document.querySelector('.ds-find input'), tt = document.querySelector('.dc-top h2'), ok = (i && i.value.trim().toLowerCase() === 'scrollreader11') || (tt && tt.textContent.trim().toLowerCase() === 'scrollreader11');
+        if (!ok) { this._m = 0; return false; } if (!this._m) this._m = Date.now(); return Date.now() - this._m > 1200; } },
     { id: 'cjump', ok: function () { return route() === 'home'; }, go: '#/home', sel: function () { return qv(['.jump a[href="#/game/scrollhub-casino"]']); }, t: 'Open the casino', p: function () { return 'Click Casino. Play 3 rounds there' + (rw() ? ' and the ' + Hub.num(rw()) + ' Scrolls are yours.' : '.'); }, done: onCasinoPage },
     { id: 'play', ok: onCasinoPage, go: '#/game/scrollhub-casino', enter: function () { api({ action: 'start' }).then(function (r) { if (r && !r.error) st = r; }); },
       sel: function () { return qv(['.gp-act .btn.primary']); },
@@ -48,8 +57,17 @@
     { id: 'claim', center: true, ic: 'gift', t: 'Tutorial complete', p: function () { return rw() ? 'You played 3 rounds. Claim your reward.' : 'You played 3 rounds. That is the whole tour.'; }, btn: function () { return rw() ? 'Claim ' + Hub.num(rw()) + ' Scrolls' : 'Finish'; }, act: claim },
     { id: 'reward', center: true, ic: 'gift', big: true, t: function () { return paidNow ? '+' + Hub.num(paidNow) + ' Scrolls' : 'All done'; }, p: function () { return paidNow ? 'Added to your balance. Enjoy the games.' : 'Your tutorial reward was already claimed. Enjoy the games.'; }, btn: 'Keep playing', act: finishTour },
   ];
+  function counts() {
+    var tot = 0, pos = 0, end = idx('reward');
+    for (var i = 0; i < end; i++) { if (S[i].dc && noAcct()) continue; tot++; if (i <= stage) pos++; }
+    return [Math.max(1, pos), Math.max(1, tot)];
+  }
   function idx(id) { for (var i = 0; i < S.length; i++) if (S[i].id === id) return i; return 0; }
-  function go(i) { for (var k = i; k < S.length; k++) S[k]._in = false; stage = i; missingAt = 0; paintKey = ''; }
+  document.addEventListener('click', function (e) {
+    var s = S[stage]; if (!s || !s.clickDone || !s.sel || !ui) return;
+    var el = s.sel(); if (el && el.contains(e.target)) s._clk = Date.now();
+  }, true);
+  function go(i) { for (var k = i; k < S.length; k++) { S[k]._in = false; S[k]._clk = 0; } stage = i; missingAt = 0; paintKey = ''; }
 
   function walkToSlot() { var W = sc(); if (W && W.tourWalk) W.tourWalk('slot'); }
   function worldView() {
@@ -83,14 +101,14 @@
     var vw = window.innerWidth, vh = window.innerHeight, r = v.rect, pad = 8, tip = ui.tip;
     ui.root.style.display = v.hidden ? 'none' : '';
     if (v.hidden) return;
-    var noDiscord = !navEl('discord')(), center = !!v.center || (!r && !v.nodim), nodim = !!v.nodim;
+    var center = !!v.center || (!r && !v.nodim), nodim = !!v.nodim;
     ui.root.classList.toggle('nodim', nodim);
     var key = [s.id, v.t, v.p, v.btnText, center, nodim].join('|');
     if (key !== paintKey) {
       paintKey = key; tip.textContent = '';
       tip.classList.toggle('center', center); tip.classList.toggle('big', !!v.big);
       if (center && v.ic) tip.appendChild(h('div', { class: 'tt-ic' }, icon(v.ic)));
-      tip.appendChild(h('div', { class: 'tt-step', text: s.id === 'reward' ? 'Tutorial complete' : 'Step ' + (Math.min(stage, idx('reward') - 1) + 1 - (noDiscord && stage > idx('discord') ? 1 : 0)) + ' of ' + (idx('reward') - (noDiscord ? 1 : 0)) }));
+      tip.appendChild(h('div', { class: 'tt-step', text: s.id === 'reward' ? 'Tutorial complete' : 'Step ' + counts()[0] + ' of ' + counts()[1] }));
       tip.appendChild(h('h3', { text: v.t })); tip.appendChild(h('p', { text: v.p }));
       if (v.btnText) { var b = h('button', { class: 'btn primary', type: 'button' }, v.btnText); var fn = v.act || s.act; b.addEventListener('click', function () { if (fn) fn(); else go(stage + 1); }); tip.appendChild(b); }
     }
@@ -120,8 +138,9 @@
     var s = S[stage]; if (!s) return;
     if (!s._in) { s._in = true; if (s.enter) s.enter(); }
     if (s.back && s.need && !s.need()) { go(idx(s.back)); return; }
-    if (s.skip && s.skip()) { go(stage + 1); return; }
-    if (s.done && s.done()) { go(stage + 1); return; }
+    if (s.skip && s.skip.call(s)) { go(stage + 1); return; }
+    if (s.clickDone && s._clk && Date.now() - s._clk > 400) { go(stage + 1); return; }
+    if (s.done && s.done.call(s)) { go(stage + 1); return; }
     var now = Date.now();
     if (stage >= idx('world') && stage < idx('leave') && now - lastPoll > 1500) { lastPoll = now; api().then(function (r) { if (r && !r.error) st = r; }); }
     if (s.ok && !s.ok()) {                                   // wrong page for this step: take them there
