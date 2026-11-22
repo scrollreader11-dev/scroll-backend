@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import sirv from 'sirv';
+import { withCompression } from './staticzip.js';
+import { brotliCompressSync, gzipSync, constants as zconst } from 'node:zlib';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
@@ -38,7 +40,12 @@ const SERVER_STARTED = Date.now();
 const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
-const serve = sirv(distDir, {
+const SERVE_HEADERS = (res, pathname) => {
+    if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+    else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
+    else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
+};
+const sirvServe = sirv(distDir, {
   dev: false, etag: true,
   // Vite's /assets/* files are content-hashed, so they can be cached forever.
   // A returning visitor's browser then never re-requests the whole JS/CSS
@@ -48,11 +55,12 @@ const serve = sirv(distDir, {
     if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
     // Game thumbnails rarely change: cache hard so the grid loads instantly on
     // repeat visits and navigation instead of re-requesting ~1,200 images.
-    else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
+    else if (/^\/storage\/images\//.test(pathname)) { res.setHeader('cache-control', 'public, max-age=604800, immutable'); if (/\.(png|jpe?g)$/i.test(pathname)) res.setHeader('vary', 'Accept'); }
     // Pages must revalidate so a new deploy shows up on the next refresh.
     else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
   },
 });
+const serve = withCompression(sirvServe, distDir, SERVE_HEADERS);
 
 function sendJson(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -1521,11 +1529,22 @@ function hubManifest() {
   return { originals, versions, feed: feed.slice(0, 24), serverTime: Date.now() };
 }
 
+let collectionZ = null;
 async function serveCollection(req, res, debug) {
   const now = Date.now();
   const sendData = (txt, source, ubg) => {
     if (debug) { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ source, games: countGames(txt), ubgAdded: ubg, cachedAgeSec: Math.round((now - collectionCache.ts) / 1000) })); return; }
-    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*', 'x-sh-catalog': source }); res.end(req.method === 'HEAD' ? undefined : txt);
+    const hdr = { 'content-type': 'application/json', 'cache-control': 'public, max-age=600', 'access-control-allow-origin': '*', 'x-sh-catalog': source, 'vary': 'Accept-Encoding' };
+    const ae = String(req.headers['accept-encoding'] || '');
+    const enc = /\bbr\b/.test(ae) ? 'br' : /\bgzip\b/.test(ae) ? 'gzip' : '';
+    if (enc && req.method !== 'HEAD' && typeof txt === 'string' && txt.length > 1024) {
+      // The catalog is ~500 KB of JSON; send it compressed (kept until the text changes).
+      if (!collectionZ || collectionZ.txt !== txt) collectionZ = { txt };
+      const z = collectionZ;
+      if (!z[enc]) z[enc] = enc === 'br' ? brotliCompressSync(Buffer.from(txt), { params: { [zconst.BROTLI_PARAM_QUALITY]: 5 } }) : gzipSync(Buffer.from(txt), { level: 6 });
+      res.writeHead(200, { ...hdr, 'content-encoding': enc, 'content-length': z[enc].length }); res.end(z[enc]); return;
+    }
+    res.writeHead(200, hdr); res.end(req.method === 'HEAD' ? undefined : txt);
   };
   if (!debug && collectionCache.data && now - collectionCache.ts < 10 * 60 * 1000) return sendData(collectionCache.data, 'cache', collectionCache.ubg);
   try {
