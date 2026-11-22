@@ -27,6 +27,7 @@
     { id: 'back', sel: function () { return qv(['#topbar .back']); }, t: 'Go back', p: 'The arrow takes you back to where you were. Click it.', done: function () { return route() !== 'game'; } },
     { id: 'home', sel: navEl('home'), t: 'Home', p: 'Home is your starting page. Click Home.', done: function () { return route() === 'home'; } },
     { id: 'gift', info: true, optional: true, sel: function () { return qv(['#side .me .gift']); }, t: 'Daily reward', p: 'Claim free Scrolls here every day. Scrolls are the currency for the Store and the casino. They are virtual and have no cash value.', btn: 'Next' },
+    { id: 'discord', info: true, skip: function () { return !navEl('discord')(); }, sel: navEl('discord'), t: 'Discord', p: 'Chat with other players, join voice channels and message friends from this tab. It needs an account, not a guest name.', btn: 'Next' },
     { id: 'cjump', ok: function () { return route() === 'home'; }, go: '#/home', sel: function () { return qv(['.jump a[href="#/game/scrollhub-casino"]']); }, t: 'Open the casino', p: 'Click Casino. Play 3 rounds there and the 1,000,000 Scrolls are yours.', done: onCasinoPage },
     { id: 'play', ok: onCasinoPage, go: '#/game/scrollhub-casino', enter: function () { api({ action: 'start' }).then(function (r) { if (r && !r.error) st = r; }); },
       sel: function () { return qv(['.gp-act .btn.primary']); },
@@ -34,12 +35,21 @@
       p: function (el) { var x = el ? el.textContent : ''; return el && el.disabled ? 'Hang on a moment. The Play button shows up when it is ready.' : /install|get/i.test(x) ? 'Games install to your library the first time. It only takes a moment, then press Play.' : 'This launches the casino in a window on top of the hub.'; },
       done: function () { return !!Hub.playing; } },
     { id: 'world', back: 'play', need: function () { return !!Hub.playing; }, done: function () { return st && (st.n | 0) >= st.need; }, view: worldView },
+    { id: 'leave',
+      view: function () {
+        var bar = document.querySelector('#player .pbar'), btn = bar && bar.querySelector('button[aria-label="Back to ScrollHub"]');
+        if (bar) bar.classList.remove('hide');                // the game bar auto-hides; keep it up while we point at it
+        var r = btn && vis(btn) ? rect(btn) : null;
+        return { rect: r, t: 'Leaving a game', p: 'Press this arrow, or Esc on your keyboard, to leave any game and come back to the hub. Click it now.' };
+      }, done: function () { return !Hub.playing; } },
+    { id: 'account', info: true, optional: true, sel: function () { return qv(['#side .me .who', '#topbar .avatar-btn']); }, t: 'Your account', p: 'Profile, settings and sign out are in this menu. To leave ScrollHub entirely, sign out here and close the tab. Your Scrolls are saved to your account.', btn: 'Next' },
     { id: 'claim', center: true, ic: 'gift', t: 'Tutorial complete', p: 'You played 3 rounds. Claim your reward.', btn: function () { return 'Claim ' + Hub.num(st ? st.reward : 1000000) + ' Scrolls'; }, act: claim },
     { id: 'reward', center: true, ic: 'gift', big: true, t: function () { return '+' + Hub.num(st ? st.reward : 1000000) + ' Scrolls'; }, p: 'Added to your balance. Enjoy the games.', btn: 'Keep playing', act: finishTour },
   ];
   function idx(id) { for (var i = 0; i < S.length; i++) if (S[i].id === id) return i; return 0; }
   function go(i) { for (var k = i; k < S.length; k++) S[k]._in = false; stage = i; missingAt = 0; paintKey = ''; }
 
+  function walkToSlot() { var W = sc(); if (W && W.tourWalk) W.tourWalk('slot'); }
   function worldView() {
     var f = frame(), W = sc(), n = st ? st.n | 0 : 0, need = st ? st.need : 3;
     if (!f || !W) return { hidden: true };          // casino still loading
@@ -54,7 +64,7 @@
     var m = W.tourRect('slot');
     if (m && m.on) return { rect: { x: m.x + off.left, y: m.y + off.top, w: m.w, h: m.h }, t: 'Play a slot machine', p: 'Click the machine, or walk to it with WASD and press E. Round ' + Math.min(n + 1, need) + ' of ' + need + '.' };
     var dir = !m ? 'somewhere on the floor' : Math.abs(m.dx) > Math.abs(m.dy) ? (m.dx < 0 ? 'to the left' : 'to the right') : (m.dy < 0 ? 'up' : 'down');
-    return { nodim: true, arrow: m ? Math.atan2(m.dy, m.dx) : null, t: 'Find a slot machine', p: 'Slot machines are ' + dir + '. Walk there with WASD or by clicking, then press E on one. Round ' + Math.min(n + 1, need) + ' of ' + need + '.' };
+    return { nodim: true, arrow: m ? Math.atan2(m.dy, m.dx) : null, btnText: 'Walk me there', act: walkToSlot, t: 'Find a slot machine', p: 'Slot machines are ' + dir + '. Walk there with WASD or by clicking, or let the game walk you there. Round ' + Math.min(n + 1, need) + ' of ' + need + '.' };
   }
 
   // ---- overlay ---------------------------------------------------------------
@@ -71,16 +81,16 @@
     var vw = window.innerWidth, vh = window.innerHeight, r = v.rect, pad = 8, tip = ui.tip;
     ui.root.style.display = v.hidden ? 'none' : '';
     if (v.hidden) return;
-    var center = !!v.center || (!r && !v.nodim), nodim = !!v.nodim;
+    var noDiscord = !navEl('discord')(), center = !!v.center || (!r && !v.nodim), nodim = !!v.nodim;
     ui.root.classList.toggle('nodim', nodim);
     var key = [s.id, v.t, v.p, v.btnText, center, nodim].join('|');
     if (key !== paintKey) {
       paintKey = key; tip.textContent = '';
       tip.classList.toggle('center', center); tip.classList.toggle('big', !!v.big);
       if (center && v.ic) tip.appendChild(h('div', { class: 'tt-ic' }, icon(v.ic)));
-      tip.appendChild(h('div', { class: 'tt-step', text: s.id === 'reward' ? 'Tutorial complete' : 'Step ' + (Math.min(stage, 9) + 1) + ' of 10' }));
+      tip.appendChild(h('div', { class: 'tt-step', text: s.id === 'reward' ? 'Tutorial complete' : 'Step ' + (Math.min(stage, idx('reward') - 1) + 1 - (noDiscord && stage > idx('discord') ? 1 : 0)) + ' of ' + (idx('reward') - (noDiscord ? 1 : 0)) }));
       tip.appendChild(h('h3', { text: v.t })); tip.appendChild(h('p', { text: v.p }));
-      if (v.btnText) { var b = h('button', { class: 'btn primary', type: 'button' }, v.btnText); b.addEventListener('click', function () { if (s.act) s.act(); else go(stage + 1); }); tip.appendChild(b); }
+      if (v.btnText) { var b = h('button', { class: 'btn primary', type: 'button' }, v.btnText); var fn = v.act || s.act; b.addEventListener('click', function () { if (fn) fn(); else go(stage + 1); }); tip.appendChild(b); }
     }
     if (v.arrow != null) { var rad = Math.min(vw, vh) * 0.3; ui.arrow.style.display = ''; ui.arrow.style.left = (vw / 2 + Math.cos(v.arrow) * rad) + 'px'; ui.arrow.style.top = (vh / 2 + Math.sin(v.arrow) * rad) + 'px'; ui.arrow.style.transform = 'translate(-50%,-50%) rotate(' + v.arrow + 'rad)'; }
     else ui.arrow.style.display = 'none';
@@ -108,9 +118,10 @@
     var s = S[stage]; if (!s) return;
     if (!s._in) { s._in = true; if (s.enter) s.enter(); }
     if (s.back && s.need && !s.need()) { go(idx(s.back)); return; }
+    if (s.skip && s.skip()) { go(stage + 1); return; }
     if (s.done && s.done()) { go(stage + 1); return; }
     var now = Date.now();
-    if (stage >= idx('world') && stage < idx('claim') && now - lastPoll > 1500) { lastPoll = now; api().then(function (r) { if (r && !r.error) st = r; }); }
+    if (stage >= idx('world') && stage < idx('leave') && now - lastPoll > 1500) { lastPoll = now; api().then(function (r) { if (r && !r.error) st = r; }); }
     if (s.ok && !s.ok()) {                                   // wrong page for this step: take them there
       if (!s._nav || now - s._nav > 700) { s._nav = now; if (s.go) location.hash = s.go; }
       paint({ hidden: true }, s); return;
@@ -146,7 +157,7 @@
     var key = Hub.me.kind + ':' + Hub.me.id; if (checkedFor === key) return; checkedFor = key;
     api().then(function (r) {
       if (!r || r.error || !r.show) return;
-      st = r; go(r.started ? ((r.n | 0) >= r.need ? idx('claim') : idx('cjump')) : 0);
+      st = r; go(r.started ? ((r.n | 0) >= r.need ? idx('account') : idx('cjump')) : 0);
       raf = requestAnimationFrame(tick);
     });
   }

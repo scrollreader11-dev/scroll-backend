@@ -347,6 +347,12 @@
     var x0 = (best.x - 40 - cam.x) * Z, y0 = (best.y - 92 - cam.y) * Z, w = 80 * Z, hh = 100 * Z;
     return { x: x0, y: y0, w: w, h: hh, on: x0 > 0 && y0 > 0 && x0 + w < VW && y0 + hh < VH, dx: best.x - me.x, dy: best.y - me.y };
   };
+  // Tutorial hook: auto-walk (same pathfinding as click-to-walk) to the nearest machine of a type and use it on arrival.
+  SC.tourWalk = function (type) {
+    var best = null, bd = 1e9;
+    OBJ.forEach(function (o) { if (o.type !== type || !o.act) return; var d = Math.hypot(me.x - o.x, me.y - o.y); if (d < bd) { bd = d; best = o; } });
+    if (best) walkTo(best.ax, best.ay, best);
+  };
   SC.nearType = function (type) { var b = 1e9; OBJ.forEach(function (o) { if (o.type === type) b = Math.min(b, Math.hypot(me.x - o.x, me.y - o.y)); }); return b; };
 
   // ================================================================ MOVEMENT
