@@ -33,7 +33,7 @@ export async function kvSet(key, value) {
 }
 
 const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
-const TUT_PLAYS = 3, TUT_REWARD = 1000000; // tutorial: casino rounds required, one-time Scroll reward
+const TUT_PLAYS = 3, TUT_REWARD = 1000000, TUT_VER = 2; // tutorial: casino rounds required, one-time Scroll reward
 function blankProfile() {
   return { coins: (casino.cfg && casino.cfg.startCoins) || START_COINS, lastDaily: 0, streak: 0, gotdClaimed: '', weekNet: 0, weekKey: '', nick: '', inventory: [], tag: '', color: '', banner: '', avatarFx: '', titleFx: '', avatar: '', banner_url: '', profile_color: '', profile_public: true, look: { skin: 'skin_gim', body: 'body_sky', hat: '', acc: '', trail: '' }, stats: { wagered: 0, won: 0, biggest: 0, plays: 0, casesOpened: 0, peak: START_COINS, crashBest: 0, tipped: 0 } };
 }
@@ -1030,18 +1030,22 @@ export async function handleCasino(url, req, res) {
   // First-visit tutorial: the casino step only counts real bets (recordPlay) made after it was started,
   // and the one-time reward is paid here on the server, once per identity.
   if (path === '/api/casino/tut') {
-    if (!p.tut || p.tut.legacy) p.tut = { done: false, on: false, n: 0 }; // everyone gets the tour on their next join, new and existing players alike
-    const t = p.tut, tstat = () => ({ show: !t.done, started: !!t.on, done: !!t.done, n: t.n | 0, need: TUT_PLAYS, reward: TUT_REWARD, coins: p.coins });
+    if (!p.tut || p.tut.legacy || (p.tut.ver | 0) < TUT_VER) {   // everyone gets the tour on their next join; bump TUT_VER to replay it for all
+      const prev = p.tut && !p.tut.legacy ? p.tut : null;
+      p.tut = { done: false, on: false, n: 0, ver: TUT_VER, paid: !!(prev && (prev.paid || prev.done)) };   // the reward is only ever paid once per player
+      save();
+    }
+    const t = p.tut, tstat = () => ({ show: !t.done, started: !!t.on, done: !!t.done, n: t.n | 0, need: TUT_PLAYS, reward: t.paid ? 0 : TUT_REWARD, coins: p.coins });
     if (req.method === 'POST') {
       const tb = await readBody(req), act = String(tb.action || '');
       if (act === 'start' && !t.done && !t.on) { t.on = true; t.n = 0; save(); }
       else if (act === 'finish') {
         if (t.done) { sendJson(res, 200, { ...tstat(), error: 'already', message: 'The tutorial reward was already claimed.' }); return true; }
         if (!t.on || (t.n | 0) < TUT_PLAYS) { sendJson(res, 200, { ...tstat(), error: 'not-yet', message: 'Play ' + TUT_PLAYS + ' casino rounds first.' }); return true; }
-        t.done = true; t.at = Date.now(); p.coins += TUT_REWARD;
+        const pay = t.paid ? 0 : TUT_REWARD; t.done = true; t.paid = true; t.at = Date.now(); p.coins += pay;
         if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
         save(); flush();
-        sendJson(res, 200, { ...tstat(), ok: true, paid: TUT_REWARD }); return true;
+        sendJson(res, 200, { ...tstat(), ok: true, paid: pay }); return true;
       }
     }
     sendJson(res, 200, tstat()); return true;

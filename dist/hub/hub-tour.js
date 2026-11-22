@@ -7,6 +7,8 @@
   var h = Hub.h, icon = Hub.icon;
   var st = null, stage = 0, raf = 0, ui = null, lastPoll = 0, missingAt = 0, claiming = false, checkedFor = '', paintKey = '';
 
+  var paidNow = 0;
+  function rw() { return st ? st.reward | 0 : 1000000; }
   function api(body) { return Hub.api('/api/casino/tut', body ? { body: body } : {}); }
   function route() { return Hub.parse().name; }
   function arg0() { return (Hub.parse().args || [])[0]; }
@@ -21,14 +23,14 @@
 
   // ---- stages ----------------------------------------------------------------
   var S = [
-    { id: 'welcome', center: true, ic: 'sparkles', t: 'Welcome to ScrollHub', p: 'Quick tour: you will click through the hub, then play 3 casino rounds. Finish and you get 1,000,000 Scrolls.', btn: 'Start' },
+    { id: 'welcome', center: true, ic: 'sparkles', t: 'Welcome to ScrollHub', p: function () { return 'Quick tour: you will click through the hub, then play 3 casino rounds.' + (rw() ? ' Finish and you get ' + Hub.num(rw()) + ' Scrolls.' : ''); }, btn: 'Start' },
     { id: 'orig', sel: navEl('originals'), t: 'Originals', p: 'Games built for ScrollHub live here, like Bedwars, Scroll Racing and Royale. Click Originals.', done: function () { return route() === 'originals'; } },
     { id: 'tile', ok: function () { return route() === 'originals'; }, go: '#/originals', sel: function () { return qv(['#view a[href^="#/game/"]']); }, t: 'Open a game', p: 'Every game has its own page. Click any game.', done: function () { return route() === 'game'; } },
     { id: 'back', sel: function () { return qv(['#topbar .back']); }, t: 'Go back', p: 'The arrow takes you back to where you were. Click it.', done: function () { return route() !== 'game'; } },
     { id: 'home', sel: navEl('home'), t: 'Home', p: 'Home is your starting page. Click Home.', done: function () { return route() === 'home'; } },
     { id: 'gift', info: true, optional: true, sel: function () { return qv(['#side .me .gift']); }, t: 'Daily reward', p: 'Claim free Scrolls here every day. Scrolls are the currency for the Store and the casino. They are virtual and have no cash value.', btn: 'Next' },
     { id: 'discord', info: true, skip: function () { return !navEl('discord')(); }, sel: navEl('discord'), t: 'Discord', p: 'Chat with other players, join voice channels and message friends from this tab. It needs an account, not a guest name.', btn: 'Next' },
-    { id: 'cjump', ok: function () { return route() === 'home'; }, go: '#/home', sel: function () { return qv(['.jump a[href="#/game/scrollhub-casino"]']); }, t: 'Open the casino', p: 'Click Casino. Play 3 rounds there and the 1,000,000 Scrolls are yours.', done: onCasinoPage },
+    { id: 'cjump', ok: function () { return route() === 'home'; }, go: '#/home', sel: function () { return qv(['.jump a[href="#/game/scrollhub-casino"]']); }, t: 'Open the casino', p: function () { return 'Click Casino. Play 3 rounds there' + (rw() ? ' and the ' + Hub.num(rw()) + ' Scrolls are yours.' : '.'); }, done: onCasinoPage },
     { id: 'play', ok: onCasinoPage, go: '#/game/scrollhub-casino', enter: function () { api({ action: 'start' }).then(function (r) { if (r && !r.error) st = r; }); },
       sel: function () { return qv(['.gp-act .btn.primary']); },
       t: function (el) { var x = el ? el.textContent : ''; return el && el.disabled ? 'Installing' : /install|get/i.test(x) ? 'Install the casino' : 'Press Play'; },
@@ -43,8 +45,8 @@
         return { rect: r, t: 'Leaving a game', p: 'Press this arrow, or Esc on your keyboard, to leave any game and come back to the hub. Click it now.' };
       }, done: function () { return !Hub.playing; } },
     { id: 'account', info: true, optional: true, sel: function () { return qv(['#side .me .who', '#topbar .avatar-btn']); }, t: 'Your account', p: 'Profile, settings and sign out are in this menu. To leave ScrollHub entirely, sign out here and close the tab. Your Scrolls are saved to your account.', btn: 'Next' },
-    { id: 'claim', center: true, ic: 'gift', t: 'Tutorial complete', p: 'You played 3 rounds. Claim your reward.', btn: function () { return 'Claim ' + Hub.num(st ? st.reward : 1000000) + ' Scrolls'; }, act: claim },
-    { id: 'reward', center: true, ic: 'gift', big: true, t: function () { return '+' + Hub.num(st ? st.reward : 1000000) + ' Scrolls'; }, p: 'Added to your balance. Enjoy the games.', btn: 'Keep playing', act: finishTour },
+    { id: 'claim', center: true, ic: 'gift', t: 'Tutorial complete', p: function () { return rw() ? 'You played 3 rounds. Claim your reward.' : 'You played 3 rounds. That is the whole tour.'; }, btn: function () { return rw() ? 'Claim ' + Hub.num(rw()) + ' Scrolls' : 'Finish'; }, act: claim },
+    { id: 'reward', center: true, ic: 'gift', big: true, t: function () { return paidNow ? '+' + Hub.num(paidNow) + ' Scrolls' : 'All done'; }, p: function () { return paidNow ? 'Added to your balance. Enjoy the games.' : 'Your tutorial reward was already claimed. Enjoy the games.'; }, btn: 'Keep playing', act: finishTour },
   ];
   function idx(id) { for (var i = 0; i < S.length; i++) if (S[i].id === id) return i; return 0; }
   function go(i) { for (var k = i; k < S.length; k++) S[k]._in = false; stage = i; missingAt = 0; paintKey = ''; }
@@ -143,7 +145,7 @@
     if (claiming) return; claiming = true;
     api({ action: 'finish' }).then(function (r) {
       claiming = false;
-      if (r && r.ok) { st = r; Hub.loadWallet && Hub.loadWallet().then(function () { Hub.renderChrome && Hub.renderChrome(); }); go(idx('reward')); }
+      if (r && r.ok) { st = r; paidNow = r.paid | 0; Hub.loadWallet && Hub.loadWallet().then(function () { Hub.renderChrome && Hub.renderChrome(); }); go(idx('reward')); }
       else { if (r && r.n != null) st = r; Hub.toast((r && r.message) || 'Could not claim. Try again.', { bad: true }); }
     }, function () { claiming = false; Hub.toast('Could not reach the server. Try again.', { bad: true }); });
   }
