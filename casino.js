@@ -1030,7 +1030,7 @@ export async function handleCasino(url, req, res) {
   // First-visit tutorial: the casino step only counts real bets (recordPlay) made after it was started,
   // and the one-time reward is paid here on the server, once per identity.
   if (path === '/api/casino/tut') {
-    if (!p.tut) p.tut = (p.stats.plays || 0) > 0 ? { done: true, legacy: true, n: 0 } : { done: false, on: false, n: 0 }; // players who already gamble skip it
+    if (!p.tut || p.tut.legacy) p.tut = { done: false, on: false, n: 0 }; // everyone gets the tour on their next join, new and existing players alike
     const t = p.tut, tstat = () => ({ show: !t.done, started: !!t.on, done: !!t.done, n: t.n | 0, need: TUT_PLAYS, reward: TUT_REWARD, coins: p.coins });
     if (req.method === 'POST') {
       const tb = await readBody(req), act = String(tb.action || '');
