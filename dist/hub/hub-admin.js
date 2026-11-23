@@ -441,6 +441,45 @@
       Hub.clear(host); var s = (r && r.settings) || {};
       function set(k, v) { var o = {}; o[k] = v; return post({ action: 'settings', settings: o }).then(function (x) { x && x.ok ? Hub.toast('Saved') : toastErr(x); }); }
       host.appendChild(card('Availability', 'Turn the whole site off for maintenance.', [Hub.toggle('Maintenance mode', 'Visitors see a maintenance page. Staff still get in.', !!s.maintenance, function (v) { set('maintenance', v); })]));
+      // ---- Bandwidth meter (owner): this month's outbound data against Render's free cap ----
+      function fmtB(n) { n = +n || 0; var u = ['B', 'KB', 'MB', 'GB', 'TB'], i = 0; while (n >= 1024 && i < 4) { n /= 1024; i++; } return (i > 1 ? n.toFixed(2) : Math.round(n)) + ' ' + u[i]; }
+      var bw = h('div');
+      function paintBw() {
+        post({ action: 'traffic' }).then(function (x) {
+          Hub.clear(bw); if (!x || !x.ok) { bw.appendChild(empty('Could not load the bandwidth numbers.')); return; }
+          var pct = Math.min(100, x.bytes / x.capBytes * 100), tone = pct > 85 ? 'var(--bad)' : pct > 60 ? 'var(--warn)' : 'var(--ok)';
+          bw.appendChild(h('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap' }, [h('b', { style: 'font-size:28px;font-variant-numeric:tabular-nums', text: fmtB(x.bytes) }), h('span', { class: 'hint', style: 'margin:0', text: 'sent this month (' + x.month + ') of the ' + fmtB(x.capBytes) + ' free cap, ' + pct.toFixed(1) + '% used' })]));
+          bw.appendChild(h('div', { style: 'height:10px;border-radius:6px;background:rgba(150,185,255,.16);overflow:hidden;margin:10px 0 14px' }, h('i', { style: 'display:block;height:100%;width:' + pct + '%;background:' + tone + ';border-radius:6px' })));
+          var labels = { site: 'Pages and game files', images: 'Game pictures', api: 'API calls', proxy: 'Proxy tunnel (Wisp)', games: 'Live game connections', upstream: 'Files fetched for missing games' }, cats = Object.keys(x.cats || {}).sort(function (a, b) { return x.cats[b] - x.cats[a]; });
+          var list = h('div', { class: 'adm-list' });
+          cats.forEach(function (k) { list.appendChild(h('div', { class: 'adm-pr' }, [h('div', { class: 'sp' }, [h('b', { text: labels[k] || k })]), h('span', { text: fmtB(x.cats[k]) + '  ·  ' + (x.bytes ? Math.round(x.cats[k] / x.bytes * 100) : 0) + '%' })])); });
+          if (!cats.length) list.appendChild(empty('Nothing counted yet this month.'));
+          bw.appendChild(list);
+          var days = Object.keys(x.days || {}).sort().slice(-7); if (days.length) bw.appendChild(h('p', { class: 'hint', style: 'margin-top:14px', text: 'Last days: ' + days.map(function (d) { return d.slice(5) + ' ' + fmtB(x.days[d]); }).join('  ·  ') }));
+          if (x.top && x.top.length) { bw.appendChild(h('h4', { style: 'margin:18px 0 8px', text: 'Heaviest files since the server last restarted' })); var tl = h('div', { class: 'adm-list' }); x.top.slice(0, 10).forEach(function (t) { tl.appendChild(h('div', { class: 'adm-pr' }, [h('div', { class: 'sp' }, [h('span', { text: t.path, style: 'word-break:break-all' })]), h('span', { text: fmtB(t.bytes) })])); }); bw.appendChild(tl); }
+          bw.appendChild(h('p', { class: 'hint', style: 'margin-top:12px', text: 'Live connections (' + x.openSockets + ' open) are counted every 20 seconds. Render may bill on a different monthly cycle than the calendar month shown here.' }));
+        });
+      }
+      host.appendChild(card('Bandwidth', 'How much data the site has sent. Render\'s free plan suspends everything when the monthly cap runs out.', [bw, h('div', { class: 'adm-row', style: 'margin-top:12px' }, btn('Refresh', paintBw))]));
+      paintBw();
+
+      // ---- Welcome tour (owner) ----
+      var tourBox = h('div'), tourRw = inp('Reward in Scrolls', { type: 'number' }), tourUser = inp('Username'), payAgain = false;
+      function paintTour(x) {
+        Hub.clear(tourBox); if (!x || !x.ok) { tourBox.appendChild(empty('Could not load the tour settings.')); return; }
+        var c = x.counts;
+        tourBox.appendChild(h('p', { class: 'hint', text: 'Version ' + x.version + '. Finished: ' + c.done + '. In progress: ' + c.started + '. Will see it next visit: ' + c.pending + '. Profiles: ' + c.total + '.' }));
+        tourBox.appendChild(Hub.toggle('Show the tour', 'New and returning players get the guided tour once per version.', x.on, function (v) { post({ action: 'tour.set', on: v }).then(function (r) { r && r.ok ? Hub.toast(v ? 'Tour is on' : 'Tour is off') : toastErr(r); }); }));
+        tourRw.value = String(x.reward);
+        tourBox.appendChild(h('div', { class: 'adm-row wrap', style: 'margin:14px 0' }, [h('div', { style: 'flex:1;min-width:200px' }, field('Reward for finishing (once per player)', tourRw)), btn('Save reward', function () { post({ action: 'tour.set', reward: tourRw.value }).then(function (r) { r && r.ok ? (Hub.toast('Reward saved'), paintTour(r)) : toastErr(r); }); }, { primary: true })]));
+        tourBox.appendChild(h('div', { class: 'adm-row wrap' }, [btn('Replay the tour for everyone', function () { confirmBox('Replay the tour for everyone?', 'Every player sees the tour again on their next visit. Players who already got the reward do not get it a second time.', 'Replay').then(function (ok) { if (!ok) return; post({ action: 'tour.replay' }).then(function (r) { r && r.ok ? (Hub.toast('Tour will replay for everyone'), paintTour(r)) : toastErr(r); }); }); })]));
+        tourBox.appendChild(h('h4', { style: 'margin:18px 0 8px', text: 'Reset one player' }));
+        tourBox.appendChild(h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:180px' }, tourUser), btn('Reset their tour', function () { var u = tourUser.value.trim(); if (!u) return; post({ action: 'tour.reset', username: u, payAgain: payAgain }).then(function (r) { r && r.ok ? (Hub.toast('Reset for ' + u), paintTour(r)) : toastErr(r); }); })]));
+        tourBox.appendChild(Hub.toggle('Let them earn the reward again', 'Off: they replay the tour but are not paid twice.', payAgain, function (v) { payAgain = v; }));
+      }
+      host.appendChild(card('Welcome tour', 'The guided tour new players go through, ending with a few casino rounds and a reward.', tourBox));
+      post({ action: 'tour.get' }).then(paintTour);
+
       var mins = inp('Minutes (blank is until turned off)', { type: 'number' });
       host.appendChild(card('School Mode', 'Hides games that are not on the school list.', [Hub.toggle('School Mode', 'Limits what players can open.', !!s.schoolMode, function (v) { set('schoolMode', v); }), Hub.toggle('Quiz questions', 'Players answer questions before playing.', s.schoolQuiz !== false, function (v) { set('schoolQuiz', v); }), Hub.toggle('Allow the casino', 'Unlocks the casino during School Mode.', !!s.schoolGamble, function (v) { set('schoolGamble', v); }), h('div', { class: 'adm-row wrap', style: 'margin-top:8px' }, [h('div', { style: 'width:min(300px,100%)' }, mins), btn('Turn on for a while', function () { var n = Number(mins.value); if (n > 0) set('schoolMins', n); }, { ghost: true })])]));
       var sets = [['blooket', 'Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9 and 10']];

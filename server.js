@@ -23,7 +23,7 @@ import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
 import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
 import { worldIdentity, bwStats } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
-import { rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -179,6 +179,27 @@ const nameOwners = new Map(); // lowercased nickname -> cid currently holding it
 let nickEpoch = Date.now();
 const geoCache = new Map(); // ip -> location string
 const stats = { peakOnline: 0, peakAt: 0, hourly: new Array(24).fill(0), gamePlays: {}, totalSessions: 0 };
+
+// ---- bandwidth meter: Render's free plan caps outbound traffic, so count it by month, category and path ----
+stats.traffic = stats.traffic && stats.traffic.months ? stats.traffic : { months: {} };
+const bootPaths = new Map(), TRAFFIC_SINCE = Date.now(), wsOpen = new Map();
+function addTraffic(path, bytes, cat) {
+  if (!(bytes > 0)) return;
+  const now = new Date().toISOString(), m = now.slice(0, 7), d = now.slice(0, 10), T = stats.traffic;
+  const mo = T.months[m] || (T.months[m] = { bytes: 0, cats: {}, days: {} });
+  cat = cat || (path.startsWith('/api/') ? 'api' : path.startsWith('/storage/images/') ? 'images' : 'site');
+  mo.bytes += bytes; mo.cats[cat] = (mo.cats[cat] || 0) + bytes; mo.days[d] = (mo.days[d] || 0) + bytes;
+  const keys = Object.keys(T.months).sort(); while (keys.length > 6) delete T.months[keys.shift()];
+  const key = path.slice(0, 110); bootPaths.set(key, (bootPaths.get(key) || 0) + bytes);
+  if (bootPaths.size > 700) [...bootPaths.entries()].sort((a, b) => a[1] - b[1]).slice(0, 150).forEach(([k]) => bootPaths.delete(k));
+  _stateDirty = true;
+}
+function trackSocket(path, socket) {
+  const e = { path, cat: path === '/wisp/' || path.startsWith('/wisp') ? 'proxy' : 'games', last: 0 }; wsOpen.set(socket, e);
+  const flush = () => { const d = socket.bytesWritten - e.last; if (d > 0) { e.last += d; addTraffic('ws:' + path, d, e.cat); } };
+  e.flush = flush; socket.once('close', () => { flush(); wsOpen.delete(socket); });
+}
+setInterval(() => { for (const e of wsOpen.values()) { try { e.flush(); } catch {} } }, 20000);
 const events = []; // recent activity: {ts, type, nickname, detail}
 function logEvent(type, nickname, detail) {
   events.push({ ts: Date.now(), type, nickname: String(nickname || '').slice(0, 40), detail: String(detail || '').slice(0, 80) });
@@ -897,6 +918,21 @@ async function handleStaff(req, res) {
     if (tr0 === 'owner' || (tr0 === 'coowner' && String(body.username).toLowerCase() !== String(who.username).toLowerCase())) return sendJson(res, 200, { error: 'fixed', message: 'Only the owner can do that to ' + (tr0 === 'owner' ? 'the owner' : 'a co-owner') + '.' });
   }
 
+  if (/^tour\.(get|set|replay|reset)$/.test(action)) {
+    if (!owner) return needOwner();
+    const op = action.slice(5); let cid = '';
+    if (op === 'reset') { const acct = await staffTarget(body.username); if (!acct) return sendJson(res, 200, { error: 'no-account', message: 'No account with that username.' }); cid = acct.id; }
+    const out = tourAdmin(op === 'get' ? 'get' : op, { on: body.on, reward: body.reward, cid, payAgain: !!body.payAgain });
+    if (out && out.ok && op !== 'get') audit(who, 'tour.' + op, op === 'reset' ? body.username : '', op === 'set' ? 'on=' + out.on + ', reward=' + out.reward : op === 'replay' ? 'version ' + out.version : (body.payAgain ? 'reward can be paid again' : ''));
+    return sendJson(res, 200, out);
+  }
+  if (action === 'traffic') {
+    if (!owner) return needOwner();
+    const m = new Date().toISOString().slice(0, 7), mo = stats.traffic.months[m] || { bytes: 0, cats: {}, days: {} };
+    const capGb = Number(process.env.TRAFFIC_CAP_GB) || 5;
+    const top = [...bootPaths.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([path, bytes]) => ({ path, bytes }));
+    return sendJson(res, 200, { ok: true, month: m, bytes: mo.bytes, cats: mo.cats, days: mo.days, capBytes: capGb * 1024 ** 3, months: Object.keys(stats.traffic.months).sort().map((k) => ({ month: k, bytes: stats.traffic.months[k].bytes })), top, since: TRAFFIC_SINCE, openSockets: wsOpen.size });
+  }
   if (action === 'staff.list') return sendJson(res, 200, { ok: true, staff: await listStaff() });
   if (action === 'players.search') {
     const q = String(body.q || '').slice(0, 30);
@@ -1563,6 +1599,7 @@ async function serveCollection(req, res, debug) {
   res.writeHead(502, { 'content-type': 'text/plain' }); res.end('no catalog');
 }
 async function proxyUpstream(req, res) {
+  res._trafficCat = 'upstream';
   const key = req.url;
   const isCacheable = (req.method === 'GET' || req.method === 'HEAD') && !req.headers['range'];
 
@@ -2211,6 +2248,7 @@ const httpServer = createServer(async (req, res) => {
  try {
   const parsed = new URL(req.url || '/', 'http://localhost');
   const url = parsed.pathname;
+  { const sk = req.socket, b0 = sk ? sk.bytesWritten : 0; res.once('close', () => { try { addTraffic(url, (sk ? sk.bytesWritten : 0) - b0, res._trafficCat); } catch {} }); }
 
   // Cross-origin data access: a ScrollHub frontend hosted on ANY domain can
   // call this central backend's data + file routes. Auth travels in a header
@@ -2588,6 +2626,7 @@ httpServer.on('upgrade', (req, socket, head) => {
   // Banned IPs can't use the proxy tunnel (respects timed-ban expiry).
   const ip = clientIp(req);
   if (banActive(ip)) { try { socket.destroy(); } catch {} return; }
+  try { trackSocket((req.url || '').split('?')[0] || '/', socket); } catch {}
   // Skribbl draw & guess has its own WebSocket channel.
   if ((req.url || '').split('?')[0] === '/skribbl-ws') return handleSkribblUpgrade(req, socket, head);
   // 2D casino world: resolve the logged-in session first (cookie), then join.
