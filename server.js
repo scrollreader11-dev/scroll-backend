@@ -1043,7 +1043,7 @@ async function handleStaff(req, res) {
   if (action === 'theme.set') {
     if (!owner) return needOwner();
     const t = body.theme || {};
-    const BG = ['video', 'aurora', 'midnight', 'sunset', 'forest', 'crimson', 'grid', 'slate', 'mono', 'matrix', 'stars', 'snow', 'fireflies', 'rain', 'synthwave', 'bubbles', 'lava', 'confetti', 'custom'];
+    const BG = ['video', 'stars', 'aurora', 'nebula', 'milkyway', 'galaxy', 'wormhole', 'colorflow', 'lightshapes', 'silk', 'heavyrain', 'rainytraffic', 'rainywindow', 'citynight', 'waterfall', 'waves', 'snow', 'fireworks', 'smoke', 'bokeh', 'tunnel', 'particles', 'sunset', 'custom'];
     const url = String(t.url || '').trim();
     admin.settings.theme = {
       bg: BG.includes(t.bg) ? t.bg : 'video',

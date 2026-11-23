@@ -838,20 +838,11 @@ body.in-dc .dc { height: var(--app-h); border-radius: 0; border: 0; box-shadow: 
 @keyframes tourArrow { 50% { opacity: .45; } }
 
 /* ---------- appearance: backgrounds, accent, dim ---------- */
-#bgcanvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-html[data-bg]:not([data-bg="video"]) #bgv { display: none; }
+html[data-bg]:not([data-bg="video"]):not([data-bgfail]) #bgv { display: none; }
 html[data-bg]:not([data-bg="video"]):not([data-bg="custom"]) body { background: var(--ink); }
 #bgfx::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, var(--dim, 0)); }
 .btn.primary { background: linear-gradient(180deg, var(--blue-hi) 0%, var(--blue) 55%, var(--blue-lo) 100%); border-color: rgba(255, 255, 255, .28); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 8px 22px color-mix(in srgb, var(--blue) 45%, transparent); }
 .btn.primary:hover { filter: brightness(1.08); background: linear-gradient(180deg, var(--blue-hi) 0%, var(--blue) 55%, var(--blue-lo) 100%); }
-html[data-bg="aurora"] body { background: radial-gradient(900px 600px at 15% 10%, rgba(52, 211, 153, .38), transparent 60%), radial-gradient(900px 700px at 85% 20%, rgba(99, 102, 241, .42), transparent 62%), radial-gradient(800px 600px at 50% 110%, rgba(236, 72, 153, .28), transparent 60%), #050a14; }
-html[data-bg="midnight"] body { background: radial-gradient(1000px 700px at 50% -10%, rgba(30, 58, 138, .55), transparent 62%), linear-gradient(180deg, #050816, #02030a); }
-html[data-bg="sunset"] body { background: linear-gradient(180deg, #1b1038 0%, #5b2a6e 38%, #c2410c 78%, #f59e0b 120%); }
-html[data-bg="forest"] body { background: radial-gradient(900px 600px at 20% 0%, rgba(34, 197, 94, .28), transparent 60%), linear-gradient(180deg, #04120c, #071f15 70%, #03100a); }
-html[data-bg="crimson"] body { background: radial-gradient(900px 650px at 80% -10%, rgba(220, 38, 38, .42), transparent 60%), linear-gradient(180deg, #14050a, #1d070d 70%, #0b0306); }
-html[data-bg="slate"] body { background: linear-gradient(160deg, #111827, #1f2937 55%, #0f172a); }
-html[data-bg="mono"] body { background: #000; }
-html[data-bg="grid"] body { background: linear-gradient(rgba(139, 92, 246, .16) 1px, transparent 1px) 0 0 / 44px 44px, linear-gradient(90deg, rgba(139, 92, 246, .16) 1px, transparent 1px) 0 0 / 44px 44px, radial-gradient(900px 600px at 50% 0%, rgba(124, 58, 237, .35), transparent 62%), #06030f; }
 html[data-bg="custom"] body { background: #04070e var(--bg-img) center / cover no-repeat; }
 
 .tpick { display: flex; flex-direction: column; gap: 12px; }
@@ -863,31 +854,13 @@ html[data-bg="custom"] body { background: #04070e var(--bg-img) center / cover n
 .tprev { display: block; height: 58px; border-radius: 9px; background: #0a0f1c center / cover no-repeat; position: relative; overflow: hidden; }
 .tprev.tauto::after { content: "Auto"; position: absolute; right: 5px; top: 5px; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: rgba(0, 0, 0, .55); }
 .tbg-video { background: url(/hub/bg-poster.jpg) center / cover no-repeat; }
-.tbg-aurora { background: radial-gradient(60px 40px at 20% 20%, #34d399, transparent), radial-gradient(70px 50px at 80% 25%, #6366f1, transparent), radial-gradient(70px 40px at 50% 110%, #ec4899, transparent), #050a14; }
-.tbg-midnight { background: radial-gradient(90px 50px at 50% 0, #1e3a8a, transparent), #02030a; }
-.tbg-sunset { background: linear-gradient(180deg, #1b1038, #5b2a6e 45%, #c2410c 85%, #f59e0b); }
-.tbg-forest { background: radial-gradient(70px 40px at 20% 0, #22c55e, transparent), linear-gradient(180deg, #04120c, #071f15); }
-.tbg-crimson { background: radial-gradient(70px 40px at 80% 0, #dc2626, transparent), #14050a; }
-.tbg-grid { background: linear-gradient(rgba(139, 92, 246, .4) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, rgba(139, 92, 246, .4) 1px, transparent 1px) 0 0 / 12px 12px, #06030f; }
-.tbg-slate { background: linear-gradient(160deg, #111827, #1f2937); }
-.tbg-mono { background: #000; border: 1px solid rgba(255, 255, 255, .1); }
 .tbg-custom { background: repeating-linear-gradient(45deg, #1b2335 0 8px, #141b2b 8px 16px); }
-.tbg-matrix { background: repeating-linear-gradient(90deg, rgba(40, 220, 120, .7) 0 1px, transparent 1px 7px), #020806; -webkit-mask: none; }
-.tbg-stars { background: radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1.5px 1.5px at 60% 60%, #fff, transparent), radial-gradient(1px 1px at 80% 20%, #9cf, transparent), radial-gradient(1px 1px at 35% 75%, #fff, transparent), radial-gradient(1.5px 1.5px at 90% 80%, #fff, transparent), #03050f; }
-.tbg-snow { background: radial-gradient(2px 2px at 25% 30%, #fff, transparent), radial-gradient(2px 2px at 70% 50%, #fff, transparent), radial-gradient(2px 2px at 45% 80%, #fff, transparent), linear-gradient(180deg, #0a1330, #1b2a55); }
-.tbg-fireflies { background: radial-gradient(8px 8px at 30% 40%, rgba(220, 255, 140, .9), transparent), radial-gradient(7px 7px at 70% 65%, rgba(220, 255, 140, .8), transparent), radial-gradient(6px 6px at 55% 25%, rgba(220, 255, 140, .7), transparent), linear-gradient(180deg, #050d0a, #0a2218); }
-.tbg-rain { background: repeating-linear-gradient(105deg, rgba(160, 190, 255, .35) 0 1px, transparent 1px 9px), linear-gradient(180deg, #070b16, #101c33); }
-.tbg-synthwave { background: radial-gradient(circle at 50% 56%, #ffd23f 0, #ff2e88 22px, transparent 23px), linear-gradient(180deg, #12002e 0, #6b1b78 56%, #0a0020 56%); }
-.tbg-bubbles { background: radial-gradient(circle at 25% 60%, transparent 8px, rgba(180, 235, 255, .55) 9px, transparent 10px), radial-gradient(circle at 70% 35%, transparent 12px, rgba(180, 235, 255, .55) 13px, transparent 14px), linear-gradient(180deg, #04304a, #021622); }
-.tbg-lava { background: radial-gradient(40px 40px at 30% 60%, rgba(236, 72, 153, .8), transparent), radial-gradient(36px 36px at 70% 35%, rgba(168, 85, 247, .8), transparent), #12041f; }
-.tbg-confetti { background: linear-gradient(35deg, transparent 40%, #ff5c8a 40% 46%, transparent 46%), linear-gradient(-20deg, transparent 55%, #ffd166 55% 61%, transparent 61%), linear-gradient(70deg, transparent 20%, #5cf2ff 20% 25%, transparent 25%), #0b0a1e; }
 .tlabel { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
 .tsw { display: flex; flex-wrap: wrap; gap: 8px; }
 .tdot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .25); display: grid; place-items: center; font-size: 10px; font-weight: 700; }
 .tdot.on { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .22); }
 .trow { display: flex; gap: 8px; flex-wrap: wrap; } .trow .input { flex: 1; min-width: 160px; }
 .trange { width: 100%; accent-color: var(--blue-hi); }
-html.rm #bgcanvas { display: none; }
 
 /* ---------- admin: grouped nav, panel search, command palette ---------- */
 .adm-nav .adm-find { height: 40px; margin: 2px 2px 6px; font-size: 14px; }
@@ -952,3 +925,11 @@ html.rm #bgcanvas { display: none; }
 .adm-nav .adm-search { flex: none; padding: 0 12px; gap: 8px; }
 .adm-nav .adm-search span { display: none; }
 @media (max-width: 1100px) { .adm-nav .adm-groups { overflow-x: auto; scrollbar-width: none; } .adm-nav .adm-groups::-webkit-scrollbar { display: none; } }
+
+/* ---------- streamed background videos ---------- */
+#bgweb { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; background: #04070e; opacity: 0; transition: opacity .8s ease; pointer-events: none; }
+#bgweb.ready { opacity: 1; }
+html[data-bg]:not([data-bg="video"]):not([data-bg="custom"]) body { background: radial-gradient(1100px 700px at 15% -10%, color-mix(in srgb, var(--blue) 26%, transparent), transparent 60%), #04070e; }
+html[data-bgfail] #bgv { display: block; }
+.tprev.tweb::before { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -8px 0 0 -5px; border-left: 14px solid rgba(255, 255, 255, .85); border-top: 8px solid transparent; border-bottom: 8px solid transparent; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
+.tgrid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }

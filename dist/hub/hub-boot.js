@@ -19,7 +19,7 @@
 
   // ---------- background video ----------
   Hub.syncVideo = function () {
-    var v = $('#bgv'); if (!v) return; var want = Hub.prefs.video === 'on' && !Hub.prefs.reduce && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) && Hub.prefs.motion !== 'reduce';
+    var v = $('#bgv'); if (!v) return; var de0 = document.documentElement, want = (de0.getAttribute('data-bg') || 'video') === 'video' || de0.hasAttribute('data-bgfail'); want = want && Hub.prefs.video === 'on' && !Hub.prefs.reduce && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) && Hub.prefs.motion !== 'reduce';
     if (!want) { try { v.pause(); } catch (e) {} return; }
     var src = window.innerWidth < 900 ? '/hub/bg-m.mp4' : '/hub/bg.mp4';
     if (v.getAttribute('data-src') !== src) { v.setAttribute('data-src', src); v.src = src; v.load(); }
@@ -304,7 +304,7 @@
     about: function (b) {
       b.appendChild(h('h3', { text: 'About' })); var ref = (Hub.manifest.originals[0] || {}).rev || '';
       b.appendChild(kv('ScrollHub Hub', 'Version ' + Hub.version, h('span', { style: 'color:var(--text3)', text: Hub.deviceName() })));
-      b.appendChild(h('h4', { text: 'Credits' })); b.appendChild(h('p', { class: 'hint', text: 'The web game catalog and proxy plumbing come from PeteZah. Interface icons are from Lucide (ISC license). Background video is a licensed stock loop. ScrollHub Originals are built by ScrollHub.' }));
+      b.appendChild(h('h4', { text: 'Credits' })); b.appendChild(h('p', { class: 'hint', text: 'The web game catalog and proxy plumbing come from PeteZah. Interface icons are from Lucide (ISC license). The Original background is a licensed stock loop. The other animated backgrounds are free clips from Mixkit (Mixkit Free License), streamed from their servers. ScrollHub Originals are built by ScrollHub.' }));
       b.appendChild(h('a', { class: 'btn sm', href: 'https://petezahgames.com', target: '_blank', rel: 'noopener', text: 'PeteZah' }));
       b.appendChild(h('h4', { text: 'Help' })); b.appendChild(h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' }, [h('button', { class: 'btn sm', type: 'button', text: 'Support', onclick: Hub.supportModal }), h('button', { class: 'btn sm', type: 'button', text: 'Send feedback', onclick: Hub.feedbackModal })]));
     },
