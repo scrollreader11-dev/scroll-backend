@@ -197,6 +197,7 @@ export function adminPlayerOp(cid, op, val, owner) {
   const p = profileOf(cid); o.run(p, Number(val)); save(); flush();
   return { ok: true, coins: p.coins };
 }
+export function hasProfile(cid) { return !!(cid && casino.users[cid]); }
 export function grantCoins(cid, amount) {
   if (!cid) return null;
   const p = profileOf(cid);
@@ -760,6 +761,7 @@ export function bwReward(cid, amount, st) {
   if (b.day !== day) { b.day = day; b.earned = 0; }
   b.games++; if (st.win) b.wins++;
   b.kills += st.kills | 0; b.finals += st.finals | 0; b.beds += st.beds | 0; b.deaths += st.deaths | 0;
+  if (globalThis.SH_BOOST) amount = Math.floor(amount * globalThis.SH_BOOST());
   const give = Math.max(0, Math.min(Math.floor(amount), BW_DAILY_CAP - b.earned));
   b.earned += give; p.coins += give;
   if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
@@ -1069,7 +1071,8 @@ export async function handleCasino(url, req, res) {
     // Base reward grows with streak (capped), plus a milestone bonus every 7 days.
     const base = (casino.cfg.dailyCoins || DAILY_COINS) + Math.min(p.streak, 14) * 120;
     const milestone = p.streak % 7 === 0 ? 3000 : 0;
-    const gained = base + milestone;
+    const boost = globalThis.SH_BOOST ? globalThis.SH_BOOST() : 1;
+    const gained = Math.round((base + milestone) * boost);
     p.lastDaily = now; p.coins += gained;
     if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
     save(); flush();

@@ -194,7 +194,7 @@
     host.appendChild(node); host.style.animation = 'none'; void host.offsetWidth; host.style.animation = ''; host.className = 'view';
     sc.scrollTop = keepScroll ? top : 0; renderTop(); renderSide(); renderTabbar();
     var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search', discord: 'Discord', friends: 'Friends', admin: 'Admin tools' }[name];
-    if (!Hub.playing) document.title = (name === 'game' && Hub.byId[r.args[0]] ? Hub.byId[r.args[0]].title : (ttl || 'ScrollHub')) + ' - ScrollHub';
+    if (!Hub.playing) document.title = (name === 'game' && Hub.byId[r.args[0]] ? Hub.byId[r.args[0]].title : (ttl || (Hub.siteName ? Hub.siteName() : 'ScrollHub'))) + ' - ' + (Hub.siteName ? Hub.siteName() : 'ScrollHub');
   };
   window.addEventListener('hashchange', function () { if (!firstRoute) Hub.hasPrev = true; firstRoute = false; if (!Hub.ready) return; Hub.render(false); });
 

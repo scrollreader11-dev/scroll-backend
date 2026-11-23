@@ -29,19 +29,30 @@
   function agoTxt(ts) { var a = Hub.ago(ts); return a === 'now' ? 'just now' : a + ' ago'; }
   function lastN(arr, n) { return (arr || []).slice(0, n); }
 
+  // [id, label, icon, ownerOnly, group, keywords]
   var TABS = [
-    ['overview', 'Overview', 'gauge', 0],
-    ['players', 'Players', 'users', 0],
-    ['insights', 'Insights', 'trending-up', 0],
-    ['economy', 'Economy', 'coins', 1],
-    ['staff', 'Roles and staff', 'shield', 0],
-    ['announce', 'Announcements', 'megaphone', 0],
-    ['moderation', 'Moderation', 'hammer', 0],
-    ['chats', 'Discord monitor', 'message-square', 0],
-    ['toolbox', 'Toolbox', 'hammer', 0],
-    ['site', 'Site controls', 'server', 1],
-    ['audit', 'Audit log', 'list-checks', 1],
+    ['overview', 'Overview', 'gauge', 0, 'Monitor', 'home stats dashboard online players now'],
+    ['players', 'Players', 'users', 0, 'Monitor', 'users accounts coins items ban search find'],
+    ['insights', 'Insights', 'trending-up', 0, 'Monitor', 'analytics charts popular games traffic hours'],
+    ['rooms', 'Live rooms', 'server', 1, 'Monitor', 'matches bedwars racing royale lobbies end match who is playing'],
+    ['logs', 'Server log', 'list-checks', 1, 'Monitor', 'console errors debug output uptime memory'],
+    ['staff', 'Roles and staff', 'shield', 0, 'People', 'owner coowner moderator promote demote'],
+    ['moderation', 'Moderation', 'hammer', 0, 'People', 'reports bans mute filter words slow mode kick'],
+    ['chats', 'Discord monitor', 'message-square', 0, 'People', 'chat messages servers dm channels delete read'],
+    ['announce', 'Announcements', 'megaphone', 0, 'Messaging', 'broadcast banner bell notification post'],
+    ['schedule', 'Scheduler', 'timer', 1, 'Messaging', 'scheduled repeat timed announcements later'],
+    ['live', 'Polls and countdown', 'circle-check', 1, 'Messaging', 'poll vote countdown timer banner event launch'],
+    ['events', 'Boosts and events', 'zap', 1, 'Fun and events', 'double scrolls happy hour multiplier bonus x2 reward'],
+    ['fun', 'Raffle and rain', 'gift', 1, 'Fun and events', 'giveaway winners scroll rain free scrolls random'],
+    ['toolbox', 'Toolbox', 'hammer', 0, 'Fun and events', 'effects takeover tools codes event codes'],
+    ['games', 'Game switches', 'power', 1, 'Site', 'turn off bedwars racing casino royale disable enable'],
+    ['economy', 'Economy', 'coins', 1, 'Site', 'rigging casino limits bets payouts store daily'],
+    ['site', 'Site controls', 'server', 1, 'Site', 'maintenance school mode bandwidth tour welcome look background accent theme'],
+    ['brand', 'Branding', 'sparkles', 1, 'Site', 'name tagline title site name'],
+    ['backup', 'Backup and export', 'download', 1, 'Site', 'export import download save settings json'],
+    ['audit', 'Audit log', 'list-checks', 1, 'Site', 'history who did what staff actions'],
   ];
+  Hub.adminKit = { TABS: TABS, post: post, toastErr: toastErr, field: field, inp: inp, btn: btn, busy: busy, card: card, confirmBox: confirmBox, empty: empty, loading: loading, agoTxt: agoTxt, isOwner: function () { return isOwner(); }, PANES: null };
   Hub.isStaff = function () { return !!role(); };
 
   // ---------- shell ----------
@@ -57,14 +68,27 @@
       h('div', { class: 'ah-r' }, [badge(role()), h('span', { class: 'ah-n', text: Hub.me.name })]),
     ]);
     var nav = h('nav', { class: 'adm-nav', 'aria-label': 'Admin sections' });
-    tabs.forEach(function (t) { nav.appendChild(h('a', { href: '#/admin/' + t[0], class: t[0] === tab ? 'on' : '', 'aria-current': t[0] === tab ? 'page' : null }, [icon(t[2]), h('span', { text: t[1] })])); });
+    var find = h('input', { class: 'input adm-find', type: 'search', placeholder: 'Find a panel', 'aria-label': 'Find a panel', autocomplete: 'off', spellcheck: 'false' });
+    nav.appendChild(find);
+    var navItems = [], lastGroup = '';
+    tabs.forEach(function (t) {
+      var gh = null; if (t[4] !== lastGroup) { lastGroup = t[4]; gh = h('div', { class: 'adm-gh', text: t[4] }); nav.appendChild(gh); }
+      var a2 = h('a', { href: '#/admin/' + t[0], class: t[0] === tab ? 'on' : '', 'aria-current': t[0] === tab ? 'page' : null }, [icon(t[2]), h('span', { text: t[1] })]);
+      nav.appendChild(a2); navItems.push({ t: t, a: a2, g: gh });
+    });
+    find.addEventListener('input', function () {
+      var q = find.value.trim().toLowerCase(), shown = {};
+      navItems.forEach(function (it) { var ok = !q || (it.t[1] + ' ' + (it.t[5] || '') + ' ' + it.t[4]).toLowerCase().indexOf(q) >= 0; it.a.hidden = !ok; if (ok) shown[it.t[4]] = 1; });
+      navItems.forEach(function (it) { if (it.g) it.g.hidden = !shown[it.t[4]]; });
+    });
+    find.addEventListener('keydown', function (e) { if (e.key === 'Enter') { var f = navItems.filter(function (it) { return !it.a.hidden; })[0]; if (f) location.hash = '#/admin/' + f.t[0]; } });
     var host = h('div', { class: 'adm-main' });
     v.appendChild(hero); v.appendChild(h('div', { class: 'adm-grid' }, [nav, host]));
     (PANES[tab] || PANES.overview)(host);
     return v;
   };
 
-  var PANES = {};
+  var PANES = {}; Hub.adminKit.PANES = PANES;
 
 
   // ---------- Discord monitor: every channel, live feed, search, delete ----------
@@ -525,4 +549,31 @@
       l.forEach(function (e) { box.appendChild(h('div', { class: 'au' }, [h('span', { class: 'at', text: Hub.ago(e.ts) }), badge(e.role), h('b', { text: e.by }), h('span', { class: 'ac', text: e.action }), e.target ? h('span', { class: 'ag', text: e.target }) : null, e.detail ? h('span', { class: 'ad', text: Hub.clean(e.detail) }) : null])); });
     });
   };
+
+  // ---------- command palette: Ctrl/Cmd+K jumps to any admin panel (staff only) ----------
+  var palOpen = false;
+  function openPalette() {
+    if (!role() || palOpen) return; palOpen = true;
+    var q = h('input', { class: 'input', type: 'search', placeholder: 'Jump to a panel...', 'aria-label': 'Jump to a panel', autocomplete: 'off', spellcheck: 'false' }), list = h('div', { class: 'pal-list', role: 'listbox' }), sel = 0, rows = [], m;
+    function items() { var t = q.value.trim().toLowerCase(); return TABS.filter(function (x) { return (!x[3] || isOwner()) && (!t || (x[1] + ' ' + x[5] + ' ' + x[4]).toLowerCase().indexOf(t) >= 0); }); }
+    function go(x) { m.close(); location.hash = '#/admin/' + x[0]; }
+    function paint() {
+      Hub.clear(list); rows = items(); if (sel >= rows.length) sel = Math.max(0, rows.length - 1);
+      if (!rows.length) { list.appendChild(h('p', { class: 'adm-empty', text: 'No panel matches that.' })); return; }
+      rows.forEach(function (x, i) { list.appendChild(h('button', { type: 'button', class: 'pal-it' + (i === sel ? ' on' : ''), role: 'option', 'aria-selected': i === sel ? 'true' : 'false', onclick: function () { go(x); }, onmousemove: function () { if (sel !== i) { sel = i; paint(); } } }, [icon(x[2]), h('span', { class: 'pn', text: x[1] }), h('span', { class: 'pg', text: x[4] })])); });
+      var on = list.querySelector('.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+    }
+    q.addEventListener('input', function () { sel = 0; paint(); });
+    q.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(rows.length - 1, sel + 1); paint(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); paint(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (rows[sel]) go(rows[sel]); }
+    });
+    m = Hub.modal(h('div', { class: 'mbody pal' }, [h('h3', { text: 'Admin panels' }), q, list]), { small: true, label: 'Admin panels', onClose: function () { palOpen = false; } });
+    paint(); setTimeout(function () { q.focus(); }, 30);
+  }
+  Hub.adminPalette = openPalette;
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K') && role()) { e.preventDefault(); openPalette(); }
+  });
 })();

@@ -20,8 +20,8 @@ import { brotliCompressSync, gzipSync, constants as zconst } from 'node:zlib';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
-import { handleBedwarsUpgrade, bwOnline } from './bedwars.js';
-import { worldIdentity, bwStats } from './casino.js';
+import { handleBedwarsUpgrade, bwOnline, bwAdminRooms, bwEndRoom } from './bedwars.js';
+import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
 import { tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
@@ -160,6 +160,19 @@ function makeGameId(label, url) {
   try { u = decodeURIComponent(u); } catch (e) {}
   u = u.replace(/\/index\.html(?=([?#]|$))/gi, '').replace(/\/+$/, '');
   return (String(label || '') + '-' + u).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+}
+// ---- Admin: recent server log (ring buffer, secrets scrubbed) ----
+const LOG_RING = []; let logSeq = 0;
+for (const lvl of ['log', 'info', 'warn', 'error']) {
+  const orig = console[lvl].bind(console);
+  console[lvl] = (...a) => {
+    try {
+      let t = a.map((x) => (typeof x === 'string' ? x : x && x.stack ? x.stack : (() => { try { return JSON.stringify(x); } catch (e) { return String(x); } })())).join(' ');
+      t = t.replace(/((?:token|secret|password|passwd|authorization|api[_-]?key|cookie)["'\s:=]+)[^\s"',;]{4,}/gi, '$1[hidden]').replace(/\b[A-Za-z0-9_-]{32,}\b/g, '[hidden]').slice(0, 400);
+      LOG_RING.push({ n: ++logSeq, ts: Date.now(), lvl, t }); if (LOG_RING.length > 400) LOG_RING.shift();
+    } catch (e) {}
+    orig(...a);
+  };
 }
 const players = new Map(); // clientId -> {id, nickname, ip, location, firstSeen, lastSeen}
 const chatMsgCount = new Map(); // cid -> number of chat messages sent (for achievements)
@@ -456,6 +469,35 @@ globalThis.SH_SET_SEASON = async (v) => { admin.settings.season = v ? String(v) 
 globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0, gamble: !!admin.settings.schoolGamble, quiz: admin.settings.schoolQuiz !== false } : null);
 globalThis.SH_SET_SQUIZ = async (v) => { admin.settings.schoolQuiz = !!v; logEvent('admin', 'admin', '📝 School Mode questions ' + (v ? 'ON' : 'OFF')); try { await saveState(); } catch (e) {} };
 globalThis.SH_SET_GAMBLE = async (v) => { admin.settings.schoolGamble = !!v; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (v ? 'UNLOCKED' : 'locked')); try { await saveState(); } catch (e) {} };
+globalThis.SH_GAME_OFF = (k) => !!(admin.settings.gamesOff && admin.settings.gamesOff[k]);
+globalThis.SH_BOOST = () => { const b = admin.settings.boost; return b && b.until > Date.now() && b.mult > 1 ? b.mult : 1; };
+const GAME_KEYS = [['bw', 'Bedwars'], ['race', 'Scroll Racing'], ['royale', 'Scroll Royale'], ['ctf', 'Capture the Flag'], ['spleef', 'TNT Spleef'], ['hide', 'Prop Hunt'], ['duel', 'Duels'], ['murder', 'Murder Mystery'], ['build', 'Build Battle'], ['casino', 'Casino']];
+function liveState(voter) {
+  const l = admin.settings.live || {}, now = Date.now(), out = {};
+  if (l.countdown && l.countdown.at > now - 60000) out.countdown = l.countdown;
+  if (l.poll && (!l.poll.endAt || l.poll.endAt > now - 120000)) {
+    const v = l.poll.votes || {}, counts = l.poll.opts.map(() => 0); for (const k in v) if (counts[v[k]] != null) counts[v[k]]++;
+    out.poll = { id: l.poll.id, q: l.poll.q, opts: l.poll.opts, counts, endAt: l.poll.endAt || 0, mine: voter && v[voter] != null ? v[voter] : -1 };
+  }
+  const b = admin.settings.boost; if (b && b.until > now && b.mult > 1) out.boost = { mult: b.mult, until: b.until, label: b.label || '' };
+  return out;
+}
+// Scheduled announcements: runs every 30 s
+setInterval(() => {
+  try {
+    const now = Date.now(), list = admin.settings.sched || []; let ch = false;
+    for (const it of list.slice()) {
+      if (it.clearAt && it.clearAt <= now) { if (admin.settings.announcement === it.text) admin.settings.announcement = ''; it.clearAt = 0; ch = true; }
+      if (it.at && it.at <= now) {
+        admin.settings.announcement = it.text; ch = true;
+        if (it.clearMins) it.clearAt = now + it.clearMins * 60000;
+        if (it.every) { while (it.at <= now) it.at += it.every * 60000; } else { it.at = 0; it.done = now; }
+      }
+    }
+    admin.settings.sched = list.filter((it) => it.at || it.clearAt || (it.done && now - it.done < 3600000));
+    if (ch) saveState().catch(() => {});
+  } catch (e) {}
+}, 30000);
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 // Actions a moderator may run through the legacy tool set. Everything else is owner-only.
 const MOD_ACTIONS = new Set(['state', 'kick', 'mute', 'unmute', 'freeze', 'announce', 'delannounce', 'broadcast', 'reports', 'clearreports', 'chatlog', 'deletemsg', 'playerhistory', 'setnote', 'wordfilterlist', 'addword', 'removeword', 'setslow', 'ban', 'unban', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory']);
@@ -915,6 +957,88 @@ async function handleStaff(req, res) {
     const out = tourAdmin(op === 'get' ? 'get' : op, { on: body.on, reward: body.reward, cid, payAgain: !!body.payAgain });
     if (out && out.ok && op !== 'get') audit(who, 'tour.' + op, op === 'reset' ? body.username : '', op === 'set' ? 'on=' + out.on + ', reward=' + out.reward : op === 'replay' ? 'version ' + out.version : (body.payAgain ? 'reward can be paid again' : ''));
     return sendJson(res, 200, out);
+  }
+  if (/^(games|boost|sched|backup|log|rooms|live|brand|fun)\./.test(action)) {
+    if (!owner) return needOwner();
+    const st = admin.settings;
+    if (action === 'games.get') return sendJson(res, 200, { ok: true, games: GAME_KEYS.map(([k, n]) => ({ key: k, name: n, off: !!(st.gamesOff && st.gamesOff[k]) })) });
+    if (action === 'games.set') {
+      const k = String(body.key || ''); if (!GAME_KEYS.some((g) => g[0] === k)) return sendJson(res, 200, { error: 'bad', message: 'Unknown game.' });
+      st.gamesOff = st.gamesOff || {}; if (body.off) st.gamesOff[k] = true; else delete st.gamesOff[k];
+      audit(who, 'games.set', k, body.off ? 'switched off' : 'switched on'); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true, off: !!body.off });
+    }
+    if (action === 'boost.get') return sendJson(res, 200, { ok: true, boost: st.boost && st.boost.until > Date.now() ? st.boost : null });
+    if (action === 'boost.set') {
+      const mins = Math.max(0, Math.min(24 * 60, Math.round(Number(body.mins) || 0))), mult = Math.max(1, Math.min(5, Math.round((Number(body.mult) || 1) * 10) / 10));
+      st.boost = mins && mult > 1 ? { mult, until: Date.now() + mins * 60000, label: String(body.label || '').slice(0, 40) } : null;
+      audit(who, 'boost.set', '', st.boost ? 'x' + mult + ' for ' + mins + ' min' : 'ended'); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true, boost: st.boost });
+    }
+    if (action === 'sched.list') return sendJson(res, 200, { ok: true, items: st.sched || [], now: Date.now() });
+    if (action === 'sched.add') {
+      const text = String(body.text || '').trim().slice(0, 300), at = Math.round(Number(body.at) || 0), every = Math.max(0, Math.min(10080, Math.round(Number(body.every) || 0))), clearMins = Math.max(0, Math.min(1440, Math.round(Number(body.clearMins) || 0)));
+      if (!text) return sendJson(res, 200, { error: 'bad', message: 'Write the announcement text.' });
+      if (!at || at < Date.now() - 60000) return sendJson(res, 200, { error: 'bad', message: 'Pick a time in the future.' });
+      st.sched = st.sched || []; if (st.sched.length >= 30) return sendJson(res, 200, { error: 'bad', message: 'You already have 30 scheduled announcements.' });
+      st.sched.push({ id: randomBytes(5).toString('hex'), text, at, every, clearMins, by: who.username });
+      audit(who, 'sched.add', '', text.slice(0, 60)); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true, items: st.sched });
+    }
+    if (action === 'sched.del') { st.sched = (st.sched || []).filter((x) => x.id !== String(body.id)); audit(who, 'sched.del', '', ''); await saveState().catch(() => {}); return sendJson(res, 200, { ok: true, items: st.sched }); }
+    if (action === 'backup.export') {
+      const sc = { ...st }; delete sc.teacherKey;
+      audit(who, 'backup.export', '', '');
+      return sendJson(res, 200, { ok: true, file: { kind: 'scrollhub-backup', version: 1, at: new Date().toISOString(), settings: sc, customGames: admin.customGames, audit: admin.audit, months: stats.traffic ? Object.keys(stats.traffic.months).map((k) => ({ month: k, bytes: stats.traffic.months[k].bytes })) : [], totals: { sessions: stats.totalSessions } } });
+    }
+    if (action === 'backup.import') {
+      const f = body.file; if (!f || f.kind !== 'scrollhub-backup' || !f.settings || typeof f.settings !== 'object') return sendJson(res, 200, { error: 'bad', message: 'That is not a ScrollHub backup file.' });
+      const keep = admin.settings.teacherKey, keys = ['maintenance', 'redirect', 'announcement', 'schoolMode', 'schoolSet', 'schoolQuiz', 'schoolGamble', 'season', 'theme', 'gamesOff', 'sched', 'brand'];
+      let n = 0; for (const k of keys) if (k in f.settings) { admin.settings[k] = f.settings[k]; n++; }
+      admin.settings.teacherKey = keep; audit(who, 'backup.import', '', n + ' settings restored'); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true, restored: n });
+    }
+    if (action === 'log.tail') { const since = Number(body.since) || 0; return sendJson(res, 200, { ok: true, lines: LOG_RING.filter((x) => x.n > since).slice(-250), last: logSeq, up: Math.round(process.uptime()), mem: Math.round(process.memoryUsage().rss / 1048576) }); }
+    if (action === 'rooms.list') return sendJson(res, 200, { ok: true, ...bwAdminRooms(), world: worldOnline() });
+    if (action === 'rooms.end') { const okk = bwEndRoom(body.id); audit(who, 'rooms.end', String(body.id), okk ? 'ended' : 'not running'); return sendJson(res, 200, okk ? { ok: true } : { error: 'gone', message: 'That match is not running any more.' }); }
+    if (action === 'brand.set') {
+      const name = String(body.name || '').replace(/[<>]/g, '').trim().slice(0, 40), tagline = String(body.tagline || '').replace(/[<>]/g, '').trim().slice(0, 90);
+      st.brand = name || tagline ? { name, tagline } : null; audit(who, 'brand.set', '', name); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true, brand: st.brand });
+    }
+    if (action === 'live.countdown') {
+      st.live = st.live || {}; const label = String(body.label || '').trim().slice(0, 60), at = Math.round(Number(body.at) || 0);
+      st.live.countdown = label && at > Date.now() ? { label, at } : null; audit(who, 'live.countdown', '', st.live.countdown ? label : 'cleared'); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true, countdown: st.live.countdown });
+    }
+    if (action === 'live.poll') {
+      st.live = st.live || {};
+      if (body.end) { st.live.poll = null; audit(who, 'live.poll', '', 'closed'); await saveState().catch(() => {}); return sendJson(res, 200, { ok: true }); }
+      const q = String(body.q || '').trim().slice(0, 120), opts = (Array.isArray(body.opts) ? body.opts : []).map((x) => String(x || '').trim().slice(0, 50)).filter(Boolean).slice(0, 6);
+      if (!q || opts.length < 2) return sendJson(res, 200, { error: 'bad', message: 'A poll needs a question and at least two choices.' });
+      const mins = Math.max(0, Math.min(1440, Math.round(Number(body.mins) || 0)));
+      st.live.poll = { id: randomBytes(4).toString('hex'), q, opts, votes: {}, endAt: mins ? Date.now() + mins * 60000 : 0 };
+      audit(who, 'live.poll', '', q); await saveState().catch(() => {});
+      return sendJson(res, 200, { ok: true });
+    }
+    if (action === 'fun.online') {
+      const now = Date.now(), list = [...players.values()].filter((p2) => now - p2.lastSeen < 90000 && hasProfile(p2.id)).map((p2) => ({ id: p2.id, nickname: p2.nickname }));
+      return sendJson(res, 200, { ok: true, players: list });
+    }
+    if (action === 'fun.rain' || action === 'fun.raffle') {
+      const now = Date.now(), pool = [...players.values()].filter((p2) => now - p2.lastSeen < 90000 && hasProfile(p2.id));
+      if (!pool.length) return sendJson(res, 200, { error: 'none', message: 'Nobody with a casino profile is online right now.' });
+      const amount = Math.max(1, Math.min(5000000, Math.floor(Number(body.amount) || 0)));
+      if (!amount) return sendJson(res, 200, { error: 'bad', message: 'Pick an amount.' });
+      let winners = pool;
+      if (action === 'fun.raffle') { const n = Math.max(1, Math.min(10, Math.floor(Number(body.count) || 1))); winners = pool.slice().sort(() => Math.random() - .5).slice(0, n); }
+      for (const w of winners) grantCoins(w.id, amount);
+      const names = winners.map((w) => w.nickname);
+      const msg = action === 'fun.rain' ? 'Scroll rain! ' + amount.toLocaleString('en-US') + ' Scrolls for everyone online (' + winners.length + ' players).' : 'Raffle winner' + (names.length > 1 ? 's' : '') + ': ' + names.slice(0, 5).join(', ') + (names.length > 5 ? ' and ' + (names.length - 5) + ' more' : '') + ' won ' + amount.toLocaleString('en-US') + ' Scrolls each!';
+      admin.broadcast = { text: msg.slice(0, 300), ts: Date.now() };
+      audit(who, action, '', amount + ' x ' + winners.length);
+      return sendJson(res, 200, { ok: true, winners: names, amount, message: msg });
+    }
   }
   if (action === 'theme.set') {
     if (!owner) return needOwner();
@@ -2274,13 +2398,24 @@ const httpServer = createServer(async (req, res) => {
   if (url.startsWith('/api/casino/') || url.startsWith('/api/arcade/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) {
     try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; }
   }
+  if (url.startsWith('/api/casino/') && req.method === 'POST' && admin.settings.gamesOff && admin.settings.gamesOff.casino && !(req._auth && req._auth.role)) return sendJson(res, 200, { error: 'off', message: 'The casino is switched off right now.' });
   if (url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) { if (await handleSocial(url, req, res)) return; }
   // Games hub (/arcade): who's playing + your Bedwars stats.
   // Games hub nickname box: no account needed — gives this browser a guest identity with the chosen name.
+  if (url.split('?')[0] === '/api/poll/vote' && req.method === 'POST') {
+    const body = await readBody(req); let w = null; try { w = await resolveSession(req); } catch (e) {}
+    const voter = w ? w.id : (parseCookies(req).sh_cid || '');
+    const poll = admin.settings.live && admin.settings.live.poll, i = Math.floor(Number(body.i));
+    if (!voter) return sendJson(res, 400, { error: 'Open the site once more, then vote.' });
+    if (!poll || poll.id !== String(body.id) || (poll.endAt && poll.endAt < Date.now())) return sendJson(res, 200, { error: 'This poll has ended.' });
+    if (!(i >= 0 && i < poll.opts.length)) return sendJson(res, 400, { error: 'bad choice' });
+    poll.votes[voter] = i; saveState().catch(() => {});
+    return sendJson(res, 200, { ok: true, live: liveState(voter) });
+  }
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
-    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null });
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null, brand: admin.settings.brand || null, off: Object.keys(admin.settings.gamesOff || {}), live: liveState(who ? (who.id || '') : (parseCookies(req).sh_cid || '')) });
   }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);
@@ -2637,7 +2772,7 @@ httpServer.on('upgrade', (req, socket, head) => {
   if ((req.url || '').split('?')[0] === '/skribbl-ws') return handleSkribblUpgrade(req, socket, head);
   // 2D casino world: resolve the logged-in session first (cookie), then join.
   if ((req.url || '').split('?')[0] === '/world-ws') {
-    resolveSession(req).then((a) => { req._auth = a; }, () => { req._auth = null; }).then(() => handleWorldUpgrade(req, socket, head));
+    resolveSession(req).then((a) => { req._auth = a; }, () => { req._auth = null; }).then(() => { if (admin.settings.gamesOff && admin.settings.gamesOff.casino && !(req._auth && req._auth.role)) { try { socket.destroy(); } catch (e) {} return; } handleWorldUpgrade(req, socket, head); });
     return;
   }
   // Bedwars 2D (Games section): same login resolution as the casino world.

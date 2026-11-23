@@ -1358,6 +1358,7 @@ function onMsg(c, m, now) {
   // ---- menus
   const game = MG.isMini(m.game) ? m.game : 'bw';
   if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && c.spectator) return send(c, { t: 'err', msg: 'You’re watching as the teacher — use Teacher Tools to spectate a match.' });
+  if ((t === 'quick' || t === 'practice' || t === 'create') && !c.owner && globalThis.SH_GAME_OFF && globalThis.SH_GAME_OFF(game)) return send(c, { t: 'err', msg: 'This game is switched off right now. Try another one!' });
   if ((t === 'quick' || t === 'practice' || t === 'create' || t === 'join') && schoolCfg() && !c.owner) return send(c, { t: 'err', msg: 'Games are locked in School Mode — your teacher starts the next game with a vote.' });
   if (t === 'quick') {
     const mode = game !== 'bw' ? game : BW.MODES[m.mode] ? m.mode : 'solo';
@@ -1456,6 +1457,10 @@ function roomSummary(r) {
   return o;
 }
 function now0() { return Date.now(); }
+// Hub admin: live rooms (read-only snapshot + end). Server-side only; server.js checks the caller's role.
+export function bwAdminRooms() { return { rooms: [...rooms.values()].filter((r) => r.state !== 'dead').map(roomSummary), online: conns.size }; }
+export function bwEndRoom(id) { const r = rooms.get(Number(id)); if (!r || r.state === 'dead') return false; if (r.state === 'play') endMatch(r, -1); else return false; return true; }
+
 function adminInfo(c) {
   const where = (x) => x.room ? (x.room.state === 'play' ? (x.room.game === 'bw' ? 'Bedwars' : MG.GAMES[x.room.game].short) + ' #' + x.room.id : x.room.state === 'lobby' ? 'waiting #' + x.room.id : 'results #' + x.room.id) : x.space ? 'hub' : '—';
   const me = c.ent;
