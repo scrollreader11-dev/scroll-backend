@@ -32,7 +32,7 @@ export async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], subBlock: {}, rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
+const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], subBlock: {}, likes: {}, rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 const TUT_PLAYS = 3, TUT_REWARD = 1000000, TUT_VER = 2;
 // Owner-adjustable tour settings (admin panel > Site controls): on/off, reward, and a version that replays it for everyone.
 const tutOn = () => !(casino.cfg && casino.cfg.tutOn === false);
@@ -50,7 +50,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; if (d0 && d0.subBlock && typeof d0.subBlock === 'object') casino.subBlock = d0.subBlock; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
+function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; if (d0 && d0.subBlock && typeof d0.subBlock === 'object') casino.subBlock = d0.subBlock; if (d0 && d0.likes && typeof d0.likes === 'object') casino.likes = d0.likes; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -69,7 +69,7 @@ export async function initCasino() {
 }
 let dirty = false;
 let rigDry = false, rigPlays = null, rigPending = []; // owner rigging tool: see the Rigging section
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subBlock: casino.subBlock, subs: casino.subs }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subBlock: casino.subBlock, likes: casino.likes, subs: casino.subs }); }
 function save() { dirty = true; if (rigDry) return; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -702,6 +702,15 @@ export function subBlockSet(user, on, rejectPending) {
   let n = 0;
   if (on && rejectPending) for (const x of casino.subs) if (x.status === 'pending' && x.by.toLowerCase() === k) { x.status = 'rejected'; x.note = 'Blocked from sending creations.'; x.decidedAt = Date.now(); x.payload = { dropped: true }; n++; }
   save(); flush(); return { ok: true, rejected: n };
+}
+export function likeCount(key) { const l = casino.likes[key]; return l ? l.length : 0; }
+export function likedBy(key, id) { const l = casino.likes[key]; return !!(id && l && l.includes(String(id))); }
+export function likeToggle(key, id) {
+  key = String(key || ''); if (!/^[sm]:[\w-]{1,40}$/.test(key) || !id) return { err: 'bad' };
+  const l = casino.likes[key] || (casino.likes[key] = []), i = l.indexOf(String(id));
+  if (i >= 0) l.splice(i, 1); else if (l.length < 5000) l.push(String(id));
+  if (!l.length) delete casino.likes[key];
+  save(); return { ok: true, liked: i < 0, n: likeCount(key) };
 }
 export function subBlockList() { return Object.keys(casino.subBlock).map((u) => ({ user: u, at: casino.subBlock[u] })); }
 // What the public Hall of creations shows: approved things that are still live.

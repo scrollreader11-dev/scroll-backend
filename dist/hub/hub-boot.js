@@ -171,6 +171,7 @@
       var head = h('div', { class: 'pf-head' }, [av, h('div', { class: 'nm' }, [h('h1', { text: who }), h('div', { class: 'sub', text: mine ? (Hub.me.kind === 'user' ? 'ScrollHub account' : 'Guest') : (u && u.online ? 'Online now' : 'Offline') })])]);
       if (mine) head.appendChild(h('div', { class: 'pf-edit' }, [Hub.me.kind === 'user' ? h('button', { class: 'btn sm', type: 'button', onclick: function () { pickImage('avatar'); } }, [icon('camera'), 'Change picture']) : null, h('button', { class: 'btn sm', type: 'button', onclick: function () { Hub.settingsModal('account'); } }, [icon('settings'), 'Edit profile'])]));
       host.appendChild(head);
+      if (Hub.creatorChip) Hub.creatorChip(who, head.querySelector('.nm .sub'));
       var stats = h('div', { class: 'stats' }); function st(k, val) { stats.appendChild(h('div', { class: 'stat' }, [h('div', { class: 'k', text: k }), h('div', { class: 'v', text: val }) ])); }
       st('Scrolls', coins != null ? Hub.num(coins) : 'n/a');
       if (mine) { st('Games installed', String(Object.keys(Hub.lib.inst).length)); st('Games played', String(Object.keys(Hub.lib.plays).length)); st('Daily streak', Hub.wallet && Hub.wallet.profile ? String(Hub.wallet.profile.streak || 0) : '0'); }

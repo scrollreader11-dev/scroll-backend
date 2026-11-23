@@ -26,7 +26,7 @@ import * as GMS from './gamemaps.js';
 import { handleBedwarsUpgrade, bwOnline, bwAdminRooms, bwEndRoom } from './bedwars.js';
 import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
-import { setSubHook, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { likeCount, likedBy, likeToggle, setSubHook, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -2486,9 +2486,23 @@ const httpServer = createServer(async (req, res) => {
     poll.votes[voter] = i; saveState().catch(() => {});
     return sendJson(res, 200, { ok: true, live: liveState(voter) });
   }
+  if (url.split('?')[0] === '/api/hall' && req.method === 'POST') {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    if (!who) return sendJson(res, 401, { error: 'login', message: 'Sign in to like creations.' });
+    const b = await readBody(req), key = String(b.key || '');
+    if (/^s:/.test(key) ? !hallSprites().some((x) => 's:' + x.id === key) : !hallMapSubs().some((x) => 'm:' + x.mapId === key)) return sendJson(res, 200, { error: 'gone' });
+    const r = likeToggle(key, who.id); return sendJson(res, 200, r.err ? { error: 'bad' } : r);
+  }
   if (url.split('?')[0] === '/api/hall' && req.method === 'GET') {
-    const maps = hallMapSubs().map((x) => { const m = GMS.getMap(x.mapId); return m && m.ok ? { id: m.id, name: m.name, game: m.game, desc: m.desc || '', by: x.by, at: x.at, walls: (m.w || []).length, props: (m.props || []).length } : null; }).filter(Boolean);
-    return sendJson(res, 200, { ok: true, sprites: hallSprites().slice(0, 200), maps: maps.slice(0, 100) });
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    const vid = who && who.id;
+    const sprites = hallSprites().map((x) => ({ ...x, likes: likeCount('s:' + x.id), liked: likedBy('s:' + x.id, vid) }));
+    const maps = hallMapSubs().map((x) => { const m = GMS.getMap(x.mapId); return m && m.ok ? { id: m.id, name: m.name, game: m.game, desc: m.desc || '', by: x.by, at: x.at, walls: (m.w || []).length, props: (m.props || []).length, likes: likeCount('m:' + m.id), liked: likedBy('m:' + m.id, vid) } : null; }).filter(Boolean);
+    const mk = {};
+    const add = (by, likes) => { const k = String(by).toLowerCase(); const o = mk[k] || (mk[k] = { name: by, items: 0, likes: 0 }); o.items++; o.likes += likes; };
+    sprites.forEach((x) => add(x.by, x.likes)); maps.forEach((x) => add(x.by, x.likes));
+    const makers = Object.values(mk).sort((a, b) => b.items - a.items || b.likes - a.likes).slice(0, 25);
+    return sendJson(res, 200, { ok: true, sprites: sprites.slice(0, 200), maps: maps.slice(0, 100), makers, me: !!who });
   }
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
