@@ -63,6 +63,7 @@
   // ---------- profile menu ----------
   Hub.profileMenu = function (anchor) {
     var m = Hub.me, items = [{ label: 'View profile', icon: 'user', fn: function () { location.hash = '#/profile'; } }, { label: 'My Rewards', icon: 'gift', fn: Hub.rewardsModal }, { label: 'Redeem a code', icon: 'ticket', fn: Hub.redeemModal }, { label: 'Friends', icon: 'users', fn: function () { location.hash = '#/friends'; } }];
+    if (window.ShStealth && !window.ShStealth.inFrame()) items.splice(1, 0, { label: 'Hide this tab', icon: 'shield', fn: function () { window.ShStealth.cloak(); } });
     if (m.role) items.splice(1, 0, { label: 'Admin tools', icon: 'shield', fn: function () { location.hash = '#/admin'; } });
     if (m.owner) items.push({ label: 'Owner tools', icon: 'hammer', fn: function () { Hub.settingsModal('owner'); } });
     items.push({ label: 'Settings', icon: 'settings', fn: function () { Hub.settingsModal('account'); } }, { label: 'Support', icon: 'life-buoy', fn: Hub.supportModal }, { label: 'Feedback', icon: 'message-square', fn: Hub.feedbackModal }, { sep: true });
@@ -201,9 +202,9 @@
   }
 
   // ---------- settings ----------
-  var SET_TABS = [['account', 'Account'], ['app', 'App'], ['notifications', 'Notifications'], ['storage', 'Storage and updates'], ['access', 'Accessibility'], ['about', 'About']];
+  var SET_TABS = [['account', 'Account'], ['app', 'App'], ['privacy', 'Panic and cloak'], ['notifications', 'Notifications'], ['storage', 'Storage and updates'], ['access', 'Accessibility'], ['about', 'About']];
   Hub.settingsModal = function (tab) {
-    var tabs = SET_TABS.slice(); if (Hub.me.owner) tabs.splice(5, 0, ['owner', 'Owner']);
+    var tabs = SET_TABS.slice(); if (Hub.me.owner) tabs.splice(6, 0, ['owner', 'Owner']);
     var nav = h('div', { class: 'mnav' }, [h('h2', { text: 'Settings' })]), body = h('div', { class: 'mbody' }), cur = tab || 'account';
     function pane() {
       $$('button', nav).forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-t') === cur); }); Hub.clear(body); var fn = PANES[cur]; if (fn) fn(body, pane); body.scrollTop = 0;
@@ -244,6 +245,39 @@
       b.appendChild(kv('Background', 'Looping video behind the hub.', Hub.seg([['on', 'Animated'], ['still', 'Still']], Hub.prefs.video, function (v) { Hub.setPref('video', v); })));
       b.appendChild(kv('Interface size', 'Make everything a little smaller or larger.', Hub.seg([['sm', 'Small'], ['md', 'Default'], ['lg', 'Large']], Hub.prefs.size, function (v) { Hub.setPref('size', v); })));
       b.appendChild(kv('Recent games in sidebar', 'Show the Most Recent list.', Hub.toggle('', '', Hub.prefs.recents, function (v) { Hub.setPref('recents', v); Hub.renderChrome(); })));
+    },
+    privacy: function (b, redo) {
+      var S = window.ShStealth;
+      b.appendChild(h('h3', { text: 'Panic key and hidden tab' }));
+      b.appendChild(h('p', { class: 'hint', text: 'Two ways to get out of sight fast. Both work only in this browser.' }));
+      b.appendChild(h('h4', { text: 'Panic key' }));
+      b.appendChild(h('p', { class: 'hint', text: 'Press it anywhere in ScrollHub, including inside Bedwars, Racing, the casino and most games, and this tab jumps to the safe page below. Pressing it while typing in a box does nothing unless it uses Ctrl, Alt or Cmd. Games from other websites cannot pass key presses through, so click out of them first.' }));
+      b.appendChild(kv('Panic key', 'Turn it off if you keep hitting it by accident.', Hub.toggle('', '', Hub.prefs.panicOn !== false, function (v) { Hub.setPref('panicOn', v); })));
+      var keyBtn = h('button', { class: 'btn sm', type: 'button' });
+      function keyText() { return S ? S.label(S.keyOf(Hub.prefs)) : '`'; }
+      keyBtn.textContent = keyText();
+      keyBtn.addEventListener('click', function () {
+        keyBtn.textContent = 'Press a key...'; keyBtn.disabled = true;
+        function onk(e) {
+          if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].indexOf(e.key) >= 0) return;
+          e.preventDefault(); e.stopPropagation(); document.removeEventListener('keydown', onk, true); keyBtn.disabled = false;
+          if (e.key === 'Escape') { Hub.toast('Escape is used to close things. Pick another key.', { bad: true }); keyBtn.textContent = keyText(); return; }
+          Hub.setPref('panicKey', { k: e.key, c: e.ctrlKey ? 1 : 0, a: e.altKey ? 1 : 0, s: e.shiftKey ? 1 : 0, m: e.metaKey ? 1 : 0 }); keyBtn.textContent = keyText(); Hub.toast('Panic key set to ' + keyText());
+        }
+        document.addEventListener('keydown', onk, true);
+      });
+      b.appendChild(kv('Key', 'Click, then press the key (or a combo like Alt + P) you want.', keyBtn));
+      var url = h('input', { class: 'input', type: 'url', placeholder: 'https://www.google.com/', value: Hub.prefs.panicUrl || '', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Safe page address' });
+      url.addEventListener('change', function () { var u = S ? S.safeUrl(url.value) : url.value; url.value = u; Hub.setPref('panicUrl', u); Hub.toast('Safe page saved'); });
+      b.appendChild(h('div', { class: 'kv', style: 'display:block' }, [h('div', { class: 'l' }, [h('b', { text: 'Safe page' }), h('span', { text: 'Where the panic key takes you. A full address, for example a docs or search site.' })]), h('div', { style: 'margin-top:10px' }, url)]));
+      b.appendChild(h('h4', { text: 'Hide in about:blank' }));
+      b.appendChild(h('p', { class: 'hint', text: 'Opens ScrollHub inside a blank tab and sends this tab to your safe page. The tab list then shows a plain blank tab instead of the site name and address.' }));
+      var framed = S && S.inFrame();
+      var title = h('input', { class: 'input', type: 'text', maxlength: '60', placeholder: 'Untitled', value: Hub.prefs.cloakTitle || '', autocomplete: 'off', 'aria-label': 'Tab title in the hidden view' });
+      title.addEventListener('change', function () { Hub.setPref('cloakTitle', title.value.replace(/[<>&"]/g, '').slice(0, 60)); Hub.toast('Saved'); });
+      b.appendChild(kv(framed ? 'You are in the hidden view' : 'Hide this tab now', framed ? 'This is already the about:blank copy.' : 'Allow pop-ups for this site first if your browser asks.', framed ? null : h('button', { class: 'btn sm primary', type: 'button', text: 'Open hidden view', onclick: function () { if (S) S.cloak(); } })));
+      b.appendChild(h('div', { class: 'kv', style: 'display:block' }, [h('div', { class: 'l' }, [h('b', { text: 'Tab title' }), h('span', { text: 'The words on the hidden tab. Leave empty for Untitled.' })]), h('div', { style: 'margin-top:10px' }, title)]));
+      b.appendChild(kv('Hide automatically', 'On each visit, the first click opens the hidden view. Needs pop-ups allowed for this site.', Hub.toggle('', '', !!Hub.prefs.cloakAuto, function (v) { Hub.setPref('cloakAuto', v); try { sessionStorage.removeItem('sh_nocloak'); } catch (e) {} })));
     },
     notifications: function (b) {
       b.appendChild(h('h3', { text: 'Notifications' })); b.appendChild(h('p', { class: 'hint', text: 'Choose what shows up in the bell.' }));
