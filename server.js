@@ -916,6 +916,22 @@ async function handleStaff(req, res) {
     if (out && out.ok && op !== 'get') audit(who, 'tour.' + op, op === 'reset' ? body.username : '', op === 'set' ? 'on=' + out.on + ', reward=' + out.reward : op === 'replay' ? 'version ' + out.version : (body.payAgain ? 'reward can be paid again' : ''));
     return sendJson(res, 200, out);
   }
+  if (action === 'theme.set') {
+    if (!owner) return needOwner();
+    const t = body.theme || {};
+    const BG = ['video', 'aurora', 'midnight', 'sunset', 'forest', 'crimson', 'grid', 'slate', 'mono', 'matrix', 'stars', 'snow', 'fireflies', 'rain', 'synthwave', 'bubbles', 'lava', 'confetti', 'custom'];
+    const url = String(t.url || '').trim();
+    admin.settings.theme = {
+      bg: BG.includes(t.bg) ? t.bg : 'video',
+      accent: /^#[0-9a-fA-F]{6}$/.test(String(t.accent || '')) ? String(t.accent).toLowerCase() : '',
+      url: /^https:\/\/[^\s"'()<>\\]{3,300}$/.test(url) ? url : '',
+      dim: Math.max(0, Math.min(60, Math.round(Number(t.dim) || 0))),
+      force: !!t.force,
+    };
+    audit(who, 'theme.set', '', 'bg=' + admin.settings.theme.bg + (admin.settings.theme.force ? ', forced' : ''));
+    await saveState().catch(() => {});
+    return sendJson(res, 200, { ok: true, theme: admin.settings.theme });
+  }
   if (action === 'traffic') {
     if (!owner) return needOwner();
     const m = new Date().toISOString().slice(0, 7), mo = stats.traffic.months[m] || { bytes: 0, cats: {}, days: {} };
@@ -2264,7 +2280,7 @@ const httpServer = createServer(async (req, res) => {
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
-    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome() });
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null });
   }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);

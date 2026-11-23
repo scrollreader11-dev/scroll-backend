@@ -480,6 +480,17 @@
       host.appendChild(card('Welcome tour', 'The guided tour new players go through, ending with a few casino rounds and a reward.', tourBox));
       post({ action: 'tour.get' }).then(paintTour);
 
+      // ---- Site look (owner): the default background / accent for everyone, optionally forced ----
+      var look = h('div'), lk = Object.assign({ bg: 'video', accent: '', url: '', dim: 0, force: false }, s.theme || {});
+      function paintLook() {
+        Hub.clear(look);
+        look.appendChild(Hub.themePicker({ bg: lk.bg, accent: lk.accent || 'blue', dim: lk.dim, url: lk.url, urlBox: true, onChange: function (part) { for (var k in part) lk[k] = part[k]; if (lk.accent === 'blue' || lk.accent === 'auto') lk.accent = ''; } }));
+        look.appendChild(Hub.toggle('Force for everyone', 'On: players cannot pick their own background or accent. Off: this is only the default.', !!lk.force, function (v) { lk.force = v; }));
+        look.appendChild(h('div', { class: 'adm-row wrap', style: 'margin-top:14px' }, [btn('Save site look', function () { post({ action: 'theme.set', theme: lk }).then(function (r) { if (r && r.ok) { Hub.toast('Site look saved'); Hub.loadSchool && Hub.loadSchool(); } else toastErr(r); }); }, { primary: true }), btn('Reset to default', function () { lk = { bg: 'video', accent: '', url: '', dim: 0, force: false }; post({ action: 'theme.set', theme: lk }).then(function (r) { if (r && r.ok) { Hub.toast('Back to the default look'); Hub.loadSchool && Hub.loadSchool(); paintLook(); } else toastErr(r); }); })]));
+      }
+      paintLook();
+      host.appendChild(card('Site look', 'The background and accent color new visitors see. Players can still choose their own unless you force it.', look));
+
       var mins = inp('Minutes (blank is until turned off)', { type: 'number' });
       host.appendChild(card('School Mode', 'Hides games that are not on the school list.', [Hub.toggle('School Mode', 'Limits what players can open.', !!s.schoolMode, function (v) { set('schoolMode', v); }), Hub.toggle('Quiz questions', 'Players answer questions before playing.', s.schoolQuiz !== false, function (v) { set('schoolQuiz', v); }), Hub.toggle('Allow the casino', 'Unlocks the casino during School Mode.', !!s.schoolGamble, function (v) { set('schoolGamble', v); }), h('div', { class: 'adm-row wrap', style: 'margin-top:8px' }, [h('div', { style: 'width:min(300px,100%)' }, mins), btn('Turn on for a while', function () { var n = Number(mins.value); if (n > 0) set('schoolMins', n); }, { ghost: true })])]));
       var sets = [['blooket', 'Blooket'], ['u9', 'Unit 9'], ['u10', 'Unit 10'], ['both', 'Units 9 and 10']];

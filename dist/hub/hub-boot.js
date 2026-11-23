@@ -236,6 +236,11 @@
     },
     app: function (b) {
       b.appendChild(h('h3', { text: 'App' }));
+      b.appendChild(h('h4', { text: 'Appearance' }));
+      b.appendChild(h('p', { class: 'hint', text: Hub.themeNow().forced ? 'The site owner set the look for everyone right now.' : 'Pick a background and accent color. Only you see your choice.' }));
+      b.appendChild(Hub.themePicker({ bg: Hub.prefs.bg || 'auto', accent: Hub.prefs.accent || 'auto', dim: Hub.prefs.dim || 0, url: Hub.ls.raw('sh_hub_bg') || Hub.prefs.bgUrl || '', auto: 'Site default', upload: true,
+        onChange: function (part) { if ('bg' in part) Hub.setPref('bg', part.bg); if ('accent' in part) Hub.setPref('accent', part.accent); if ('dim' in part) Hub.setPref('dim', part.dim); if ('url' in part && /^https:/.test(part.url)) Hub.setPref('bgUrl', part.url); } }));
+      b.appendChild(h('h4', { text: 'Motion and size' }));
       b.appendChild(kv('Background', 'Looping video behind the hub.', Hub.seg([['on', 'Animated'], ['still', 'Still']], Hub.prefs.video, function (v) { Hub.setPref('video', v); })));
       b.appendChild(kv('Interface size', 'Make everything a little smaller or larger.', Hub.seg([['sm', 'Small'], ['md', 'Default'], ['lg', 'Large']], Hub.prefs.size, function (v) { Hub.setPref('size', v); })));
       b.appendChild(kv('Recent games in sidebar', 'Show the Most Recent list.', Hub.toggle('', '', Hub.prefs.recents, function (v) { Hub.setPref('recents', v); Hub.renderChrome(); })));

@@ -22,9 +22,10 @@
   Hub.school = { on: false, exempt: false, gamble: false };
   Hub.loadSchool = function () {
     return Hub.api('/api/school').then(function (s) {
-      var n = { on: !!s.on, exempt: !!s.exempt, gamble: !!s.gamble };
+      var n = { on: !!s.on, exempt: !!s.exempt, gamble: !!s.gamble, theme: s.theme || null };
       var ch = n.on !== Hub.school.on || n.exempt !== Hub.school.exempt || n.gamble !== Hub.school.gamble;
-      Hub.school = n; if (ch) Hub.emit('school'); return n;
+      var tch = JSON.stringify(n.theme) !== JSON.stringify(Hub.school.theme || null);
+      Hub.school = n; if (ch) Hub.emit('school'); if (tch && Hub.applyTheme) Hub.applyTheme(); return n;
     });
   };
   Hub.locked = function () { return Hub.school.on && !Hub.school.exempt; };
