@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Make <name>.png.webp / <name>.jpg.webp siblings for big images under dist/storage/images.
+"""Make <name>.png.webp / <name>.jpg.webp siblings for big images anywhere under dist/ (except og-* share images).
 The server (staticzip.js) hands these to browsers that accept WebP; URLs stay the same.
 Only keeps a sibling when it is at least 25% smaller. Safe to re-run."""
 import os, sys
 from PIL import Image
-ROOT = os.path.join(os.path.dirname(__file__), '..', 'dist', 'storage', 'images')
+ROOT = os.path.join(os.path.dirname(__file__), '..', 'dist')
 MAXDIM = 1600
 saved = n = 0
 for r, _, fs in os.walk(ROOT):
     for f in fs:
         e = f.rsplit('.', 1)[-1].lower()
-        if e not in ('png', 'jpg', 'jpeg'): continue
+        if e not in ('png', 'jpg', 'jpeg') or f.startswith('og-'): continue
         src = os.path.join(r, f); out = src + '.webp'
         sz = os.path.getsize(src)
         if sz < 30000 or os.path.exists(out): continue

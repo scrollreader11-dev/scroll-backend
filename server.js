@@ -40,26 +40,16 @@ const SERVER_STARTED = Date.now();
 const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
+// Cache rules for everything served from dist/. Pages revalidate so a deploy shows up on the next refresh; hashed
+// bundles and pictures/video are cached so repeat visits cost no bandwidth (pages reference them with ?v= when they change).
 const SERVE_HEADERS = (res, pathname) => {
-    if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
-    else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
-    else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
+  if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+  else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
+  else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
+  else if (/\.(png|jpe?g|webp|gif|avif|ico|mp4|webm|mp3|ogg|woff2?)$/i.test(pathname)) res.setHeader('cache-control', 'public, max-age=86400');
+  if (/\.(png|jpe?g)$/i.test(pathname)) res.setHeader('vary', 'Accept');
 };
-const sirvServe = sirv(distDir, {
-  dev: false, etag: true,
-  // Vite's /assets/* files are content-hashed, so they can be cached forever.
-  // A returning visitor's browser then never re-requests the whole JS/CSS
-  // bundle — zero load on the server for repeat visits and navigation.
-  // (Non-hashed files like presence.js keep revalidating so updates propagate.)
-  setHeaders(res, pathname) {
-    if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
-    // Game thumbnails rarely change: cache hard so the grid loads instantly on
-    // repeat visits and navigation instead of re-requesting ~1,200 images.
-    else if (/^\/storage\/images\//.test(pathname)) { res.setHeader('cache-control', 'public, max-age=604800, immutable'); if (/\.(png|jpe?g)$/i.test(pathname)) res.setHeader('vary', 'Accept'); }
-    // Pages must revalidate so a new deploy shows up on the next refresh.
-    else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
-  },
-});
+const sirvServe = sirv(distDir, { dev: false, etag: true, setHeaders: SERVE_HEADERS });
 const serve = withCompression(sirvServe, distDir, SERVE_HEADERS);
 
 function sendJson(res, status, obj) {

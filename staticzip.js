@@ -79,7 +79,7 @@ export function withCompression(sirvHandler, distDir, setHeaders) {
     const ext0 = extname(pathname).toLowerCase();
     // cheap pre-filter so ordinary requests don't touch the disk twice
     const maybeText = !ext0 || ext0 === '.html' || ext0 === '.htm' || TEXT[ext0];
-    const maybeImg = wantWebp && WEBP_SRC[ext0] && pathname.startsWith('/storage/images/');
+    const maybeImg = wantWebp && WEBP_SRC[ext0] && !/^\/og-/.test(pathname);   // social-share images stay PNG for crawlers
     if (!maybeText && !maybeImg) return sirvHandler(req, res, next);
     handle(pathname, ext0, maybeImg, wantBr, wantGz, req, res).then(done => { if (!done) sirvHandler(req, res, next); }, () => { if (!res.headersSent) sirvHandler(req, res, next); else res.end(); });
   };
