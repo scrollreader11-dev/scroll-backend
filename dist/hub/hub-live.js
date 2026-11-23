@@ -50,6 +50,10 @@
     }
     [].forEach.call(document.querySelectorAll('[data-brand-name]'), function (e) { e.textContent = nm; });
   }
+  Hub.on('subs:new', function (x) {
+    var line = x.n + ' creation' + (x.n === 1 ? '' : 's') + ' waiting for your approval';
+    Hub.toast(line + '. Open Admin, Review.', { icon: 'megaphone', ms: 7000 });
+  });
   Hub.on('live', function () { render(); brand(); });
   Hub.on('school', function () { render(); brand(); });
   brand();

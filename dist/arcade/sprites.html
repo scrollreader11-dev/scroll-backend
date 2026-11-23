@@ -215,6 +215,7 @@
     <div class="pn">
       <h3>YOUR CREATIONS</h3>
       <div class="row" style="margin:0 0 8px"><div class="chips" id="mineF"></div><input type="text" id="mineQ" placeholder="🔎 search" style="flex:1;min-width:90px;font-size:13px;padding:5px 8px"></div>
+      <div id="subs"></div>
       <div id="mine"><div class="hint">Nothing yet — draw something and save it!</div></div>
     </div>
   </aside>
@@ -462,11 +463,22 @@
   function api(path, body) { return fetch('/api/casino/sprites' + path, { method: body ? 'POST' : 'GET', credentials: 'include', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json(); }); }
   function load() {
     return api('').then(function (d) {
-      S.canEdit = !!d.canEdit; S.items = d.items || []; S.sprites = d.sprites || {}; if (d.overrides) A.OVR = d.overrides;
+      S.canEdit = !!d.canEdit; S.canSubmit = !!d.canSubmit; S.mySubs = d.mine || []; S.items = d.items || []; S.sprites = d.sprites || {}; if (d.overrides) A.OVR = d.overrides;
       for (var k in S.sprites) { A.CUSTOM[k] = S.sprites[k]; A.custInvalidate(k); }
-      $('lock').classList.toggle('hidden', S.canEdit); ['saveNew', 'saveUpd', 'del'].forEach(function (id) { $(id).disabled = !S.canEdit; });
+      $('lock').classList.toggle('hidden', S.canEdit);
+      $('lock').textContent = S.canSubmit ? '✨ Draw anything you like and send it for approval. Scrollreader11 decides what goes into the shop, and you’ll see the answer under “Your submissions”.' : '🔒 Sign in to ScrollHub to send your creations for approval. You can still doodle here!';
+      $('saveNew').disabled = !(S.canEdit || S.canSubmit); $('saveNew').textContent = S.canEdit ? '💾 Save as new' : '📨 Send for approval'; ['saveUpd', 'del'].forEach(function (id) { $(id).disabled = !S.canEdit; });
+      renderSubs();
       renderMine();
     }).catch(function () { msg('Could not reach the server'); });
+  }
+  function renderSubs() {
+    var el = $('subs'); if (!el) return; var l = S.mySubs || [];
+    if (!l.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="hint" style="margin:8px 0 4px"><b>Your submissions</b></div>' + l.slice(0, 8).map(function (x) {
+      var st = x.status === 'pending' ? '⏳ waiting' : x.status === 'approved' ? '✅ approved, it is in the shop' : '❌ not approved' + (x.note ? ': ' + x.note : '');
+      return '<div class="hint" style="margin:0 0 4px">' + String(x.title).replace(/[<>&]/g, '') + ' — ' + st + '</div>';
+    }).join('');
   }
   function renderMine() {
     if (!S.items.length) { $('mine').innerHTML = '<div class="hint">Nothing yet — draw something and save it!</div>'; return; }
@@ -492,17 +504,18 @@
     $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity;
     sp.pal.forEach(useColor); setFrame('front'); setType(it.type); setRep(it.replaces || ''); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-  function syncEditBtns() { $('saveUpd').classList.toggle('hidden', !S.editId); $('del').classList.toggle('hidden', !S.editId); }
+  function syncEditBtns() { $('saveUpd').classList.toggle('hidden', !S.editId || !S.canEdit); $('del').classList.toggle('hidden', !S.editId || !S.canEdit); }
   function save(asNew) {
-    if (!S.canEdit) return msg('🔒 Only Scrollreader11 can save');
+    if (!S.canEdit && !S.canSubmit) return msg('🔒 Sign in to ScrollHub first');
     var body = { type: S.type, label: $('name').value.trim() || 'My creation', price: +$('price').value || 0, rarity: $('rarity').value };
     if (S.type === 'banner') { body.banner = S.ban; if (!$('name').value.trim()) body.label = (S.ban.emoji ? S.ban.emoji + ' ' : '') + 'Custom Banner'; }
     else if (S.type === 'tag') { if (!S.tag.text.trim()) return msg('Type the name tag text first!'); body.tag = S.tag; }
     else { var e = encode(); if (e.err) return msg(e.err); if (!/[1-9a-v]/.test(e.sprite.px)) return msg('Draw the front first!'); body.sprite = e.sprite; }
-    if (isPix() && $('repOn').checked && $('repSel').value) { body.replaces = $('repSel').value; if (!confirm('Replace the original “' + ($('repSel').selectedOptions[0] || {}).text + '” for everyone?')) return; }
-    if (!asNew && S.editId) body.id = S.editId;
+    if (S.canEdit && isPix() && $('repOn').checked && $('repSel').value) { body.replaces = $('repSel').value; if (!confirm('Replace the original “' + ($('repSel').selectedOptions[0] || {}).text + '” for everyone?')) return; }
+    if (S.canEdit && !asNew && S.editId) body.id = S.editId;
     api('/save', body).then(function (d) {
       if (d.error) return msg('⚠️ ' + d.error);
+      if (d.pending) { msg('📨 ' + (d.message || 'Sent for approval!')); load(); return; }
       S.editId = d.item.id; S.editType = S.type; syncEditBtns(); msg(asNew ? '✅ Saved! It’s in the shop now.' : '✅ Updated!'); load();
     }).catch(function () { msg('Save failed — check your connection'); });
   }

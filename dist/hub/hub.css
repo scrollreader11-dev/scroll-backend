@@ -932,3 +932,10 @@ html[data-bg="custom"] body { background: #04070e var(--bg-img) center / cover n
 html[data-bg]:not([data-bg="video"]):not([data-bg="custom"]) body { background: radial-gradient(1100px 700px at 15% -10%, color-mix(in srgb, var(--blue) 26%, transparent), transparent 60%), #04070e; }
 .tprev.tweb::before { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -8px 0 0 -5px; border-left: 14px solid rgba(255, 255, 255, .85); border-top: 8px solid transparent; border-bottom: 8px solid transparent; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
 .tgrid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+
+/* Submissions review */
+.sub-row { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.07); gap: 14px; align-items: center; }
+.sub-row:first-child { border-top: 0; }
+.sub-pic { width: 72px; height: 72px; flex: none; border-radius: 12px; background: rgba(255,255,255,.05); image-rendering: pixelated; object-fit: contain; display: block; }
+.sub-pic.wide { width: 140px; height: 48px; image-rendering: auto; display: flex; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
+.sub-bad { color: #ff9b9b; }

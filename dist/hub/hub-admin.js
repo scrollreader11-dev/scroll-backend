@@ -31,6 +31,7 @@
 
   // [id, label, icon, ownerOnly, group, keywords]
   var TABS = [
+    ['subs', 'Submissions', 'circle-check', 1, 'Review', 'approve reject maps gims hats sprites creations player made queue pending sprite studio map builder'],
     ['overview', 'Overview', 'gauge', 0, 'Monitor', 'home stats dashboard online players now'],
     ['players', 'Players', 'users', 0, 'Monitor', 'users accounts coins items ban search find'],
     ['insights', 'Insights', 'trending-up', 0, 'Monitor', 'analytics charts popular games traffic hours'],
@@ -53,6 +54,7 @@
     ['audit', 'Audit log', 'list-checks', 1, 'Site', 'history who did what staff actions'],
   ];
   Hub.adminKit = { TABS: TABS, post: post, toastErr: toastErr, field: field, inp: inp, btn: btn, busy: busy, card: card, confirmBox: confirmBox, empty: empty, loading: loading, agoTxt: agoTxt, isOwner: function () { return isOwner(); }, PANES: null };
+  function subN() { var x = Hub.school && Hub.school.subs; return x && x.n ? x.n : 0; }
   Hub.isStaff = function () { return !!role(); };
 
   // ---------- shell ----------
@@ -75,12 +77,12 @@
     var gRow = h('div', { class: 'adm-groups', role: 'tablist' });
     groups.forEach(function (g) {
       var on = g.name === curGroup, first = (g.tabs.filter(function (t) { return t[0] === (Hub.ls.raw('sh_adm_last_' + g.name) || ''); })[0] || g.tabs[0]);
-      gRow.appendChild(h('a', { href: '#/admin/' + first[0], class: 'adm-g' + (on ? ' on' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false' }, [icon(g.tabs[0][2]), h('span', { text: g.name }), h('i', { class: 'gn', text: String(g.tabs.length) })]));
+      gRow.appendChild(h('a', { href: '#/admin/' + first[0], class: 'adm-g' + (on ? ' on' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false' }, [icon(g.tabs[0][2]), h('span', { text: g.name }), h('i', { class: 'gn', text: g.name === 'Review' && subN() ? String(subN()) : String(g.tabs.length) })]));
     });
     gRow.appendChild(h('button', { type: 'button', class: 'adm-search', 'aria-label': 'Search panels (Ctrl K)', title: 'Search panels (Ctrl K)', onclick: function () { Hub.adminPalette && Hub.adminPalette(); } }, [icon('search'), h('span', { text: 'Search' }), h('kbd', { text: 'Ctrl K' })]));
     var tRow = h('div', { class: 'adm-tabs', role: 'tablist' });
     gmap[curGroup].tabs.forEach(function (t) {
-      tRow.appendChild(h('a', { href: '#/admin/' + t[0], class: 'adm-t' + (t[0] === tab ? ' on' : ''), role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', 'aria-current': t[0] === tab ? 'page' : null }, [icon(t[2]), h('span', { text: t[1] })]));
+      tRow.appendChild(h('a', { href: '#/admin/' + t[0], class: 'adm-t' + (t[0] === tab ? ' on' : ''), role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', 'aria-current': t[0] === tab ? 'page' : null }, [icon(t[2]), h('span', { text: t[1] }), t[0] === 'subs' && subN() ? h('i', { class: 'gn', text: String(subN()) }) : null]));
     });
     try { localStorage.setItem('sh_adm_last_' + curGroup, tab); } catch (e) {}
     nav.appendChild(gRow); nav.appendChild(tRow);

@@ -27,6 +27,8 @@ const RES = BW.RES;
 
 const conns = new Set();
 // Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
+import { subAdd, subMine, subGet, subRemoveOwn } from './casino.js';
+const SUB = { add: subAdd, mine: subMine, get: subGet, removeOwn: subRemoveOwn };
 const OWNERS = new Set(['scrollreader11', 'pakajo', 'hihihi', 'SuperCoolAdminDude25']);
 ;
 globalThis.SH_NAME_BANNED = (n) => (GMS.store.nameBans || []).includes(String(n || '').toLowerCase()); // only Scrollreader11 gets the owner panel
@@ -1294,12 +1296,14 @@ export function handleBedwarsUpgrade(req, socket, head) {
     const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
     c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
     c.mapper = !!(req._auth && String(req._auth.username || '').toLowerCase() === GMS.MAPPER);
+    c.uname = req._auth && req._auth.username ? String(req._auth.username) : '';
+    c.maker = !!(req._auth && req._auth.username);   // any signed-in account may build; maps go to the owner for approval
     try { const tk = globalThis.SH_TEACHER_KEY && globalThis.SH_TEACHER_KEY(); const ck = /(?:^|;\s*)sh_teacher=([^;]+)/.exec(req.headers.cookie || ''); c.teacher = !!(tk && ck && decodeURIComponent(ck[1]) === tk); } catch (e) { c.teacher = false; }
     c.spectator = !!(c.teacher && !c.owner); // the teacher watches; she isn't a player
     if (GMS.store.renames && GMS.store.renames[cid]) c.nick = GMS.store.renames[cid];
     let isBuilder = false; try { isBuilder = new URL(req.url, 'http://x').searchParams.get('builder') === '1'; } catch (e) {}
     if (isBuilder) { // the map builder page: its own little channel, never a player
-      send(c, { t: 'hello', builder: true, mapper: c.mapper, nick: c.nick });
+      send(c, { t: 'hello', builder: true, mapper: c.mapper, maker: !!c.maker, nick: c.nick });
       ws.on('message', (buf, bin) => { if (bin) return; let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; } if (!m) return; if (m.t === 'ping') return send(c, { t: 'pong', c: m.c, n: Date.now() }); if (m.t === 'mb') { try { mbMsg(c, m); } catch (err) { send(c, { t: 'mbs', ok: false, msg: 'Error: ' + (err && err.message) }); } } });
       return;
     }
@@ -1480,8 +1484,25 @@ function adminInfo(c) {
 }
 // ---- the map builder's channel (only the map maker's account may use it)
 function mbMsg(c, m) {
-  if (!c.mapper) return send(c, { t: 'mbs', ok: false, msg: 'Only the map maker can do that.' });
+  if (!c.mapper && !c.maker) return send(c, { t: 'mbs', ok: false, msg: 'Sign in to build maps.' });
   const a = String(m.a || '');
+  if (!c.mapper) {   // any signed-in player: build and send for approval. Nothing goes live until the owner says so.
+    const me = String(c.uname || c.nick), subs = () => SUB.mine(me, 'map');
+    const mineList = () => subs().filter((x) => x.status !== 'approved').map((x) => { const s0 = SUB.get(x.id); const pl = s0 && s0.payload; return { id: x.id, name: x.title, game: pl && pl.game || 'bw', author: me, at: x.at, ok: false, pending: x.status === 'pending', rejected: x.status === 'rejected', note: x.note, rot: false }; });
+    const list = () => send(c, { t: 'mbl', maps: [...mineList(), ...GMS.listMaps().filter((x) => x.ok)], rot: {}, maker: true });
+    if (a === 'list') return list();
+    if (a === 'get') { const id = String(m.id); if (id.startsWith('s_')) { const s0 = SUB.get(id); if (!s0 || s0.by.toLowerCase() !== me.toLowerCase() || !s0.payload || s0.payload.dropped) return send(c, { t: 'mbg', map: null }); return send(c, { t: 'mbg', map: { ...s0.payload, id } }); } const cm = GMS.getMap(id); return send(c, { t: 'mbg', map: cm && cm.ok ? { ...cm, id: '' } : null }); }
+    if (a === 'save') {
+      const raw = m.map || {}, r0 = GMS.checkMap(raw); if (!r0.ok) return send(c, { t: 'mbs', ok: false, msg: r0.msg });
+      if (r0.problems.length) return send(c, { t: 'mbs', ok: true, saved: false, problems: r0.problems, msg: 'Fix the problems first, then send it again.' });
+      const rid = String(raw.id || '').startsWith('s_') ? String(raw.id) : '';
+      const r = SUB.add({ kind: 'map', by: me, byId: c.cid, title: r0.cm.name, payload: r0.cm, replaceId: rid });
+      if (r.err) return send(c, { t: 'mbs', ok: false, msg: r.err });
+      send(c, { t: 'mbs', ok: true, id: r.sub.id, pending: true, problems: [], msg: 'Sent to Scrollreader11 for approval.' }); return list();
+    }
+    if (a === 'del') { SUB.removeOwn(String(m.id), me); return list(); }
+    return;
+  }
   const list = () => send(c, { t: 'mbl', maps: GMS.listMaps(), rot: GMS.store.rot });
   if (a === 'list') return list();
   if (a === 'get') { const cm = GMS.getMap(String(m.id)); return send(c, { t: 'mbg', map: cm }); }

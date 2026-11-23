@@ -20,10 +20,13 @@ import { brotliCompressSync, gzipSync, constants as zconst } from 'node:zlib';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
 import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
+import './dist/arcade/bedwars/shared.js';
+import './dist/arcade/bedwars/mg.js';
+import * as GMS from './gamemaps.js';
 import { handleBedwarsUpgrade, bwOnline, bwAdminRooms, bwEndRoom } from './bedwars.js';
 import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
-import { tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { setSubHook, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -469,6 +472,17 @@ globalThis.SH_SET_SEASON = async (v) => { admin.settings.season = v ? String(v) 
 globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0, gamble: !!admin.settings.schoolGamble, quiz: admin.settings.schoolQuiz !== false } : null);
 globalThis.SH_SET_SQUIZ = async (v) => { admin.settings.schoolQuiz = !!v; logEvent('admin', 'admin', '📝 School Mode questions ' + (v ? 'ON' : 'OFF')); try { await saveState(); } catch (e) {} };
 globalThis.SH_SET_GAMBLE = async (v) => { admin.settings.schoolGamble = !!v; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (v ? 'UNLOCKED' : 'locked')); try { await saveState(); } catch (e) {} };
+setSubHook((sub) => {
+  try {
+    logEvent('sub', sub.by, (sub.kind === 'map' ? 'map: ' : 'creation: ') + sub.title);
+    console.log('submission waiting for approval:', sub.kind, 'from', sub.by);
+    const url = process.env.SUBMISSIONS_WEBHOOK_URL;   // optional: a Discord-style webhook that pings you
+    if (url && /^https:\/\//.test(url)) {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+      fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content: 'New ' + (sub.kind === 'map' ? 'map' : 'creation') + ' from ' + sub.by + ': "' + String(sub.title).replace(/[@`]/g, '') + '" is waiting for your approval in Admin tools > Submissions.' }), signal: ctl.signal }).catch(() => {}).finally(() => clearTimeout(t));
+    }
+  } catch (e) {}
+});
 globalThis.SH_GAME_OFF = (k) => !!(admin.settings.gamesOff && admin.settings.gamesOff[k]);
 globalThis.SH_BOOST = () => { const b = admin.settings.boost; return b && b.until > Date.now() && b.mult > 1 ? b.mult : 1; };
 const GAME_KEYS = [['bw', 'Bedwars'], ['race', 'Scroll Racing'], ['royale', 'Scroll Royale'], ['ctf', 'Capture the Flag'], ['spleef', 'TNT Spleef'], ['hide', 'Prop Hunt'], ['duel', 'Duels'], ['murder', 'Murder Mystery'], ['build', 'Build Battle'], ['casino', 'Casino']];
@@ -1039,6 +1053,41 @@ async function handleStaff(req, res) {
       audit(who, action, '', amount + ' x ' + winners.length);
       return sendJson(res, 200, { ok: true, winners: names, amount, message: msg });
     }
+  }
+  if (/^subs\.(list|approve|reject)$/.test(action)) {
+    if (!trueOwner) return sendJson(res, 403, { error: 'owner only', message: 'Only the owner decides on submissions.' });
+    const light = (x) => {
+      const o = { id: x.id, kind: x.kind, by: x.by, title: x.title, at: x.at, status: x.status, note: x.note || '', decidedAt: x.decidedAt || 0 };
+      const pl = x.payload;
+      if (x.status === 'pending' && pl && !pl.dropped) {
+        if (x.kind === 'sprite') o.sprite = { type: pl.type, label: pl.label, price: pl.price, rarity: pl.rarity, fx: pl.fx, sprite: pl.sprite, params: pl.params, value: pl.type === 'banner' ? pl.value : '' };
+        if (x.kind === 'map') { const c = GMS.checkMap(pl); o.map = { game: pl.game, name: pl.name, desc: pl.desc || '', walls: (pl.w || []).length, props: (pl.props || []).length, problems: c.ok ? c.problems : [c.msg || 'broken'] }; }
+      }
+      return o;
+    };
+    if (action === 'subs.list') {
+      const pend = subList('pending').reverse().map(light), done = subList().filter((x) => x.status !== 'pending').slice(0, 40).map(light);
+      return sendJson(res, 200, { ok: true, pending: pend, done });
+    }
+    const id = String(body.id || ''), sub = subGet(id);
+    if (!sub) return sendJson(res, 200, { error: 'gone', message: 'That submission is gone.' });
+    if (action === 'subs.reject') {
+      const r = subDecide(id, false, { note: body.note, by: who.username });
+      if (r.err) return sendJson(res, 200, { error: 'bad', message: r.err });
+      audit(who, 'subs.reject', sub.by, sub.kind + ': ' + sub.title); return sendJson(res, 200, { ok: true });
+    }
+    let extra = {};
+    if (sub.kind === 'map') {
+      if (sub.status !== 'pending') return sendJson(res, 200, { error: 'bad', message: 'It was already ' + sub.status + '.' });
+      const sv = GMS.saveMap({ ...(sub.payload || {}) }, sub.by);
+      if (!sv.ok) return sendJson(res, 200, { error: 'bad', message: sv.msg || 'The map could not be saved.' });
+      extra = { mapId: sv.id, problems: sv.problems };
+      if (body.rotation !== false && !sv.problems.length) GMS.setRotation(String(sub.payload.game), sv.id, true);
+    }
+    const r = subDecide(id, true, { note: body.note, price: body.price, rarity: body.rarity, by: who.username });
+    if (r.err) return sendJson(res, 200, { error: 'bad', message: r.err });
+    audit(who, 'subs.approve', sub.by, sub.kind + ': ' + sub.title);
+    return sendJson(res, 200, { ok: true, ...extra });
   }
   if (action === 'theme.set') {
     if (!owner) return needOwner();
@@ -2415,7 +2464,7 @@ const httpServer = createServer(async (req, res) => {
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
-    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null, brand: admin.settings.brand || null, off: Object.keys(admin.settings.gamesOff || {}), live: liveState(who ? (who.id || '') : (parseCookies(req).sh_cid || '')) });
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null, brand: admin.settings.brand || null, off: Object.keys(admin.settings.gamesOff || {}), live: liveState(who ? (who.id || '') : (parseCookies(req).sh_cid || '')), subs: who && who.role === 'owner' ? { n: subPending(), last: (subLatest() || {}).id || '' } : null });
   }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);

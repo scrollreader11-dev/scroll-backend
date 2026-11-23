@@ -102,6 +102,11 @@ export function saveMap(raw, author) {
   save(); log('🗺️ ' + author + ' saved map "' + cm.name + '" (' + MG.GAMES[cm.game].name + ')');
   return { ok: true, id, problems, meta: mapMeta(cm) };
 }
+// Checks a map without saving it (used for approval submissions).
+export function checkMap(raw) {
+  const cm = cleanMap(raw); if (!cm) return { ok: false, msg: 'That map is broken.' };
+  return { ok: true, cm, problems: MG.validateCustom(cm) };
+}
 export function deleteMap(id, by) { const m = store.maps[id]; if (!m) return false; delete store.maps[id]; for (const g of GAMES) store.rot[g].ids = store.rot[g].ids.filter((x) => x !== id); save(); log('🗑️ ' + by + ' deleted map "' + m.name + '"'); return true; }
 export function setRotation(game, id, on) {
   const r = store.rot[game]; if (!r) return false;

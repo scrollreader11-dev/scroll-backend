@@ -22,11 +22,11 @@
   Hub.school = { on: false, exempt: false, gamble: false };
   Hub.loadSchool = function () {
     return Hub.api('/api/school').then(function (s) {
-      var n = { on: !!s.on, exempt: !!s.exempt, gamble: !!s.gamble, theme: s.theme || null, brand: s.brand || null, off: s.off || [], live: s.live || null };
+      var n = { on: !!s.on, exempt: !!s.exempt, gamble: !!s.gamble, theme: s.theme || null, brand: s.brand || null, off: s.off || [], live: s.live || null, subs: s.subs || null };
       var ch = n.on !== Hub.school.on || n.exempt !== Hub.school.exempt || n.gamble !== Hub.school.gamble;
       var tch = JSON.stringify(n.theme) !== JSON.stringify(Hub.school.theme || null);
       var lch = JSON.stringify([n.brand, n.off, n.live]) !== JSON.stringify([Hub.school.brand || null, Hub.school.off || [], Hub.school.live || null]);
-      Hub.school = n; if (ch) Hub.emit('school'); if (lch) Hub.emit('live'); if (tch && Hub.applyTheme) Hub.applyTheme(); return n;
+      var oldSubs = Hub.school.subs; Hub.school = n; if (JSON.stringify(n.subs) !== JSON.stringify(oldSubs || null)) { Hub.emit('notifs'); if (n.subs && oldSubs && n.subs.n > oldSubs.n && n.subs.last !== oldSubs.last) Hub.emit('subs:new', n.subs); } if (ch) Hub.emit('school'); if (lch) Hub.emit('live'); if (tch && Hub.applyTheme) Hub.applyTheme(); return n;
     });
   };
   Hub.locked = function () { return Hub.school.on && !Hub.school.exempt; };
@@ -297,6 +297,7 @@
     if (p.nDaily && Hub.dailyReady() && Hub.wallet) push({ id: 'daily:' + new Date().toDateString(), type: 'daily', icon: 'gift', title: 'Daily reward is ready', body: 'Claim ' + Hub.num(Hub.dailyNext()) + ' Scrolls now.', ts: Date.now() });
     if (p.nUpd) Hub.updatable().forEach(function (g) { push({ id: 'upd:' + g.id + ':' + g.v + ':' + g.rev, type: 'update', game: g, title: g.title + ' has an update', body: 'Version ' + g.v + (g.notes ? ': ' + g.notes : ''), ts: g.ts || Date.now() }); });
     if (p.nFriends) Hub.friends.incoming.forEach(function (f) { push({ id: 'fr:' + f.id, type: 'friend', friend: f, icon: 'user-plus', title: f.username + ' wants to be friends', body: 'Accept the request to see when they are online.', ts: Date.now() }); });
+    if (Hub.school.subs && Hub.school.subs.n > 0) push({ id: 'subs:' + Hub.school.subs.last + ':' + Hub.school.subs.n, type: 'subs', icon: 'megaphone', title: Hub.school.subs.n + ' creation' + (Hub.school.subs.n === 1 ? '' : 's') + ' waiting for approval', body: 'Open Admin, Review, Submissions to approve or reject.', href: '#/admin/subs', ts: Date.now() });
     if (p.nNews) (Hub.manifest.feed || []).slice(0, 6).forEach(function (f) { push({ id: 'feed:' + f.id + ':' + f.v + ':' + f.ts, type: 'news', icon: 'megaphone', game: Hub.byId[f.id], title: f.title + ' updated to v' + f.v, body: f.notes || 'A new version is out.', ts: f.ts }); });
     out.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return out;

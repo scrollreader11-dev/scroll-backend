@@ -32,7 +32,7 @@ export async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
+const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 const TUT_PLAYS = 3, TUT_REWARD = 1000000, TUT_VER = 2;
 // Owner-adjustable tour settings (admin panel > Site controls): on/off, reward, and a version that replays it for everyone.
 const tutOn = () => !(casino.cfg && casino.cfg.tutOn === false);
@@ -50,7 +50,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
+function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -69,7 +69,7 @@ export async function initCasino() {
 }
 let dirty = false;
 let rigDry = false, rigPlays = null, rigPending = []; // owner rigging tool: see the Rigging section
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120) }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subs: casino.subs }); }
 function save() { dirty = true; if (rigDry) return; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -631,42 +631,105 @@ function cleanSprite(sp) {
 function banOut(v) { if (typeof v === 'string' && v.startsWith('cb:')) { const it = casino.custom.find((x) => x.ref === v); return it ? it.value : ''; } return v || ''; }
 function overrideMap() { const o = { skin: {}, hat: {}, acc: {} }; for (const it of casino.custom) if (it.replaces && it.sprite && o[it.type]) o[it.type][it.replaces] = it.value; return o; }
 function spriteMap() { const out = {}; for (const it of casino.custom) if (it.sprite) out[it.value] = it.sprite; return out; }
+function authName(req) { const a = req._auth; return String((a && (a.username || (a.account && a.account.username) || a.name)) || ''); }
 function isSpriteOwner(req) { const a = req._auth; const n = a && (a.username || (a.account && a.account.username) || a.name); return String(n || '').toLowerCase() === SPRITE_OWNER; }
+// Checks and cleans what the Sprite Studio sends. Returns { err } or the cleaned creation.
+function buildSprite(b, owner) {
+  const type = ['skin', 'hat', 'acc', 'banner', 'tag'].includes(b.type) ? b.type : null;
+  if (!type) return { err: 'Pick what you are making first.' };
+  let sprite = null, params = null, value = null, fx = '';
+  let label = String(b.label || '').replace(/[<>]/g, '').trim().slice(0, 28) || 'My creation';
+  if (type === 'banner') { params = globalThis.SHBanner.clean(b.banner); value = globalThis.SHBanner.css(params); }
+  else if (type === 'tag') {
+    label = Array.from(String((b.tag && b.tag.text) || '').replace(/[\u0000-\u001f<>&"`\\]/g, '')).slice(0, 18).join('').trim();
+    if (!label) return { err: 'Type the name tag text first.' };
+    fx = TAG_FX.includes(b.tag && b.tag.fx) ? b.tag.fx : '';
+  } else { sprite = cleanSprite(b.sprite); if (!sprite) return { err: 'Draw something first!' }; }
+  let replaces = '';
+  if (owner && b.replaces && ['skin', 'hat', 'acc'].includes(type)) {
+    const orig = STORE.find((x) => !x.custom && x.type === type && x.value === b.replaces);
+    if (!orig) return { err: 'Could not find the item you want to replace.' };
+    replaces = orig.value;
+  }
+  const price = Math.max(0, Math.min(1000000, Math.floor(Number(b.price) || 0)));
+  const rarity = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(b.rarity) ? b.rarity : 'rare';
+  return { type, label, sprite, params, value, fx, replaces, price, rarity };
+}
+// Puts a cleaned creation into the shop (new item, or updates an existing one by id).
+function commitSprite(built, id) {
+  const { type, label, sprite, params, value, fx, replaces, price, rarity } = built;
+  let it = id ? casino.custom.find((x) => x.id === id) : null;
+  if (it) {
+    if (it.type !== type) return { err: 'You can’t change the type of a saved item — save it as new instead.' };
+    Object.assign(it, { label, price, rarity, sprite, params, fx, replaces, at: Date.now() }); if (value) it.value = value;
+  } else {
+    if (casino.custom.length >= 300) return { err: 'That’s a lot of creations! Delete some first.' };
+    const key = Math.random().toString(36).slice(2, 9);
+    it = { id: 'cu_' + type + '_' + key, type, label, value: value || (type === 'tag' ? label : 'c:' + key), price, rarity, sprite, params, fx, replaces, at: Date.now(), ...(type === 'banner' ? { ref: 'cb:' + key } : {}) };
+    casino.custom.push(it);
+  }
+  if (replaces) for (const x of casino.custom) if (x !== it && x.type === type && x.replaces === replaces) x.replaces = '';
+  syncCustomStore(); save(); flush();
+  return it;
+}
+
+// ---- Submissions: what players make in the Sprite Studio and map builder waits here until the owner decides ----
+const SUB_MAX_PENDING_EACH = 5, SUB_MAX_PENDING_ALL = 80, SUB_MAX_BYTES = 220000;
+let subHook = null;   // server.js sets this to ping the owner
+export function setSubHook(fn) { subHook = fn; }
+export function subAdd(o) {
+  const size = JSON.stringify(o.payload || {}).length;
+  if (size > SUB_MAX_BYTES) return { err: 'That is too big to send. Try something smaller.' };
+  const mine = casino.subs.filter((x) => x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase());
+  if (o.replaceId) { const k = casino.subs.findIndex((x) => x.id === o.replaceId && x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase()); if (k >= 0) { casino.subs.splice(k, 1); mine.splice(0, mine.length, ...casino.subs.filter((x) => x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase())); } }
+  if (mine.length >= SUB_MAX_PENDING_EACH) return { err: 'You already have ' + SUB_MAX_PENDING_EACH + ' waiting for approval. Wait for an answer first.' };
+  if (casino.subs.filter((x) => x.status === 'pending').length >= SUB_MAX_PENDING_ALL) return { err: 'The approval queue is full right now. Try again later.' };
+  const sub = { id: 's_' + Math.random().toString(36).slice(2, 10), kind: o.kind, by: o.by, byId: o.byId || '', title: String(o.title || 'Untitled').slice(0, 60), at: Date.now(), status: 'pending', note: '', payload: o.payload };
+  casino.subs.push(sub);
+  if (casino.subs.length > 400) { const dec = casino.subs.filter((x) => x.status !== 'pending'); if (dec.length) casino.subs.splice(casino.subs.indexOf(dec[0]), 1); }
+  save(); flush();
+  try { subHook && subHook(sub); } catch (e) {}
+  return { ok: true, sub };
+}
+export function subPending() { return casino.subs.filter((x) => x.status === 'pending').length; }
+export function subLatest() { const p = casino.subs.filter((x) => x.status === 'pending'); return p.length ? p[p.length - 1] : null; }
+export function subList(status) { return casino.subs.filter((x) => !status || x.status === status).slice().sort((a, b) => b.at - a.at); }
+export function subMine(by, kind) { return casino.subs.filter((x) => x.by.toLowerCase() === String(by || '').toLowerCase() && (!kind || x.kind === kind)).slice().sort((a, b) => b.at - a.at).slice(0, 30).map((x) => ({ id: x.id, kind: x.kind, title: x.title, at: x.at, status: x.status, note: x.note || '' })); }
+export function subGet(id) { return casino.subs.find((x) => x.id === id) || null; }
+export function subRemoveOwn(id, by) { const k = casino.subs.findIndex((x) => x.id === id && x.status === 'pending' && x.by.toLowerCase() === String(by || '').toLowerCase()); if (k < 0) return false; casino.subs.splice(k, 1); save(); flush(); return true; }
+// Owner's decision. For a sprite, approving puts it in the shop (price and rarity can be set here). Maps are published by server.js.
+export function subDecide(id, approve, o) {
+  o = o || {};
+  const sub = subGet(id); if (!sub) return { err: 'That submission is gone.' };
+  if (sub.status !== 'pending') return { err: 'It was already ' + sub.status + '.' };
+  let result = {};
+  if (approve && sub.kind === 'sprite') {
+    const pl = sub.payload || {}, built = { ...pl, replaces: '' };
+    if (o.price != null) built.price = Math.max(0, Math.min(1000000, Math.floor(Number(o.price) || 0)));
+    if (['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(o.rarity)) built.rarity = o.rarity;
+    const it = commitSprite(built, null); if (it.err) return { err: it.err };
+    sub.itemId = it.id; result.itemId = it.id;
+  }
+  sub.status = approve ? 'approved' : 'rejected'; sub.note = String(o.note || '').slice(0, 200); sub.decidedAt = Date.now(); sub.by2 = o.by || '';
+  if (!approve || sub.kind === 'map') sub.payload = { dropped: true };   // rejected, or already published as a real map
+  save(); flush();
+  return { ok: true, sub, ...result };
+}
 async function handleSprites(path, req, res) {
-  if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), overrides: overrideMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at, params: it.params, fx: it.fx || '', replaces: it.replaces || '' })), canEdit: isSpriteOwner(req) }); return true; }
+  if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), overrides: overrideMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at, params: it.params, fx: it.fx || '', replaces: it.replaces || '' })), canEdit: isSpriteOwner(req), canSubmit: !!authName(req), mine: authName(req) ? subMine(authName(req), 'sprite') : [] }); return true; }
   if (path === '/api/casino/sprites/save' && req.method === 'POST') {
-    if (!isSpriteOwner(req)) return (sendJson(res, 403, { error: 'Only Scrollreader11 can save sprites.' }), true);
-    const b = await readBody(req);
-    const type = ['skin', 'hat', 'acc', 'banner', 'tag'].includes(b.type) ? b.type : null;
-    if (!type) return (sendJson(res, 400, { error: 'Pick what you are making first.' }), true);
-    let sprite = null, params = null, value = null, fx = '';
-    let label = String(b.label || '').replace(/[<>]/g, '').trim().slice(0, 28) || 'My creation';
-    if (type === 'banner') { params = globalThis.SHBanner.clean(b.banner); value = globalThis.SHBanner.css(params); }
-    else if (type === 'tag') {
-      label = Array.from(String((b.tag && b.tag.text) || '').replace(/[\u0000-\u001f<>&"`\\]/g, '')).slice(0, 18).join('').trim();
-      if (!label) return (sendJson(res, 400, { error: 'Type the name tag text first.' }), true);
-      fx = TAG_FX.includes(b.tag && b.tag.fx) ? b.tag.fx : '';
-    } else { sprite = cleanSprite(b.sprite); if (!sprite) return (sendJson(res, 400, { error: 'Draw something first!' }), true); }
-    let replaces = '';
-    if (b.replaces && ['skin', 'hat', 'acc'].includes(type)) {
-      const orig = STORE.find((x) => !x.custom && x.type === type && x.value === b.replaces);
-      if (!orig) return (sendJson(res, 400, { error: 'Could not find the item you want to replace.' }), true);
-      replaces = orig.value;
+    const b = await readBody(req), owner = isSpriteOwner(req);
+    const built = buildSprite(b, owner);
+    if (built.err) return (sendJson(res, 400, { error: built.err }), true);
+    if (!owner) {   // everyone else: goes to the owner's approval queue instead of the shop
+      const a = req._auth, name = a && (a.username || (a.account && a.account.username) || a.name);
+      if (!a || !name) return (sendJson(res, 403, { error: 'Sign in to send a creation for approval.' }), true);
+      const r = subAdd({ kind: 'sprite', by: String(name), byId: String(a.id || ''), title: built.label, payload: { type: built.type, label: built.label, sprite: built.sprite, params: built.params, fx: built.fx, value: built.value, price: built.price, rarity: built.rarity } });
+      if (r.err) return (sendJson(res, 429, { error: r.err }), true);
+      sendJson(res, 200, { ok: true, pending: true, message: 'Sent to Scrollreader11 for approval. You will see the answer under "Your submissions".' }); return true;
     }
-    const price = Math.max(0, Math.min(1000000, Math.floor(Number(b.price) || 0)));
-    const rarity = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(b.rarity) ? b.rarity : 'rare';
-    let it = b.id ? casino.custom.find((x) => x.id === b.id) : null;
-    if (it) {
-      if (it.type !== type) return (sendJson(res, 400, { error: 'You can’t change the type of a saved item — save it as new instead.' }), true);
-      Object.assign(it, { label, price, rarity, sprite, params, fx, replaces, at: Date.now() }); if (value) it.value = value;
-    } else {
-      if (casino.custom.length >= 300) return (sendJson(res, 400, { error: 'That’s a lot of creations! Delete some first.' }), true);
-      const key = Math.random().toString(36).slice(2, 9);
-      it = { id: 'cu_' + type + '_' + key, type, label, value: value || (type === 'tag' ? label : 'c:' + key), price, rarity, sprite, params, fx, replaces, at: Date.now(), ...(type === 'banner' ? { ref: 'cb:' + key } : {}) };
-      casino.custom.push(it);
-    }
-    if (replaces) for (const x of casino.custom) if (x !== it && x.type === type && x.replaces === replaces) x.replaces = ''; // only one replacement per original
-    syncCustomStore(); save(); flush();
+    const it = commitSprite(built, b.id);
+    if (it.err) return (sendJson(res, 400, { error: it.err }), true);
     sendJson(res, 200, { ok: true, item: { id: it.id, value: it.value } }); return true;
   }
   if (path === '/api/casino/sprites/delete' && req.method === 'POST') {

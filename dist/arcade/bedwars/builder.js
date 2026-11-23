@@ -281,16 +281,16 @@
   function loadCm(cm) { E = fromCm(cm); undo.length = 0; redo.length = 0; S.dirty = false; S.tab = 'ground'; S.item = null; afterLoad(); cam.x = 36 * T; cam.y = 36 * T; }
   var saveCb = null;
   function save(cb) {
-    if (!S.mapper) { toast('Only the map maker can save maps', 2000); return; }
+    if (!S.mapper && !S.maker) { toast('Sign in to send maps', 2000); return; }
     if (!E.name.trim()) { E.name = M.GAMES[E.game].name + ' map'; $('name').value = E.name; }
-    saveCb = cb || null; send({ t: 'mb', a: 'save', map: toCm(E) }); toast('Saving…', 900);
+    saveCb = cb || null; send({ t: 'mb', a: 'save', map: toCm(E) }); toast(S.mapper ? 'Saving…' : 'Sending…', 900);
   }
   function renderMaps(list, rot) {
-    $('defRot').innerHTML = ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { return '<label class="sw"><input type="checkbox" data-def="' + g + '"' + (rot[g] && rot[g].def ? ' checked' : '') + '> ' + M.GAMES[g].icon + ' ' + M.GAMES[g].name + '</label>'; }).join(' ');
+    $('defRot').innerHTML = !S.mapper ? '' : ['bw', 'ctf', 'spleef', 'hide'].map(function (g) { return '<label class="sw"><input type="checkbox" data-def="' + g + '"' + (rot[g] && rot[g].def ? ' checked' : '') + '> ' + M.GAMES[g].icon + ' ' + M.GAMES[g].name + '</label>'; }).join(' ');
     $('mapList').innerHTML = list.length ? list.map(function (m) {
-      return '<tr><td>' + M.GAMES[m.game].icon + '</td><td><b>' + esc(m.name) + '</b><br><span class="hint">' + esc(m.author || '') + ' · ' + new Date(m.at).toLocaleDateString() + '</span></td><td>' + (m.ok ? '<span class="tg" style="background:#2bd576;color:#05240f">ready</span>' : '<span class="tg" style="background:#ffd166;color:#2a1300">unfinished</span>') + '</td>' +
-        '<td>' + (m.ok ? '<label class="sw"><input type="checkbox" data-rot="' + m.id + '" data-g="' + m.game + '"' + (m.rot ? ' checked' : '') + '> in rotation</label>' : '') + '</td>' +
-        '<td style="text-align:right;white-space:nowrap"><button class="b" data-open="' + m.id + '">Edit</button> ' + (m.ok ? '<button class="b green" data-test="' + m.id + '" data-g="' + m.game + '">▶</button> ' : '') + '<button class="b red" data-del="' + m.id + '"></button></td></tr>';
+      return '<tr><td>' + M.GAMES[m.game].icon + '</td><td><b>' + esc(m.name) + '</b><br><span class="hint">' + esc(m.author || '') + ' · ' + new Date(m.at).toLocaleDateString() + '</span></td><td>' + (m.pending ? '<span class="tg" style="background:#7aa2ff;color:#06143a">waiting for approval</span>' : m.rejected ? '<span class="tg" style="background:#ff7a7a;color:#3a0606">not approved</span>' + (m.note ? '<br><span class="hint">' + esc(m.note) + '</span>' : '') : m.ok ? '<span class="tg" style="background:#2bd576;color:#05240f">ready</span>' : '<span class="tg" style="background:#ffd166;color:#2a1300">unfinished</span>') + '</td>' +
+        '<td>' + (m.ok && S.mapper ? '<label class="sw"><input type="checkbox" data-rot="' + m.id + '" data-g="' + m.game + '"' + (m.rot ? ' checked' : '') + '> in rotation</label>' : '') + '</td>' +
+        '<td style="text-align:right;white-space:nowrap"><button class="b" data-open="' + m.id + '">' + (S.mapper || m.pending || m.rejected ? 'Edit' : 'Copy and edit') + '</button> ' + (m.ok ? '<button class="b green" data-test="' + m.id + '" data-g="' + m.game + '">▶</button> ' : '') + '' + (S.mapper || m.pending || m.rejected ? '<button class="b red" data-del="' + m.id + '"></button>' : '') + '</td></tr>';
     }).join('') : '<tr><td class="hint">No maps yet — make one!</td></tr>';
   }
   $('maps').addEventListener('change', function (e) {
@@ -313,12 +313,14 @@
     ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/bw-ws?builder=1');
     ws.onmessage = function (ev) {
       var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-      if (m.t === 'hello') { S.mapper = !!m.mapper; if (!S.mapper) { $('lock').classList.remove('hidden'); $('lockMsg').innerHTML = 'Only <b>Scrollreader11</b> can build maps.<br>Log in to that account to use the builder.'; } else { $('lock').classList.add('hidden'); send({ t: 'mb', a: 'list' }); } }
+      if (m.t === 'hello') { S.mapper = !!m.mapper; S.maker = !!m.maker; if (!S.mapper && !S.maker) { $('lock').classList.remove('hidden'); $('lockMsg').innerHTML = 'Sign in to ScrollHub to build maps.<br>Your maps are sent to Scrollreader11, who decides what goes live.'; } else { $('lock').classList.add('hidden'); if (!S.mapper) $('save').textContent = 'Send for approval'; send({ t: 'mb', a: 'list' }); } }
       if (m.t === 'err' && m.code === 'login') { $('lock').classList.remove('hidden'); $('lockMsg').textContent = 'Log in to ScrollHub first.'; }
       if (m.t === 'mbl') renderMaps(m.maps, m.rot);
       if (m.t === 'mbg' && m.map) { loadCm(m.map); toast('Opened "' + esc(m.map.name) + '"', 1400); }
       if (m.t === 'mbs') {
         if (!m.ok) { toast('' + esc(m.msg || 'Couldn’t save'), 2400); return; }
+        if (m.pending) { E.id = m.id; S.dirty = false; toast('Sent for approval! Scrollreader11 will review it. Check the map list for the answer.', 4200); saveCb = null; return; }
+        if (m.saved === false) { S.problems = m.problems || []; toast(esc(m.msg || 'Fix the problems first'), 3200); saveCb = null; return; }
         E.id = m.id; S.dirty = false;
         toast(m.problems && m.problems.length ? 'Saved as a draft — ' + m.problems.length + ' thing(s) to fix before it can be played' : 'Saved! It’s ready to play', 2400);
         var cb = saveCb; saveCb = null; if (cb) cb(m.id);
