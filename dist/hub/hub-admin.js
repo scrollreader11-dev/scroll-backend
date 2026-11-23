@@ -67,23 +67,25 @@
       h('div', { class: 'ah-tx' }, [h('div', { class: 'ah-k', text: 'Admin tools' }), h('h1', { text: role() === 'coowner' ? 'Co-owner panel' : own ? 'Owner panel' : 'Moderator panel' }), h('p', { text: role() === 'coowner' ? 'Nearly full control of the site. Only the owner changes roles or acts on owners.' : own ? 'Full control of the site: players, Scrolls, items, staff and settings.' : 'Moderation tools. Owners can change what you have access to.' })]),
       h('div', { class: 'ah-r' }, [badge(role()), h('span', { class: 'ah-n', text: Hub.me.name })]),
     ]);
+    // Two-level navigation: pick a group, then a panel in it. No long sidebar to scroll.
+    var groups = [], gmap = {};
+    tabs.forEach(function (t) { if (!gmap[t[4]]) { gmap[t[4]] = { name: t[4], tabs: [] }; groups.push(gmap[t[4]]); } gmap[t[4]].tabs.push(t); });
+    var cur = tabs.filter(function (t) { return t[0] === tab; })[0], curGroup = cur ? cur[4] : groups[0].name;
     var nav = h('nav', { class: 'adm-nav', 'aria-label': 'Admin sections' });
-    var find = h('input', { class: 'input adm-find', type: 'search', placeholder: 'Find a panel', 'aria-label': 'Find a panel', autocomplete: 'off', spellcheck: 'false' });
-    nav.appendChild(find);
-    var navItems = [], lastGroup = '';
-    tabs.forEach(function (t) {
-      var gh = null; if (t[4] !== lastGroup) { lastGroup = t[4]; gh = h('div', { class: 'adm-gh', text: t[4] }); nav.appendChild(gh); }
-      var a2 = h('a', { href: '#/admin/' + t[0], class: t[0] === tab ? 'on' : '', 'aria-current': t[0] === tab ? 'page' : null }, [icon(t[2]), h('span', { text: t[1] })]);
-      nav.appendChild(a2); navItems.push({ t: t, a: a2, g: gh });
+    var gRow = h('div', { class: 'adm-groups', role: 'tablist' });
+    groups.forEach(function (g) {
+      var on = g.name === curGroup, first = (g.tabs.filter(function (t) { return t[0] === (Hub.ls.raw('sh_adm_last_' + g.name) || ''); })[0] || g.tabs[0]);
+      gRow.appendChild(h('a', { href: '#/admin/' + first[0], class: 'adm-g' + (on ? ' on' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false' }, [icon(g.tabs[0][2]), h('span', { text: g.name }), h('i', { class: 'gn', text: String(g.tabs.length) })]));
     });
-    find.addEventListener('input', function () {
-      var q = find.value.trim().toLowerCase(), shown = {};
-      navItems.forEach(function (it) { var ok = !q || (it.t[1] + ' ' + (it.t[5] || '') + ' ' + it.t[4]).toLowerCase().indexOf(q) >= 0; it.a.hidden = !ok; if (ok) shown[it.t[4]] = 1; });
-      navItems.forEach(function (it) { if (it.g) it.g.hidden = !shown[it.t[4]]; });
+    gRow.appendChild(h('button', { type: 'button', class: 'adm-search', 'aria-label': 'Search panels (Ctrl K)', title: 'Search panels (Ctrl K)', onclick: function () { Hub.adminPalette && Hub.adminPalette(); } }, [icon('search'), h('span', { text: 'Search' }), h('kbd', { text: 'Ctrl K' })]));
+    var tRow = h('div', { class: 'adm-tabs', role: 'tablist' });
+    gmap[curGroup].tabs.forEach(function (t) {
+      tRow.appendChild(h('a', { href: '#/admin/' + t[0], class: 'adm-t' + (t[0] === tab ? ' on' : ''), role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', 'aria-current': t[0] === tab ? 'page' : null }, [icon(t[2]), h('span', { text: t[1] })]));
     });
-    find.addEventListener('keydown', function (e) { if (e.key === 'Enter') { var f = navItems.filter(function (it) { return !it.a.hidden; })[0]; if (f) location.hash = '#/admin/' + f.t[0]; } });
+    try { localStorage.setItem('sh_adm_last_' + curGroup, tab); } catch (e) {}
+    nav.appendChild(gRow); nav.appendChild(tRow);
     var host = h('div', { class: 'adm-main' });
-    v.appendChild(hero); v.appendChild(h('div', { class: 'adm-grid' }, [nav, host]));
+    v.appendChild(hero); v.appendChild(nav); v.appendChild(host);
     (PANES[tab] || PANES.overview)(host);
     return v;
   };
