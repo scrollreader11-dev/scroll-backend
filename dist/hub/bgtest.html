@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Background check</title>
+<style>
+:root{color-scheme:dark}body{margin:0;background:#070b16;color:#e8eefc;font:15px/1.45 system-ui,sans-serif;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 6px}p{margin:0 0 16px;color:#9fb0d0;max-width:60ch}
+#sum{font-weight:700;margin:0 0 18px;padding:12px 14px;border-radius:12px;background:#121a2e;border:1px solid #243150}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.c{border:1px solid #243150;border-radius:14px;overflow:hidden;background:#0d1426}
+.c video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}
+.c .t{padding:9px 12px;display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.s{font-weight:700}.ok{color:#4ade80}.bad{color:#f87171}.wait{color:#fbbf24}
+</style></head><body>
+<h1>Background check</h1>
+<p>This page tries every animated background from your own browser. Green means the clip plays. Red means it was blocked or the address is wrong, and ScrollHub would show a plain background for it.</p>
+<div id="sum">Testing...</div><div class="g" id="g"></div>
+<script>
+var W={stars:['Stars',1610],aurora:['Northern lights',4038],nebula:['Nebula flight',30889],milkyway:['Milky Way',46101],galaxy:['Galaxy',10417],wormhole:['Wormhole',18791],colorflow:['Color flow',48838],lightshapes:['Light shapes',3987],silk:['Blue silk',40211],heavyrain:['Heavy rain',28087],rainytraffic:['Rainy traffic',4331],rainywindow:['Rainy window',2846],citynight:['City at night',49878],waterfall:['Waterfall',2213],waves:['Beach waves',5016],snow:['Snowfall',8468],fireworks:['Fireworks',4064],smoke:['Smoke',8461],bokeh:['Bokeh lights',38],tunnel:['Neon tunnel',34317],particles:['Particles',18140],sunset:['Beach sunset',51445]};
+var g=document.getElementById('g'),sum=document.getElementById('sum'),done=0,good=0,keys=Object.keys(W);
+keys.forEach(function(k){
+  var n=W[k][1],c=document.createElement('div');c.className='c';
+  var v=document.createElement('video');v.muted=true;v.loop=true;v.autoplay=true;v.playsInline=true;v.preload='auto';v.referrerPolicy='no-referrer';
+  var t=document.createElement('div');t.className='t';var a=document.createElement('span');a.textContent=W[k][0];var s=document.createElement('span');s.className='s wait';s.textContent='testing';t.appendChild(a);t.appendChild(s);
+  c.appendChild(v);c.appendChild(t);g.appendChild(c);
+  var qs=['720','360'],i=0,fin=false,timer;
+  function finish(ok,q){if(fin)return;fin=true;clearTimeout(timer);done++;if(ok)good++;s.className='s '+(ok?'ok':'bad');s.textContent=ok?'plays ('+q+'p)':'blocked';sum.textContent=done<keys.length?'Testing... '+done+' of '+keys.length:good+' of '+keys.length+' backgrounds play on this connection.'+(good<keys.length?' Send me a screenshot of this page.':'');}
+  function go(){v.src='https://assets.mixkit.co/videos/'+n+'/'+n+'-'+qs[i]+'.mp4';v.load();var p=v.play();if(p&&p.catch)p.catch(function(){});}
+  v.addEventListener('loadeddata',function(){finish(true,qs[i]);});
+  v.addEventListener('error',function(){i++;if(i<qs.length)go();else finish(false);});
+  timer=setTimeout(function(){finish(false);},20000);
+  go();
+});
+</script></body></html>

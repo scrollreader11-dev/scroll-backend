@@ -19,7 +19,7 @@
 
   // ---------- background video ----------
   Hub.syncVideo = function () {
-    var v = $('#bgv'); if (!v) return; var de0 = document.documentElement, want = (de0.getAttribute('data-bg') || 'video') === 'video' || de0.hasAttribute('data-bgfail'); want = want && Hub.prefs.video === 'on' && !Hub.prefs.reduce && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) && Hub.prefs.motion !== 'reduce';
+    var v = $('#bgv'); if (!v) return; var de0 = document.documentElement, want = (de0.getAttribute('data-bg') || 'video') === 'video'; want = want && Hub.prefs.video === 'on' && !Hub.prefs.reduce && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) && Hub.prefs.motion !== 'reduce';
     if (!want) { try { v.pause(); } catch (e) {} return; }
     var src = window.innerWidth < 900 ? '/hub/bg-m.mp4' : '/hub/bg.mp4';
     if (v.getAttribute('data-src') !== src) { v.setAttribute('data-src', src); v.src = src; v.load(); }

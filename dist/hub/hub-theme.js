@@ -46,7 +46,7 @@
     webStop(); wvKey = key;
     var tries = custom ? [custom] : (small ? ['360'] : ['720', '360']).map(function (q) { return webSrc(clip, q); }), n = 0;
     wv = document.createElement('video'); wv.id = 'bgweb'; wv.muted = true; wv.defaultMuted = true; wv.loop = true; wv.autoplay = true; wv.playsInline = true; wv.preload = 'auto'; wv.setAttribute('playsinline', ''); wv.setAttribute('webkit-playsinline', ''); wv.setAttribute('aria-hidden', 'true'); wv.tabIndex = -1; wv.disablePictureInPicture = true; wv.referrerPolicy = 'no-referrer';
-    wv.addEventListener('error', function () { n++; if (n < tries.length) { wv.src = tries[n]; wv.load(); } else { document.documentElement.setAttribute('data-bgfail', '1'); Hub.syncVideo && Hub.syncVideo(); } });
+    wv.addEventListener('error', function () { n++; if (n < tries.length) { wv.src = tries[n]; wv.load(); } else { document.documentElement.setAttribute('data-bgfail', '1'); try { if (!Hub.ls.raw('sh_bgfail_' + key)) { Hub.ls.set('sh_bgfail_' + key, 1); Hub.toast('That background could not load, so a plain one is showing. Try another.'); } } catch (e) {} } });
     wv.addEventListener('loadeddata', function () { wv.classList.add('ready'); });
     wv.src = tries[0];
     var bgv = document.getElementById('bgv'); if (bgv && bgv.parentNode) bgv.parentNode.insertBefore(wv, bgv.nextSibling); else document.body.insertBefore(wv, document.body.firstChild);

@@ -838,7 +838,7 @@ body.in-dc .dc { height: var(--app-h); border-radius: 0; border: 0; box-shadow: 
 @keyframes tourArrow { 50% { opacity: .45; } }
 
 /* ---------- appearance: backgrounds, accent, dim ---------- */
-html[data-bg]:not([data-bg="video"]):not([data-bgfail]) #bgv { display: none; }
+html[data-bg]:not([data-bg="video"]) #bgv { display: none; }
 html[data-bg]:not([data-bg="video"]):not([data-bg="custom"]) body { background: var(--ink); }
 #bgfx::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, var(--dim, 0)); }
 .btn.primary { background: linear-gradient(180deg, var(--blue-hi) 0%, var(--blue) 55%, var(--blue-lo) 100%); border-color: rgba(255, 255, 255, .28); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 8px 22px color-mix(in srgb, var(--blue) 45%, transparent); }
@@ -930,6 +930,5 @@ html[data-bg="custom"] body { background: #04070e var(--bg-img) center / cover n
 #bgweb { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; background: #04070e; opacity: 0; transition: opacity .8s ease; pointer-events: none; }
 #bgweb.ready { opacity: 1; }
 html[data-bg]:not([data-bg="video"]):not([data-bg="custom"]) body { background: radial-gradient(1100px 700px at 15% -10%, color-mix(in srgb, var(--blue) 26%, transparent), transparent 60%), #04070e; }
-html[data-bgfail] #bgv { display: block; }
 .tprev.tweb::before { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -8px 0 0 -5px; border-left: 14px solid rgba(255, 255, 255, .85); border-top: 8px solid transparent; border-bottom: 8px solid transparent; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
 .tgrid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
