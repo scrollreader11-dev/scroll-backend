@@ -26,7 +26,7 @@ import * as GMS from './gamemaps.js';
 import { handleBedwarsUpgrade, bwOnline, bwAdminRooms, bwEndRoom } from './bedwars.js';
 import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
-import { setSubHook, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { setSubHook, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -1054,7 +1054,7 @@ async function handleStaff(req, res) {
       return sendJson(res, 200, { ok: true, winners: names, amount, message: msg });
     }
   }
-  if (/^subs\.(list|approve|reject)$/.test(action)) {
+  if (/^subs\.(list|approve|reject|bulk|block|unblock)$/.test(action)) {
     if (!trueOwner) return sendJson(res, 403, { error: 'owner only', message: 'Only the owner decides on submissions.' });
     const light = (x) => {
       const o = { id: x.id, kind: x.kind, by: x.by, title: x.title, at: x.at, status: x.status, note: x.note || '', decidedAt: x.decidedAt || 0 };
@@ -1067,7 +1067,32 @@ async function handleStaff(req, res) {
     };
     if (action === 'subs.list') {
       const pend = subList('pending').reverse().map(light), done = subList().filter((x) => x.status !== 'pending').slice(0, 40).map(light);
-      return sendJson(res, 200, { ok: true, pending: pend, done });
+      const blocked = subBlockList().map((b) => b.user);
+      pend.forEach((o) => { o.blocked = blocked.includes(String(o.by).toLowerCase()); });
+      return sendJson(res, 200, { ok: true, pending: pend, done, blocked });
+    }
+    if (action === 'subs.block' || action === 'subs.unblock') {
+      const r = subBlockSet(body.user, action === 'subs.block', body.reject !== false);
+      if (r.err) return sendJson(res, 200, { error: 'bad', message: r.err });
+      audit(who, action, String(body.user || ''), r.rejected ? 'rejected ' + r.rejected + ' waiting' : '');
+      return sendJson(res, 200, { ok: true, rejected: r.rejected });
+    }
+    if (action === 'subs.bulk') {
+      const mode = body.mode === 'reject' ? 'reject' : 'approve', only = body.user ? String(body.user).toLowerCase() : '';
+      const rar = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(body.rarity) ? body.rarity : undefined;
+      let ok = 0, skipped = 0;
+      for (const sb of subList('pending')) {
+        if (only && String(sb.by).toLowerCase() !== only) continue;
+        if (mode === 'reject') { if (!subDecide(sb.id, false, { note: body.note, by: who.username }).err) ok++; continue; }
+        if (sb.kind === 'map') {
+          const sv = GMS.saveMap({ ...(sb.payload || {}) }, sb.by);
+          if (!sv.ok || sv.problems.length) { skipped++; if (sv.ok) GMS.deleteMap(sv.id, who.username); continue; }
+          GMS.setRotation(String(sb.payload.game), sv.id, true);
+          if (!subDecide(sb.id, true, { note: body.note, by: who.username, mapId: sv.id, meta: { game: sb.payload.game, name: sb.payload.name } }).err) ok++;
+        } else if (!subDecide(sb.id, true, { note: body.note, price: body.price, rarity: rar, by: who.username }).err) ok++;
+      }
+      audit(who, 'subs.bulk', only || 'everyone', mode + ' ' + ok + (skipped ? ', skipped ' + skipped : ''));
+      return sendJson(res, 200, { ok: true, done: ok, skipped });
     }
     const id = String(body.id || ''), sub = subGet(id);
     if (!sub) return sendJson(res, 200, { error: 'gone', message: 'That submission is gone.' });
@@ -1084,7 +1109,7 @@ async function handleStaff(req, res) {
       extra = { mapId: sv.id, problems: sv.problems };
       if (body.rotation !== false && !sv.problems.length) GMS.setRotation(String(sub.payload.game), sv.id, true);
     }
-    const r = subDecide(id, true, { note: body.note, price: body.price, rarity: body.rarity, by: who.username });
+    const r = subDecide(id, true, { note: body.note, price: body.price, rarity: body.rarity, by: who.username, mapId: extra.mapId, meta: sub.kind === 'map' ? { game: sub.payload.game, name: sub.payload.name } : null });
     if (r.err) return sendJson(res, 200, { error: 'bad', message: r.err });
     audit(who, 'subs.approve', sub.by, sub.kind + ': ' + sub.title);
     return sendJson(res, 200, { ok: true, ...extra });
@@ -2460,6 +2485,10 @@ const httpServer = createServer(async (req, res) => {
     if (!(i >= 0 && i < poll.opts.length)) return sendJson(res, 400, { error: 'bad choice' });
     poll.votes[voter] = i; saveState().catch(() => {});
     return sendJson(res, 200, { ok: true, live: liveState(voter) });
+  }
+  if (url.split('?')[0] === '/api/hall' && req.method === 'GET') {
+    const maps = hallMapSubs().map((x) => { const m = GMS.getMap(x.mapId); return m && m.ok ? { id: m.id, name: m.name, game: m.game, desc: m.desc || '', by: x.by, at: x.at, walls: (m.w || []).length, props: (m.props || []).length } : null; }).filter(Boolean);
+    return sendJson(res, 200, { ok: true, sprites: hallSprites().slice(0, 200), maps: maps.slice(0, 100) });
   }
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}

@@ -314,6 +314,7 @@
     ws.onmessage = function (ev) {
       var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (m.t === 'hello') { S.mapper = !!m.mapper; S.maker = !!m.maker; if (!S.mapper && !S.maker) { $('lock').classList.remove('hidden'); $('lockMsg').innerHTML = 'Sign in to ScrollHub to build maps.<br>Your maps are sent to Scrollreader11, who decides what goes live.'; } else { $('lock').classList.add('hidden'); if (!S.mapper) $('save').textContent = 'Send for approval'; send({ t: 'mb', a: 'list' }); } }
+      if (m.t === 'hello' && m.mapper) { var oq = /[?&]open=(s_[a-z0-9]+)/.exec(location.search); if (oq) send({ t: 'mb', a: 'get', id: oq[1] }); }
       if (m.t === 'err' && m.code === 'login') { $('lock').classList.remove('hidden'); $('lockMsg').textContent = 'Log in to ScrollHub first.'; }
       if (m.t === 'mbl') renderMaps(m.maps, m.rot);
       if (m.t === 'mbg' && m.map) { loadCm(m.map); toast('Opened "' + esc(m.map.name) + '"', 1400); }

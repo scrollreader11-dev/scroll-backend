@@ -77,7 +77,7 @@
     var gRow = h('div', { class: 'adm-groups', role: 'tablist' });
     groups.forEach(function (g) {
       var on = g.name === curGroup, first = (g.tabs.filter(function (t) { return t[0] === (Hub.ls.raw('sh_adm_last_' + g.name) || ''); })[0] || g.tabs[0]);
-      gRow.appendChild(h('a', { href: '#/admin/' + first[0], class: 'adm-g' + (on ? ' on' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false' }, [icon(g.tabs[0][2]), h('span', { text: g.name }), h('i', { class: 'gn', text: g.name === 'Review' && subN() ? String(subN()) : String(g.tabs.length) })]));
+      gRow.appendChild(h('a', { href: '#/admin/' + first[0], class: 'adm-g' + (on ? ' on' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false' }, [icon(g.tabs[0][2]), h('span', { text: g.name }), g.name === 'Review' && subN() ? h('i', { class: 'gn', text: String(subN()) }) : null]));
     });
     gRow.appendChild(h('button', { type: 'button', class: 'adm-search', 'aria-label': 'Search panels (Ctrl K)', title: 'Search panels (Ctrl K)', onclick: function () { Hub.adminPalette && Hub.adminPalette(); } }, [icon('search'), h('span', { text: 'Search' }), h('kbd', { text: 'Ctrl K' })]));
     var tRow = h('div', { class: 'adm-tabs', role: 'tablist' });

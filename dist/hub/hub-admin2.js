@@ -154,11 +154,12 @@
   P.subs = function (host) {
     var CH = '0123456789abcdefghijklmnopqrstuv', RAR = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['epic', 'Epic'], ['legendary', 'Legendary'], ['mythic', 'Mythic']];
     var KIND = { sprite: 'Sprite Studio', map: 'Map builder' }, TYPE = { skin: 'Gim', hat: 'Hat', acc: 'Accessory', banner: 'Banner', tag: 'Name tag' };
-    var pend = h('div'), hist = h('div');
-    host.appendChild(card('Waiting for you', 'Everything players send from the Sprite Studio and the map builder lands here first. Nothing reaches the shop or the game until you approve it.', pend));
+    var pend = h('div'), hist = h('div'), bulk = h('div', { class: 'adm-row wrap', style: 'margin-bottom:10px' }), blockBox = h('div'), cur = { pending: [], blocked: [] };
+    host.appendChild(card('Waiting for you', 'Everything players send from the Sprite Studio and the map builder lands here first. Nothing reaches the shop or the game until you approve it. Approved gims, hats and tags go straight onto the maker\u2019s profile.', [bulk, pend]));
+    host.appendChild(card('Blocked players', 'These players can still play but can no longer send creations.', blockBox));
     host.appendChild(card('Recent decisions', 'The last 40 things you approved or rejected.', hist));
     function pic(o) {
-      var sp = o.sprite; if (!sp) return h('div', { class: 'sub-pic' });
+      var sp = o.sprite; if (!sp) return h('div', { class: 'sub-pic sub-gm', text: o.map ? ({ bw: 'Bedwars', ctf: 'CTF', spleef: 'Spleef', hide: 'Prop Hunt' }[o.map.game] || 'Map') : '' });
       if (sp.type === 'banner') { var bd = h('div', { class: 'sub-pic wide' }); bd.style.background = String(sp.value || ''); return bd; }
       if (sp.type === 'tag') return h('div', { class: 'sub-pic wide sub-tag', text: Hub.clean(sp.label) });
       var d = sp.sprite; if (!d || !d.px) return h('div', { class: 'sub-pic' });
@@ -178,6 +179,29 @@
         m = Hub.modal(body, { small: true, label: 'Decide', onClose: function () { if (!done) { done = true; resolve(null); } } });
       });
     }
+    function bulkAsk(mode, user) {
+      return new Promise(function (resolve) {
+        var done = false, m, note = h('textarea', { class: 'input', rows: '2', maxlength: '200', placeholder: 'Optional note the players see' }), price = inp('', { type: 'number', min: '0', max: '1000000' }), rar = sel(RAR, 'rare'), kids = [];
+        price.value = '100';
+        if (mode === 'approve') { kids.push(h('p', { class: 'hint', text: 'Maps with problems are skipped. Every other map joins the rotation. Gims, hats, banners and tags go into the shop at this price and rarity.' })); kids.push(h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:140px' }, field('Shop price (Scrolls)', price)), h('div', { style: 'flex:1;min-width:140px' }, field('Rarity', rar))])); }
+        function fin(v) { if (done) return; done = true; m.close(); resolve(v); }
+        var n = cur.pending.filter(function (x) { return !user || String(x.by).toLowerCase() === user.toLowerCase(); }).length;
+        var body = h('div', { class: 'mbody' }, [h('h3', { text: (mode === 'approve' ? 'Approve ' : 'Reject ') + n + (user ? ' from ' + Hub.clean(user) : ' waiting') + '?' }), kids, field('Note', note), h('div', { class: 'adm-row', style: 'margin-top:16px' }, [btn(mode === 'approve' ? 'Approve all' : 'Reject all', function () { fin({ note: note.value, price: +price.value || 0, rarity: rar.value }); }, { primary: mode === 'approve', danger: mode !== 'approve' }), btn('Cancel', function () { fin(null); }, { ghost: true })])]);
+        m = Hub.modal(body, { small: true, label: 'Bulk decision', onClose: function () { if (!done) { done = true; resolve(null); } } });
+      });
+    }
+    function runBulk(mode, user, b) { bulkAsk(mode, user).then(function (v) { if (v) K.busy(b, post({ action: 'subs.bulk', mode: mode, user: user || '', note: v.note, price: v.price, rarity: v.rarity })).then(function (r) { if (r && r.ok) Hub.toast((mode === 'approve' ? 'Approved ' : 'Rejected ') + r.done + (r.skipped ? ', skipped ' + r.skipped + ' with problems' : '')); else toastErr(r); load(); }); }); }
+    function paintBulk() {
+      Hub.clear(bulk); if (!cur.pending.length) return;
+      var names = []; cur.pending.forEach(function (x) { if (names.indexOf(x.by) < 0) names.push(x.by); });
+      var who = h('select', { class: 'input', 'aria-label': 'Player' }); who.appendChild(h('option', { value: '', text: 'Everyone (' + cur.pending.length + ')' })); names.forEach(function (n) { who.appendChild(h('option', { value: n, text: Hub.clean(n) + ' (' + cur.pending.filter(function (x) { return x.by === n; }).length + ')' })); });
+      who.value = names.indexOf(cur.who) >= 0 ? cur.who : ''; who.addEventListener('change', function () { cur.who = who.value; });
+      bulk.appendChild(who); bulk.appendChild(btn('Approve all', function (b) { runBulk('approve', who.value, b); }, { primary: true })); bulk.appendChild(btn('Reject all', function (b) { runBulk('reject', who.value, b); }, { danger: true }));
+    }
+    function paintBlocked() {
+      Hub.clear(blockBox); if (!cur.blocked.length) { blockBox.appendChild(empty('Nobody is blocked.')); return; }
+      cur.blocked.forEach(function (u) { blockBox.appendChild(h('div', { class: 'adm-row', style: 'padding:6px 0' }, [h('b', { style: 'flex:1', text: Hub.clean(u) }), btn('Unblock', function (b) { K.busy(b, post({ action: 'subs.unblock', user: u })).then(function (r) { r && r.ok ? Hub.toast('Unblocked') : toastErr(r); load(); }); })])); });
+    }
     function row(o, isDone) {
       var meta = (KIND[o.kind] || o.kind) + (o.sprite ? ' · ' + (TYPE[o.sprite.type] || o.sprite.type) : '') + (o.map ? ' · ' + o.map.game : '') + ' · by ' + Hub.clean(o.by) + ' · ' + when(o.at);
       var lines = [h('b', { text: Hub.clean(o.title) }), h('div', { class: 'hint', text: meta })];
@@ -189,7 +213,9 @@
       if (isDone) lines.push(h('div', { class: 'hint', text: (o.status === 'approved' ? 'Approved' : 'Rejected') + (o.decidedAt ? ' ' + when(o.decidedAt) : '') + (o.note ? ' · ' + Hub.clean(o.note) : '') }));
       var acts = isDone ? null : h('div', { class: 'adm-row' }, [
         btn('Approve', function (b) { ask(o, true).then(function (v) { if (v) K.busy(b, post({ action: 'subs.approve', id: o.id, note: v.note, price: v.price, rarity: v.rarity, rotation: v.rotation })).then(function (r) { if (r && r.ok) { Hub.toast('Approved'); if (r.problems && r.problems.length) Hub.toast('Saved, but it has problems so it is not in rotation'); } else toastErr(r); load(); }); }); }, { primary: true }),
-        btn('Reject', function (b) { ask(o, false).then(function (v) { if (v) K.busy(b, post({ action: 'subs.reject', id: o.id, note: v.note })).then(function (r) { r && r.ok ? Hub.toast('Rejected') : toastErr(r); load(); }); }); }, { danger: true })]);
+        o.map ? btn('Open in builder', function () { window.open('/arcade/bedwars/builder.html?open=' + encodeURIComponent(o.id), '_blank', 'noopener'); }, { icon: 'search' }) : null,
+        btn('Reject', function (b) { ask(o, false).then(function (v) { if (v) K.busy(b, post({ action: 'subs.reject', id: o.id, note: v.note })).then(function (r) { r && r.ok ? Hub.toast('Rejected') : toastErr(r); load(); }); }); }, { danger: true }),
+        btn(o.blocked ? 'Blocked' : 'Block player', function (b) { if (o.blocked) return; confirmBox('Block ' + Hub.clean(o.by) + '?', 'They can no longer send creations and everything they have waiting is rejected. You can unblock them below.', 'Block player').then(function (ok) { if (ok) K.busy(b, post({ action: 'subs.block', user: o.by })).then(function (r) { r && r.ok ? Hub.toast('Blocked' + (r.rejected ? ', rejected ' + r.rejected : '')) : toastErr(r); load(); }); }); }, { ghost: true })]);
       return h('div', { class: 'adm-row wrap sub-row' }, [isDone ? null : pic(o), h('div', { style: 'flex:1;min-width:200px' }, lines), acts]);
     }
     function load() {
@@ -197,6 +223,7 @@
         if (!alive(host)) return; Hub.clear(pend); Hub.clear(hist);
         if (!r || !r.ok) { pend.appendChild(empty('Could not load submissions.')); return; }
         if (Hub.school.subs) { Hub.school.subs.n = r.pending.length; Hub.emit('live'); }
+        cur.pending = r.pending; cur.blocked = r.blocked || []; paintBulk(); paintBlocked();
         if (!r.pending.length) pend.appendChild(empty('Nothing waiting. You will get a bell notification and a pop-up when someone sends something.'));
         r.pending.forEach(function (o) { pend.appendChild(row(o, false)); });
         if (!r.done.length) hist.appendChild(empty('No decisions yet.'));

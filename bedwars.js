@@ -1505,7 +1505,11 @@ function mbMsg(c, m) {
   }
   const list = () => send(c, { t: 'mbl', maps: GMS.listMaps(), rot: GMS.store.rot });
   if (a === 'list') return list();
-  if (a === 'get') { const cm = GMS.getMap(String(m.id)); return send(c, { t: 'mbg', map: cm }); }
+  if (a === 'get') {
+    const id = String(m.id);
+    if (id.startsWith('s_')) { const s0 = SUB.get(id), pl = s0 && s0.kind === 'map' && s0.payload && !s0.payload.dropped ? s0.payload : null; return send(c, { t: 'mbg', map: pl ? { ...pl, id: undefined, name: pl.name } : null }); }   // look at a player's waiting map
+    const cm = GMS.getMap(id); return send(c, { t: 'mbg', map: cm });
+  }
   if (a === 'save') { const res = GMS.saveMap(m.map || {}, c.nick); send(c, { t: 'mbs', ...res }); return list(); }
   if (a === 'del') { GMS.deleteMap(String(m.id), c.nick); return list(); }
   if (a === 'rot') { GMS.setRotation(String(m.game), String(m.id), !!m.on); return list(); }

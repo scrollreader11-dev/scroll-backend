@@ -32,7 +32,7 @@ export async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
+const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], subBlock: {}, rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 const TUT_PLAYS = 3, TUT_REWARD = 1000000, TUT_VER = 2;
 // Owner-adjustable tour settings (admin panel > Site controls): on/off, reward, and a version that replays it for everyone.
 const tutOn = () => !(casino.cfg && casino.cfg.tutOn === false);
@@ -50,7 +50,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
+function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; if (d0 && d0.subBlock && typeof d0.subBlock === 'object') casino.subBlock = d0.subBlock; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -69,7 +69,7 @@ export async function initCasino() {
 }
 let dirty = false;
 let rigDry = false, rigPlays = null, rigPending = []; // owner rigging tool: see the Rigging section
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subs: casino.subs }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subBlock: casino.subBlock, subs: casino.subs }); }
 function save() { dirty = true; if (rigDry) return; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -678,6 +678,7 @@ const SUB_MAX_PENDING_EACH = 5, SUB_MAX_PENDING_ALL = 80, SUB_MAX_BYTES = 220000
 let subHook = null;   // server.js sets this to ping the owner
 export function setSubHook(fn) { subHook = fn; }
 export function subAdd(o) {
+  if (casino.subBlock[String(o.by || '').toLowerCase()]) return { err: 'You can no longer send creations.' };
   const size = JSON.stringify(o.payload || {}).length;
   if (size > SUB_MAX_BYTES) return { err: 'That is too big to send. Try something smaller.' };
   const mine = casino.subs.filter((x) => x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase());
@@ -695,6 +696,25 @@ export function subPending() { return casino.subs.filter((x) => x.status === 'pe
 export function subLatest() { const p = casino.subs.filter((x) => x.status === 'pending'); return p.length ? p[p.length - 1] : null; }
 export function subList(status) { return casino.subs.filter((x) => !status || x.status === status).slice().sort((a, b) => b.at - a.at); }
 export function subMine(by, kind) { return casino.subs.filter((x) => x.by.toLowerCase() === String(by || '').toLowerCase() && (!kind || x.kind === kind)).slice().sort((a, b) => b.at - a.at).slice(0, 30).map((x) => ({ id: x.id, kind: x.kind, title: x.title, at: x.at, status: x.status, note: x.note || '' })); }
+export function subBlockSet(user, on, rejectPending) {
+  const k = String(user || '').toLowerCase(); if (!k) return { err: 'No player named.' };
+  if (on) casino.subBlock[k] = Date.now(); else delete casino.subBlock[k];
+  let n = 0;
+  if (on && rejectPending) for (const x of casino.subs) if (x.status === 'pending' && x.by.toLowerCase() === k) { x.status = 'rejected'; x.note = 'Blocked from sending creations.'; x.decidedAt = Date.now(); x.payload = { dropped: true }; n++; }
+  save(); flush(); return { ok: true, rejected: n };
+}
+export function subBlockList() { return Object.keys(casino.subBlock).map((u) => ({ user: u, at: casino.subBlock[u] })); }
+// What the public Hall of creations shows: approved things that are still live.
+export function hallSprites() {
+  const out = [];
+  for (const x of casino.subs) {
+    if (x.status !== 'approved' || x.kind !== 'sprite' || !x.itemId) continue;
+    const it = casino.custom.find((c) => c.id === x.itemId); if (!it) continue;
+    out.push({ id: it.id, type: it.type, label: it.label, by: x.by, at: x.decidedAt || x.at, rarity: it.rarity, price: it.price, value: it.type === 'banner' ? it.value : '', fx: it.fx || '', sprite: it.sprite || null });
+  }
+  return out.sort((a, b) => b.at - a.at);
+}
+export function hallMapSubs() { return casino.subs.filter((x) => x.status === 'approved' && x.kind === 'map' && x.mapId).map((x) => ({ mapId: x.mapId, by: x.by, at: x.decidedAt || x.at })); }
 export function subGet(id) { return casino.subs.find((x) => x.id === id) || null; }
 export function subRemoveOwn(id, by) { const k = casino.subs.findIndex((x) => x.id === id && x.status === 'pending' && x.by.toLowerCase() === String(by || '').toLowerCase()); if (k < 0) return false; casino.subs.splice(k, 1); save(); flush(); return true; }
 // Owner's decision. For a sprite, approving puts it in the shop (price and rarity can be set here). Maps are published by server.js.
@@ -709,8 +729,19 @@ export function subDecide(id, approve, o) {
     if (['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(o.rarity)) built.rarity = o.rarity;
     const it = commitSprite(built, null); if (it.err) return { err: it.err };
     sub.itemId = it.id; result.itemId = it.id;
+    // Pin it to the maker's profile: they own it and wear it right away.
+    try {
+      const mp = sub.byId ? profileOf(sub.byId) : null;
+      if (mp) {
+        if (!mp.inventory.includes(it.id)) mp.inventory.push(it.id);
+        if (LOOK_SLOTS.includes(it.type)) ensureLook(mp)[it.type] = it.id;
+        else if (it.type === 'tag') { mp.tag = it.label; mp.titleFx = it.fx || ''; }
+        else if (it.type === 'banner') mp.banner = it.ref || it.value;
+        result.pinned = true;
+      }
+    } catch (e) {}
   }
-  sub.status = approve ? 'approved' : 'rejected'; sub.note = String(o.note || '').slice(0, 200); sub.decidedAt = Date.now(); sub.by2 = o.by || '';
+  sub.status = approve ? 'approved' : 'rejected'; sub.note = String(o.note || '').slice(0, 200); sub.decidedAt = Date.now(); sub.by2 = o.by || ''; if (approve && o.mapId) { sub.mapId = o.mapId; sub.meta = o.meta || null; }
   if (!approve || sub.kind === 'map') sub.payload = { dropped: true };   // rejected, or already published as a real map
   save(); flush();
   return { ok: true, sub, ...result };
