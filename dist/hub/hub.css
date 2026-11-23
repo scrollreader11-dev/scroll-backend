@@ -920,11 +920,13 @@ html[data-bg="custom"] body { background: #04070e var(--bg-img) center / cover n
   .adm-nav .adm-search { padding: 0 12px; margin-left: 0; }
   .adm-nav a.adm-g { padding: 0 14px; height: 42px; }
 }
-.adm-nav .adm-groups { flex-wrap: nowrap; gap: 6px; }
+.adm-nav .adm-groups { flex-wrap: wrap; gap: 6px; }
+@media (max-width: 760px) { .adm-nav .adm-groups { flex-wrap: nowrap; overflow-x: auto; } }
+.adm-nav .adm-search kbd { display: none; }
 .adm-nav a.adm-g { padding: 0 12px; gap: 8px; flex: none; }
 .adm-nav .adm-search { flex: none; padding: 0 12px; gap: 8px; }
 .adm-nav .adm-search span { display: none; }
-@media (max-width: 1100px) { .adm-nav .adm-groups { overflow-x: auto; scrollbar-width: none; } .adm-nav .adm-groups::-webkit-scrollbar { display: none; } }
+
 
 /* ---------- streamed background videos ---------- */
 #bgweb { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; background: #04070e; opacity: 0; transition: opacity .8s ease; pointer-events: none; }
