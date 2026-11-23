@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blooket Cheats — ScrollHub</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0d0f14;--surface:#161920;--card:#1e2229;--border:#2a2f3a;
+    --accent:#5b6af5;--accent2:#8b5cf6;--green:#22c55e;--text:#e2e8f0;
+    --muted:#8892a4;--radius:12px;
+  }
+  html{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;min-height:100%}
+  body{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+
+  /* ── header ── */
+  .hero{text-align:center;padding:36px 0 32px}
+  .hero h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;letter-spacing:-.03em;
+    background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .hero p{color:var(--muted);margin-top:8px;font-size:.95rem;max-width:480px;margin-inline:auto;line-height:1.5}
+  .badge{display:inline-block;background:#22c55e22;color:#22c55e;border:1px solid #22c55e44;
+    border-radius:20px;padding:3px 12px;font-size:.75rem;font-weight:600;letter-spacing:.04em;margin-bottom:12px}
+
+  /* ── step cards ── */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:36px}
+  .step{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:12px;align-items:flex-start}
+  .step-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem}
+  .step-text h3{font-size:.88rem;font-weight:600;margin-bottom:3px}
+  .step-text p{font-size:.8rem;color:var(--muted);line-height:1.45}
+
+  /* ── platform tabs ── */
+  .platform-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+  .tab{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);
+    color:var(--muted);font-size:.85rem;font-weight:500;cursor:pointer;transition:.15s}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  /* ── cheat grid ── */
+  .section-title{font-size:1rem;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;margin-top:8px}
+  .cheat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:32px}
+  .cheat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:.15s}
+  .cheat-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)22}
+  .card-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .card-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+  .card-name{font-weight:700;font-size:.95rem}
+  .card-desc{font-size:.78rem;color:var(--muted);margin-bottom:14px;line-height:1.4}
+  .card-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+  .tag{font-size:.7rem;padding:2px 8px;border-radius:4px;background:#ffffff0a;color:var(--muted)}
+  .tag.green{background:#22c55e18;color:#22c55e}
+  .tag.blue{background:#5b6af518;color:#818cf8}
+  .tag.purple{background:#8b5cf618;color:#c084fc}
+
+  /* ── action buttons ── */
+  .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;border-radius:8px;
+    border:none;font-size:.8rem;font-weight:600;cursor:pointer;transition:.15s;text-decoration:none;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-tap-highlight-color:transparent}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#4b5ce6}
+  .btn-primary:active{background:#3b4cd6;transform:scale(.97)}
+  .btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-ghost:active{transform:scale(.97)}
+  .btn-bookmark{grid-column:1/-1;background:var(--surface);color:var(--text);border:1px solid var(--border);
+    padding:9px;font-size:.8rem;font-weight:600;border-radius:8px;cursor:grab;transition:.15s;text-decoration:none;display:block;text-align:center}
+  .btn-bookmark:hover{border-color:var(--green);color:var(--green)}
+  .btn-bookmark:active{cursor:grabbing}
+
+  /* ── copy toast ── */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:#22c55e;color:#fff;padding:10px 20px;border-radius:30px;font-size:.85rem;font-weight:600;
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1);pointer-events:none;z-index:999;white-space:nowrap}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  /* ── instructions panel ── */
+  .instructions{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:30px}
+  .instructions h2{font-size:1rem;font-weight:700;margin-bottom:14px}
+  .inst-block{display:none}
+  .inst-block.active{display:block}
+  .inst-steps{list-style:none;counter-reset:i}
+  .inst-steps li{counter-increment:i;padding:8px 0 8px 36px;position:relative;font-size:.86rem;line-height:1.5;border-bottom:1px solid var(--border);color:var(--muted)}
+  .inst-steps li:last-child{border-bottom:none}
+  .inst-steps li::before{content:counter(i);position:absolute;left:0;top:8px;width:22px;height:22px;border-radius:50%;
+    background:var(--accent);color:#fff;font-weight:700;font-size:.75rem;display:flex;align-items:center;justify-content:center}
+  .inst-steps li b{color:var(--text)}
+  .inst-steps li code{background:#ffffff12;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:.82rem;color:#c084fc}
+
+  /* ── footer ── */
+  .footer{text-align:center;color:var(--muted);font-size:.78rem;margin-top:40px;border-top:1px solid var(--border);padding-top:20px}
+  .footer a{color:var(--accent);text-decoration:none}
+
+  @media(max-width:500px){
+    .card-actions{grid-template-columns:1fr}
+    .btn-bookmark{grid-column:1}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="badge">✓ WORKS ON BLOOKET DIRECTLY</div>
+  <h1>Blooket Cheats</h1>
+  <p>Auto-answer, gold mods, game cheats — injected into blooket.com without the unblocker. Works on any device.</p>
+</div>
+
+<!-- ── steps ── -->
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-text">
+      <h3>Get a bookmarklet</h3>
+      <p>Tap <strong>Copy Link</strong> on any cheat below, or drag it to your bookmarks bar on desktop.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-text">
+      <h3>Go to Blooket</h3>
+      <p>Open <strong>blooket.com</strong> and join or host a game. Stay on the blooket.com tab.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-text">
+      <h3>Run the cheat</h3>
+      <p>Tap your saved bookmark, or paste the copied link into the URL bar and press Go.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── platform instructions ── -->
+<div class="instructions">
+  <h2>📱 How to use on your device</h2>
+  <div class="platform-tabs">
+    <button class="tab active" onclick="switchPlatform('mobile-safari')" id="tab-mobile-safari">iOS Safari</button>
+    <button class="tab" onclick="switchPlatform('android')" id="tab-android">Android</button>
+    <button class="tab" onclick="switchPlatform('desktop')" id="tab-desktop">Desktop</button>
+  </div>
+
+  <div class="inst-block active" id="inst-mobile-safari">
+    <ol class="inst-steps">
+      <li>Tap <b>Copy Link</b> on the cheat you want below — the <code>javascript:</code> URL is now in your clipboard.</li>
+      <li>Go to <b>blooket.com</b> and <b>bookmark that page</b> (tap the Share icon → Add Bookmark).</li>
+      <li>Now open <b>Bookmarks</b> (tap the book icon → Bookmarks), find the blooket bookmark, tap <b>Edit</b>.</li>
+      <li>Clear the URL field and <b>paste</b> the copied link. Tap <b>Done</b>.</li>
+      <li>When you're in a Blooket game, open Bookmarks and tap your cheat bookmark to inject it.</li>
+    </ol>
+  </div>
+
+  <div class="inst-block" id="inst-android">
+    <ol class="inst-steps">
+      <li>Tap <b>Copy Link</b> on any cheat below.</li>
+      <li>Go to <b>blooket.com</b> in Chrome and bookmark it (tap ⋮ → ☆ Bookmark).</li>
+      <li>Open <b>Bookmarks</b> (tap ⋮ → Bookmarks), find the new blooket bookmark, long-press it → <b>Edit bookmark</b>.</li>
+      <li>Replace the URL with the copied <code>javascript:</code> link. Tap <b>Save</b>.</li>
+      <li>In a Blooket game, open Bookmarks and tap your cheat to run it.</li>
+    </ol>
+  </div>
+
+  <div class="inst-block" id="inst-desktop">
+    <ol class="inst-steps">
+      <li><b>Drag</b> any cheat button below straight to your browser's bookmarks bar — that's it.</li>
+      <li>Or tap <b>Copy Link</b>, then create a new bookmark manually and paste it as the URL.</li>
+      <li>Go to blooket.com, join a game, then click your bookmarked cheat to inject it.</li>
+      <li>The GUI appears on screen — drag it around, pick your cheat from the sidebar.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ── cheat cards ── -->
+<div class="section-title">Choose Your Cheat</div>
+<div class="cheat-grid" id="cheat-grid">
+  <!-- populated by JS -->
+</div>
+
+<div class="footer">
+  Scripts by <a href="https://gitlab.com/blooket/blooket-cheats" target="_blank">05Konz</a> · AGPL-3.0 ·
+  Served by <a href="/">ScrollHub</a>
+</div>
+
+<div class="toast" id="toast">✓ Copied to clipboard</div>
+
+<script>
+// ── config ──────────────────────────────────────────────────────
+const ORIGIN = window.location.origin;
+const BASE   = ORIGIN + '/blooket-cheats/';
+
+const CHEATS = [
+  {
+    id: 'gui',
+    name: 'Standard GUI',
+    icon: '🎮',
+    color: '#5b6af518',
+    iconColor: '#818cf8',
+    desc: 'Full-featured draggable cheat panel. Auto answer, gold mods, all game modes.',
+    tags: [
+      { label: 'Auto Answer', cls: 'green' },
+      { label: 'Gold Mods', cls: 'blue' },
+      { label: 'All Modes', cls: 'purple' },
+    ],
+    file: 'gui.min.js',
+  },
+  {
+    id: 'kgui',
+    name: 'KGui',
+    icon: '⚡',
+    color: '#8b5cf618',
+    iconColor: '#c084fc',
+    desc: 'Alternate GUI layout with extra options and a sleeker sidebar.',
+    tags: [
+      { label: 'Alt Layout', cls: 'purple' },
+      { label: 'Auto Answer', cls: 'green' },
+      { label: 'Extra Options', cls: 'blue' },
+    ],
+    file: 'KGui.min.js',
+  },
+  {
+    id: 'mobile',
+    name: 'Mobile GUI',
+    icon: '📱',
+    color: '#22c55e18',
+    iconColor: '#22c55e',
+    desc: 'Touch-optimised layout. Bigger tap targets, designed for phone screens.',
+    tags: [
+      { label: 'Touch UI', cls: 'green' },
+      { label: 'Auto Answer', cls: 'green' },
+      { label: 'Mobile', cls: 'blue' },
+    ],
+    file: 'mobileGui.js',
+  },
+  {
+    id: 'react',
+    name: 'React GUI',
+    icon: '⚛️',
+    color: '#06b6d418',
+    iconColor: '#22d3ee',
+    desc: 'React-rendered overlay. Cleaner rendering on React-heavy blooket pages.',
+    tags: [
+      { label: 'React', cls: 'blue' },
+      { label: 'Auto Answer', cls: 'green' },
+      { label: 'Smooth', cls: 'purple' },
+    ],
+    file: 'reactGui.js',
+  },
+];
+
+// ── build bookmarklet URL ────────────────────────────────────────
+function makeBookmarklet(file) {
+  const src = BASE + file;
+  const code = `(function(){var s=document.createElement('script');s.src='${src}';s.onload=function(){};document.head.appendChild(s);})()`;
+  return 'javascript:' + code;
+}
+
+// ── render cards ─────────────────────────────────────────────────
+const grid = document.getElementById('cheat-grid');
+CHEATS.forEach(c => {
+  const bm = makeBookmarklet(c.file);
+  const tags = c.tags.map(t => `<span class="tag ${t.cls}">${t.label}</span>`).join('');
+  grid.insertAdjacentHTML('beforeend', `
+    <div class="cheat-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:${c.color};color:${c.iconColor}">${c.icon}</div>
+        <div class="card-name">${c.name}</div>
+      </div>
+      <div class="card-desc">${c.desc}</div>
+      <div class="card-tags">${tags}</div>
+      <div class="card-actions">
+        <button class="btn btn-primary" onclick="copyBM('${c.id}')">📋 Copy Link</button>
+        <a class="btn btn-ghost" href="${bm}" target="_blank" title="Open script directly">↗ Open</a>
+        <a class="btn btn-bookmark" href="${bm}" draggable="true" title="Drag to bookmarks bar">☆ Drag to Bookmarks Bar</a>
+      </div>
+    </div>
+  `);
+  // store the bookmarklet on the button for copy
+  grid.lastElementChild.querySelector('[onclick]')._bm = bm;
+});
+
+// ── copy to clipboard ─────────────────────────────────────────────
+const bookmarklets = {};
+CHEATS.forEach(c => { bookmarklets[c.id] = makeBookmarklet(c.file); });
+
+function copyBM(id) {
+  const url = bookmarklets[id];
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(showToast).catch(() => fallbackCopy(url));
+  } else {
+    fallbackCopy(url);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); showToast(); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
+let toastTimer;
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── platform tabs ─────────────────────────────────────────────────
+function switchPlatform(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.inst-block').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  document.getElementById('inst-' + id).classList.add('active');
+}
+
+// auto-detect mobile
+(function(){
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad/.test(ua)) switchPlatform('mobile-safari');
+  else if (/Android/.test(ua)) switchPlatform('android');
+  else switchPlatform('desktop');
+})();
+</script>
+</body>
+</html>
