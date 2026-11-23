@@ -974,3 +974,16 @@ html[data-bg]:not([data-bg="video"]):not([data-bg="custom"]) body { background: 
 .hl-ms { margin-left: auto; font-size: 13px; color: var(--text2); }
 .hl-badge { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; background: rgba(124,92,255,.22); border: 1px solid rgba(124,92,255,.5); color: #d6ccff; }
 .hl-mk .hl-badge { margin-left: 0; }
+
+/* Ambient mood tint, sits between the background and the app */
+#mood { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+#mood .mood-l { position: absolute; inset: 0; opacity: 0; transition: opacity 2.5s ease; }
+html.rm #mood .mood-l { transition: none; }
+
+.home-tools { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
+.hc-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; max-height: 52vh; overflow-y: auto; }
+.hc-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+.hc-n { flex: 1; font-weight: 600; min-width: 0; }
+.hc-row .iconbtn:disabled { opacity: .3; }
+.hc-row .switch { flex: none; width: 56px; min-width: 0; padding: 0; margin: 0; background: transparent; border: 0; box-shadow: none; justify-content: flex-end; }
+.hc-row .iconbtn { flex: none; position: static; }

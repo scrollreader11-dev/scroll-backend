@@ -207,7 +207,8 @@
     var feat = fresh || Hub.byId['scrollhub-royale'] || orig[0], second = (Hub.canCasino() ? Hub.byId['scrollhub-casino'] : null) || Hub.byId['scrollhub-bedwars'] || orig[1];
     if (feat === second) second = orig.filter(function (g) { return g !== feat; })[0];
     var jumps = [['Casino', 'dices', '#/game/scrollhub-casino', Hub.canCasino()], ['Discord', 'message-square', '#/discord', Hub.me.kind === 'user'], ['Friends', 'users', '#/friends', Hub.me.kind === 'user'], ['My Library', 'library-big', '#/library'], ['Browse games', 'shopping-bag', '#/store/all', Hub.canStore()]].filter(function (j) { return j[3] !== false && (j[0] !== 'Scroll Racing' || Hub.byId['scrollhub-racing']); });
-    v.appendChild(h('nav', { class: 'jump', 'aria-label': 'Quick links' }, jumps.map(function (j) { return h('a', { class: 'chip', href: j[2] }, [icon(j[1]), j[0]]); })));
+    var blocks = []; function blk(id, label, node) { if (node) blocks.push({ id: id, label: label, node: node }); }
+    blk('jump', 'Quick links', h('nav', { class: 'jump', 'aria-label': 'Quick links' }, jumps.map(function (j) { return h('a', { class: 'chip', href: j[2] }, [icon(j[1]), j[0]]); })));
     if (feat) {
       var hero = h('div', { class: 'hero' }), right = h('div', { class: 'hero-r' }), season = Hub.wallet && Hub.wallet.season, sl = SEASONS[season];
       hero.appendChild(tileLg(feat, { kicker: fresh ? 'Just updated' : 'Featured', cls: 'big', sub: fresh && fresh.notes ? 'v' + fresh.v + ': ' + fresh.notes : feat.tagline }));
@@ -220,17 +221,48 @@
         var t0 = h('div', { class: 'tile-lg tile-sm', style: 'background:linear-gradient(120deg,#0e2a6b,#0a1636)' }, h('div', { class: 'cap' }, [h('h3', { text: 'School Mode is on' }), h('p', { text: 'ScrollHub Originals are open' })])); pair.appendChild(t0);
       }
       var t2 = h('a', { class: 'tile-lg tile-sm', href: sl ? '#/game/scrollhub-arcade' : '#/originals', style: 'background:linear-gradient(120deg,#12307a,#0a1636)' }, h('div', { class: 'cap' }, [h('h3', { text: sl ? sl : 'Whats new' }), h('p', { text: sl ? 'Seasonal looks are live' : 'Latest updates' })]));
-      pair.appendChild(t2); right.appendChild(pair); hero.appendChild(right); v.appendChild(hero);
+      pair.appendChild(t2); right.appendChild(pair); hero.appendChild(right); blk('hero', 'Featured games', hero);
     }
-    var rec = Hub.recents(14); var r1 = row('Continue playing', rec, { href: '#/library/games' }); if (r1) v.appendChild(r1);
-    var r2 = row('ScrollHub Originals', orig, { href: '#/originals', sub: 'Made by ScrollHub. Updated whenever new code ships.' }); if (r2) v.appendChild(r2);
+    var rec = Hub.recents(14); blk('recent', 'Continue playing', row('Continue playing', rec, { href: '#/library/games' }));
+    blk('originals', 'ScrollHub Originals', row('ScrollHub Originals', orig, { href: '#/originals', sub: 'Made by ScrollHub. Updated whenever new code ships.' }));
     if (!Hub.locked()) {
-      var top = Hub.webGames.slice(0, 16); var r3 = row('Top games', top, { href: '#/store/all', sub: 'Trending games you do not want to miss' }); if (r3) v.appendChild(r3);
-      var upd = vis.filter(function (g) { return g.ts; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 14); var r4 = row('Recently updated', upd, { sub: 'Fresh versions pushed by ScrollHub' }); if (r4) v.appendChild(r4);
-      genreRowList(['Multiplayer', 'Racing', 'Shooter', 'Puzzle', 'Sports', 'Action'], 4).forEach(function (p) { var rr = row(p[0] + ' games', p[1], { href: '#/store/all/' + encodeURIComponent(p[0]) }); if (rr) v.appendChild(rr); });
-      v.appendChild(genrePanel());
+      var top = Hub.webGames.slice(0, 16); blk('top', 'Top games', row('Top games', top, { href: '#/store/all', sub: 'Trending games you do not want to miss' }));
+      var upd = vis.filter(function (g) { return g.ts; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 14); blk('updated', 'Recently updated', row('Recently updated', upd, { sub: 'Fresh versions pushed by ScrollHub' }));
+      genreRowList(['Multiplayer', 'Racing', 'Shooter', 'Puzzle', 'Sports', 'Action'], 4).forEach(function (p) { blk('g:' + p[0], p[0] + ' games', row(p[0] + ' games', p[1], { href: '#/store/all/' + encodeURIComponent(p[0]) })); });
+      blk('genres', 'Browse by genre', genrePanel());
     }
+    // The player's own order and hidden rows (set under Customize home).
+    var saved = Array.isArray(Hub.prefs.homeOrder) ? Hub.prefs.homeOrder : [], hide = Array.isArray(Hub.prefs.homeHide) ? Hub.prefs.homeHide : [];
+    var ordered = saved.map(function (id) { return blocks.filter(function (b) { return b.id === id; })[0]; }).filter(Boolean);
+    blocks.forEach(function (b) { if (ordered.indexOf(b) < 0) ordered.push(b); });
+    Hub.homeDefault = blocks.map(function (b) { return b.id; });
+    Hub.homeBlocks = ordered.map(function (b) { return { id: b.id, label: b.label }; });
+    v.appendChild(h('div', { class: 'home-tools' }, h('button', { class: 'btn sm', type: 'button', onclick: function () { Hub.homeLayout(); } }, [icon('layout-grid'), 'Customize home'])));
+    ordered.forEach(function (b) { if (hide.indexOf(b.id) < 0) v.appendChild(b.node); });
     return v;
+  };
+  // Reorder and hide home rows. Up and down buttons, so it works with a keyboard and on a phone.
+  Hub.homeLayout = function () {
+    if (!Hub.homeBlocks) { Hub.toast('Open the Home page first, then customize it.'); return; }
+    var list = Hub.homeBlocks || [], order = list.map(function (b) { return b.id; }), hide = (Hub.prefs.homeHide || []).slice(), m;
+    var box = h('div', { class: 'mbody' }), rows = h('div', { class: 'hc-list' });
+    function commit() { Hub.setPref('homeOrder', order.slice()); Hub.setPref('homeHide', hide.slice()); if (Hub.parse().name === 'home') Hub.render(true); }
+    function label(id) { return (list.filter(function (b) { return b.id === id; })[0] || {}).label || id; }
+    function paint() {
+      Hub.clear(rows);
+      order.forEach(function (id, i) {
+        var up = h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Move ' + label(id) + ' up', onclick: function () { if (i > 0) { order.splice(i - 1, 0, order.splice(i, 1)[0]); commit(); paint(); } } }, icon('chevron-up'));
+        var dn = h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Move ' + label(id) + ' down', onclick: function () { if (i < order.length - 1) { order.splice(i + 1, 0, order.splice(i, 1)[0]); commit(); paint(); } } }, icon('chevron-down'));
+        if (i === 0) up.disabled = true; if (i === order.length - 1) dn.disabled = true;
+        var show = Hub.toggle('', '', hide.indexOf(id) < 0, function (on) { var k = hide.indexOf(id); if (on && k >= 0) hide.splice(k, 1); if (!on && k < 0) hide.push(id); commit(); });
+        show.setAttribute('aria-label', 'Show ' + label(id));
+        rows.appendChild(h('div', { class: 'hc-row' }, [h('div', { class: 'hc-n', text: label(id) }), up, dn, show]));
+      });
+    }
+    paint();
+    box.appendChild(h('h3', { text: 'Customize home' })); box.appendChild(h('p', { class: 'hint', text: 'Move rows up or down and switch off the ones you do not want. It only changes your own home page.' })); box.appendChild(rows);
+    box.appendChild(h('div', { class: 'adm-row', style: 'margin-top:16px' }, [h('button', { class: 'btn', type: 'button', text: 'Reset to default', onclick: function () { order = (Hub.homeDefault || order).slice(); hide = []; Hub.setPref('homeOrder', []); Hub.setPref('homeHide', []); if (Hub.parse().name === 'home') Hub.render(true); paint(); } })]));
+    m = Hub.modal(box, { small: true, label: 'Customize home' });
   };
   function genrePanel() {
     var gs = Hub.genres().filter(function (g) { return Hub.GENRE_ICON[g]; }).slice(0, 12), grid = h('div', { class: 'genres' });

@@ -246,6 +246,16 @@
       b.appendChild(h('h4', { text: 'Motion and size' }));
       b.appendChild(kv('Background', 'Looping video behind the hub.', Hub.seg([['on', 'Animated'], ['still', 'Still']], Hub.prefs.video, function (v) { Hub.setPref('video', v); })));
       b.appendChild(kv('Interface size', 'Make everything a little smaller or larger.', Hub.seg([['sm', 'Small'], ['md', 'Default'], ['lg', 'Large']], Hub.prefs.size, function (v) { Hub.setPref('size', v); })));
+      b.appendChild(h('h4', { text: 'Ambient mood' }));
+      b.appendChild(h('p', { class: 'hint', text: 'A soft color wash over the background, like the room light changing. Follow the clock shifts warm at sunrise and sunset and cool at night.' }));
+      b.appendChild(kv('Mood', 'Works with every background.', Hub.seg([['off', 'Off'], ['auto', 'Clock'], ['dawn', 'Dawn'], ['day', 'Day'], ['sunset', 'Sunset'], ['night', 'Night']], Hub.prefs.mood || 'off', function (v) { Hub.setPref('mood', v); })));
+      b.appendChild(kv('Strength', 'How strong the tint is.', Hub.seg([['low', 'Subtle'], ['mid', 'Normal'], ['high', 'Strong']], Hub.prefs.moodAmt || 'mid', function (v) { Hub.setPref('moodAmt', v); })));
+      b.appendChild(h('h4', { text: 'Sounds' }));
+      b.appendChild(h('p', { class: 'hint', text: 'Soft clicks for buttons and whooshes for menus and windows. Pick a pack to hear it. Sounds stay inside ScrollHub and never play over a game.' }));
+      b.appendChild(kv('Sound pack', 'Off by default.', Hub.seg(Hub.sounds || [['off', 'Off']], Hub.prefs.sound || 'off', function (v) { Hub.setPref('sound', v); if (v !== 'off' && Hub.sfxPreview) Hub.sfxPreview(v); })));
+      b.appendChild(kv('Volume', 'Quiet is usually enough.', Hub.seg([['low', 'Quiet'], ['mid', 'Medium'], ['high', 'Loud']], Hub.prefs.soundVol || 'mid', function (v) { Hub.setPref('soundVol', v); if (Hub.sfx) Hub.sfx('click'); })));
+      b.appendChild(h('h4', { text: 'Home page' }));
+      b.appendChild(kv('Layout', 'Reorder or hide the rows on your home page.', h('button', { class: 'btn sm', type: 'button', text: 'Customize home', onclick: function () { if (Hub.homeLayout) Hub.homeLayout(); } })));
       b.appendChild(kv('Recent games in sidebar', 'Show the Most Recent list.', Hub.toggle('', '', Hub.prefs.recents, function (v) { Hub.setPref('recents', v); Hub.renderChrome(); })));
     },
     privacy: function (b, redo) {
