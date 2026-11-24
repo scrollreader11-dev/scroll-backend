@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { handleMore, liveSnap, liveRestore } from './casinomore.js';
+import { handleArcade } from './casinoarcade.js';
 import './dist/arcade/bannergen.js'; // sets globalThis.SHBanner (custom banners from the Sprite Studio)
 
 const CASINO_FILE = '/tmp/scrollhub-casino.json';
@@ -130,7 +131,7 @@ export function getProfileMeta(cid) {
 // ---- Owner tools: casino limits, per-game switches, store item controls, player operations ----
 export const GAME_LIST = [
   ['slots', 'Slots'], ['coinflip', 'Coinflip'], ['dice', 'Dice'], ['roulette', 'Roulette'], ['plinko', 'Plinko'], ['wheel', 'Big Wheel'], ['blackjack', 'Blackjack'], ['mines', 'Mines'], ['crash', 'Crash'], ['cases', 'Cases'],
-  ['keno', 'Keno'], ['scratch', 'Scratch Cards'], ['baccarat', 'Baccarat'], ['shell', 'Shell Game'], ['penalty', 'Penalty Shootout'], ['war', 'Casino War'], ['hilo', 'Hi-Lo'], ['poker', 'Video Poker'],
+  ['keno', 'Keno'], ['scratch', 'Scratch Cards'], ['baccarat', 'Baccarat'], ['shell', 'Shell Game'], ['penalty', 'Penalty Shootout'], ['war', 'Casino War'], ['hilo', 'Hi-Lo'], ['poker', 'Video Poker'], ['arcade', 'Arcade'],
 ];
 function cfgNorm() { const c = casino.cfg; c.games = c.games || {}; c.items = c.items || {}; return c; }
 export function casinoCfgGet() {
@@ -791,7 +792,7 @@ export function subDecide(id, approve, o) {
 // ---- Daily quests: three small goals a day, a streak for coming back, rewards in Scrolls ----
 const DQ_POOLS = [
   ['e', [{ k: 'daily', goal: 1, text: 'Claim your daily Scrolls', r: 400 }, { k: 'hall', goal: 1, text: 'Open the Hall of creations', r: 400 }]],
-  ['m', [{ k: 'play', goal: 5, text: 'Play 5 casino rounds', r: 800 }, { k: 'bw', goal: 1, text: 'Finish a Bedwars match', r: 900 }, { k: 'play', goal: 10, text: 'Play 10 casino rounds', r: 1100 }]],
+  ['m', [{ k: 'play', goal: 5, text: 'Play 5 casino rounds', r: 800 }, { k: 'bw', goal: 1, text: 'Finish a Bedwars match', r: 900 }, { k: 'play', goal: 10, text: 'Play 10 casino rounds', r: 1100 }, { k: 'arcade', goal: 2, text: 'Score in the Arcade twice', r: 700 }]],
   ['h', [{ k: 'win', goal: 3, text: 'Win 3 casino rounds', r: 1500 }, { k: 'like', goal: 2, text: 'Like 2 creations in the Hall', r: 1200 }, { k: 'win', goal: 5, text: 'Win 5 casino rounds', r: 2000 }]],
 ];
 const DQ_ALL_BONUS = 1000, DQ_MILESTONES = { 3: 2500, 7: 10000, 14: 25000, 30: 100000 };
@@ -1198,7 +1199,7 @@ function rigKind(path, method) {
   if (path === '/api/casino/bj/start' || path === '/api/casino/bj/hit' || path === '/api/casino/bj/stand') return { gid: 'blackjack', kind: 'gen' };
   if (OLD_GAMES[path] && path !== '/api/casino/mines/start') return { gid: OLD_GAMES[path], kind: 'gen' };
   const m = path.match(/^\/api\/casino\/g\/([a-z]+)(?:\/([a-z]+))?$/);
-  if (m && m[1] !== 'info' && m[2] !== 'state' && GAME_LIST.some((g) => g[0] === m[1])) return { gid: m[1], kind: 'gen' };
+  if (m && m[1] !== 'info' && m[1] !== 'arcade' && m[2] !== 'state' && GAME_LIST.some((g) => g[0] === m[1])) return { gid: m[1], kind: 'gen' };
   return null;
 }
 async function rigGate(url, req, res, cid, p, rk) {
@@ -1275,6 +1276,8 @@ export async function handleCasino(url, req, res) {
   }
   if (path.startsWith('/api/casino/g/')) {
     const mb = req.method === 'POST' ? await readBody(req) : {};
+    const ar = handleArcade(path, mb, { cid, p, cfg: () => casino.cfg, save, publicProfile: () => publicProfile(cid), quest: (k) => dqTick(p, k) });
+    if (ar) { save(); sendJson(res, 200, ar); return true; }
     const r = handleMore(path, mb, { cid, p, cfg: () => casino.cfg, save, recordPlay, publicProfile: () => publicProfile(cid) });
     if (r) { sendJson(res, 200, r); return true; }
   }
