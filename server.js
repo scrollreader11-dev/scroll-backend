@@ -1035,6 +1035,11 @@ async function handleStaff(req, res) {
       audit(who, 'live.poll', '', q); await saveState().catch(() => {});
       return sendJson(res, 200, { ok: true });
     }
+    if (action === 'fun.party') {
+      globalThis.SH_PARTY = { id: String(Date.now()), until: Date.now() + 45000, by: who.username };
+      audit(who, 'fun.party', '', '');
+      return sendJson(res, 200, { ok: true, message: 'Party started. Everyone on the site gets confetti within about 15 seconds.' });
+    }
     if (action === 'fun.online') {
       const now = Date.now(), list = [...players.values()].filter((p2) => now - p2.lastSeen < 90000 && hasProfile(p2.id)).map((p2) => ({ id: p2.id, nickname: p2.nickname }));
       return sendJson(res, 200, { ok: true, players: list });
@@ -2507,7 +2512,7 @@ const httpServer = createServer(async (req, res) => {
   if (url.split('?')[0] === '/api/school') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     const exempt = String((who && who.username) || '').toLowerCase() === 'scrollreader11';
-    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null, brand: admin.settings.brand || null, off: Object.keys(admin.settings.gamesOff || {}), live: liveState(who ? (who.id || '') : (parseCookies(req).sh_cid || '')), subs: who && who.role === 'owner' ? { n: subPending(), last: (subLatest() || {}).id || '' } : null });
+    return sendJson(res, 200, { on: !!admin.settings.schoolMode, exempt, teacher: isTeacherReq(req), gamble: !!admin.settings.schoolGamble, home: schoolHome(), theme: admin.settings.theme || null, brand: admin.settings.brand || null, season: globalThis.SH_SEASON ? SH_SEASON() : '', party: globalThis.SH_PARTY && globalThis.SH_PARTY.until > Date.now() ? globalThis.SH_PARTY : null, off: Object.keys(admin.settings.gamesOff || {}), live: liveState(who ? (who.id || '') : (parseCookies(req).sh_cid || '')), subs: who && who.role === 'owner' ? { n: subPending(), last: (subLatest() || {}).id || '' } : null });
   }
   if (url.split('?')[0] === '/api/arcade/nick' && req.method === 'POST') {
     const body = await readBody(req);

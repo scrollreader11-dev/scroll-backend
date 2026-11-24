@@ -259,6 +259,9 @@
       vr.addEventListener('change', function () { if (Hub.sfx) Hub.sfx('click'); });
       b.appendChild(kv('Volume', 'Quiet is usually enough.', h('div', { class: 'vol-wrap' }, [vr, vt])));
       b.appendChild(kv('Mute while a game is open', 'Keeps clicks and pings out of your game.', Hub.toggle('', '', Hub.prefs.soundMute !== false, function (on) { Hub.setPref('soundMute', on); })));
+      b.appendChild(h('h4', { text: 'Fun' }));
+      b.appendChild(kv('Cursor effects', 'A trail behind your cursor and a burst when you click.', Hub.seg([['off', 'Off'], ['stars', 'Stars'], ['pixels', 'Pixels'], ['ink', 'Ink'], ['embers', 'Embers']], Hub.prefs.trail || 'off', function (v) { Hub.setPref('trail', v); })));
+      b.appendChild(kv('Seasonal decorations', 'Snow, falling leaves and more when the site is in a season.', Hub.toggle('', '', Hub.prefs.seasonFx !== false, function (on) { Hub.setPref('seasonFx', on); })));
       b.appendChild(h('h4', { text: 'Home page' }));
       b.appendChild(kv('Layout', 'Reorder or hide the rows on your home page.', h('button', { class: 'btn sm', type: 'button', text: 'Customize home', onclick: function () { if (Hub.homeLayout) Hub.homeLayout(); } })));
       b.appendChild(kv('Recent games in sidebar', 'Show the Most Recent list.', Hub.toggle('', '', Hub.prefs.recents, function (v) { Hub.setPref('recents', v); Hub.renderChrome(); })));

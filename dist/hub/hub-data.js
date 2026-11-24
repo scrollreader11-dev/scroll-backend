@@ -22,11 +22,11 @@
   Hub.school = { on: false, exempt: false, gamble: false };
   Hub.loadSchool = function () {
     return Hub.api('/api/school').then(function (s) {
-      var n = { on: !!s.on, exempt: !!s.exempt, gamble: !!s.gamble, theme: s.theme || null, brand: s.brand || null, off: s.off || [], live: s.live || null, subs: s.subs || null };
+      var n = { on: !!s.on, exempt: !!s.exempt, gamble: !!s.gamble, theme: s.theme || null, brand: s.brand || null, off: s.off || [], live: s.live || null, subs: s.subs || null, season: s.season || '', party: s.party || null };
       var ch = n.on !== Hub.school.on || n.exempt !== Hub.school.exempt || n.gamble !== Hub.school.gamble;
       var tch = JSON.stringify(n.theme) !== JSON.stringify(Hub.school.theme || null);
       var lch = JSON.stringify([n.brand, n.off, n.live]) !== JSON.stringify([Hub.school.brand || null, Hub.school.off || [], Hub.school.live || null]);
-      var oldSubs = Hub.school.subs; Hub.school = n; if (JSON.stringify(n.subs) !== JSON.stringify(oldSubs || null)) { Hub.emit('notifs'); if (n.subs && oldSubs && n.subs.n > oldSubs.n && n.subs.last !== oldSubs.last) Hub.emit('subs:new', n.subs); } if (ch) Hub.emit('school'); if (lch) Hub.emit('live'); if (tch && Hub.applyTheme) Hub.applyTheme(); return n;
+      var oldSubs = Hub.school.subs, oldSeason = Hub.school.season, oldParty = Hub.school.party; Hub.school = n; if (n.season !== oldSeason) Hub.emit('season'); if (n.party && (!oldParty || oldParty.id !== n.party.id)) Hub.emit('party', n.party); if (JSON.stringify(n.subs) !== JSON.stringify(oldSubs || null)) { Hub.emit('notifs'); if (n.subs && oldSubs && n.subs.n > oldSubs.n && n.subs.last !== oldSubs.last) Hub.emit('subs:new', n.subs); } if (ch) Hub.emit('school'); if (lch) Hub.emit('live'); if (tch && Hub.applyTheme) Hub.applyTheme(); return n;
     });
   };
   Hub.locked = function () { return Hub.school.on && !Hub.school.exempt; };
