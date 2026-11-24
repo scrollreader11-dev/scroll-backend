@@ -79,8 +79,8 @@
   }
 
   // ---------- shell: sidebar / topbar / tabbar ----------
-  var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['hall', 'Hall of creations', 'sparkles'], ['admin', 'Admin tools', 'shield']];
-  function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !(n[0] === 'hall' && tabbar) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
+  var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['hall', 'Hall of creations', 'sparkles'], ['trophies', 'Trophy room', 'trophy'], ['admin', 'Admin tools', 'shield']];
+  function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !((n[0] === 'hall' || n[0] === 'trophies') && tabbar) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
   function curRoot() { var r = Hub.parse().name; return r === 'genre' || r === 'search' ? 'store' : (r === 'game' ? Hub.lastRoot || 'home' : r); }
   function avatarEl(cls, who) {
     var m = who || Hub.me, a = h('span', { class: 'avatar' + (cls ? ' ' + cls : '') });
@@ -185,7 +185,7 @@
   var firstRoute = true, lastKey = '';
   Hub.render = function (keepScroll) {
     var r = Hub.parse(), name = r.name, view = Hub.views[name]; if (!view) { location.replace('#/home'); return; }
-    if (['home', 'originals', 'library', 'casino', 'store', 'discord', 'friends', 'hall', 'admin'].indexOf(name) >= 0) Hub.lastRoot = name;
+    if (['home', 'originals', 'library', 'casino', 'store', 'discord', 'friends', 'hall', 'trophies', 'admin'].indexOf(name) >= 0) Hub.lastRoot = name;
     if (name === 'casino') { location.replace('#/game/scrollhub-casino'); return; }
     if ((name === 'casino' && !Hub.canCasino()) || (name === 'store' && !Hub.canStore()) || (name === 'genre' && !Hub.canStore())) { location.replace('#/home'); return; }
     Hub.closeMenu(); Hub.closeFly();
@@ -193,7 +193,7 @@
     var node; try { node = view(r.args); } catch (e) { if (window.console) console.error(e); node = emptyState('triangle-alert', 'Something went wrong', 'This page could not be shown. Try again.', h('a', { class: 'btn primary', href: '#/home', text: 'Back to Home' })); }
     host.appendChild(node); host.style.animation = 'none'; void host.offsetWidth; host.style.animation = ''; host.className = 'view';
     sc.scrollTop = keepScroll ? top : 0; renderTop(); renderSide(); renderTabbar();
-    var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search', discord: 'Discord', friends: 'Friends', hall: 'Hall of creations', admin: 'Admin tools' }[name];
+    var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search', discord: 'Discord', friends: 'Friends', hall: 'Hall of creations', trophies: 'Trophy room', admin: 'Admin tools' }[name];
     if (!Hub.playing) document.title = (name === 'game' && Hub.byId[r.args[0]] ? Hub.byId[r.args[0]].title : (ttl || (Hub.siteName ? Hub.siteName() : 'ScrollHub'))) + ' - ' + (Hub.siteName ? Hub.siteName() : 'ScrollHub');
   };
   window.addEventListener('hashchange', function () { if (!firstRoute) Hub.hasPrev = true; firstRoute = false; if (!Hub.ready) return; Hub.render(false); });

@@ -253,7 +253,12 @@
       b.appendChild(h('h4', { text: 'Sounds' }));
       b.appendChild(h('p', { class: 'hint', text: 'Soft clicks for buttons and whooshes for menus and windows. Pick a pack to hear it. Sounds stay inside ScrollHub and never play over a game.' }));
       b.appendChild(kv('Sound pack', 'Off by default.', Hub.seg(Hub.sounds || [['off', 'Off']], Hub.prefs.sound || 'off', function (v) { Hub.setPref('sound', v); if (v !== 'off' && Hub.sfxPreview) Hub.sfxPreview(v); })));
-      b.appendChild(kv('Volume', 'Quiet is usually enough.', Hub.seg([['low', 'Quiet'], ['mid', 'Medium'], ['high', 'Loud']], Hub.prefs.soundVol || 'mid', function (v) { Hub.setPref('soundVol', v); if (Hub.sfx) Hub.sfx('click'); })));
+      var vr = h('input', { type: 'range', min: '0', max: '100', step: '5', class: 'trange vol', 'aria-label': 'Sound volume' }), vt = h('span', { class: 'vol-n' });
+      var v0 = Hub.prefs.soundVol; if (typeof v0 === 'string') v0 = { low: 35, mid: 65, high: 100 }[v0]; vr.value = String(v0 >= 0 ? v0 : 65); vt.textContent = vr.value + '%';
+      vr.addEventListener('input', function () { vt.textContent = vr.value + '%'; Hub.setPref('soundVol', +vr.value); });
+      vr.addEventListener('change', function () { if (Hub.sfx) Hub.sfx('click'); });
+      b.appendChild(kv('Volume', 'Quiet is usually enough.', h('div', { class: 'vol-wrap' }, [vr, vt])));
+      b.appendChild(kv('Mute while a game is open', 'Keeps clicks and pings out of your game.', Hub.toggle('', '', Hub.prefs.soundMute !== false, function (on) { Hub.setPref('soundMute', on); })));
       b.appendChild(h('h4', { text: 'Home page' }));
       b.appendChild(kv('Layout', 'Reorder or hide the rows on your home page.', h('button', { class: 'btn sm', type: 'button', text: 'Customize home', onclick: function () { if (Hub.homeLayout) Hub.homeLayout(); } })));
       b.appendChild(kv('Recent games in sidebar', 'Show the Most Recent list.', Hub.toggle('', '', Hub.prefs.recents, function (v) { Hub.setPref('recents', v); Hub.renderChrome(); })));

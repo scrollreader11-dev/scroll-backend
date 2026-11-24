@@ -29,7 +29,8 @@
   setInterval(function () { if ((Hub.prefs.mood || 'off') === 'auto') Hub.applyMood(); }, 120000);
 
   // ---------- sounds ----------
-  var ctx = null, last = 0, lastName = '', VOL = { low: .35, mid: .65, high: 1 };
+  var ctx = null, last = 0, lastName = '', LEGACY = { low: 35, mid: 65, high: 100 };
+  function vol() { var v = Hub.prefs.soundVol; if (typeof v === 'string') v = LEGACY[v]; v = +v; if (!(v >= 0)) v = 65; return Math.min(1, v / 100) * Math.min(1, v / 100) * 1.1; }   // squared so the low end is properly quiet
   function ac() { if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (ctx.state === 'suspended') ctx.resume().catch(function () {}); return ctx; }
   function tone(c, t0, f0, f1, dur, type, vol) {
     var o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
@@ -53,8 +54,9 @@
   Hub.sounds = [['off', 'Off'], ['soft', 'Soft'], ['arcade', 'Arcade'], ['wood', 'Wood'], ['glass', 'Glass']];
   Hub.sfx = function (name, force) {
     var pack = force || Hub.prefs.sound; if (!pack || pack === 'off' || !PACKS[pack] || !PACKS[pack][name]) return;
+    if (!force && Hub.prefs.soundMute !== false && Hub.playing) return;   // a game is open: stay quiet
     var now = Date.now(); if (!force && name === lastName && now - last < 60) return; last = now; lastName = name;
-    var c = ac(); if (!c) return; try { PACKS[pack][name](c, c.currentTime + 0.01, VOL[Hub.prefs.soundVol] || VOL.mid); } catch (e) {}
+    var c = ac(); if (!c) return; try { PACKS[pack][name](c, c.currentTime + 0.01, vol()); } catch (e) {}
   };
   Hub.sfxPreview = function (pack) { Hub.sfx('click', pack); setTimeout(function () { Hub.sfx('open', pack); }, 220); };
 
