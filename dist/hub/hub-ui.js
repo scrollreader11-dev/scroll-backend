@@ -223,6 +223,7 @@
       var t2 = h('a', { class: 'tile-lg tile-sm', href: sl ? '#/game/scrollhub-arcade' : '#/originals', style: 'background:linear-gradient(120deg,#12307a,#0a1636)' }, h('div', { class: 'cap' }, [h('h3', { text: sl ? sl : 'Whats new' }), h('p', { text: sl ? 'Seasonal looks are live' : 'Latest updates' })]));
       pair.appendChild(t2); right.appendChild(pair); hero.appendChild(right); blk('hero', 'Featured games', hero);
     }
+    blk('quests', 'Daily quests', Hub.questsBlock ? Hub.questsBlock() : null);
     var rec = Hub.recents(14); blk('recent', 'Continue playing', row('Continue playing', rec, { href: '#/library/games' }));
     blk('originals', 'ScrollHub Originals', row('ScrollHub Originals', orig, { href: '#/originals', sub: 'Made by ScrollHub. Updated whenever new code ships.' }));
     if (!Hub.locked()) {

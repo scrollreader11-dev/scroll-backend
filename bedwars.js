@@ -1498,7 +1498,7 @@ function mbMsg(c, m) {
       const rid = String(raw.id || '').startsWith('s_') ? String(raw.id) : '';
       const r = SUB.add({ kind: 'map', by: me, byId: c.cid, title: r0.cm.name, payload: r0.cm, replaceId: rid });
       if (r.err) return send(c, { t: 'mbs', ok: false, msg: r.err });
-      send(c, { t: 'mbs', ok: true, id: r.sub.id, pending: true, problems: [], msg: 'Sent to Scrollreader11 for approval.' }); return list();
+      send(c, { t: 'mbs', ok: true, id: r.sub.id, pending: !r.auto, auto: !!r.auto, problems: [], msg: r.auto ? 'Live in the rotation. You are a trusted maker.' : 'Sent to Scrollreader11 for approval.' }); return list();
     }
     if (a === 'del') { SUB.removeOwn(String(m.id), me); return list(); }
     return;

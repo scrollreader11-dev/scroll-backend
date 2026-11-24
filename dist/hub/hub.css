@@ -1026,3 +1026,40 @@ html.rm #mood .mood-l { transition: none; }
 @media (max-width: 760px) { .tr-stage { height: 148px; } .tr-case { padding: 6px 12px 28px; } .tr-row { grid-template-columns: repeat(2, 1fr); } .tr-fill.f4 { display: none; } .tr-plaque { margin: 12px 6px 0; } }
 @media (prefers-reduced-motion: reduce) { .tr-stage::before, .tr-svg { transition: none; } }
 html.rm .tr-stage::before, html.rm .tr-svg { transition: none; }
+
+/* ---------- daily quests ---------- */
+.dq { display: grid; grid-template-columns: 168px 1fr; gap: 0; border-radius: 16px; background: var(--surface); border: 1px solid var(--stroke); overflow: hidden; }
+.dq-streak { padding: 18px 16px; border-right: 1px solid var(--stroke); background: rgba(255, 255, 255, .025); display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.dq-n { font: 600 52px/1 var(--font); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.dq-l { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.dq-s { font-size: 12px; color: var(--text3); }
+.dq-m { font-size: 12.5px; color: var(--blue-hi); margin-top: 8px; }
+.dq-main { padding: 6px 18px 12px; min-width: 0; }
+.dq-q { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "t a" "b a"; gap: 6px 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--stroke); }
+.dq-q:last-of-type { border-bottom: 0; }
+.dq-t { grid-area: t; display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; }
+.dq-c { color: var(--text3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.dq-bar { grid-area: b; height: 6px; border-radius: 3px; background: rgba(150, 185, 255, .14); overflow: hidden; }
+.dq-bar i { display: block; height: 100%; border-radius: 3px; background: var(--blue-hi); transition: width .4s ease; }
+.dq-q.is-done .dq-bar i { background: var(--ok); }
+.dq-q.is-done .dq-t b { color: var(--text2); font-weight: 500; }
+.dq-a { grid-area: a; min-width: 112px; display: flex; justify-content: flex-end; }
+.dq-rw { font-size: 12.5px; color: var(--text3); }
+.dq-done { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ok); }
+.dq-done .ic { width: 15px; height: 15px; }
+.dq-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; font-size: 12.5px; color: var(--text3); }
+@media (max-width: 640px) { .dq { grid-template-columns: 1fr; } .dq-streak { border-right: 0; border-bottom: 1px solid var(--stroke); flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; } .dq-n { font-size: 38px; } .dq-main { padding: 4px 14px 12px; } }
+
+/* ---------- questionnaire ---------- */
+.fb { }
+.fb-q { margin-top: 18px; }
+.fb-h { font-size: 14.5px; font-weight: 600; margin-bottom: 8px; }
+.fb-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fb-o { min-height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--stroke2); background: rgba(255, 255, 255, .04); color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; }
+.fb-o:hover { background: rgba(255, 255, 255, .08); }
+.fb-o[aria-pressed="true"] { background: rgba(59, 130, 246, .28); border-color: var(--blue-hi); }
+.fb-o:focus-visible { outline: 2px solid var(--blue-hi); outline-offset: 2px; }
+.fb-scale .fb-o { width: 48px; padding: 0; }
+.fb-ends { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--text3); max-width: 280px; }
+.fb-err { min-height: 18px; margin: 14px 0 0; color: var(--bad); font-size: 13px; }
+.fb textarea.input { width: 100%; resize: vertical; }

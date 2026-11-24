@@ -32,7 +32,7 @@ export async function kvSet(key, value) {
   if (!r.ok) throw new Error('kv set ' + r.status);
 }
 
-const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], subBlock: {}, likes: {}, rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
+const casino = { users: {}, gotd: null, codes: {}, tour: null, custom: [], subs: [], subBlock: {}, trusted: {}, survey: null, likes: {}, rigs: [], rigLog: [], cfg: { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {} } }; // cid -> profile; gotd override; event codes; weekly tournament
 const TUT_PLAYS = 3, TUT_REWARD = 1000000, TUT_VER = 2;
 // Owner-adjustable tour settings (admin panel > Site controls): on/off, reward, and a version that replays it for everyone.
 const tutOn = () => !(casino.cfg && casino.cfg.tutOn === false);
@@ -50,7 +50,7 @@ export function relImg(u) {
   return m ? m[1] : s;
 }
 function fixImgs(p) { if (p) { if (p.avatar) p.avatar = relImg(p.avatar); if (p.banner_url) p.banner_url = relImg(p.banner_url); } }
-function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; if (d0 && d0.subBlock && typeof d0.subBlock === 'object') casino.subBlock = d0.subBlock; if (d0 && d0.likes && typeof d0.likes === 'object') casino.likes = d0.likes; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
+function load(raw) { try { const d0 = JSON.parse(raw); if (d0 && Array.isArray(d0.custom)) { casino.custom = d0.custom; syncCustomStore(); } if (d0 && Array.isArray(d0.subs)) casino.subs = d0.subs; if (d0 && d0.subBlock && typeof d0.subBlock === 'object') casino.subBlock = d0.subBlock; if (d0 && d0.likes && typeof d0.likes === 'object') casino.likes = d0.likes; if (d0 && d0.trusted && typeof d0.trusted === 'object') casino.trusted = d0.trusted; if (d0 && d0.survey && typeof d0.survey === 'object') casino.survey = d0.survey; } catch (e) {} try { const d = JSON.parse(raw); if (d && d.users) { casino.users = d.users; for (const k in casino.users) fixImgs(casino.users[k]); } if (d && 'gotd' in d) casino.gotd = d.gotd; if (d && d.codes) casino.codes = d.codes; if (d && d.tour) casino.tour = d.tour; if (d && d.jackpot) casino.jackpot = d.jackpot; if (d && Array.isArray(d.rigs)) casino.rigs = d.rigs; if (d && Array.isArray(d.rigLog)) casino.rigLog = d.rigLog; if (d && d.cfg) casino.cfg = { closed: false, maxBet: 0, minBet: 0, maxPayout: 0, games: {}, ...d.cfg, games: { ...(d.cfg.games || {}) } }; } catch (e) {} }
 export async function initCasino() {
   try { if (fs.existsSync(CASINO_FILE)) load(fs.readFileSync(CASINO_FILE, 'utf8')); } catch (e) {}
   try { const s = await kvGet('sh:casino'); if (s) load(s); } catch (e) { console.log('kv casino load failed:', e.message); }
@@ -69,7 +69,7 @@ export async function initCasino() {
 }
 let dirty = false;
 let rigDry = false, rigPlays = null, rigPending = []; // owner rigging tool: see the Rigging section
-function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subBlock: casino.subBlock, likes: casino.likes, subs: casino.subs }); }
+function blob() { return JSON.stringify({ users: casino.users, gotd: casino.gotd, codes: casino.codes, tour: casino.tour, jackpot: casino.jackpot, custom: casino.custom, cfg: casino.cfg, rigs: casino.rigs, rigLog: casino.rigLog.slice(-120), subBlock: casino.subBlock, trusted: casino.trusted, survey: casino.survey, likes: casino.likes, subs: casino.subs }); }
 function save() { dirty = true; if (rigDry) return; try { fs.writeFileSync(CASINO_FILE, blob()); } catch (e) {} }
 async function flush() { if (!dirty) return; dirty = false; try { await kvSet('sh:casino', blob()); } catch (e) { dirty = true; } }
 setInterval(flush, 8000);
@@ -677,28 +677,50 @@ function commitSprite(built, id) {
 const SUB_MAX_PENDING_EACH = 5, SUB_MAX_PENDING_ALL = 80, SUB_MAX_BYTES = 220000;
 let subHook = null;   // server.js sets this to ping the owner
 export function setSubHook(fn) { subHook = fn; }
+let autoHook = null;  // server.js sets this: publishes a trusted maker's map right away, returns { mapId, meta } or null
+export function setAutoHook(fn) { autoHook = fn; }
+export function isTrusted(by) { return !!casino.trusted[String(by || '').toLowerCase()]; }
+export function trustSet(user, on) {
+  const k = String(user || '').toLowerCase().trim(); if (!k) return { err: 'No player named.' };
+  if (on) { if (casino.subBlock[k]) return { err: 'Unblock this player first.' }; casino.trusted[k] = Date.now(); } else delete casino.trusted[k];
+  save(); flush(); return { ok: true };
+}
+export function trustList() { return Object.keys(casino.trusted).map((u) => ({ user: u, at: casino.trusted[u] })).sort((a, b) => a.user.localeCompare(b.user)); }
+const mineOf = (o, status) => casino.subs.filter((x) => x.status === status && x.by.toLowerCase() === o.by.toLowerCase());
 export function subAdd(o) {
-  if (casino.subBlock[String(o.by || '').toLowerCase()]) return { err: 'You can no longer send creations.' };
+  const who = String(o.by || '').toLowerCase();
+  if (casino.subBlock[who]) return { err: 'You can no longer send creations.' };
   const size = JSON.stringify(o.payload || {}).length;
   if (size > SUB_MAX_BYTES) return { err: 'That is too big to send. Try something smaller.' };
-  const mine = casino.subs.filter((x) => x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase());
-  if (o.replaceId) { const k = casino.subs.findIndex((x) => x.id === o.replaceId && x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase()); if (k >= 0) { casino.subs.splice(k, 1); mine.splice(0, mine.length, ...casino.subs.filter((x) => x.status === 'pending' && x.by.toLowerCase() === o.by.toLowerCase())); } }
-  if (mine.length >= SUB_MAX_PENDING_EACH) return { err: 'You already have ' + SUB_MAX_PENDING_EACH + ' waiting for approval. Wait for an answer first.' };
-  if (casino.subs.filter((x) => x.status === 'pending').length >= SUB_MAX_PENDING_ALL) return { err: 'The approval queue is full right now. Try again later.' };
+  const trusted = isTrusted(who);
+  // Re-sending: the old waiting or turned-down copy is replaced by the new one.
+  if (o.replaceId) { const k = casino.subs.findIndex((x) => x.id === o.replaceId && (x.status === 'pending' || x.status === 'rejected') && x.by.toLowerCase() === who && x.kind === o.kind); if (k >= 0) casino.subs.splice(k, 1); }
+  if (!trusted) {
+    if (mineOf(o, 'pending').length >= SUB_MAX_PENDING_EACH) return { err: 'You already have ' + SUB_MAX_PENDING_EACH + ' waiting for approval. Wait for an answer first.' };
+    if (casino.subs.filter((x) => x.status === 'pending').length >= SUB_MAX_PENDING_ALL) return { err: 'The approval queue is full right now. Try again later.' };
+  }
   const sub = { id: 's_' + Math.random().toString(36).slice(2, 10), kind: o.kind, by: o.by, byId: o.byId || '', title: String(o.title || 'Untitled').slice(0, 60), at: Date.now(), status: 'pending', note: '', payload: o.payload };
   casino.subs.push(sub);
   if (casino.subs.length > 400) { const dec = casino.subs.filter((x) => x.status !== 'pending'); if (dec.length) casino.subs.splice(casino.subs.indexOf(dec[0]), 1); }
   save(); flush();
+  if (trusted) {   // trusted makers skip the queue; the owner can still see and remove what they made
+    let ok = false;
+    try {
+      if (sub.kind === 'sprite') ok = !subDecide(sub.id, true, { note: 'Trusted maker', by: 'auto' }).err;
+      else if (autoHook) { const h = autoHook(sub); if (h && h.mapId) ok = !subDecide(sub.id, true, { note: 'Trusted maker', by: 'auto', mapId: h.mapId, meta: h.meta || null }).err; }
+    } catch (e) {}
+    if (ok) { sub.auto = true; save(); flush(); try { subHook && subHook(sub, true); } catch (e) {} return { ok: true, sub, auto: true }; }
+  }
   try { subHook && subHook(sub); } catch (e) {}
   return { ok: true, sub };
 }
 export function subPending() { return casino.subs.filter((x) => x.status === 'pending').length; }
 export function subLatest() { const p = casino.subs.filter((x) => x.status === 'pending'); return p.length ? p[p.length - 1] : null; }
 export function subList(status) { return casino.subs.filter((x) => !status || x.status === status).slice().sort((a, b) => b.at - a.at); }
-export function subMine(by, kind) { return casino.subs.filter((x) => x.by.toLowerCase() === String(by || '').toLowerCase() && (!kind || x.kind === kind)).slice().sort((a, b) => b.at - a.at).slice(0, 30).map((x) => ({ id: x.id, kind: x.kind, title: x.title, at: x.at, status: x.status, note: x.note || '' })); }
+export function subMine(by, kind) { return casino.subs.filter((x) => x.by.toLowerCase() === String(by || '').toLowerCase() && (!kind || x.kind === kind)).slice().sort((a, b) => b.at - a.at).slice(0, 30).map((x) => ({ id: x.id, kind: x.kind, title: x.title, at: x.at, status: x.status, note: x.note || '', canEdit: x.status === 'rejected' && !!x.payload && !x.payload.dropped, auto: !!x.auto })); }
 export function subBlockSet(user, on, rejectPending) {
   const k = String(user || '').toLowerCase(); if (!k) return { err: 'No player named.' };
-  if (on) casino.subBlock[k] = Date.now(); else delete casino.subBlock[k];
+  if (on) { casino.subBlock[k] = Date.now(); delete casino.trusted[k]; } else delete casino.subBlock[k];
   let n = 0;
   if (on && rejectPending) for (const x of casino.subs) if (x.status === 'pending' && x.by.toLowerCase() === k) { x.status = 'rejected'; x.note = 'Blocked from sending creations.'; x.decidedAt = Date.now(); x.payload = { dropped: true }; n++; }
   save(); flush(); return { ok: true, rejected: n };
@@ -724,8 +746,17 @@ export function hallSprites() {
   return out.sort((a, b) => b.at - a.at);
 }
 export function hallMapSubs() { return casino.subs.filter((x) => x.status === 'approved' && x.kind === 'map' && x.mapId).map((x) => ({ mapId: x.mapId, by: x.by, at: x.decidedAt || x.at })); }
+// Turned-down creations keep their data (so they can be edited and re-sent) for the newest 5 per maker, 30 days at most.
+function trimRejected() {
+  const seen = {}, cut = Date.now() - 30 * 86400000;
+  for (const x of casino.subs.slice().sort((a, b) => (b.decidedAt || 0) - (a.decidedAt || 0))) {
+    if (x.status !== 'rejected' || !x.payload || x.payload.dropped) continue;
+    const k = x.by.toLowerCase(); seen[k] = (seen[k] || 0) + 1;
+    if (seen[k] > 5 || (x.decidedAt || 0) < cut) x.payload = { dropped: true };
+  }
+}
 export function subGet(id) { return casino.subs.find((x) => x.id === id) || null; }
-export function subRemoveOwn(id, by) { const k = casino.subs.findIndex((x) => x.id === id && x.status === 'pending' && x.by.toLowerCase() === String(by || '').toLowerCase()); if (k < 0) return false; casino.subs.splice(k, 1); save(); flush(); return true; }
+export function subRemoveOwn(id, by) { const k = casino.subs.findIndex((x) => x.id === id && (x.status === 'pending' || x.status === 'rejected') && x.by.toLowerCase() === String(by || '').toLowerCase()); if (k < 0) return false; casino.subs.splice(k, 1); save(); flush(); return true; }
 // Owner's decision. For a sprite, approving puts it in the shop (price and rarity can be set here). Maps are published by server.js.
 export function subDecide(id, approve, o) {
   o = o || {};
@@ -751,12 +782,122 @@ export function subDecide(id, approve, o) {
     } catch (e) {}
   }
   sub.status = approve ? 'approved' : 'rejected'; sub.note = String(o.note || '').slice(0, 200); sub.decidedAt = Date.now(); sub.by2 = o.by || ''; if (approve && o.mapId) { sub.mapId = o.mapId; sub.meta = o.meta || null; }
-  if (!approve || sub.kind === 'map') sub.payload = { dropped: true };   // rejected, or already published as a real map
+  if (approve && sub.kind === 'map') sub.payload = { dropped: true };   // already published as a real map
+  if (!approve) trimRejected();   // a turned-down creation stays editable for a while so its maker can fix it and send it again
   save(); flush();
   return { ok: true, sub, ...result };
 }
+
+// ---- Daily quests: three small goals a day, a streak for coming back, rewards in Scrolls ----
+const DQ_POOLS = [
+  ['e', [{ k: 'daily', goal: 1, text: 'Claim your daily Scrolls', r: 400 }, { k: 'hall', goal: 1, text: 'Open the Hall of creations', r: 400 }]],
+  ['m', [{ k: 'play', goal: 5, text: 'Play 5 casino rounds', r: 800 }, { k: 'bw', goal: 1, text: 'Finish a Bedwars match', r: 900 }, { k: 'play', goal: 10, text: 'Play 10 casino rounds', r: 1100 }]],
+  ['h', [{ k: 'win', goal: 3, text: 'Win 3 casino rounds', r: 1500 }, { k: 'like', goal: 2, text: 'Like 2 creations in the Hall', r: 1200 }, { k: 'win', goal: 5, text: 'Win 5 casino rounds', r: 2000 }]],
+];
+const DQ_ALL_BONUS = 1000, DQ_MILESTONES = { 3: 2500, 7: 10000, 14: 25000, 30: 100000 };
+const dayKey = (t) => new Date(t == null ? Date.now() : t).toISOString().slice(0, 10);
+function dqDef(id) { const pool = DQ_POOLS.find((x) => x[0] === String(id).charAt(0)); return pool ? pool[1][+String(id).slice(1)] || null : null; }
+function dqRoll(p) {
+  const day = dayKey();
+  let d = p.dq; if (!d || typeof d !== 'object') d = p.dq = { streak: 0, best: 0, last: '' };
+  if (d.day !== day) {
+    const n = Math.floor(Date.parse(day + 'T00:00:00Z') / 86400000);
+    d.day = day; d.lk = []; d.bonus = false;
+    d.q = DQ_POOLS.map(([t, a], j) => ({ id: t + ((n * 7 + j * 3) % a.length), prog: 0, claimed: false }));
+  }
+  return d;
+}
+function dqTick(p, k, n) {
+  if (!p) return; const d = dqRoll(p);
+  for (const q of d.q) { const def = dqDef(q.id); if (def && def.k === k && !q.claimed) q.prog = Math.min(def.goal, q.prog + (n || 1)); }
+}
+export function questEvent(cid, k, key) {
+  const p = cid && casino.users[cid]; if (!p) return;
+  if (k === 'like') { const d = dqRoll(p); key = String(key || ''); if (!key || d.lk.includes(key) || d.lk.length > 40) return; d.lk.push(key); }
+  dqTick(p, k, 1); save();
+}
+export function questsView(cid) {
+  const p = profileOf(cid); if (!p) return null;
+  const d = dqRoll(p), today = dayKey(), yday = dayKey(Date.now() - 86400000);
+  const live = d.last === today || d.last === yday, streak = live ? (d.streak | 0) : 0;
+  const nextMs = Object.keys(DQ_MILESTONES).map(Number).sort((a, b) => a - b).find((m) => m > streak) || 0;
+  const qs = d.q.map((q) => { const def = dqDef(q.id) || { text: '?', goal: 1, r: 0 }; return { id: q.id, text: def.text, goal: def.goal, prog: Math.min(q.prog, def.goal), reward: def.r, done: q.prog >= def.goal, claimed: !!q.claimed }; });
+  return { day: today, resetsAt: Date.parse(today + 'T00:00:00Z') + 86400000, streak, best: d.best | 0, kept: d.last === today, atRisk: d.last === yday, quests: qs, allBonus: DQ_ALL_BONUS, allBonusTaken: !!d.bonus, nextMilestone: nextMs ? { days: nextMs, reward: DQ_MILESTONES[nextMs] } : null, coins: p.coins };
+}
+export function questClaim(cid, id) {
+  const p = profileOf(cid); if (!p) return { err: 'No profile.' };
+  const d = dqRoll(p), q = d.q.find((x) => x.id === String(id)); if (!q) return { err: 'That quest is gone.' };
+  const def = dqDef(q.id); if (!def || q.prog < def.goal) return { err: 'Not finished yet.' };
+  if (q.claimed) return { err: 'Already claimed.' };
+  q.claimed = true; let gained = def.r, milestone = 0, bonus = 0;
+  const today = dayKey(), yday = dayKey(Date.now() - 86400000);
+  if (d.last !== today) { d.streak = d.last === yday ? (d.streak | 0) + 1 : 1; d.last = today; if (d.streak > (d.best | 0)) d.best = d.streak; milestone = DQ_MILESTONES[d.streak] || 0; }
+  if (!d.bonus && d.q.every((x) => x.claimed)) { d.bonus = true; bonus = DQ_ALL_BONUS; }
+  gained += milestone + bonus; p.coins += gained;
+  if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+  save(); flush();
+  return { ok: true, gained, milestone, bonus, view: questsView(cid) };
+}
+
+// ---- Feedback survey: a short questionnaire, answered once per round for a reward ----
+const SURVEY_QS = [
+  { id: 'rate', type: 'scale', q: 'How is ScrollHub so far?', min: 'Not great', max: 'Love it', req: true },
+  { id: 'use', type: 'one', q: 'What do you do here the most?', opts: ['Arcade games', 'Casino', 'Bedwars and other multiplayer', 'Sprite Studio and the map builder', 'Just hanging out'], req: true },
+  { id: 'next', type: 'many', q: 'What should be added next? Pick up to 3.', opts: ['New multiplayer games', 'More shop items', 'More events and tournaments', 'Better profiles', 'Friends and chat', 'Faster loading'], max: 3, req: true },
+  { id: 'where', type: 'one', q: 'Where do you play?', opts: ['School computer', 'Home computer', 'Phone or tablet'], req: true },
+  { id: 'bug', type: 'text', q: 'Anything broken or annoying?', req: false },
+  { id: 'idea', type: 'text', q: 'One idea you want built', req: false },
+];
+function svy() { if (!casino.survey) casino.survey = { on: true, round: 1, reward: 2000000, answers: [] }; if (!Array.isArray(casino.survey.answers)) casino.survey.answers = []; return casino.survey; }
+export function surveyState(cid) {
+  const sv = svy(), p = cid ? casino.users[cid] : null;
+  return { on: !!sv.on, round: sv.round, reward: sv.reward, answered: !!(p && (p.fbRound | 0) >= sv.round), questions: SURVEY_QS };
+}
+export function surveySubmit(cid, by, a) {
+  const sv = svy(); if (!sv.on) return { err: 'The questionnaire is closed right now.' };
+  const p = cid ? profileOf(cid) : null; if (!p) return { err: 'Sign in to answer.' };
+  if ((p.fbRound | 0) >= sv.round) return { err: 'You already answered this one. Thank you!' };
+  a = a && typeof a === 'object' ? a : {}; const out = {};
+  for (const q of SURVEY_QS) {
+    const v = a[q.id];
+    if (q.type === 'scale') { const n = Math.floor(Number(v)); if (n >= 1 && n <= 5) out[q.id] = n; }
+    else if (q.type === 'one') { if (q.opts.includes(v)) out[q.id] = v; }
+    else if (q.type === 'many') { const l = (Array.isArray(v) ? v : []).filter((x, i, arr) => q.opts.includes(x) && arr.indexOf(x) === i).slice(0, q.max); if (l.length) out[q.id] = l; }
+    else { const t = String(v || '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300); if (t) out[q.id] = t; }
+    if (q.req && out[q.id] == null) return { err: 'Please answer: ' + q.q };
+  }
+  sv.answers.push({ round: sv.round, id: String(cid), by: String(by || p.nick || 'player').slice(0, 40), at: Date.now(), a: out });
+  if (sv.answers.length > 3000) sv.answers.splice(0, sv.answers.length - 3000);
+  p.fbRound = sv.round; p.coins += sv.reward;
+  if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
+  save(); flush();
+  return { ok: true, reward: sv.reward, coins: p.coins };
+}
+export function surveyAdmin() {
+  const sv = svy(), rows = sv.answers.filter((x) => x.round === sv.round), tally = {};
+  for (const q of SURVEY_QS) {
+    if (q.type === 'text') continue;
+    const t = tally[q.id] = q.type === 'scale' ? { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } : Object.fromEntries(q.opts.map((o) => [o, 0]));
+    for (const r of rows) { const v = r.a[q.id]; if (v == null) continue; for (const x of (Array.isArray(v) ? v : [v])) if (x in t) t[x]++; }
+  }
+  const avg = rows.length ? rows.reduce((n, r) => n + (r.a.rate || 0), 0) / rows.length : 0;
+  const notes = rows.filter((r) => r.a.bug || r.a.idea).slice(-60).reverse().map((r) => ({ by: r.by, at: r.at, bug: r.a.bug || '', idea: r.a.idea || '' }));
+  return { on: !!sv.on, round: sv.round, reward: sv.reward, count: rows.length, total: sv.answers.length, avg: +avg.toFixed(2), tally, questions: SURVEY_QS.filter((q) => q.type !== 'text').map((q) => ({ id: q.id, q: q.q, type: q.type, opts: q.opts || [1, 2, 3, 4, 5] })), notes };
+}
+export function surveySet(o) {
+  const sv = svy();
+  if (o.on != null) sv.on = !!o.on;
+  if (o.reward != null) sv.reward = Math.max(0, Math.min(50000000, Math.floor(Number(o.reward) || 0)));
+  if (o.newRound) sv.round++;
+  save(); flush(); return { ok: true };
+}
 async function handleSprites(path, req, res) {
   if (path === '/api/casino/sprites') { sendJson(res, 200, { sprites: spriteMap(), overrides: overrideMap(), items: casino.custom.map((it) => ({ id: it.id, type: it.type, label: it.label, value: it.value, price: it.price, rarity: it.rarity, at: it.at, params: it.params, fx: it.fx || '', replaces: it.replaces || '' })), canEdit: isSpriteOwner(req), canSubmit: !!authName(req), mine: authName(req) ? subMine(authName(req), 'sprite') : [] }); return true; }
+  if (path === '/api/casino/sprites/sub') {   // a turned-down creation, handed back to its maker to fix and send again
+    const name = authName(req), sb = subGet(String(new URL(req.url, 'http://x').searchParams.get('id') || ''));
+    if (!name || !sb || sb.kind !== 'sprite' || sb.status !== 'rejected' || sb.by.toLowerCase() !== name.toLowerCase() || !sb.payload || sb.payload.dropped) { sendJson(res, 404, { error: 'That one can no longer be edited.' }); return true; }
+    sendJson(res, 200, { ok: true, id: sb.id, p: sb.payload }); return true;
+  }
   if (path === '/api/casino/sprites/save' && req.method === 'POST') {
     const b = await readBody(req), owner = isSpriteOwner(req);
     const built = buildSprite(b, owner);
@@ -764,8 +905,9 @@ async function handleSprites(path, req, res) {
     if (!owner) {   // everyone else: goes to the owner's approval queue instead of the shop
       const a = req._auth, name = a && (a.username || (a.account && a.account.username) || a.name);
       if (!a || !name) return (sendJson(res, 403, { error: 'Sign in to send a creation for approval.' }), true);
-      const r = subAdd({ kind: 'sprite', by: String(name), byId: String(a.id || ''), title: built.label, payload: { type: built.type, label: built.label, sprite: built.sprite, params: built.params, fx: built.fx, value: built.value, price: built.price, rarity: built.rarity } });
+      const r = subAdd({ kind: 'sprite', by: String(name), byId: String(a.id || ''), title: built.label, payload: { type: built.type, label: built.label, sprite: built.sprite, params: built.params, fx: built.fx, value: built.value, price: built.price, rarity: built.rarity }, replaceId: String(b.resubId || '') });
       if (r.err) return (sendJson(res, 429, { error: r.err }), true);
+      if (r.auto) { sendJson(res, 200, { ok: true, approved: true, message: 'Live in the shop already. You are a trusted maker, so it did not need approval.' }); return true; }
       sendJson(res, 200, { ok: true, pending: true, message: 'Sent to Scrollreader11 for approval. You will see the answer under "Your submissions".' }); return true;
     }
     const it = commitSprite(built, b.id);
@@ -862,7 +1004,7 @@ export function bwReward(cid, amount, st) {
   bwLbAt = 0;
   const b = bwOf(p), day = new Date().toISOString().slice(0, 10);
   if (b.day !== day) { b.day = day; b.earned = 0; }
-  b.games++; if (st.win) b.wins++;
+  b.games++; if (st.win) b.wins++; dqTick(p, 'bw');
   b.kills += st.kills | 0; b.finals += st.finals | 0; b.beds += st.beds | 0; b.deaths += st.deaths | 0;
   if (globalThis.SH_BOOST) amount = Math.floor(amount * globalThis.SH_BOOST());
   const give = Math.max(0, Math.min(Math.floor(amount), BW_DAILY_CAP - b.earned));
@@ -910,6 +1052,7 @@ function publicProfile(cid) {
 function recordPlay(p, bet, payout) {
   if (p.tut && p.tut.on && !p.tut.done && bet >= 1) p.tut.n = Math.min(99, (p.tut.n | 0) + 1); // tutorial progress
   p.stats.plays++; p.stats.wagered += bet;
+  if (bet >= 1) { dqTick(p, 'play'); if (payout > bet) dqTick(p, 'win'); }
   const net = payout - bet;
   if (net > 0) p.stats.won += net;
   if (payout > p.stats.biggest) p.stats.biggest = payout;
@@ -1176,7 +1319,7 @@ export async function handleCasino(url, req, res) {
     const milestone = p.streak % 7 === 0 ? 3000 : 0;
     const boost = globalThis.SH_BOOST ? globalThis.SH_BOOST() : 1;
     const gained = Math.round((base + milestone) * boost);
-    p.lastDaily = now; p.coins += gained;
+    p.lastDaily = now; p.coins += gained; dqTick(p, 'daily');
     if (p.coins > (p.stats.peak || 0)) p.stats.peak = p.coins;
     save(); flush();
     sendJson(res, 200, { ok: true, gained, streak: p.streak, milestone: milestone > 0, profile: publicProfile(cid) }); return true;

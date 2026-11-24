@@ -320,6 +320,7 @@
       if (m.t === 'mbg' && m.map) { loadCm(m.map); toast('Opened "' + esc(m.map.name) + '"', 1400); }
       if (m.t === 'mbs') {
         if (!m.ok) { toast('' + esc(m.msg || 'Couldn’t save'), 2400); return; }
+        if (m.auto) { E.id = ''; S.dirty = false; toast('It is live! You are a trusted maker, so it went straight into the rotation.', 4200); saveCb = null; return; }
         if (m.pending) { E.id = m.id; S.dirty = false; toast('Sent for approval! Scrollreader11 will review it. Check the map list for the answer.', 4200); saveCb = null; return; }
         if (m.saved === false) { S.problems = m.problems || []; toast(esc(m.msg || 'Fix the problems first'), 3200); saveCb = null; return; }
         E.id = m.id; S.dirty = false;

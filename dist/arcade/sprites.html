@@ -476,10 +476,26 @@
     var el = $('subs'); if (!el) return; var l = S.mySubs || [];
     if (!l.length) { el.innerHTML = ''; return; }
     el.innerHTML = '<div class="hint" style="margin:8px 0 4px"><b>Your submissions</b></div>' + l.slice(0, 8).map(function (x) {
-      var st = x.status === 'pending' ? '⏳ waiting' : x.status === 'approved' ? '✅ approved, it is in the shop' : '❌ not approved' + (x.note ? ': ' + x.note : '');
-      return '<div class="hint" style="margin:0 0 4px">' + String(x.title).replace(/[<>&]/g, '') + ' — ' + st + '</div>';
+      var st = x.status === 'pending' ? 'waiting' : x.status === 'approved' ? 'approved, it is in the shop' : 'not approved' + (x.note ? ': ' + x.note : '');
+      var fix = x.status === 'rejected' && x.canEdit ? ' <button class="b" data-resend="' + x.id + '" style="padding:2px 8px;font-size:12px">Edit and resend</button>' : '';
+      return '<div class="hint" style="margin:0 0 4px">' + String(x.title).replace(/[<>&]/g, '') + ' — ' + st + fix + '</div>';
     }).join('');
   }
+  $('subs').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-resend]'); if (!b) return;
+    api('/sub?id=' + encodeURIComponent(b.dataset.resend)).then(function (d) {
+      if (!d || !d.p) return msg('That one can no longer be edited.');
+      var pl = d.p;
+      if (pl.type === 'banner') { S.ban = Object.assign({}, pl.params || {}); }
+      else if (pl.type === 'tag') { S.tag = { text: pl.label, fx: pl.fx || '' }; }
+      else if (pl.sprite) {
+        var sp = pl.sprite; S.data = decode(sp); S.fi = 0; S.fps = sp.fps || 6; S.fx = sp.fx || 'none'; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; renderFx(); S.undo = []; S.redo = []; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
+        $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; sp.pal.forEach(useColor); setFrame('front');
+      }
+      S.editId = null; S.resubId = d.id; $('name').value = pl.label; $('price').value = pl.price; $('rarity').value = pl.rarity; setType(pl.type); syncEditBtns(); renderMine();
+      msg('Fix it up, then press Save to send it again.'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
   function renderMine() {
     if (!S.items.length) { $('mine').innerHTML = '<div class="hint">Nothing yet — draw something and save it!</div>'; return; }
     var icon = { skin: '🐾', hat: '🎩', acc: '✨' };
@@ -497,10 +513,10 @@
     var b = e.target.closest('.mi'); if (!b) return; var it = S.items.find(function (x) { return x.id === b.dataset.id; }); if (!it) return;
     if (it.type === 'banner' || it.type === 'tag') {
       if (it.type === 'banner' && it.params) S.ban = Object.assign({}, it.params); if (it.type === 'tag') S.tag = { text: it.label, fx: it.fx || '' };
-      S.editId = it.id; S.editType = it.type; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity; setType(it.type); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+      S.editId = it.id; S.resubId = null; S.editType = it.type; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity; setType(it.type); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
     }
     var sp = S.sprites[it.value]; if (!sp) return;
-    S.data = decode(sp); S.fi = 0; S.fps = sp.fps || 6; S.fx = sp.fx || 'none'; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; renderFx(); S.undo = []; S.redo = []; S.editId = it.id; S.editType = it.type; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
+    S.data = decode(sp); S.fi = 0; S.fps = sp.fps || 6; S.fx = sp.fx || 'none'; $('fps').value = S.fps; $('fpsTxt').textContent = S.fps + ' fps'; renderFx(); S.undo = []; S.redo = []; S.editId = it.id; S.resubId = null; S.editType = it.type; S.eyes = !!sp.eyes; S.feet = sp.feet !== false;
     $('optEyes').checked = S.eyes; $('optFeet').checked = S.feet; $('name').value = it.label; $('price').value = it.price; $('rarity').value = it.rarity;
     sp.pal.forEach(useColor); setFrame('front'); setType(it.type); setRep(it.replaces || ''); syncEditBtns(); renderMine(); msg('Editing “' + it.label + '”'); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -513,16 +529,17 @@
     else { var e = encode(); if (e.err) return msg(e.err); if (!/[1-9a-v]/.test(e.sprite.px)) return msg('Draw the front first!'); body.sprite = e.sprite; }
     if (S.canEdit && isPix() && $('repOn').checked && $('repSel').value) { body.replaces = $('repSel').value; if (!confirm('Replace the original “' + ($('repSel').selectedOptions[0] || {}).text + '” for everyone?')) return; }
     if (S.canEdit && !asNew && S.editId) body.id = S.editId;
+    if (S.resubId) body.resubId = S.resubId;
     api('/save', body).then(function (d) {
       if (d.error) return msg('⚠️ ' + d.error);
-      if (d.pending) { msg('📨 ' + (d.message || 'Sent for approval!')); load(); return; }
+      if (d.pending || d.approved) { S.resubId = null; msg((d.approved ? '' : '📨 ') + (d.message || 'Sent for approval!')); load(); return; }
       S.editId = d.item.id; S.editType = S.type; syncEditBtns(); msg(asNew ? '✅ Saved! It’s in the shop now.' : '✅ Updated!'); load();
     }).catch(function () { msg('Save failed — check your connection'); });
   }
   $('saveNew').onclick = function () { save(true); };
   $('saveUpd').onclick = function () { save(false); };
   $('del').onclick = function () { if (!S.editId || !confirm('Delete this creation? Anyone wearing it goes back to the default.')) return; api('/delete', { id: S.editId }).then(function (d) { if (d.error) return msg('⚠️ ' + d.error); msg('Deleted'); newDrawing(); load(); }); };
-  function newDrawing() { setRep(''); S.data = { front: [blank()], back: blank() }; S.fi = 0; S.fx = 'none'; renderFx(); S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
+  function newDrawing() { S.resubId = null; setRep(''); S.data = { front: [blank()], back: blank() }; S.fi = 0; S.fx = 'none'; renderFx(); S.undo = []; S.redo = []; S.editId = null; $('name').value = ''; syncEditBtns(); setFrame('front'); changed(); renderMine(); }
   $('newBtn').onclick = function () { if (cur().some(function (v) { return v; }) && !confirm('Start a new drawing? Unsaved changes will be lost.')) return; newDrawing(); };
 
   // ------------------------------------------------------------ animation frames + easy effects

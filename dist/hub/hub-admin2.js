@@ -155,8 +155,9 @@
   P.subs = function (host) {
     var CH = '0123456789abcdefghijklmnopqrstuv', RAR = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['epic', 'Epic'], ['legendary', 'Legendary'], ['mythic', 'Mythic']];
     var KIND = { sprite: 'Sprite Studio', map: 'Map builder' }, TYPE = { skin: 'Gim', hat: 'Hat', acc: 'Accessory', banner: 'Banner', tag: 'Name tag' };
-    var pend = h('div'), hist = h('div'), bulk = h('div', { class: 'adm-row wrap', style: 'margin-bottom:10px' }), blockBox = h('div'), cur = { pending: [], blocked: [] };
+    var pend = h('div'), hist = h('div'), bulk = h('div', { class: 'adm-row wrap', style: 'margin-bottom:10px' }), blockBox = h('div'), trustBox = h('div'), cur = { pending: [], blocked: [], trusted: [] };
     host.appendChild(card('Waiting for you', 'Everything players send from the Sprite Studio and the map builder lands here first. Nothing reaches the shop or the game until you approve it. Approved gims, hats and tags go straight onto the maker\u2019s profile.', [bulk, pend]));
+    host.appendChild(card('Trusted makers', 'What these players send goes live right away, with no waiting. You still see it under Recent decisions and can remove it any time. Blocking a player removes their trust.', trustBox));
     host.appendChild(card('Blocked players', 'These players can still play but can no longer send creations.', blockBox));
     host.appendChild(card('Recent decisions', 'The last 40 things you approved or rejected.', hist));
     function pic(o) {
@@ -199,6 +200,10 @@
       who.value = names.indexOf(cur.who) >= 0 ? cur.who : ''; who.addEventListener('change', function () { cur.who = who.value; });
       bulk.appendChild(who); bulk.appendChild(btn('Approve all', function (b) { runBulk('approve', who.value, b); }, { primary: true })); bulk.appendChild(btn('Reject all', function (b) { runBulk('reject', who.value, b); }, { danger: true }));
     }
+    function paintTrusted() {
+      Hub.clear(trustBox); if (!cur.trusted.length) { trustBox.appendChild(empty('Nobody is trusted yet. Use Trust maker on a waiting creation.')); return; }
+      cur.trusted.forEach(function (u) { trustBox.appendChild(h('div', { class: 'adm-row', style: 'padding:6px 0' }, [h('b', { style: 'flex:1', text: Hub.clean(u) }), btn('Remove trust', function (b) { K.busy(b, post({ action: 'subs.untrust', user: u })).then(function (r) { r && r.ok ? Hub.toast('Trust removed') : toastErr(r); load(); }); })])); });
+    }
     function paintBlocked() {
       Hub.clear(blockBox); if (!cur.blocked.length) { blockBox.appendChild(empty('Nobody is blocked.')); return; }
       cur.blocked.forEach(function (u) { blockBox.appendChild(h('div', { class: 'adm-row', style: 'padding:6px 0' }, [h('b', { style: 'flex:1', text: Hub.clean(u) }), btn('Unblock', function (b) { K.busy(b, post({ action: 'subs.unblock', user: u })).then(function (r) { r && r.ok ? Hub.toast('Unblocked') : toastErr(r); load(); }); })])); });
@@ -211,11 +216,12 @@
         (o.map.problems || []).forEach(function (pr) { lines.push(h('div', { class: 'hint sub-bad', text: 'Problem: ' + Hub.clean(pr) })); });
         if (!(o.map.problems || []).length) lines.push(h('div', { class: 'hint', text: 'No problems found.' }));
       }
-      if (isDone) lines.push(h('div', { class: 'hint', text: (o.status === 'approved' ? 'Approved' : 'Rejected') + (o.decidedAt ? ' ' + when(o.decidedAt) : '') + (o.note ? ' · ' + Hub.clean(o.note) : '') }));
+      if (isDone) lines.push(h('div', { class: 'hint', text: (o.status === 'approved' ? (o.auto ? 'Auto-approved (trusted maker)' : 'Approved') : 'Rejected') + (o.decidedAt ? ' ' + when(o.decidedAt) : '') + (o.note ? ' · ' + Hub.clean(o.note) : '') }));
       var acts = isDone ? null : h('div', { class: 'adm-row' }, [
         btn('Approve', function (b) { ask(o, true).then(function (v) { if (v) K.busy(b, post({ action: 'subs.approve', id: o.id, note: v.note, price: v.price, rarity: v.rarity, rotation: v.rotation })).then(function (r) { if (r && r.ok) { Hub.toast('Approved'); if (r.problems && r.problems.length) Hub.toast('Saved, but it has problems so it is not in rotation'); } else toastErr(r); load(); }); }); }, { primary: true }),
         o.map ? btn('Open in builder', function () { window.open('/arcade/bedwars/builder.html?open=' + encodeURIComponent(o.id), '_blank', 'noopener'); }, { icon: 'search' }) : null,
         btn('Reject', function (b) { ask(o, false).then(function (v) { if (v) K.busy(b, post({ action: 'subs.reject', id: o.id, note: v.note })).then(function (r) { r && r.ok ? Hub.toast('Rejected') : toastErr(r); load(); }); }); }, { danger: true }),
+        o.blocked || o.trusted ? null : btn('Trust maker', function (b) { confirmBox('Trust ' + Hub.clean(o.by) + '?', 'Everything they send from now on goes live right away without waiting for you. This one is approved too. You can remove trust any time.', 'Trust maker').then(function (ok) { if (!ok) return; K.busy(b, post({ action: 'subs.trust', user: o.by })).then(function (r) { if (!(r && r.ok)) { toastErr(r); return load(); } ask(o, true).then(function (v) { if (!v) return load(); post({ action: 'subs.approve', id: o.id, note: v.note, price: v.price, rarity: v.rarity, rotation: v.rotation }).then(function () { Hub.toast('Trusted and approved'); load(); }); }); }); }); }, { icon: 'shield' }),
         btn(o.blocked ? 'Blocked' : 'Block player', function (b) { if (o.blocked) return; confirmBox('Block ' + Hub.clean(o.by) + '?', 'They can no longer send creations and everything they have waiting is rejected. You can unblock them below.', 'Block player').then(function (ok) { if (ok) K.busy(b, post({ action: 'subs.block', user: o.by })).then(function (r) { r && r.ok ? Hub.toast('Blocked' + (r.rejected ? ', rejected ' + r.rejected : '')) : toastErr(r); load(); }); }); }, { ghost: true })]);
       return h('div', { class: 'adm-row wrap sub-row' }, [isDone ? null : pic(o), h('div', { style: 'flex:1;min-width:200px' }, lines), acts]);
     }
@@ -224,7 +230,7 @@
         if (!alive(host)) return; Hub.clear(pend); Hub.clear(hist);
         if (!r || !r.ok) { pend.appendChild(empty('Could not load submissions.')); return; }
         if (Hub.school.subs) { Hub.school.subs.n = r.pending.length; Hub.emit('live'); }
-        cur.pending = r.pending; cur.blocked = r.blocked || []; paintBulk(); paintBlocked();
+        cur.pending = r.pending; cur.blocked = r.blocked || []; cur.trusted = r.trusted || []; paintBulk(); paintBlocked(); paintTrusted();
         if (!r.pending.length) pend.appendChild(empty('Nothing waiting. You will get a bell notification and a pop-up when someone sends something.'));
         r.pending.forEach(function (o) { pend.appendChild(row(o, false)); });
         if (!r.done.length) hist.appendChild(empty('No decisions yet.'));
@@ -232,5 +238,30 @@
       });
     }
     load(); var t = setInterval(function () { if (!alive(host)) { clearInterval(t); return; } if (!document.hidden) load(); }, 10000);
+  };
+
+  P.feedback = function (host) {
+    var body = h('div');
+    host.appendChild(body);
+    function paint(r) {
+      Hub.clear(body);
+      if (!r || !r.ok) { body.appendChild(empty('Could not load the questionnaire.')); return; }
+      var rew = inp('', { type: 'number', min: '0', max: '50000000' }); rew.value = String(r.reward);
+      body.appendChild(card('Questionnaire', 'A short set of questions pops up now and then for signed-in players. Answering pays a one-time reward, once per round.', [
+        Hub.toggle('Ask players', r.on ? 'On: it pops up for players who have not answered.' : 'Off: nothing pops up.', r.on, function (v) { post({ action: 'fb.set', on: v }).then(function (x) { x && x.ok ? Hub.toast(v ? 'Questionnaire on' : 'Questionnaire off') : toastErr(x); }); }),
+        h('div', { class: 'adm-row wrap', style: 'margin-top:12px' }, [h('div', { style: 'flex:1;min-width:180px' }, field('Reward per answer (Scrolls)', rew)), btn('Save reward', function (b) { K.busy(b, post({ action: 'fb.set', reward: +rew.value || 0 })).then(function (x) { if (x && x.ok) { Hub.toast('Reward saved'); paint(x); } else toastErr(x); }); })]),
+        h('div', { class: 'adm-row', style: 'margin-top:12px' }, [btn('Start a new round', function (b) { confirmBox('Start round ' + (r.round + 1) + '?', 'Everyone can answer again and get the reward again. Old answers are kept but this page shows only the new round.', 'Start new round').then(function (ok) { if (ok) K.busy(b, post({ action: 'fb.set', newRound: true })).then(function (x) { x && x.ok ? (Hub.toast('New round started'), paint(x)) : toastErr(x); }); }); })]),
+      ]));
+      body.appendChild(card('Round ' + r.round + ' results', r.count + ' answered' + (r.count ? ', average rating ' + r.avg + ' out of 5' : '') + '.', r.count ? r.questions.map(function (q) {
+        var t = r.tally[q.id] || {}, max = Math.max(1, Math.max.apply(null, Object.keys(t).map(function (k) { return t[k]; })));
+        return h('div', { style: 'margin:10px 0' }, [h('b', { text: q.q }), Object.keys(t).map(function (k) {
+          return h('div', { class: 'adm-row', style: 'gap:8px;margin-top:4px' }, [h('span', { class: 'hint', style: 'width:210px;flex:none', text: Hub.clean(k) }), h('div', { style: 'flex:1;height:8px;border-radius:4px;background:var(--line,rgba(255,255,255,.1))' }, h('div', { style: 'height:100%;border-radius:4px;background:var(--accent,#7aa2ff);width:' + Math.round(t[k] / max * 100) + '%' })), h('span', { class: 'hint', style: 'width:28px;text-align:right', text: String(t[k]) })]);
+        })]);
+      }) : empty('No answers in this round yet.')));
+      body.appendChild(card('What players wrote', 'The newest 60 notes from this round.', r.notes.length ? r.notes.map(function (n) {
+        return h('div', { style: 'padding:8px 0;border-top:1px solid var(--line,rgba(255,255,255,.08))' }, [h('div', { class: 'hint', text: Hub.clean(n.by) + ' · ' + when(n.at) }), n.bug ? h('div', { text: 'Broken or annoying: ' + Hub.clean(n.bug) }) : null, n.idea ? h('div', { text: 'Idea: ' + Hub.clean(n.idea) }) : null]);
+      }) : empty('Nothing written yet.')));
+    }
+    post({ action: 'fb.get' }).then(function (r) { if (alive(host)) paint(r); });
   };
 })();

@@ -26,7 +26,7 @@ import * as GMS from './gamemaps.js';
 import { handleBedwarsUpgrade, bwOnline, bwAdminRooms, bwEndRoom } from './bedwars.js';
 import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
-import { likeCount, likedBy, likeToggle, setSubHook, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { likeCount, likedBy, likeToggle, setSubHook, setAutoHook, trustSet, trustList, isTrusted, questEvent, questsView, questClaim, surveyState, surveySubmit, surveyAdmin, surveySet, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -472,7 +472,17 @@ globalThis.SH_SET_SEASON = async (v) => { admin.settings.season = v ? String(v) 
 globalThis.SH_SCHOOL = () => (admin.settings.schoolMode ? { set: admin.settings.schoolSet || 'blooket', until: admin.settings.schoolUntil || 0, gamble: !!admin.settings.schoolGamble, quiz: admin.settings.schoolQuiz !== false } : null);
 globalThis.SH_SET_SQUIZ = async (v) => { admin.settings.schoolQuiz = !!v; logEvent('admin', 'admin', '📝 School Mode questions ' + (v ? 'ON' : 'OFF')); try { await saveState(); } catch (e) {} };
 globalThis.SH_SET_GAMBLE = async (v) => { admin.settings.schoolGamble = !!v; logEvent('admin', 'admin', '🎰 School Mode gambling ' + (v ? 'UNLOCKED' : 'locked')); try { await saveState(); } catch (e) {} };
-setSubHook((sub) => {
+setAutoHook((sub) => {   // a trusted maker's map goes live right away, the same way an approval would publish it
+  try {
+    const sv = GMS.saveMap({ ...(sub.payload || {}) }, sub.by);
+    if (!sv.ok) return null;
+    if (sv.problems.length) { GMS.deleteMap(sv.id, 'auto'); return null; }
+    GMS.setRotation(String(sub.payload.game), sv.id, true);
+    return { mapId: sv.id, meta: { game: sub.payload.game, name: sub.payload.name } };
+  } catch (e) { return null; }
+});
+setSubHook((sub, auto) => {
+  if (auto) { try { logEvent('sub', sub.by, 'auto-approved ' + (sub.kind === 'map' ? 'map: ' : 'creation: ') + sub.title); } catch (e) {} return; }
   try {
     logEvent('sub', sub.by, (sub.kind === 'map' ? 'map: ' : 'creation: ') + sub.title);
     console.log('submission waiting for approval:', sub.kind, 'from', sub.by);
@@ -1059,10 +1069,15 @@ async function handleStaff(req, res) {
       return sendJson(res, 200, { ok: true, winners: names, amount, message: msg });
     }
   }
-  if (/^subs\.(list|approve|reject|bulk|block|unblock)$/.test(action)) {
+  if (action === 'fb.get' || action === 'fb.set') {
+    if (!trueOwner) return sendJson(res, 403, { error: 'owner only', message: 'Only the owner sees questionnaire answers.' });
+    if (action === 'fb.set') { surveySet({ on: body.on, reward: body.reward, newRound: !!body.newRound }); audit(who, 'fb.set', '', body.newRound ? 'new round' : body.on != null ? (body.on ? 'on' : 'off') : 'reward ' + body.reward); }
+    return sendJson(res, 200, { ok: true, ...surveyAdmin() });
+  }
+  if (/^subs\.(list|approve|reject|bulk|block|unblock|trust|untrust)$/.test(action)) {
     if (!trueOwner) return sendJson(res, 403, { error: 'owner only', message: 'Only the owner decides on submissions.' });
     const light = (x) => {
-      const o = { id: x.id, kind: x.kind, by: x.by, title: x.title, at: x.at, status: x.status, note: x.note || '', decidedAt: x.decidedAt || 0 };
+      const o = { id: x.id, kind: x.kind, by: x.by, title: x.title, at: x.at, status: x.status, note: x.note || '', decidedAt: x.decidedAt || 0, auto: !!x.auto };
       const pl = x.payload;
       if (x.status === 'pending' && pl && !pl.dropped) {
         if (x.kind === 'sprite') o.sprite = { type: pl.type, label: pl.label, price: pl.price, rarity: pl.rarity, fx: pl.fx, sprite: pl.sprite, params: pl.params, value: pl.type === 'banner' ? pl.value : '' };
@@ -1072,9 +1087,15 @@ async function handleStaff(req, res) {
     };
     if (action === 'subs.list') {
       const pend = subList('pending').reverse().map(light), done = subList().filter((x) => x.status !== 'pending').slice(0, 40).map(light);
-      const blocked = subBlockList().map((b) => b.user);
-      pend.forEach((o) => { o.blocked = blocked.includes(String(o.by).toLowerCase()); });
-      return sendJson(res, 200, { ok: true, pending: pend, done, blocked });
+      const blocked = subBlockList().map((b) => b.user), trusted = trustList().map((t) => t.user);
+      pend.forEach((o) => { o.blocked = blocked.includes(String(o.by).toLowerCase()); o.trusted = trusted.includes(String(o.by).toLowerCase()); });
+      return sendJson(res, 200, { ok: true, pending: pend, done, blocked, trusted });
+    }
+    if (action === 'subs.trust' || action === 'subs.untrust') {
+      const r = trustSet(body.user, action === 'subs.trust');
+      if (r.err) return sendJson(res, 200, { error: 'bad', message: r.err });
+      audit(who, action, String(body.user || ''), '');
+      return sendJson(res, 200, { ok: true, trusted: trustList().map((t) => t.user) });
     }
     if (action === 'subs.block' || action === 'subs.unblock') {
       const r = subBlockSet(body.user, action === 'subs.block', body.reject !== false);
@@ -2491,16 +2512,31 @@ const httpServer = createServer(async (req, res) => {
     poll.votes[voter] = i; saveState().catch(() => {});
     return sendJson(res, 200, { ok: true, live: liveState(voter) });
   }
+  if (url.split('?')[0] === '/api/quests') {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    if (!who) return sendJson(res, 200, { ok: true, guest: true });
+    if (req.method === 'POST') { const b = await readBody(req); const r = questClaim(who.id, String(b.id || '')); return sendJson(res, 200, r.err ? { error: 'bad', message: r.err, view: questsView(who.id) } : r); }
+    return sendJson(res, 200, { ok: true, view: questsView(who.id) });
+  }
+  if (url.split('?')[0] === '/api/feedback') {
+    let who = null; try { who = await resolveSession(req); } catch (e) {}
+    if (req.method === 'POST') {
+      if (!who) return sendJson(res, 401, { error: 'login', message: 'Sign in to answer.' });
+      const b = await readBody(req); const r = surveySubmit(who.id, who.username, b.a);
+      return sendJson(res, 200, r.err ? { error: 'bad', message: r.err } : r);
+    }
+    return sendJson(res, 200, { ok: true, signedIn: !!who, ...surveyState(who && who.id) });
+  }
   if (url.split('?')[0] === '/api/hall' && req.method === 'POST') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
     if (!who) return sendJson(res, 401, { error: 'login', message: 'Sign in to like creations.' });
     const b = await readBody(req), key = String(b.key || '');
     if (/^s:/.test(key) ? !hallSprites().some((x) => 's:' + x.id === key) : !hallMapSubs().some((x) => 'm:' + x.mapId === key)) return sendJson(res, 200, { error: 'gone' });
-    const r = likeToggle(key, who.id); return sendJson(res, 200, r.err ? { error: 'bad' } : r);
+    const r = likeToggle(key, who.id); if (r.liked) questEvent(who.id, 'like', key); return sendJson(res, 200, r.err ? { error: 'bad' } : r);
   }
   if (url.split('?')[0] === '/api/hall' && req.method === 'GET') {
     let who = null; try { who = await resolveSession(req); } catch (e) {}
-    const vid = who && who.id;
+    const vid = who && who.id; if (vid) questEvent(vid, 'hall');
     const sprites = hallSprites().map((x) => ({ ...x, likes: likeCount('s:' + x.id), liked: likedBy('s:' + x.id, vid) }));
     const maps = hallMapSubs().map((x) => { const m = GMS.getMap(x.mapId); return m && m.ok ? { id: m.id, name: m.name, game: m.game, desc: m.desc || '', by: x.by, at: x.at, walls: (m.w || []).length, props: (m.props || []).length, likes: likeCount('m:' + m.id), liked: likedBy('m:' + m.id, vid) } : null; }).filter(Boolean);
     const mk = {};
