@@ -1,8 +1,8 @@
-/* ScrollHub Hub: the fun layer. One canvas draws cursor trails, click bursts, seasonal decorations and party confetti. It never draws over a game. */
+/* ScrollHub Hub: the fun layer. One canvas draws cursor trails, click bursts and party confetti. It never draws over a game. */
 (function () {
   'use strict';
   var Hub = window.Hub; if (!Hub) return;
-  var cv = null, cx = null, W = 0, H = 0, dpr = 1, parts = [], running = false, last = 0, ambientAcc = 0;
+  var cv = null, cx = null, W = 0, H = 0, dpr = 1, parts = [], running = false, last = 0;
   var reduce = function () { return document.documentElement.classList.contains('rm') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); };
   function rnd(a, b) { return a + Math.random() * (b - a); }
   function pick(a) { return a[(Math.random() * a.length) | 0]; }
@@ -27,20 +27,6 @@
     spark: function (p) { var s = p.s * (.6 + .4 * Math.sin(p.age * 18)); cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.beginPath(); cx.moveTo(0, -s); cx.quadraticCurveTo(0, 0, s, 0); cx.quadraticCurveTo(0, 0, 0, s); cx.quadraticCurveTo(0, 0, -s, 0); cx.quadraticCurveTo(0, 0, 0, -s); cx.fill(); cx.restore(); }
   };
   function add(p) { p.age = 0; p.r = p.r || 0; p.vr = p.vr || 0; p.g = p.g || 0; p.a = p.a == null ? 1 : p.a; p.fade = p.fade || 0; if (parts.length < 900) parts.push(p); kick(); }
-
-  // ---------- seasons ----------
-  var SEASON = {
-    xmas: { n: 70, make: function () { var s = rnd(1.4, 3.6); return { t: 'dot', x: rnd(0, W), y: -8, vx: rnd(-8, 8), vy: rnd(28, 60) * (s / 3 + .55), s: s, c: 'rgba(255,255,255,.88)', sway: rnd(0, 6), life: 40 }; } },
-    thanksgiving: { n: 26, make: function () { return { t: 'leaf', x: rnd(0, W), y: -14, vx: rnd(-14, 14), vy: rnd(26, 52), s: rnd(3, 5.5), r: rnd(0, 6), vr: rnd(-2, 2), c: pick(['#c8641e', '#e0902c', '#9a3b1a', '#b8892a']), sway: rnd(0, 20), life: 40 }; } },
-    halloween: { n: 38, make: function () { return { t: 'dot', x: rnd(0, W), y: H + 8, vx: rnd(-10, 10), vy: -rnd(22, 52), s: rnd(1.2, 3), c: pick(['rgba(255,140,40,.85)', 'rgba(255,190,70,.8)', 'rgba(170,100,255,.7)']), sway: rnd(0, 10), life: 40 }; } },
-    newyear: { n: 40, make: function () { return { t: 'rect', x: rnd(0, W), y: -10, vx: rnd(-14, 14), vy: rnd(40, 80), s: rnd(2.5, 4), r: rnd(0, 6), vr: rnd(-4, 4), c: pick(['#ffd36b', '#f4f4f8', '#c9ced9', '#ffe9a8']), sway: rnd(0, 10), life: 40 }; } },
-    valentines: { n: 20, make: function () { return { t: 'heart', x: rnd(0, W), y: H + 12, vx: rnd(-12, 12), vy: -rnd(26, 56), s: rnd(5, 9), r: rnd(-1, 1), vr: rnd(-1, 1), c: pick(['rgba(255,110,150,.8)', 'rgba(255,160,190,.8)', 'rgba(230,60,110,.75)']), sway: rnd(0, 12), life: 40 }; } },
-    stpatricks: { n: 30, make: function () { return { t: 'rect', x: rnd(0, W), y: -10, vx: rnd(-12, 12), vy: rnd(34, 70), s: rnd(2.5, 4), r: rnd(0, 6), vr: rnd(-4, 4), c: pick(['#3fbf6b', '#7be08f', '#e9c95a', '#2a9a52']), sway: rnd(0, 10), life: 40 }; } },
-    easter: { n: 30, make: function () { return { t: 'dot', x: rnd(0, W), y: -8, vx: rnd(-10, 10), vy: rnd(30, 62), s: rnd(2, 4), c: pick(['#ffc6dd', '#c9e7ff', '#fff3a8', '#cfe9c8', '#e3cfff']), sway: rnd(0, 8), life: 40 }; } },
-    july4: { n: 36, make: function () { return { t: 'rect', x: rnd(0, W), y: -10, vx: rnd(-16, 16), vy: rnd(40, 84), s: rnd(2.5, 4), r: rnd(0, 6), vr: rnd(-4, 4), c: pick(['#ff4b5c', '#f4f6fb', '#4b86ff']), sway: rnd(0, 10), life: 40 }; } },
-    summer: { n: 22, make: function () { return { t: 'bubble', x: rnd(0, W), y: H + 8, vx: rnd(-8, 8), vy: -rnd(20, 44), s: rnd(3, 8), c: 'rgba(190,230,255,.55)', sway: rnd(0, 10), life: 40 }; } }
-  };
-  function season() { return Hub.prefs.seasonFx !== false && SEASON[(Hub.school && Hub.school.season) || ''] ? SEASON[Hub.school.season] : null; }
 
   // ---------- trail and click ----------
   var TRAIL = {
@@ -79,9 +65,8 @@
   function kick() { if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); } }
   function frame(now) {
     var dt = Math.min(.05, (now - last) / 1000); last = now;
-    var sea = season(), hide = Hub.playing || document.hidden || reduce();
+    var hide = Hub.playing || document.hidden || reduce();
     if (cv) cv.style.display = Hub.playing ? 'none' : '';
-    if (sea && !hide) { ensure(); ambientAcc += dt; var gap = 1 / Math.max(2, sea.n / 9); while (ambientAcc > gap) { ambientAcc -= gap; var np = 0; for (var q = 0; q < parts.length; q++) if (parts[q].amb) np++; if (np < sea.n) { var pp = sea.make(); pp.amb = true; add(pp); } } }
     if (cx) {
       cx.clearRect(0, 0, W, H);
       for (var i = parts.length - 1; i >= 0; i--) {
@@ -89,19 +74,15 @@
         if (p.sway) p.vx += Math.sin(p.age * 1.6 + p.sway) * 14 * dt;
         if (p.drag) { p.vx *= 1 - p.drag * dt; p.vy *= 1 - p.drag * .4 * dt; }
         p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
-        var gone = p.amb ? (p.y > H + 24 || p.y < -30 || p.x < -30 || p.x > W + 30 || hide && p.age > .2) : p.age > p.life;
+        var gone = p.age > p.life;
         if (gone) { parts.splice(i, 1); continue; }
-        var al = p.amb ? Math.min(1, p.age * 1.5) : (p.fade ? Math.max(0, 1 - Math.pow(p.age / p.life, 1.4) * p.fade) : 1);
+        var al = p.fade ? Math.max(0, 1 - Math.pow(p.age / p.life, 1.4) * p.fade) : 1;
         cx.globalAlpha = al * p.a; cx.fillStyle = p.c; cx.strokeStyle = p.c;
         if (p.shrink) { var o = p.s; p.s = o * Math.max(.05, 1 - p.age / p.life); DRAW[p.t](p); p.s = o; } else DRAW[p.t](p);
       }
       cx.globalAlpha = 1;
     }
-    if (parts.length || (sea && !hide) || Date.now() < partyUntil) requestAnimationFrame(frame); else { running = false; if (cx) cx.clearRect(0, 0, W, H); }
+    if (parts.length || Date.now() < partyUntil) requestAnimationFrame(frame); else { running = false; if (cx) cx.clearRect(0, 0, W, H); }
   }
-  function wake() { if (season()) { ensure(); kick(); } }
-  Hub.on('season', wake); Hub.on('prefs', function (k) { if (k === 'seasonFx') { if (!season()) parts = parts.filter(function (p) { return !p.amb; }); wake(); } });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) wake(); });
-  setInterval(function () { if (!running) wake(); }, 4000);
-  wake();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && parts.length) kick(); });
 })();
