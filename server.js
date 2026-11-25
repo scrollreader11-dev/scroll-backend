@@ -26,6 +26,7 @@ import * as GMS from './gamemaps.js';
 import { handleBedwarsUpgrade, bwOnline, bwAdminRooms, bwEndRoom } from './bedwars.js';
 import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
+import { setChatCheck, setIpFn, recent as chatRecent } from './chatguard.js';
 import { likeCount, likedBy, likeToggle, setSubHook, setAutoHook, trustSet, trustList, isTrusted, questEvent, questsView, questClaim, surveyState, surveySubmit, surveyAdmin, surveySet, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
@@ -301,6 +302,17 @@ function cleanNick(nick) {
   return nick;
 }
 
+// ---- typed chat in the casino and in Games: the shared filter (chatguard.js) asks us about bans, mutes and the word list ----
+setIpFn(clientIp);
+setChatCheck((ctx, text) => {
+  const gc = admin.settings.gameChat || {};
+  if (gc[ctx.scope] === false) return 'Chat is turned off right now.';
+  if (ctx.ip && banActive(ctx.ip)) return 'You are banned.';
+  if (ctx.cid && frozenActive(ctx.cid)) return 'You are timed out.';
+  if (ctx.ip && muted[ctx.ip] && (muted[ctx.ip].until === 0 || muted[ctx.ip].until > Date.now())) return 'You are muted from chat.';
+  if (wordFilter.length) { const cl = text.toLowerCase(); if (wordFilter.some((w) => cl.includes(w))) return 'That message has blocked content.'; }
+  return '';
+});
 // ---- timed-ban + timed-freeze helpers (auto-expire) ----
 function banActive(ip) {
   const b = admin.bansByIp[ip];
@@ -524,7 +536,7 @@ setInterval(() => {
 }, 30000);
 globalThis.SH_SET_SCHOOL = async (on, set, until) => { if (typeof on === 'boolean') { admin.settings.schoolMode = on; if (!on) admin.settings.schoolUntil = 0; } if (typeof until === 'number') admin.settings.schoolUntil = until; if (set && ['blooket', 'u9', 'u10', 'both'].includes(set)) admin.settings.schoolSet = set; try { await saveState(); } catch (e) {} };
 // Actions a moderator may run through the legacy tool set. Everything else is owner-only.
-const MOD_ACTIONS = new Set(['state', 'kick', 'mute', 'unmute', 'freeze', 'announce', 'delannounce', 'broadcast', 'reports', 'clearreports', 'chatlog', 'deletemsg', 'playerhistory', 'setnote', 'wordfilterlist', 'addword', 'removeword', 'setslow', 'ban', 'unban', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory']);
+const MOD_ACTIONS = new Set(['state', 'kick', 'mute', 'unmute', 'freeze', 'announce', 'delannounce', 'broadcast', 'reports', 'clearreports', 'chatlog', 'deletemsg', 'playerhistory', 'setnote', 'wordfilterlist', 'addword', 'removeword', 'setslow', 'ban', 'unban', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory', 'gamechat.get']);
 function audit(who, action, target, detail) {
   admin.audit.push({ ts: Date.now(), by: who.username, role: who.role, action: String(action).slice(0, 40), target: String(target || '').slice(0, 60), detail: String(detail || '').slice(0, 160) });
   if (admin.audit.length > 400) admin.audit.shift();
@@ -538,10 +550,20 @@ async function handleAdmin(req, res, body, who) {
     // Moderators can only issue timed bans (at most 7 days) so a permanent ban stays an owner call.
     if (action === 'ban') { const m = Number(body.minutes) || 0; if (m <= 0 || m > 10080) body.minutes = 10080; }
   }
-  if (!['state', 'chatlog', 'wordfilterlist', 'playerhistory', 'reports', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory'].includes(action)) {
+  if (!['gamechat.get', 'state', 'chatlog', 'wordfilterlist', 'playerhistory', 'reports', 'sessionstats', 'mostactive', 'leaderboard', 'coinhistory'].includes(action)) {
     audit(who, action, body.id || body.username || body.channel || '', body.reason || body.text || body.title || '');
   }
 
+  if (action === 'gamechat.get' || action === 'gamechat.set') {
+    if (action === 'gamechat.set') {
+      if (who.role !== 'owner') return sendJson(res, 403, { error: 'owner only' });
+      const gc = admin.settings.gameChat || (admin.settings.gameChat = {});
+      for (const k of ['casino', 'games']) if (body[k] != null) gc[k] = !!body[k];
+      await saveState().catch(() => {});
+    }
+    const gc = admin.settings.gameChat || {};
+    return sendJson(res, 200, { ok: true, casino: gc.casino !== false, games: gc.games !== false, recent: chatRecent.slice(-200).reverse() });
+  }
   if (action === 'state') {
     prunePlayers();
     const _now = Date.now();

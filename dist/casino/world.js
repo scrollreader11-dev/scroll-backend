@@ -648,6 +648,38 @@
   function sendEmote(id) { if (Date.now() - lastEmote < 1100) return; lastEmote = Date.now(); netSend({ t: 'emote', id: id }); }
   function sendQuick(i) { if (Date.now() - lastEmote < 1100) return; lastEmote = Date.now(); netSend({ t: 'qc', i: i }); }
 
+  // ================================================================ TYPED CHAT
+  var chatEl = $('chatdock'), chatLog = $('chatlog'), chatIn = $('chatin'), chatLines = [], chatHidden = false;
+  try { chatHidden = localStorage.getItem('sc_chat_hidden') === '1'; } catch (e) {}
+  function chatAdd(nick, text, kind) {
+    var row = document.createElement('div'); row.className = 'cl' + (kind ? ' ' + kind : ''); row.dataset.at = Date.now();
+    if (nick) { var b = document.createElement('b'); b.textContent = nick + ' '; row.appendChild(b); }
+    row.appendChild(document.createTextNode(text)); chatLog.appendChild(row); chatLines.push(row);
+    while (chatLines.length > 60) { var o = chatLines.shift(); if (o.parentNode) o.parentNode.removeChild(o); }
+    chatLog.scrollTop = chatLog.scrollHeight; chatFade();
+  }
+  function chatFade() { var now = Date.now(), foc = chatEl.classList.contains('focus'); chatLines.forEach(function (r, i) { var old = now - r.dataset.at > 14000, far = chatLines.length - i > 5; r.classList.toggle('old', !foc && (old || far)); }); }
+  setInterval(chatFade, 2000);
+  function chatFocus() { if (panelOpen()) return; toggleEmotes(false); toggleQuick(false); keys = {}; chatEl.classList.remove('hide'); chatIn.focus(); }
+  function chatSendNow() { var t = chatIn.value.replace(/\s+/g, ' ').trim(); if (!t) { chatIn.blur(); return; } netSend({ t: 'say', text: t }); chatIn.value = ''; }
+  chatIn.addEventListener('focus', function () { chatEl.classList.add('focus'); chatFade(); });
+  chatIn.addEventListener('blur', function () { chatEl.classList.remove('focus'); chatFade(); });
+  chatIn.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); chatSendNow(); } else if (e.key === 'Escape') { chatIn.blur(); } });
+  $('chatform').addEventListener('submit', function (e) { e.preventDefault(); chatSendNow(); });
+  $('chatsend').onclick = function (e) { e.preventDefault(); chatSendNow(); chatIn.focus(); };
+  function chatHide(v) { chatHidden = v; chatEl.classList.toggle('muted', v); $('chathide').textContent = v ? 'Show chat' : 'Hide chat'; try { localStorage.setItem('sc_chat_hidden', v ? '1' : '0'); } catch (e) {} }
+  $('chathide').onclick = function (e) { e.preventDefault(); chatHide(!chatHidden); };
+  chatHide(chatHidden);
+  window.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || ''; if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'c' || e.key === 'C' || e.key === '/') { if (panelOpen()) return; e.preventDefault(); chatFocus(); }
+  });
+  function onSay(m) {
+    var who = m.id === me.id ? me : players[m.id]; if (chatHidden) return;
+    chatAdd(m.nick || (who && who.nick) || 'Player', m.text);
+    if (who) { who.emote = { text: m.text.length > 38 ? m.text.slice(0, 36) + '…' : m.text, at: performance.now() }; if (Math.hypot(who.x - me.x, who.y - me.y) < 500) sfx('pop'); }
+  }
+
   // ================================================================ NAME TAGS / BUBBLES
   function nameColor(v, t) {
     if (!v) return '#ffffff';
@@ -976,6 +1008,8 @@
       case 'coins': if (state.profile) { state.profile.coins = m.c; SC.setProfile(state.profile); } break;
       case 'jp': if (SC.gs) SC.gs.jp = { pool: m.pool, last: m.last }; if (SC.panelKind === 'slots') renderJackpot(); break;
       case 'g': syncClock(m.now); if (SC.mp) SC.mp.onGame(m); break;
+      case 'say': onSay(m); break;
+      case 'sayerr': chatAdd('', m.msg, 'err'); toast(m.msg); break;
       case 'emote': case 'qc': {
         var who = m.id === me.id ? me : players[m.id]; if (!who) break;
         if (m.t === 'qc') who.emote = { text: QC[m.i] || '…', at: performance.now() };

@@ -105,6 +105,8 @@
     if (t === 'vote') { onVote(m); return; }
     if (t === 'season') { applySeason(m.v); var se2 = B.SEASONS[S.season]; if (S.screen === 'hub') toast(se2 ? 'Happy ' + se2.name + '! The hub is decorated.' : 'Holiday decorations are off.', 2600); return; }
     if (t === 'school') { var gWas = S.gamble; S.gamble = !!m.gamble; var qWas = S.squiz; S.squiz = m.quiz !== false; if (S.school === !!m.on && gWas === S.gamble && qWas !== S.squiz) { if (S.screen === 'game' && !S.squiz) closeQuiz(true); quizHud(); if (S.owner) { try { renderAdmin(); } catch (e2) {} } return; } if (S.school === !!m.on && gWas !== S.gamble) { if (S.screen === 'hub' && S.school) toast(S.gamble ? 'The casino is OPEN! Walk through the casino portal to gamble & play.' : 'The casino is closed again.', 3200); return; } S.school = !!m.on; document.body.classList.toggle('school', S.school); quizHud(); if (S.screen === 'hub') toast(S.school ? 'School Mode is ON — portals are locked, your teacher picks the games!' : 'School Mode is off — portals are open!', 3000); return; }
+    if (t === 'say') { chatAdd(m.nick, m.text); return; }
+    if (t === 'sayerr') { chatAdd('', m.msg, 'err'); toast(m.msg, 2200); return; }
     if (t === 'mylook') { if (S.hello) S.hello.look = m.look; var me0 = S.ents.get(S.myId); if (me0) me0.look = m.look; return; }
     if (t === 'cls') { S.cls = m.d; if (admTab === 'class') renderAdmin(); return; }
     if ((t === 'rcf' || t === 'rcfix') && window.RMP) return RMP.msg(m);
@@ -736,6 +738,7 @@
     if (k === 'trap') { if (ev[1] === S.team) { e = S.ents.get(ev[2]); banner('TRAP TRIGGERED!', (e ? esc(e.nick) : 'Someone') + ' is in your base!', '#ffd166'); SC.sfx('alarm'); } return; }
     if (k === 'tl') { var tl = B.TIMELINE[ev[1]]; S.tl = ev[1] + 1; if (tl.ev === 'dia2') S.tier.dia = 1; if (tl.ev === 'em2') S.tier.em = 1; if (tl.ev === 'dia3') S.tier.dia = 2; if (tl.ev === 'em3') S.tier.em = 2; if (tl.ev !== 'beds' && tl.ev !== 'end') { banner(tl.ev.indexOf('dia') === 0 ? 'DIAMOND ' + (tl.ev === 'dia2' ? 'II' : 'III') : 'EMERALD ' + (tl.ev === 'em2' ? 'II' : 'III'), tl.text, tl.ev.indexOf('dia') === 0 ? '#5ff0e6' : '#2bd576'); SC.sfx('level'); } return; }
     if (k === 'elim') { feed('<b style="color:' + teamCol(ev[1]) + '">' + tname(ev[1]) + ' team</b> has been <b style="color:#ff5c6c">ELIMINATED</b>', true); if (ev[1] !== S.team) toastBig(tname(ev[1]).toUpperCase() + ' TEAM ELIMINATED', teamCol(ev[1])); return; }
+    if (k === 'say') { e = S.ents.get(ev[1]); chatAdd(ev[3] || (e && e.nick) || 'Player', ev[2]); if (e) { e.bubble = { text: ev[2].length > 38 ? ev[2].slice(0, 36) + '\u2026' : ev[2], t: now() }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
     if (k === 'qc') { e = S.ents.get(ev[1]); if (e) { e.bubble = { text: S.qc[ev[2]] || '', t: now() }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
     if (mgEvent(k, ev)) return;
     if (k === 'dc') { e = S.ents.get(ev[1]); if (e) { e.dc = !!ev[2]; if (ev[2] && e.id !== S.myId) feed(nameHtml(e) + ' disconnected — a bot took over'); } return; }
@@ -819,6 +822,7 @@
   var MOVE_KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'], lastTap = {};
   addEventListener('keydown', function (e) {
     if (e.target && e.target.tagName === 'INPUT') return;
+    if ((e.key === 'Enter' || e.key === '/') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !S.replay && !S.quizOpen && (S.screen === 'hub' || S.screen === 'wait' || S.screen === 'game') && !anyModal()) { e.preventDefault(); chatFocus(); return; }
     if (S.replay) { if (!e.repeat) potgSkip(); return; }
     var k = e.key.toLowerCase();
     if (S.quizOpen) { if (/^[1-4]$/.test(k)) quizPick(+k - 1); if (k === 'escape' || k === 'g') closeQuiz(); e.preventDefault(); return; }
@@ -1787,6 +1791,29 @@
     if (n && $('shop').classList.contains('hidden') && !S.dead) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap the ' : 'Press E · ') + (n.kind === 'shop' ? 'Item Shop' : 'Team Upgrades'); } else pr.classList.add('hidden');
     if (S.screen === 'game' && now() - (S.miniAt || 0) > 200) { S.miniAt = now(); drawMini(); }
   }
+  // ------------------------------------------------------------------ typed chat (hub, room lobby and matches)
+  var chatEl = $('bwchat'), chatLog = $('bwlog'), chatIn = $('bwin'), chatLines = [], chatHidden = false;
+  try { chatHidden = localStorage.getItem('bw_chat_hidden') === '1'; } catch (e) {}
+  function chatAdd(nick, text, kind) {
+    if (chatHidden && kind !== 'err') return;
+    var row = document.createElement('div'); row.className = 'cl' + (kind ? ' ' + kind : ''); row.dataset.at = Date.now();
+    if (nick) { var b = document.createElement('b'); b.textContent = nick + ' '; row.appendChild(b); }
+    row.appendChild(document.createTextNode(text)); chatLog.appendChild(row); chatLines.push(row);
+    while (chatLines.length > 60) { var o = chatLines.shift(); if (o.parentNode) o.parentNode.removeChild(o); }
+    chatLog.scrollTop = chatLog.scrollHeight; chatFade();
+  }
+  function chatFade() { var t = Date.now(), foc = chatEl.classList.contains('focus'); chatLines.forEach(function (r, i) { r.classList.toggle('old', !foc && (t - r.dataset.at > 14000 || chatLines.length - i > 5)); }); }
+  setInterval(chatFade, 2000);
+  function chatFocus() { keys = {}; mouse.l = mouse.r = false; $('qcMenu').classList.add('hidden'); chatEl.classList.remove('muted'); chatIn.focus(); }
+  function chatSendNow() { var t = chatIn.value.replace(/\s+/g, ' ').trim(); if (!t) { chatIn.blur(); return; } send({ t: 'say', text: t }); chatIn.value = ''; }
+  chatIn.addEventListener('focus', function () { chatEl.classList.add('focus'); chatFade(); });
+  chatIn.addEventListener('blur', function () { chatEl.classList.remove('focus'); chatFade(); });
+  chatIn.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); chatSendNow(); chatIn.blur(); } else if (e.key === 'Escape') chatIn.blur(); });
+  $('bwform').addEventListener('submit', function (e) { e.preventDefault(); chatSendNow(); });
+  function chatHide(v) { chatHidden = v; chatEl.classList.toggle('muted', v); $('bwhide').textContent = v ? 'Show chat' : 'Hide chat'; try { localStorage.setItem('bw_chat_hidden', v ? '1' : '0'); } catch (e) {} }
+  $('bwhide').onclick = function (e) { e.preventDefault(); chatHide(!chatHidden); };
+  chatHide(chatHidden);
+
   function feed(html, final) {
     var d = document.createElement('div'); d.className = 'kf' + (final ? ' final' : ''); d.innerHTML = html;
     var f = $('feed'); f.appendChild(d); while (f.children.length > 6) f.firstChild.remove();

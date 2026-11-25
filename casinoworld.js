@@ -6,6 +6,7 @@
 // ============================================================
 import { WebSocketServer } from 'ws';
 import { worldIdentity, worldProfile, worldLook, worldOwnsEmote, getCosmetics, setPlayHook, setJackpotHook } from './casino.js';
+import { chatSay, ipOf } from './chatguard.js';
 import { initTables, tablesSnapshot, tablesJoin, tablesLeave, handleTableMsg } from './casinotables.js';
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
@@ -116,7 +117,7 @@ export function handleWorldUpgrade(req, socket, head) {
       x: resume ? clamp(resume.x, 0, WORLD_W) : SPAWN.x + (Math.random() * 160 - 80),
       y: resume ? clamp(resume.y, 0, WORLD_H) : SPAWN.y + (Math.random() * 60 - 30),
       dir: 0, mv: false, look: worldLook(cid), cos: cosOf(cid), busy: '',
-      lastMove: Date.now(), moveTokens: 30, gTokens: 20, lastG: Date.now(), lastEmote: 0, lastBusy: 0,
+      ip: ipOf(req), cst: {}, lastMove: Date.now(), moveTokens: 30, gTokens: 20, lastG: Date.now(), lastEmote: 0, lastBusy: 0,
     };
     players.set(me.id, me);
     lastPos.delete(cid);
@@ -173,6 +174,12 @@ export function handleWorldUpgrade(req, socket, head) {
         if (!(i >= 0 && i < QUICKCHAT.length)) return;
         me.lastEmote = now;
         broadcast({ t: 'qc', id: me.id, i });
+        return;
+      }
+      if (m.t === 'say') {   // typed chat: filtered, rate limited, and the sender alone hears why if it is refused
+        const r = chatSay({ scope: 'casino', cid, nick: me.nick, ip: me.ip, st: me.cst }, m.text, now);
+        if (r.err !== undefined && !r.ok) { if (r.err) send(ws, { t: 'sayerr', msg: r.err }); return; }
+        broadcast({ t: 'say', id: me.id, nick: me.nick, text: r.text });
         return;
       }
       if (m.t === 'drink') {

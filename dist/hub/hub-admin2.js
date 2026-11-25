@@ -264,4 +264,19 @@
     }
     post({ action: 'fb.get' }).then(function (r) { if (alive(host)) paint(r); });
   };
+
+  P.gamechat = function (host) {
+    var body = h('div'); host.appendChild(body);
+    function paint(r) {
+      Hub.clear(body);
+      if (!r || !r.ok) { body.appendChild(empty('Could not load game chat.')); return; }
+      function sw(label, hint, key) { return Hub.toggle(label, hint, r[key], function (v) { post({ action: 'gamechat.set', [key]: v }).then(function (x) { if (x && x.ok) { r[key] = v; Hub.toast(label + (v ? ' on' : ' off')); } else toastErr(x); }); }); }
+      body.appendChild(card('Typed chat', 'Players can type short messages in the casino and in Games. Links, phone numbers, bad words and your word filter are blocked before anyone sees them, and your mutes and timeouts apply. Turn a place off here any time.', [sw('Casino chat', 'The text bar on the casino floor.', 'casino'), sw('Games chat', 'The text bar in the Games hub, lobbies and matches.', 'games')]));
+      body.appendChild(card('Recent messages', 'The newest 200 lines that were allowed through, newest first. Use Players to mute or time someone out.', r.recent.length ? r.recent.map(function (m) {
+        return h('div', { style: 'padding:6px 0;border-top:1px solid var(--line,rgba(255,255,255,.08))' }, [h('span', { class: 'hint', text: when(m.at) + ' · ' + (m.scope === 'casino' ? 'Casino' : 'Games') + ' · ' }), h('b', { text: Hub.clean(m.nick) }), h('span', { text: ' ' + Hub.clean(m.text) })]);
+      }) : empty('Nothing has been said yet.')));
+      body.appendChild(h('div', null, btn('Refresh', function () { post({ action: 'gamechat.get' }).then(paint); })));
+    }
+    post({ action: 'gamechat.get' }).then(function (r) { if (alive(host)) paint(r); });
+  };
 })();

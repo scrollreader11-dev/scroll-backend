@@ -32,6 +32,7 @@
   // [id, label, icon, ownerOnly, group, keywords]
   var TABS = [
     ['subs', 'Submissions', 'circle-check', 1, 'Review', 'approve reject maps gims hats sprites creations player made queue pending sprite studio map builder'],
+    ['gamechat', 'Game chat', 'megaphone', 0, 'Review', 'chat typed messages casino games bedwars mute filter'],
     ['feedback', 'Questionnaire', 'megaphone', 1, 'Review', 'feedback survey questions answers ideas reward ratings'],
     ['overview', 'Overview', 'gauge', 0, 'Monitor', 'home stats dashboard online players now'],
     ['players', 'Players', 'users', 0, 'Monitor', 'users accounts coins items ban search find'],

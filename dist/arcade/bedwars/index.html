@@ -27,6 +27,19 @@
   .btn:disabled{filter:grayscale(.8) brightness(.7);cursor:default}
 
   /* ---------- full screens ---------- */
+  #bwchat{position:fixed;z-index:45;left:14px;bottom:14px;width:min(280px,calc(100vw - 28px));display:none;flex-direction:column;gap:6px;pointer-events:none}
+  body.mode-hub #bwchat,body.mode-wait #bwchat,body.mode-game #bwchat{display:flex}
+  #bwlog{max-height:132px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;font-size:14px;font-weight:600;line-height:1.25}
+  #bwchat.focus #bwlog{max-height:220px;overflow-y:auto;pointer-events:auto;background:rgba(14,12,36,.9);border:2px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 10px}
+  #bwlog .cl{background:rgba(10,8,30,.72);border-radius:8px;padding:3px 9px;width:fit-content;max-width:100%;overflow-wrap:anywhere;transition:opacity .4s;text-shadow:0 1px 0 rgba(0,0,0,.5);color:#fff}
+  #bwlog .cl b{color:#ffd166} #bwlog .cl.err{color:#ff9aa4} #bwlog .cl.old{opacity:0}
+  #bwchat.focus #bwlog .cl{background:none;padding:2px 0}
+  #bwform{display:flex;gap:6px;pointer-events:auto}
+  #bwin{flex:1;min-width:0;height:38px;border-radius:11px;border:2px solid rgba(255,255,255,.25);background:rgba(14,12,36,.92);color:#fff;font:inherit;font-size:15px;padding:0 12px;outline:none}
+  #bwin:focus{border-color:#ffd166} #bwin::placeholder{color:rgba(255,255,255,.55)}
+  #bwhide{pointer-events:auto;align-self:flex-start;background:none;border:0;color:rgba(255,255,255,.6);font:inherit;font-size:12px;cursor:pointer;padding:0 4px}
+  #bwchat.muted #bwlog{display:none}
+  @media (pointer:coarse){#bwchat{left:8px;top:104px;bottom:auto;width:min(290px,calc(100vw - 16px))}#bwlog{justify-content:flex-start;order:2;max-height:90px}#bwform{order:1}#bwhide{order:3}}
   .screen{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;overflow:auto}
   .veil{background:radial-gradient(ellipse at center,rgba(18,14,46,.25),rgba(18,14,46,.78) 75%)}
   /* loading */
@@ -122,7 +135,7 @@
   .hchip:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#2bd576;margin-right:7px;box-shadow:0 0 0 3px rgba(43,213,118,.25)}
   .hbtns{right:12px;top:12px;display:flex;gap:6px;align-items:center}
   .hbtns a.hbtn{text-decoration:none}
-  .hhint{left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:12px;flex-wrap:wrap;justify-content:center;background:rgba(22,17,56,.82);border:3px solid var(--line);border-radius:14px;padding:6px 14px;font-size:13px;color:#d8d3ff;pointer-events:none!important}
+  .hhint{left:calc(50% + 140px);bottom:12px;transform:translateX(-50%);display:flex;gap:12px;flex-wrap:wrap;justify-content:center;background:rgba(22,17,56,.82);border:3px solid var(--line);border-radius:14px;padding:6px 14px;font-size:13px;color:#d8d3ff;pointer-events:none!important}
   body.touch .hhint{display:none}
   .wpanel{left:12px;top:12px;width:min(300px,calc(100vw - 24px));background:rgba(22,17,56,.9);border:3px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 5px 0 rgba(0,0,0,.35)}
   .wtop{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:16px;gap:8px}
@@ -615,7 +628,7 @@ body.potg #cv { cursor: pointer; }
     <button class="hbtn muteBtn" title="Sound"><svg class="ui-i" aria-hidden="true"><use href="#ui-volume-2"/></svg></button><button class="hbtn musicBtn" title="Music"><svg class="ui-i" aria-hidden="true"><use href="#ui-music"/></svg></button>
     <a class="hbtn casinoBtn" href="/casino" title="Back to the casino"><svg class="ui-i" aria-hidden="true"><use href="#ui-dices"/></svg></a>
   </div>
-  <div class="hhint"><span><kbd>WASD</kbd> move</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> jump</span><span><kbd>Click</kbd> an NPC to play</span><span><kbd>E</kbd> interact</span><span><kbd>Q</kbd> chat</span></div>
+  <div class="hhint"><span><kbd>WASD</kbd> move</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> jump</span><span><kbd>Click</kbd> an NPC to play</span><span><kbd>E</kbd> interact</span><span><kbd>Enter</kbd> type</span><span><kbd>Q</kbd> quick chat</span></div>
 </div>
 
 <!-- ============ WAITING ISLAND HUD ============ -->
@@ -762,6 +775,7 @@ body.potg #cv { cursor: pointer; }
   <button class="hbtn" id="gHelp" title="How to play"><svg class="ui-i" aria-hidden="true"><use href="#ui-circle-help"/></svg></button>
   <button class="hbtn" id="gLeave" title="Leave match"><svg class="ui-i" aria-hidden="true"><use href="#ui-log-out"/></svg></button>
 </div>
+<div id="bwchat" aria-label="Chat"><div id="bwlog" aria-live="polite"></div><form id="bwform" autocomplete="off"><input id="bwin" type="text" maxlength="100" placeholder="Press Enter to chat" aria-label="Chat message" /><button class="btn sm" id="bwsend" type="submit">Send</button></form><button id="bwhide" type="button">Hide chat</button></div>
 <div id="qcMenu" class="hidden" style="position:fixed;right:64px;top:160px;z-index:12;display:flex;flex-direction:column;gap:5px"></div>
 
 <!-- ============ SHOP ============ -->
@@ -837,7 +851,7 @@ body.potg #cv { cursor: pointer; }
 <script src="/music.js?v=4"></script>
 <script src="/arcade/bedwars/royale.js?v=8"></script>
 <script src="/arcade/bedwars/racemp.js?v=1"></script>
-<script src="/arcade/bedwars/game.js?v=51"></script>
+<script src="/arcade/bedwars/game.js?v=52"></script>
 <script>
   // Safety net: if the game code failed to load, don't sit on the loading screen forever.
   setTimeout(function () {

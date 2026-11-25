@@ -252,6 +252,19 @@
   #jpLast,#slJpLast{color:var(--mut);font-size:12px}
   #challenge{position:fixed;left:50%;bottom:24px;transform:translate(-50%,160%);z-index:30;background:#2c2468;border:4px solid var(--gold);border-radius:20px;padding:14px 18px;box-shadow:0 8px 0 #0a0820,0 20px 60px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.2,1.4,.4,1);max-width:92vw;text-align:center;font-size:16px}
   #challenge.show{transform:translate(-50%,0)}
+  #chatdock{position:fixed;z-index:14;left:14px;bottom:14px;width:min(340px,calc(100vw - 28px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+  #chatlog{max-height:132px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;font-size:14px;font-weight:600;line-height:1.25}
+  #chatdock.focus #chatlog{max-height:220px;overflow-y:auto;pointer-events:auto;background:rgba(26,20,64,.9);border:3px solid var(--line);border-radius:14px;padding:8px 10px}
+  #chatlog .cl{background:rgba(18,14,46,.72);border-radius:9px;padding:3px 9px;width:fit-content;max-width:100%;overflow-wrap:anywhere;transition:opacity .4s;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+  #chatlog .cl b{color:var(--gold)} #chatlog .cl.err{color:#ff9aa4} #chatlog .cl.old{opacity:0}
+  #chatdock.focus #chatlog .cl{background:none;padding:2px 0}
+  #chatform{display:flex;gap:6px;pointer-events:auto}
+  #chatin{flex:1;min-width:0;height:40px;border-radius:13px;border:3px solid var(--line);background:rgba(26,20,64,.92);color:var(--txt);font:inherit;font-size:15px;padding:0 12px;outline:none}
+  #chatin:focus{border-color:var(--gold)} #chatin::placeholder{color:var(--mut)}
+  #chatdock .btn.small{height:40px;border-radius:13px}
+  #chathide{pointer-events:auto;align-self:flex-start;background:none;border:0;color:var(--mut);font:inherit;font-size:12px;cursor:pointer;padding:0 4px}
+  #chatdock.muted #chatlog{display:none}
+  @media (pointer:coarse){#chatdock{left:8px;top:62px;bottom:auto;width:min(300px,calc(100vw - 16px))}#chatlog{justify-content:flex-start;order:2;max-height:96px}#chatform{order:1}#chathide{order:3}}
   #qchat{position:fixed;z-index:15;left:50%;bottom:80px;transform:translateX(-50%);display:none;background:rgba(26,20,64,.96);border:4px solid var(--line);border-radius:22px;padding:10px;box-shadow:0 6px 0 #0a0820;max-width:94vw}
   #qchat.open{display:block;animation:popIn .2s cubic-bezier(.2,1.5,.4,1)}
   .qgrid{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:6px}
@@ -325,7 +338,7 @@
 <div class="pill" id="onlineList"></div>
 <div id="arrowTo">➤</div>
 <div id="feed"></div>
-<div id="hint"><kbd>WASD</kbd> move · <kbd>click</kbd> walk there · <kbd>E</kbd> use · <kbd>Q</kbd> chat · <kbd>T</kbd> emotes</div>
+<div id="hint"><kbd>WASD</kbd> move · <kbd>click</kbd> walk there · <kbd>E</kbd> use · <kbd>C</kbd> type · <kbd>Q</kbd> quick chat · <kbd>T</kbd> emotes</div>
 <canvas id="minimap" width="176" height="128"></canvas>
 
 <!-- touch controls -->
@@ -337,6 +350,8 @@
   <button id="qcBtnM">💬</button>
 </div>
 
+<!-- typed chat -->
+<div id="chatdock"><div id="chatlog" aria-live="polite"></div><form id="chatform" autocomplete="off"><input id="chatin" type="text" maxlength="100" placeholder="Press C to chat" aria-label="Chat message" /><button class="btn small" id="chatsend" type="submit">Send</button></form><button id="chathide" type="button">Hide chat</button></div>
 <!-- quick chat -->
 <div id="qchat"><div class="qgrid" id="qcGrid"></div><div class="foot">Quick chat · Q</div></div>
 <!-- duel challenge -->
@@ -572,7 +587,7 @@
 <script src="/casino/mp.js?v=2"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
 <script src="/music.js?v=4"></script>
-<script src="/casino/world.js?v=22"></script>
+<script src="/casino/world.js?v=23"></script>
 <script src="/dc-notify.js?v=1" defer></script>
 <script src="/hub/hub-back.js?v=1"></script>
 </body>

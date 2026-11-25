@@ -28,6 +28,7 @@ const RES = BW.RES;
 const conns = new Set();
 // Bedwars owners (checked against the logged-in ScrollHub account, never the guest nickname).
 import { subAdd, subMine, subGet, subRemoveOwn } from './casino.js';
+import { chatSay, ipOf } from './chatguard.js';
 const SUB = { add: subAdd, mine: subMine, get: subGet, removeOwn: subRemoveOwn };
 const OWNERS = new Set(['scrollreader11', 'pakajo', 'hihihi', 'SuperCoolAdminDude25']);
 ;
@@ -1293,7 +1294,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
   wss.handleUpgrade(req, socket, head, (ws) => {
     const { cid, nick } = worldIdentity(req);
     if (!cid) { try { ws.send(JSON.stringify({ t: 'err', code: 'login', msg: 'Pick a nickname to play' })); ws.close(4000); } catch (e) {} return; }
-    const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
+    const c = { ws, cid, nick: String(nick || 'Guest').slice(0, 20), look: worldLook(cid), ip: ipOf(req), cst: {}, room: null, ent: null, space: null, pid: nextPid++, alive: true, tok: 40, tokAt: Date.now() };
     c.owner = !!(req._auth && OWNERS.has(String(req._auth.username || '').toLowerCase()));
     c.mapper = !!(req._auth && String(req._auth.username || '').toLowerCase() === GMS.MAPPER);
     c.uname = req._auth && req._auth.username ? String(req._auth.username) : '';
@@ -1386,6 +1387,16 @@ function onMsg(c, m, now) {
     return joinWithParty(c, room);
   }
   if (t === 'leave' || t === 'hub') { if (c.room) leaveRoom(c); else goHub(c); return; }
+  if (t === 'say') {   // typed chat: same filter as the casino. Everyone in the same place hears it.
+    const rr = chatSay({ scope: 'games', cid: c.cid, nick: c.nick, ip: c.ip, st: c.cst }, m.text, now);
+    if (!rr.ok) { if (rr.err) send(c, { t: 'sayerr', msg: rr.err }); return; }
+    const r0 = c.room;
+    if (r0 && r0.state === 'play') { const e0 = c.ent; if (e0 && e0.conn === c) r0.ev(['say', e0.id, rr.text, c.nick]); else send(c, { t: 'say', nick: c.nick, text: rr.text, self: true }); }
+    else if (r0 && r0.state === 'lobby') { for (const mb of r0.members) if (mb.conn) send(mb.conn, { t: 'say', nick: c.nick, text: rr.text }); }
+    else if (c.space) c.space.events.push(['say', c.pid, rr.text, c.nick]);
+    else send(c, { t: 'say', nick: c.nick, text: rr.text, self: true });
+    return;
+  }
   if (t === 'look') { c.look = worldLook(c.cid); if (c.space && !c.spectator) c.space.events.push(['pj', c.pid, c.nick, c.look, Math.round(c.sx), Math.round(c.sy), spaceTeam(c)]); send(c, { t: 'mylook', look: c.look }); return; }
   if (c.space && (t === 'mv' || t === 'sw' || t === 'hop' || t === 'lb2' || (t === 'qc' && (!r || r.state !== 'play')))) return spaceMsg(c, m, now);
   if (!r) return;
