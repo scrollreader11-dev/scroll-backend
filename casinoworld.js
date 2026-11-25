@@ -18,7 +18,7 @@ const SPEED = 230;            // px/s walking (client sprint is not allowed)
 const MAX_PLAYERS = 150;
 const HEARTBEAT_MS = 15000;   // ping everyone; drop sockets that stop answering
 const RESUME_MS = 10 * 60 * 1000;
-const GAMES = new Set(['', 'slots', 'blackjack', 'roulette', 'dice', 'coinflip', 'duels', 'mines', 'plinko', 'wheel', 'crash', 'cases', 'battles', 'shop', 'wardrobe', 'atm', 'leaderboard', 'tournament', 'player', 'bar', 'piano']);
+const GAMES = new Set(['', 'slots', 'blackjack', 'roulette', 'dice', 'coinflip', 'duels', 'mines', 'plinko', 'wheel', 'crash', 'cases', 'battles', 'shop', 'wardrobe', 'atm', 'leaderboard', 'tournament', 'player', 'bar', 'piano', 'echo', 'aim', 'mathrush', 'trivia', 'colorclash', 'pattern', 'scramble', 'hiscores']);
 // Preset quick-chat lines (index-only on the wire, so nothing needs moderating).
 export const QUICKCHAT = ['Hi! 👋', 'GG!', "Let's go!", 'Nice win!', 'Join my table!', 'Duel me!', 'Follow me', 'One more spin…', 'So close 😩', 'Lucky!', 'brb', 'Bye!', 'Rigged 😤', "I'm rich! 🤑", 'Help?', 'Thanks!'];
 const DRINKS = ['🥤', '🧃', '🍹', '☕', '🥛', '🧋'];

@@ -1547,6 +1547,7 @@
     A.label(c, o.title || 'WELCOME!', x, y - 111, { size: 12, color: '#ffd166', stroke: false, maxW: 156 });
     lines.forEach(function (l, i) { A.label(c, l, x, y - 94 + i * 13, { size: 10, color: '#dce3ff', stroke: false, weight: 600, maxW: 156 }); });
   };
+  O.arcboard = function (c, o, t) { o.title = '🏆 ARCADE TOP'; O.board(c, o, t); };
   O.duelboard = function (c, o, t) {
     o.title = '⚔️ OPEN DUELS'; O.board(c, o, t);
   };

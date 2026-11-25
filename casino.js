@@ -1276,7 +1276,7 @@ export async function handleCasino(url, req, res) {
   }
   if (path.startsWith('/api/casino/g/')) {
     const mb = req.method === 'POST' ? await readBody(req) : {};
-    const ar = handleArcade(path, mb, { cid, p, cfg: () => casino.cfg, save, publicProfile: () => publicProfile(cid), quest: (k) => dqTick(p, k) });
+    const ar = handleArcade(path, mb, { cid, p, cfg: () => casino.cfg, save, publicProfile: () => publicProfile(cid), users: () => casino.users, quest: (k) => dqTick(p, k) });
     if (ar) { save(); sendJson(res, 200, ar); return true; }
     const r = handleMore(path, mb, { cid, p, cfg: () => casino.cfg, save, recordPlay, publicProfile: () => publicProfile(cid) });
     if (r) { sendJson(res, 200, r); return true; }

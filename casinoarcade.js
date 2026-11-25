@@ -6,6 +6,7 @@ import crypto from 'crypto';
 const rnd = (n) => crypto.randomInt(n);
 export const ARCADE_GAMES = ['echo', 'aim', 'math', 'trivia', 'color', 'pattern', 'scramble'];
 export const ARC = { perPlay: 400, softCap: 3000, dayCap: 5000, idleMs: 10 * 60 * 1000 };
+let boardCache = null;
 const sessions = new Map();   // cid -> the round in progress (kept in memory; a restart just ends it)
 
 const day = () => new Date().toISOString().slice(0, 10);
@@ -42,8 +43,18 @@ const reply = (env, s, extra) => ({ ok: true, ...extra, paid: s ? s.earned : 0, 
 const echoPay = (round) => 8 + 2 * round;
 // ---------------------------------------------------------------- aim (reaction)
 const AIM_N = 20, AIM_LIFE = 2000;
-function aimTarget(i) { return { x: 9 + rnd(82), y: 12 + rnd(76), r: Math.max(4.2, 8 - i * 0.2) }; }
-// ---------------------------------------------------------------- math (speed)
+// Targets from the fifth on drift across the arena; every sixth one is a small gold target worth double.
+// The server knows exactly where a target is at any moment, so a click is checked against where it really was.
+function aimTarget(i) {
+  const gold = i % 6 === 5, r = gold ? 4 : Math.max(4.2, 8 - i * 0.2), x = 9 + rnd(82), y = 12 + rnd(76);
+  let vx = 0, vy = 0;
+  if (i >= 4) {
+    const ex = Math.min(91, Math.max(9, x + rnd(61) - 30)), ey = Math.min(88, Math.max(12, y + rnd(41) - 20)), sec = AIM_LIFE / 1000;
+    vx = Math.round((ex - x) / sec * 100) / 100; vy = Math.round((ey - y) / sec * 100) / 100;
+  }
+  return { x, y, r, vx, vy, gold };
+}
+const aimPos = (t, el) => { const k = Math.min(Math.max(el, 0), AIM_LIFE) / 1000; return { x: t.x + t.vx * k, y: t.y + t.vy * k }; };
 const MATH_MS = 45000;
 function mathQ(level) {
   const r = (a, b) => a + rnd(b - a + 1);
@@ -128,6 +139,19 @@ export function handleArcade(path, body, env) {
   const act = m[1] || 'info', cid = env.cid;
   for (const [k, v] of sessions) if (Date.now() - v.at > ARC.idleMs) sessions.delete(k);
   if (act === 'info') return { ok: true, games: ARCADE_GAMES, ...view(env), profile: env.publicProfile() };
+  if (act === 'board') {   // the Arcade high-score board: everyone's best round per game
+    if (!boardCache || Date.now() - boardCache.at > 20000) {
+      const users = (env.users && env.users()) || {}, all = {};
+      for (const g of ARCADE_GAMES) {
+        const rows = [];
+        for (const id in users) { const u = users[id], sc = u && u.arc && u.arc.best && u.arc.best[g]; if (sc > 0) rows.push({ id, nick: String(u.nick || 'player').slice(0, 24), score: sc }); }
+        rows.sort((a, b) => b.score - a.score); all[g] = rows.slice(0, 10);
+      }
+      boardCache = { at: Date.now(), all };
+    }
+    const boards = {}; for (const g of ARCADE_GAMES) boards[g] = boardCache.all[g].map((r) => ({ nick: r.nick, score: r.score, me: r.id === cid }));
+    return { ok: true, boards };
+  }
   const g = gate(env); if (g) return g;
   let s = sessions.get(cid);
 
@@ -138,7 +162,7 @@ export function handleArcade(path, body, env) {
     if (game === 'echo') { s.seq = [rnd(4), rnd(4), rnd(4)]; s.round = 1; s.shownAt = Date.now(); }
     if (game === 'aim') { s.i = 0; s.pts = 0; s.miss = 0; s.t = aimTarget(0); s.shownAt = Date.now(); }
     if (game === 'math') { s.endsAt = Date.now() + MATH_MS; s.ok = 0; s.streak = 0; s.level = 1; s.qq = mathQ(1); s.shownAt = Date.now(); }
-    if (game === 'trivia') { const idx = TRIVIA.map((_, i) => i); for (let i = idx.length - 1; i > 0; i--) { const j = rnd(i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; } s.order = idx.slice(0, TRIVIA_N); s.i = 0; s.ok = 0; }
+    if (game === 'trivia') { const idx = TRIVIA.map((_, i) => i); for (let i = idx.length - 1; i > 0; i--) { const j = rnd(i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; } s.order = idx.slice(0, TRIVIA_N); s.i = 0; s.ok = 0; s.streak = 0; }
     if (game === 'color') { s.endsAt = Date.now() + COLOR_MS; s.ok = 0; s.streak = 0; }
     if (game === 'pattern') { s.i = 0; s.ok = 0; s.level = 1; }
     if (game === 'scramble') { s.endsAt = Date.now() + SCRAMBLE_MS; s.ok = 0; s.skips = 0; }
@@ -179,9 +203,9 @@ export function handleArcade(path, body, env) {
     if (body.timeout) { if (el < AIM_LIFE - 250) return { error: 'early' }; timeout = true; s.miss++; s.pts = Math.max(0, s.pts - 1); }
     else {
       const cx = Number(body.x), cy = Number(body.y);
-      const dx = cx - s.t.x, dy = (cy - s.t.y) * 0.5625;   // the arena is 16:9
-      if (!Number.isFinite(cx) || !Number.isFinite(cy) || Math.hypot(dx, dy) > s.t.r + 0.6 || el < 110 || el > AIM_LIFE + 900) { s.miss++; s.pts = Math.max(0, s.pts - 1); return reply(env, s, { game: 'aim', hit: false, i: s.i, pts: s.pts, t: s.t, life: AIM_LIFE, miss: true }); }
-      hit = true; const p = el < 700 ? 3 : el < 1250 ? 2 : 1; s.pts += p; gain = award(env, s, p * 5);
+      const at = aimPos(s.t, el), moving = s.t.vx || s.t.vy, dx = cx - at.x, dy = (cy - at.y) * 0.5625;   // the arena is 16:9
+      if (!Number.isFinite(cx) || !Number.isFinite(cy) || Math.hypot(dx, dy) > s.t.r + 0.6 + (moving ? 2.4 : 0) || el < 110 || el > AIM_LIFE + 900) { s.miss++; s.pts = Math.max(0, s.pts - 1); return reply(env, s, { game: 'aim', hit: false, i: s.i, pts: s.pts, t: s.t, life: AIM_LIFE, miss: true }); }
+      hit = true; const p = (el < 700 ? 3 : el < 1250 ? 2 : 1) * (s.t.gold ? 2 : 1); s.pts += p; gain = award(env, s, p * 5);
     }
     s.i++;
     if (s.i >= AIM_N) { best(env, 'aim', s.pts); sessions.delete(cid); return reply(env, s, { game: 'aim', over: true, hit, timeout, gain, score: s.pts, pts: s.pts }); }
@@ -205,10 +229,11 @@ export function handleArcade(path, body, env) {
   if (s.game === 'trivia') {
     const el = Date.now() - s.shownAt; let correct = false, gain = 0;
     if (body.timeout) { if (el < TRIVIA_MS - 400) return { error: 'early' }; }
-    else { const pick = Math.floor(Number(body.pick)); if (el < 500) return reply(env, s, { game: 'trivia', tooFast: true }); if (pick >= 0 && pick < 4 && s.cur.opts[pick] === s.cur.ans && el <= TRIVIA_MS + 1200) { correct = true; s.ok++; gain = award(env, s, 15 + (el < 5000 ? 10 : 0)); } }
+    else { const pick = Math.floor(Number(body.pick)); if (el < 500) return reply(env, s, { game: 'trivia', tooFast: true }); if (pick >= 0 && pick < 4 && s.cur.opts[pick] === s.cur.ans && el <= TRIVIA_MS + 1200) { correct = true; s.ok++; s.streak++; gain = award(env, s, 15 + (el < 5000 ? 10 : 0) + (s.streak >= 3 ? 5 : 0)); } }
+    if (!correct) s.streak = 0;
     const answer = s.cur.ans; s.i++;
     if (s.i >= TRIVIA_N) { best(env, 'trivia', s.ok); sessions.delete(cid); return reply(env, s, { game: 'trivia', over: true, correct, gain, answer, score: s.ok }); }
-    return reply(env, s, { game: 'trivia', correct, gain, answer, ok: s.ok, ...triviaAsk(s) });
+    return reply(env, s, { game: 'trivia', correct, gain, answer, ok: s.ok, streak: s.streak, ...triviaAsk(s) });
   }
   // ---- color: pick the ink the word is printed in, not the word it spells. 30 seconds.
   if (s.game === 'color') {

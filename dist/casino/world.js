@@ -60,6 +60,7 @@
     wardrobe: { box: [-58, -26, 66, 0], act: 'wardrobe', label: 'Change Outfit', ia: [-6, 28], pr: -128, ar: 72 },
     atm: { box: [-30, -28, 30, 0], act: 'atm', label: 'Use ATM', ia: [0, 26], pr: -132 },
     board: { layer: 'wall', ia: [0, 42], pr: 6, ar: 84 },
+    arcboard: { layer: 'wall', act: 'hiscores', label: 'See Arcade high scores', ia: [0, 42], pr: 6, ar: 84 },
     duelboard: { layer: 'wall', act: 'duels', label: 'See open duels', ia: [0, 42], pr: 6, ar: 84 },
     fountain: { box: [-88, -58, 88, 4] },
     plant: { box: [-16, -14, 16, 0] },
@@ -133,11 +134,12 @@
   add('atm', 790, 1640); add('atm', 872, 1640);
   // --- The Arcade: its own room east of the Duel Arena. Skill games that pay a little; nothing is wagered here.
   add('rug', 3264, 1100, { w: 520, h: 330, col: '#1b1250' });
-  add('sign', 3264, 722, { text: 'THE ARCADE', color: '#b8ff5c', size: 26, v: 7 });
+  add('sign', 3100, 722, { text: 'THE ARCADE', color: '#b8ff5c', size: 26, v: 7 });
+  var arcBoard = add('arcboard', 3480, 716, { rows: [{ n: 'Loading scores', v: '' }], footer: 'press E for every top ten' });
   station('echo', 3030, 960, true); station('aim', 3180, 960, true); station('mathrush', 3330, 960, true); station('trivia', 3480, 960, true);
   station('colorclash', 3105, 1250, true); station('pattern', 3255, 1250, true); station('scramble', 3405, 1250, true);
-  add('easel', 3560, 1160, { title: 'ARCADE', lines: ['Skill games pay a little', 'Up to 5,000 a day', 'Nothing is wagered'] });
-  add('plant', 2940, 1420); add('plant', 3590, 1420);
+  add('easel', 3264, 1425, { title: 'ARCADE', lines: ['Skill games pay a little', 'Up to 5,000 a day', 'Nothing is wagered'] });
+  add('plant', 2950, 1420); add('plant', 3570, 1420);
   station('penalty', 1860, 1650, true);
   add('wardrobe', 2060, 1640);
   add('easel', 1660, 1640, { title: 'WELCOME!', lines: ['Walk: WASD or click', 'E use · Q chat · T emote', 'Dance floor: the Lounge'] });
@@ -170,6 +172,15 @@
   add('wardrobe', 2716, 1900);
   add('plant', 2790, 2030);
 
+  // The Arcade board on the wall shows each game's champion; it refreshes every minute and flips pages every few seconds.
+  var ARC_NAMES = [['echo', '🎵 Echo'], ['aim', '🎯 Aim'], ['mathrush', '🧮 Math'], ['trivia', '❓ Trivia'], ['colorclash', '🎨 Color'], ['pattern', '🔢 Pattern'], ['scramble', '🔤 Words']], ARC_KEY = { mathrush: 'math', colorclash: 'color' }, arcData = null, arcPage = 0;
+  function arcRows() {
+    if (!arcData) return; var rows = ARC_NAMES.map(function (g) { var l = arcData[ARC_KEY[g[0]] || g[0]] || arcData[g[0]] || []; return l[0] ? { n: g[1].split(' ')[0] + ' ' + l[0].nick, v: String(l[0].score) } : { n: g[1].split(' ')[0] + ' open', v: '-' }; });
+    arcBoard.rows = rows.slice(arcPage * 4, arcPage * 4 + 4);
+  }
+  function arcPoll() { if (!SC.api) return; SC.api('g/arcade/board', {}).then(function (d) { if (d && d.ok) { arcData = d.boards; SC.arcBoards = d.boards; arcRows(); } }).catch(function () {}); }
+  setTimeout(arcPoll, 3500); setInterval(arcPoll, 60000); setInterval(function () { arcPage = (arcPage + 1) % 2; arcRows(); }, 5000);
+
   var BOXES = OBJ.filter(function (o) { return o.box; }).map(function (o) { return o.box; });
   var ACTS = OBJ.filter(function (o) { return o.act; });
 
@@ -187,8 +198,8 @@
   var me = { id: 0, x: 1440, y: 1824, dir: 0, mv: false, walk: 0, look: { skin: 'gim', body: '#3fa9ff' }, cos: {}, nick: '', cid: '', emote: null, busy: '', idle: 0 };
   var players = {}, parts = [], pops = [], tnow = 0, storeById = {}, QC = [];
   SC.myId = function () { return me.id; };
-  var GAME_NAME = { slots: 'Slots', blackjack: 'Blackjack', roulette: 'Roulette', dice: 'Dice', coinflip: 'Coinflip', duels: 'Duels', mines: 'Mines', plinko: 'Plinko', wheel: 'the Big Wheel', crash: 'Crash', cases: 'Cases', battles: 'Case Battles', jackpot: 'the PROGRESSIVE JACKPOT' };
-  var BUSY_ICON = { slots: '🎰', blackjack: '🃏', roulette: '🔴', dice: '🎲', coinflip: '🪙', duels: '⚔️', mines: '💣', plinko: '🔵', wheel: '🎡', crash: '🚀', cases: '📦', battles: '⚔️', shop: '🛍️', wardrobe: '👕', atm: '🏧', leaderboard: '🏆', tournament: '🥇', player: '💬', bar: '🍹', piano: '🎹' };
+  var GAME_NAME = { slots: 'Slots', blackjack: 'Blackjack', roulette: 'Roulette', dice: 'Dice', coinflip: 'Coinflip', duels: 'Duels', mines: 'Mines', plinko: 'Plinko', wheel: 'the Big Wheel', crash: 'Crash', cases: 'Cases', battles: 'Case Battles', jackpot: 'the PROGRESSIVE JACKPOT', echo: 'Echo', aim: 'Aim', mathrush: 'Math Rush', trivia: 'Trivia Run', colorclash: 'Color Clash', pattern: 'Pattern Pro', scramble: 'Word Scramble' };
+  var BUSY_ICON = { slots: '🎰', blackjack: '🃏', roulette: '🔴', dice: '🎲', coinflip: '🪙', duels: '⚔️', mines: '💣', plinko: '🔵', wheel: '🎡', crash: '🚀', cases: '📦', battles: '⚔️', shop: '🛍️', wardrobe: '👕', atm: '🏧', leaderboard: '🏆', tournament: '🥇', player: '💬', bar: '🍹', piano: '🎹', echo: '🎵', aim: '🎯', mathrush: '🧮', trivia: '❓', colorclash: '🎨', pattern: '🔢', scramble: '🔤', hiscores: '🏆' };
 
   function lookFromProfile(p) {
     var L = p.look || {}, out = {};
@@ -450,7 +461,7 @@
   // ================================================================ PANELS
   var META = {
     slots: ['🎰', 'Slots', 'Every spin feeds the progressive jackpot'], blackjack: ['🃏', 'Blackjack', 'Up to 5 players · beat the dealer'], roulette: ['🔴', 'Roulette', 'One wheel, everyone bets on the same spin'],
-    dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
+    dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], hiscores: ['🏆', 'Arcade High Scores', 'The best round on the floor, per game'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
     plinko: ['🔵', 'Plinko', 'Drop it and pray'], wheel: ['🎡', 'The Big Wheel', 'Pick a color — everyone spins together'], crash: ['🚀', 'Crash', 'One rocket for everyone — cash out in time'],
     cases: ['📦', 'Case Vault', 'Open a case'],
     keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, echo: MORE_META.echo, aim: MORE_META.aim, mathrush: MORE_META.mathrush, trivia: MORE_META.trivia, colorclash: MORE_META.colorclash, pattern: MORE_META.pattern, scramble: MORE_META.scramble, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
@@ -459,7 +470,7 @@
     owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
-  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me }; }, 0);
+  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G }; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;
