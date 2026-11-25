@@ -135,7 +135,8 @@ function spaceMsg(c, m, now) {
     const dt = Math.min(1, (now - (c.lastSMv || now - 100)) / 1000); c.lastSMv = now;
     const allow = BW.SPEED * 1.4 * 1.6 * dt + 30, dx = x - c.sx, dy = y - c.sy, d = Math.hypot(dx, dy);
     if (d > allow) { x = c.sx + dx / d * allow; y = c.sy + dy / d * allow; send(c, { t: 'pos', x: Math.round(x), y: Math.round(y) }); }
-    c.sx = clamp(x, T, (W - 1) * T); c.sy = clamp(y, T, (H - 1) * T);
+    const lim = sp.kind === 'hub' ? BW.HUB_W : W;
+    c.sx = clamp(x, T, (lim - 1) * T); c.sy = clamp(y, T, (lim - 1) * T);
     if (Number.isFinite(m.a)) c.sang = m.a / 100;
     c.smv = m.m | 0; c.sheld = m.h | 0;
     return;

@@ -220,7 +220,7 @@
     $('loading').classList.add('out');
     setTimeout(function () { $('loading').classList.add('hidden'); }, 700);
     if (S.screen === 'loading') { // still no word from the server: show the hub anyway
-      B.setDims(72, 72); S.map = S.hubMap || (S.hubMap = hubGen()); D.resetChunks(); P = newBody(B.HUB_SPAWN.x, B.HUB_SPAWN.y); cam.x = P.x; cam.y = P.y; show('hub'); renderHubHud();
+      B.setDims(B.HUB_W, B.HUB_W); S.map = S.hubMap || (S.hubMap = hubGen()); D.resetChunks(); P = newBody(B.HUB_SPAWN.x, B.HUB_SPAWN.y); cam.x = P.x; cam.y = P.y; show('hub'); renderHubHud();
     }
   }
   setTimeout(finishLoading, 14000); // never get stuck on the loading screen
@@ -233,7 +233,7 @@
     $('loading').style.background = 'radial-gradient(ellipse at center, rgba(18,12,51,.35), rgba(18,12,51,.92) 70%)';
     ldStep(0.08, 'Waking up the islands…');
     try { await Promise.race([document.fonts.load('700 20px Fredoka'), wait(1500)]); } catch (e) {}
-    B.setDims(72, 72); S.hubMap = hubGen(); S.map = S.hubMap; cam.x = B.HUB_SPAWN.x; cam.y = B.HUB_SPAWN.y - 120;
+    B.setDims(B.HUB_W, B.HUB_W); S.hubMap = hubGen(); S.map = S.hubMap; cam.x = B.HUB_SPAWN.x; cam.y = B.HUB_SPAWN.y - 120;
     ldStep(0.3, 'Painting blocks & beds…'); await wait(250);
     var ids = ['sword1', 'sword2', 'sword3', 'sword4', 'kbstick', 'wool', 'wood', 'end', 'obby', 'pick1', 'pick2', 'pick3', 'pick4', 'bow', 'arrows', 'fireball', 'tnt', 'gapple', 'pearl', 'egg', 'speed', 'armor1', 'armor2', 'armor3', 'armor4', 'iron', 'gold', 'dia', 'em', 'forge', 'heal', 'trap', 'star'];
     ids.forEach(function (id) { D.iconURL(id, 0, 0, 64); });
@@ -295,7 +295,7 @@
   function enterSpace(m) {
     closeShop(); closeModals();
     var hub = m.kind === 'hub';
-    B.setDims(72, 72); S.map = hub ? (S.hubMap || (S.hubMap = hubGen())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
+    B.setDims(hub ? B.HUB_W : 72, hub ? B.HUB_W : 72); S.map = hub ? (S.hubMap || (S.hubMap = hubGen())) : (S.waitMap || (S.waitMap = B.genWait())); D.resetChunks();
     if (window.BWV) BWV.reset();
     S.watching = false; $('watchBar').classList.add('hidden'); document.body.classList.remove('watching');
     S.en = -1; closeQuiz(true); quizHud();
@@ -1222,6 +1222,7 @@
   function spaceTick() {
     if (S.screen !== 'hub' && S.screen !== 'wait') return;
     if (S.screen === 'hub') { portalWalk(); hubTick(); hubTourTick(); }
+    hubMapTick();
     var o = nearObj(), pr = $('prompt');
     if (o && !anyModal()) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap USE · ' : 'E · ') + objLabel(o); } else pr.classList.add('hidden');
     if (S.screen === 'wait' && now() - (S.wcAt || 0) > 250) { S.wcAt = now(); updateWaitCount(); }
@@ -1495,7 +1496,7 @@
   function applySeason(v) {
     S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', !!S.season); SNOW.length = 0;
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks();
-    if (wasHub) { B.setDims(72, 72); S.hubMap = hubGen(); S.map = S.hubMap; }
+    if (wasHub) { B.setDims(B.HUB_W, B.HUB_W); S.hubMap = hubGen(); S.map = S.hubMap; }
     if (window.SHMusic) SHMusic.season(S.season);
   }
   var SNOW = [], FW = [];
@@ -1543,7 +1544,7 @@
     var T2 = B.T, cols = (B.SEASONS[S.season] && B.SEASONS[S.season].lights) || ['#ff4b5c', '#2bd576', '#ffd166', '#3fa9ff', '#ff6ec7'];
     B.XMAS_LIGHTS.forEach(function (row) {
       for (var k = 0; k < row.length - 1; k++) {
-        var x1 = row[k][0] * T2 + T2 / 2, y1 = row[k][1] * T2 + T2 / 2 - 48, x2 = row[k + 1][0] * T2 + T2 / 2, y2 = row[k + 1][1] * T2 + T2 / 2 - 48;
+        var HO = B.HUB_OFF || { x: 0, y: 0 }, x1 = (row[k][0] + HO.x) * T2 + T2 / 2, y1 = (row[k][1] + HO.y) * T2 + T2 / 2 - 48, x2 = (row[k + 1][0] + HO.x) * T2 + T2 / 2, y2 = (row[k + 1][1] + HO.y) * T2 + T2 / 2 - 48;
         var len = Math.hypot(x2 - x1, y2 - y1), sag = Math.min(40, len * 0.12), n = Math.max(4, Math.round(len / 22));
         c.strokeStyle = '#1d3b24'; c.lineWidth = 2; c.beginPath();
         for (var j = 0; j <= 16; j++) { var u = j / 16, px = x1 + (x2 - x1) * u, py = y1 + (y2 - y1) * u + Math.sin(u * Math.PI) * sag; if (j) c.lineTo(px, py); else c.moveTo(px, py); }
@@ -1615,7 +1616,7 @@
   function hubFxToggle() {
     var on = !hubFxOn(); try { localStorage.setItem('sh_hubfx', on ? '1' : '0'); } catch (e) {}
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks(); S.fishing = null;
-    if (wasHub) { B.setDims(72, 72); S.hubMap = hubGen(); S.map = S.hubMap; if (P && B.solidAt(S.map, Math.floor(P.x / T), Math.floor(P.y / T))) { P.x = B.HUB_SPAWN.x; P.y = B.HUB_SPAWN.y; } }
+    if (wasHub) { B.setDims(B.HUB_W, B.HUB_W); S.hubMap = hubGen(); S.map = S.hubMap; if (P && B.solidAt(S.map, Math.floor(P.x / T), Math.floor(P.y / T))) { P.x = B.HUB_SPAWN.x; P.y = B.HUB_SPAWN.y; } }
     if (!on && S.tut && S.tut.key === 'hub') { S.tut = null; $('tutor').classList.add('hidden'); }
     hubFxPaint(); toast(on ? 'Hub builds and floating text: ON' : 'Hub builds and floating text: OFF', 1800);
   }
@@ -1630,7 +1631,7 @@
     { n: 'Golden Carp', r: 'epic', w: 4, c: '#b55cff' }, { n: 'Scroll Whale', r: 'legendary', w: 1.2, c: '#ffb02e' }];
   function fishCount() { var n = 0; for (var k in fishBook) n += fishBook[k]; return n; }
   function fishKinds() { var n = 0; FISH.forEach(function (f) { if (fishBook[f.n]) n++; }); return n; }
-  var TIPS = ['Walk into a glowing portal to jump into a game', 'Press E at a portal for private rooms and practice', 'Find all 12 floating stars hidden around the island', 'Cast a line at the fishing dock — rare catches count!', 'Winners climb the leaderboard by the plaza', 'Duels are ranked: Bronze, Silver, Gold, Diamond', 'The casino gate is on the east side — more games, more Scrolls', 'Chat with the Enter key — your words pop over your head', 'Warm up in Practice mode — bots fill every game'];
+  var TIPS = ['Walk into a glowing portal to jump into a game', 'Press E at a portal for private rooms and practice', 'Find every floating star hidden around the island (press M for the map)', 'Cast a line at the fishing dock — rare catches count!', 'Winners climb the leaderboard by the plaza', 'Duels are ranked: Bronze, Silver, Gold, Diamond', 'The casino gate is on the east side — more games, more Scrolls', 'Chat with the Enter key — your words pop over your head', 'Warm up in Practice mode — bots fill every game'];
   function holoLines(o, t) {
     var on = S.online || {}, src = o.src, L = [], g, n;
     if (src === 'static') { (o.lines || []).forEach(function (s2, i) { L.push({ t: s2, c: i ? '#e9e4ff' : '#ffd166', s: i ? 12 : 17 }); }); return L; }
@@ -1680,6 +1681,46 @@
     }
     S.fishing = null; toast(f.bite ? 'It got away!' : 'Too early — reeled in', 1400);
   }
+
+  // ------------------------------------------------------------------ hub minimap (M = big map)
+  var HM = { cv: null, base: null, forMap: null, big: false, last: 0 };
+  var HM_COL = { 1: '#6fd25a', 2: '#9aa6bd', 3: '#ddd6f7', 4: '#c9925a', 5: '#6b6f85', 6: '#b6bdcc', 7: '#a7a2b8', 8: '#b07b4f', 9: '#eef6ff', 10: '#bfe6ff', 11: '#ffecec', 12: '#f3d891', 13: '#c45a4a', 14: '#2f8fe0', 15: '#8a5a34', 16: '#f4bcd4', 17: '#52804a', 18: '#d98a5c' };
+  var HM_REG = [['FROST PEAKS', 72, 17], ['DESERT', 116, 30], ['CHERRY GROVE', 124, 68], ['QUARRY', 112, 106], ['BEACH', 71, 122], ['SWAMP', 32, 106], ['WOODS', 20, 68], ['RUINS', 32, 32], ['TOWN', 72, 76]];
+  function hubMapEl() {
+    if (HM.cv) return HM.cv;
+    var el = document.createElement('canvas'); el.width = el.height = 288; el.id = 'hubMapCv';
+    el.style.cssText = 'position:fixed;z-index:18;border-radius:14px;border:3px solid #1b1636;background:rgba(10,6,30,.55);box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;image-rendering:auto;display:none';
+    el.addEventListener('click', function () { HM.big = !HM.big; HM.last = 0; });
+    document.body.appendChild(el); HM.cv = el; return el;
+  }
+  function hubMapTick() {
+    var el = hubMapEl(), map = S.map;
+    if (S.screen !== 'hub' || !P || !map || map !== S.hubMap || map.W !== B.HUB_W || anyModal()) { el.style.display = 'none'; return; }
+    var tn = performance.now(); el.style.display = 'block';
+    var size = HM.big ? Math.min(520, innerWidth - 24, innerHeight - 24) : (touch ? 104 : 156);
+    if (HM.big) { el.style.left = '50%'; el.style.top = '50%'; el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.transform = 'translate(-50%,-50%)'; el.style.opacity = '.96'; }
+    else { el.style.transform = 'none'; el.style.opacity = '.9'; el.style.left = touch ? '10px' : 'auto'; el.style.top = touch ? '86px' : 'auto'; el.style.right = touch ? 'auto' : '12px'; el.style.bottom = touch ? 'auto' : '12px'; }
+    el.style.width = el.style.height = size + 'px';
+    if (tn - HM.last < 90) return; HM.last = tn;
+    if (HM.forMap !== map) {
+      var b = document.createElement('canvas'); b.width = b.height = 288; var bx = b.getContext('2d'), N = B.HUB_W;
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) { var gv = map.g[y * N + x]; if (!gv) continue; bx.fillStyle = HM_COL[gv] || '#888'; bx.fillRect(x * 2, y * 2, 2, 2); }
+      HM.base = b; HM.forMap = map;
+    }
+    var x2 = el.getContext('2d'); x2.clearRect(0, 0, 288, 288); x2.drawImage(HM.base, 0, 0);
+    var k = 2 / T;
+    (B.HUB_PORTS || []).forEach(function (q) { x2.fillStyle = (D.GCOL && D.GCOL[q.g]) || '#fff'; x2.fillRect(q.tx * 2 - 1, q.ty * 2 - 1, 4, 4); });
+    S.ents.forEach(function (e) { if (e.id === S.myId) return; x2.fillStyle = '#ffffff'; x2.fillRect(e.x * k - 2, e.y * k - 2, 4, 4); });
+    if (HM.big) {
+      x2.font = '800 13px Fredoka, sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.lineJoin = 'round'; x2.lineWidth = 4; x2.strokeStyle = 'rgba(12,8,36,.9)'; x2.fillStyle = '#fff';
+      HM_REG.forEach(function (r) { x2.strokeText(r[0], r[1] * 2, r[2] * 2); x2.fillText(r[0], r[1] * 2, r[2] * 2); });
+      var sc = 0; (S.map.objs || []).forEach(function (o) { if (o.kind === 'star' && !starHas(o.id)) { x2.fillStyle = '#ffd166'; x2.fillRect(o.tx * 2 - 1, o.ty * 2 - 1, 3, 3); sc++; } });
+    }
+    var px = P.x * k, py = P.y * k, pu = (Math.sin(tn / 220) + 1) / 2;
+    x2.strokeStyle = 'rgba(255,209,102,' + (0.9 - pu * 0.5) + ')'; x2.lineWidth = 2; x2.beginPath(); x2.arc(px, py, 5 + pu * 5, 0, 6.283); x2.stroke();
+    x2.fillStyle = '#ffd166'; x2.strokeStyle = '#1b1636'; x2.lineWidth = 2; x2.beginPath(); x2.arc(px, py, 4, 0, 6.283); x2.fill(); x2.stroke();
+  }
+  document.addEventListener('keydown', function (e) { if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && S.screen === 'hub' && !anyModal() && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || '')) { HM.big = !HM.big; HM.last = 0; } if (e.key === 'Escape' && HM.big) HM.big = false; });
   function hubTick(dt, t) {
     if (!P || !S.map || S.map !== S.hubMap) return;
     var f = S.fishing, tn = now();
@@ -1715,7 +1756,7 @@
     else if (k === 'bedDeco') D.bed(c, { team: 0, x: o.x, y: o.y - T / 2, dir: [0, 1] }, t, false);
     else if (k === 'holo') drawHolo(o, t);
     else if (k === 'star') HUBX.star(c, o, t, { got: starHas(o.id) });
-    else if (k === 'fishspot') HUBX.fishspot(c, o, t, { fish: S.fishing });
+    else if (k === 'fishspot') HUBX.fishspot(c, o, t, { fish: S.fishing && S.fishing.ox === o.x && S.fishing.oy === o.y ? S.fishing : null });
     else if (HUBX[k]) HUBX[k](c, o, t);
     if (near && k !== 'npc') { var ab = o.y - (k === 'board' ? 236 : k === 'portal' ? 206 : k === 'gport' ? 150 : 96) + Math.abs(Math.sin(t * 5)) * -8; c.beginPath(); c.moveTo(o.x - 9, ab); c.lineTo(o.x + 9, ab); c.lineTo(o.x, ab + 11); c.closePath(); c.fillStyle = '#ffd166'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke(); }
   }
@@ -3158,8 +3199,8 @@
   TUT.hub = [
     { d: 'Welcome to the <b>Games Hub</b>! Walk around with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or click where you want to go', t: 'Drag the joystick to walk around', ok: function () { return !!(S.tut && P && Math.hypot(P.x - S.tut.sx, P.y - S.tut.sy) > 160); } },
     { d: 'Walk into a <b>glowing portal</b> to join a game. Press <kbd>E</kbd> next to one for private rooms and practice against bots', t: 'Walk into a portal to play. Tap USE next to one for more', wait: 8000 },
-    { d: 'Collect the <b>12 floating stars</b>, cast a line at the <b>fishing dock</b> by the lake, and read the glowing text for live player counts', wait: 9000 },
-    { d: 'The <b>casino gate</b> and the <b>leaderboard</b> are right by the spawn. The whole island is yours — go explore!', wait: 7000 }];
+    { d: 'The island is <b>huge</b>: eight regions surround the town. Find the <b>floating stars</b>, fish at the ponds, and press <kbd>M</kbd> for the map', wait: 9000 },
+    { d: 'Every game portal is close to spawn, so you are never far from a match. Follow the roads and signposts out of town to explore!', wait: 7000 }];
   function hubTourTick() {
     if (S.screen !== 'hub' || !P || S.school || S.watching || anyModal() || !hubFxOn()) return;
     var tu = S.tut;

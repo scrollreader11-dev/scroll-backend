@@ -60,7 +60,7 @@
 
   // ------------------------------------------------------------------ ground chunks (static, cached)
   var CH = 12, chunks = {};
-  D.resetChunks = function () { chunks = {}; };
+  D.resetChunks = function () { chunks = {}; chunkOrder = []; };
   D.dropChunk = function (cx, cy) { delete chunks[cx + ',' + cy]; };
   var padTeam = null;
   function teamOfTile(m, tx, ty) {
@@ -81,6 +81,9 @@
     12: { top: '#f3d891', alt: '#ecd086', rim: '#fff0bf', cliff: ['#d6a85a', '#a8783a', '#5e3f1b'], band: '#a8783a' },
     13: { top: '#c45a4a', alt: '#bb5343', rim: '#e88a78', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
     14: { top: '#2f8fe0', alt: '#2a84d4', rim: '#8fd0ff', cliff: ['#3b7fb8', '#2b5f94', '#18355c'], band: '#2b5f94' },
+    16: { top: '#f4bcd4', alt: '#efb0cb', rim: '#ffe0ee', cliff: ['#b0707f', '#865060', '#472a35'], band: '#865060' },
+    17: { top: '#52804a', alt: '#4a7643', rim: '#86b07c', cliff: ['#5c4a36', '#43352a', '#231b14'], band: '#43352a' },
+    18: { top: '#d98a5c', alt: '#cf7f50', rim: '#f0b088', cliff: ['#a8603a', '#7d4426', '#3f2212'], band: '#7d4426' },
     15: { top: '#8a5a34', alt: '#7e5030', rim: '#b98558', cliff: ['#7a4e2d', '#5a331b', '#2e1a0d'], band: '#5a331b' },
   };
   function gAt(m, x, y) { return x < 0 || y < 0 || x >= W || y >= H ? 0 : m.g[y * W + x]; }
@@ -129,6 +132,15 @@
       if (gAt(m, tx, ty + 1) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x, y + T - 3, T, 3); }
       if (gAt(m, tx - 1, ty) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x, y, 3, T); }
       if (gAt(m, tx + 1, ty) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x + T - 3, y, 3, T); }
+    } else if (g === 16) { // cherry-blossom ground: pale grass with fallen petals
+      c.fillStyle = 'rgba(255,255,255,.35)'; for (var cp = 0; cp < 5; cp++) { circ(c, x + 4 + hash(i * 3 + cp) * 32, y + 4 + hash(i * 5 + cp) * 32, 1.8 + hash(i + cp) * 1.4); c.fill(); }
+      c.strokeStyle = 'rgba(190,90,130,.3)'; c.lineWidth = 1.6; c.beginPath(); var cgx = x + 8 + h * 20; c.moveTo(cgx - 3, y + 30); c.lineTo(cgx, y + 25); c.lineTo(cgx + 3, y + 30); c.stroke();
+    } else if (g === 17) { // swamp: dark mud, reeds
+      c.fillStyle = 'rgba(30,50,25,.35)'; for (var sp2 = 0; sp2 < 2; sp2++) { ell(c, x + 8 + hash(i * 7 + sp2) * 24, y + 8 + hash(i * 11 + sp2) * 24, 6 + hash(i + sp2) * 5, 3 + hash(i) * 3); c.fill(); }
+      c.strokeStyle = 'rgba(120,150,60,.7)'; c.lineWidth = 2; if (h > 0.55) { var rx2 = x + 6 + h * 26; c.beginPath(); c.moveTo(rx2, y + 30); c.lineTo(rx2 - 1, y + 16); c.moveTo(rx2 + 4, y + 30); c.lineTo(rx2 + 5, y + 19); c.stroke(); }
+    } else if (g === 18) { // red mesa: layered bands
+      c.fillStyle = 'rgba(120,50,20,.22)'; for (var mb = 0; mb < 3; mb++) c.fillRect(x, y + 6 + mb * 13 + h * 3, T, 4);
+      c.fillStyle = 'rgba(255,220,180,.18)'; c.fillRect(x + h * 20, y + 3, 10, 2);
     } else if (g === 15) { // tilled farmland rows with sprouts
       c.fillStyle = 'rgba(0,0,0,.22)'; for (var fr = 6; fr < T; fr += 13) c.fillRect(x, y + fr, T, 4);
       c.strokeStyle = '#4fae3e'; c.lineWidth = 2.2; c.lineCap = 'round';
@@ -186,8 +198,10 @@
     if (e) c.lineTo(x + T - 1.5, y + T - 2);
     c.stroke();
   }
+  var chunkOrder = [];
   D.chunk = function (m, cx, cy) {
     var key = cx + ',' + cy; if (chunks[key] !== undefined) return chunks[key];
+    chunkOrder.push(key); if (chunkOrder.length > 56) { var old = chunkOrder.shift(); delete chunks[old]; }
     var x0 = cx * CH, y0 = cy * CH, any = false, tx, ty;
     for (ty = y0; ty < y0 + CH && !any; ty++) for (tx = x0; tx < x0 + CH; tx++) if (gAt(m, tx, ty)) { any = true; break; }
     if (!any) { chunks[key] = null; return null; }
