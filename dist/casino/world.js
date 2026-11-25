@@ -413,7 +413,7 @@
       if (!hits(me.x, ny)) { me.y = ny; moved = true; }
       if (!moved && path) { path = null; pathAct = null; }
       me.dir = Math.abs(ix) > Math.abs(iy) ? (ix < 0 ? 1 : 2) : (iy < 0 ? 3 : 0);
-      me.walk += dt * 13; me.idle = 0;
+      me.walk += dt * 13; me.idle = 0; footstep(dt);
       if ((dustT += dt) > 0.22) { dustT = 0; parts.push({ kind: 'dust', x: me.x + (Math.random() - 0.5) * 10, y: me.y - 2, vx: -ix * 20, vy: -8, life: 0, max: 0.45, rot: 0 }); }
     } else me.idle += dt;
     me.dance = !me.mv && me.idle > 0.4 && onDance(me.x, me.y);
@@ -693,9 +693,9 @@
     if (e.key === 'c' || e.key === 'C' || e.key === '/') { if (panelOpen()) return; e.preventDefault(); chatFocus(); }
   });
   function onSay(m) {
-    var who = m.id === me.id ? me : players[m.id]; if (chatHidden) return;
-    chatAdd(m.nick || (who && who.nick) || 'Player', m.text);
-    if (who) { who.emote = { text: m.text.length > 38 ? m.text.slice(0, 36) + '…' : m.text, at: performance.now() }; if (Math.hypot(who.x - me.x, who.y - me.y) < 500) sfx('pop'); }
+    var who = m.id === me.id ? me : players[m.id];
+    if (!chatHidden) chatAdd(m.nick || (who && who.nick) || 'Player', m.text);
+    if (who) { who.emote = { text: m.text, at: performance.now(), life: Math.min(10, 4 + m.text.length * 0.07) }; if (Math.hypot(who.x - me.x, who.y - me.y) < 500) sfx('pop'); }
   }
 
   // ================================================================ NAME TAGS / BUBBLES
@@ -721,17 +721,31 @@
       c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(cos.tag, x, ty + 0.5); c.restore();
     }
   }
-  function drawBubble(c, x, y, e, age, text) {
+  function wrapText(c, text, maxW, maxLines) {
+    var words = String(text).split(' '), lines = [], cur = '';
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + ' ' + words[i] : words[i];
+      if (c.measureText(t).width > maxW && cur) { lines.push(cur); cur = words[i]; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '') + '\u2026'; }
+    return lines;
+  }
+  function drawBubble(c, x, y, e, age, text, life) {
     var sc = age < 0.15 ? age / 0.15 * 1.15 : age < 0.25 ? 1.15 - (age - 0.15) * 1.5 : 1;
-    var life = text ? 4 : 3;
+    life = life || (text ? 4 : 3);
     if (age > life - 0.3) sc *= Math.max(0, 1 - (age - (life - 0.3)) / 0.3);
     c.save(); c.translate(x, y); c.scale(sc, sc);
-    var w = 44;
-    if (text) { c.font = '600 13px Fredoka, sans-serif'; w = Math.max(44, c.measureText(text).width + 22); }
-    A.rr(c, -w / 2, -44, w, 38, 14); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = A.OL; c.lineWidth = 3; c.stroke();
+    var w = 44, h = 38, lines = null;
+    if (text) {
+      c.font = '600 13px Fredoka, sans-serif'; lines = wrapText(c, text, 190, 4);
+      var mw = 0; for (var li = 0; li < lines.length; li++) mw = Math.max(mw, c.measureText(lines[li]).width);
+      w = Math.max(44, mw + 24); h = Math.max(38, 16 + lines.length * 16);
+    }
+    A.rr(c, -w / 2, -6 - h, w, h, 14); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = A.OL; c.lineWidth = 3; c.stroke();
     c.beginPath(); c.moveTo(-6, -7); c.lineTo(0, 2); c.lineTo(6, -7); c.closePath(); c.fillStyle = '#fff'; c.fill(); c.stroke();
     c.fillStyle = '#fff'; c.fillRect(-7, -9, 14, 4);
-    if (text) A.label(c, text, 0, -25, { size: 13, color: '#1b1636', stroke: false, weight: 600 });
+    if (text) { for (var l2 = 0; l2 < lines.length; l2++) A.label(c, lines[l2], 0, -6 - h + 16 + l2 * 16, { size: 13, color: '#1b1636', stroke: false, weight: 600 }); }
     else if (e === 'GG') A.label(c, 'GG', 0, -25, { size: 20, color: '#7b5cff', stroke: false });
     else { c.font = '26px serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e, 0, -24); }
     c.restore();
@@ -803,12 +817,144 @@
   var lastFrame = performance.now(), mmLast = 0;
   var npcCtx = { lookAt: function (x, y) { return { x: me.x - x, y: me.y - y }; }, blink: function (s) { return ((tnow + s * 1.7) % 4) < 0.12; } };
   var GLOWS = OBJ.filter(function (o) { return o.type === 'sign' || o.type === 'slot' || o.type === 'atm' || o.type === 'casebox' || o.type === 'dj' || o.type === 'plinko'; });
+
+  // ================================================================ ATMOSPHERE (lights, glints, chatter, ambient sound, big-win show)
+  var LIGHT_COL = { c: '255,196,92', b: '110,150,255', g: '255,214,140', p: '176,130',  w: '255,170,90', a: '255,110,110', k: '120,255,230', l: '90,230,220', r: '255,120,200', d: '255,120,230' };
+  LIGHT_COL.p = '176,130,255';
+  var lightImgs = {}, POOLS = [], BULBS = [];
+  function lightImg(col) {
+    if (lightImgs[col]) return lightImgs[col];
+    var c = document.createElement('canvas'); c.width = c.height = 128; var g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(' + col + ',.9)'); gr.addColorStop(0.45, 'rgba(' + col + ',.28)'); gr.addColorStop(1, 'rgba(' + col + ',0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    return (lightImgs[col] = c);
+  }
+  (function () {   // a soft pool of coloured light every few tiles, tinted by the room it hangs in
+    for (var ty = 3; ty < ROWS - 1; ty += 6) for (var tx = 3; tx < COLS - 1; tx += 6) { var ch = G[ty][tx]; if (LIGHT_COL[ch]) POOLS.push({ x: tx * T + T / 2, y: ty * T + T / 2, col: LIGHT_COL[ch], ph: (tx * 7 + ty * 3) % 10 }); }
+    // chase-light strips along the top wall of each room: [x0, x1, y]
+    [[15, 44, 2], [1, 13, 2], [46, 58, 2], [46, 58, 16], [46, 58, 30], [60, 74, 14], [1, 13, 23], [15, 44, 31]].forEach(function (r) {
+      var y = r[2] * T - 15, n = Math.floor(((r[1] + 1 - r[0]) * T - 20) / 30);
+      for (var i = 0; i <= n; i++) BULBS.push({ x: r[0] * T + 10 + i * 30, y: y, i: i });
+    });
+  })();
+  var glints = [], glintT = 0;
+  function drawAtmos(vx0, vx1, vy0, vy1, dt) {
+    var i, o;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (i = 0; i < POOLS.length; i++) {
+      o = POOLS[i]; if (o.x < vx0 - 220 || o.x > vx1 + 220 || o.y < vy0 - 220 || o.y > vy1 + 220) continue;
+      var r = 190 + Math.sin(tnow * 0.7 + o.ph) * 14; ctx.globalAlpha = 0.11 + Math.sin(tnow * 1.1 + o.ph * 2) * 0.025;
+      ctx.drawImage(lightImg(o.col), o.x - r, o.y - r * 0.8, r * 2, r * 1.6);
+    }
+    ctx.globalAlpha = 1;
+    var step = Math.floor(tnow * 7);
+    for (i = 0; i < BULBS.length; i++) {
+      o = BULBS[i]; if (o.x < vx0 || o.x > vx1 || o.y < vy0 - 20 || o.y > vy1) continue;
+      var on = ((o.i - step) % 3 + 3) % 3 === 0;
+      ctx.beginPath(); ctx.arc(o.x, o.y, on ? 4 : 3, 0, 6.3); ctx.fillStyle = on ? '#fff1b0' : 'rgba(255,190,80,.35)'; ctx.fill();
+      if (on) { ctx.globalAlpha = 0.5; ctx.drawImage(lightImg('255,214,120'), o.x - 14, o.y - 14, 28, 28); ctx.globalAlpha = 1; }
+    }
+    // twinkles that drift up from the carpet
+    if ((glintT += dt) > 0.12 && glints.length < 26) {
+      glintT = 0; var gx = vx0 + 240 + Math.random() * (vx1 - vx0 - 480), gy = vy0 + 60 + Math.random() * (vy1 - vy0 - 360);
+      if (tileAt(Math.floor(gx / T), Math.floor(gy / T)) !== '#') glints.push({ x: gx, y: gy, age: 0, max: 0.8 + Math.random() * 0.7, s: 3 + Math.random() * 4 });
+    }
+    for (i = glints.length - 1; i >= 0; i--) {
+      o = glints[i]; o.age += dt; if (o.age > o.max) { glints.splice(i, 1); continue; }
+      var k2 = Math.sin(o.age / o.max * Math.PI), sz = o.s * k2; o.y -= dt * 8;
+      ctx.globalAlpha = 0.85 * k2; ctx.fillStyle = '#fff3c4';
+      ctx.fillRect(o.x - sz, o.y - 0.7, sz * 2, 1.4); ctx.fillRect(o.x - 0.7, o.y - sz, 1.4, sz * 2);
+    }
+    ctx.restore();
+  }
+
+  // People who work here say something now and then when you walk past.
+  var TALK = {
+    blackjack: ['Place your bets!', 'Hit or stand?', 'Cards are hot tonight.', 'Good luck at the table!'], roulette: ['No more bets!', 'Round and round she goes…', 'Red or black?', 'Place your chips!'],
+    dice: ['Roll the bones!', 'Shake and throw!', 'Feeling lucky?'], bar: ['What can I get you?', 'Cheers!', 'First drink is always good.'], shop: ['Fresh drip just in!', 'Looking sharp!', 'Try something new.'],
+    wheel: ['Spin it, spin it!', 'Big wheel, big wins!'], 'Vault Guard': ['Keep it moving.', 'Big money in there.', 'Nothing to see here.'], 'Duel Master': ['Step up, challenger!', 'Who is next?', 'Pick your game.'],
+  };
+  var TALK_DY = { blackjack: -178, roulette: -176, dice: -174, bar: -140, shop: -138, wheel: -242, npc: -64 }, TALKERS = [];
+  OBJ.forEach(function (o) { var k = o.name && TALK[o.name] ? o.name : TALK[o.type] ? o.type : ''; if (k) { TALKERS.push({ o: o, k: k, dy: TALK_DY[o.type] != null ? TALK_DY[o.type] : -100, next: Math.random() * 6, tk: null }); } });
+  var talkT = 0;
+  function runTalkers(dt) {
+    talkT += dt; if (talkT < 0.5) return; talkT = 0;
+    for (var i = 0; i < TALKERS.length; i++) {
+      var t = TALKERS[i]; if (tnow < t.next || (t.tk && tnow - t.tk.at < 4.5)) continue;
+      if (Math.hypot(t.o.x - me.x, t.o.y - me.y) > 330) continue;
+      var lines = TALK[t.k]; t.tk = { text: lines[Math.floor(Math.random() * lines.length)], at: tnow }; t.next = tnow + 14 + Math.random() * 16;
+    }
+  }
+  function drawTalkers(vx0, vx1, vy0, vy1) {
+    for (var i = 0; i < TALKERS.length; i++) { var t = TALKERS[i]; if (!t.tk) continue; var age = tnow - t.tk.at; if (age > 4) { t.tk = null; continue; } if (t.o.x < vx0 || t.o.x > vx1 || t.o.y < vy0 || t.o.y > vy1 + 200) continue; drawBubble(ctx, t.o.x, t.o.y + t.dy, null, age, t.tk.text, 4); }
+  }
+
+  // Quiet sound of the floor: distant reels, the ball on the wheel, dice, arcade blips. Louder the closer you are, and it follows the mute button.
+  function nearest(type, from) { var bd = 1e9; for (var i = 0; i < OBJ.length; i++) { var o = OBJ[i]; if (o.type === type || (type === 'arcade' && o.kind && o.x > 2880 && o.type === 'gstand')) { var d = Math.hypot(o.x - me.x, o.y - me.y); if (d < bd) bd = d; } } return bd; }
+  function ambient() {
+    if (document.hidden || !SC.sfxTone || (SC.sfxMuted && SC.sfxMuted()) || SC.panelKind) return;
+    var R = 520, d, v, n;
+    d = nearest('slot'); if (d < R && Math.random() < 0.55) { v = 0.07 * (1 - d / R); n = [0, 4, 7, 12][Math.floor(Math.random() * 4)]; for (var i = 0; i < 3; i++) SC.sfxTone(520 * Math.pow(2, (n + i * 4) / 12), 0.11, 'square', v, i * 0.09); }
+    d = nearest('roulette'); if (d < R && Math.random() < 0.5) { v = 0.12 * (1 - d / R); for (var j = 0; j < 7; j++) SC.sfxTone(1900 + Math.random() * 400, 0.02, 'square', v * 0.5, j * (0.07 + j * 0.018)); }
+    d = nearest('dice'); if (d < R && Math.random() < 0.35 && SC.sfxNoise) { v = 0.2 * (1 - d / R); for (var q = 0; q < 4; q++) SC.sfxNoise(0.04, v, q * 0.06, 2200); }
+    d = nearest('arcade'); if (d < R && Math.random() < 0.6) { v = 0.06 * (1 - d / R); for (var z = 0; z < 3; z++) SC.sfxTone(330 + Math.floor(Math.random() * 6) * 110, 0.07, 'square', v, z * 0.08); }
+    if (nearest('blackjack') < R * 0.8 && Math.random() < 0.3 && SC.sfxNoise) SC.sfxNoise(0.07, 0.07, 0, 2600);
+    if (Math.random() < 0.12) SC.sfxTone(2400 + Math.random() * 600, 0.05, 'square', 0.03);   // a chip clink somewhere
+  }
+  setInterval(ambient, 1600);
+  var stepT = 0;
+  function footstep(dt) {   // soft tick underfoot; wood and tile ring a little more than carpet
+    if (!SC.sfxNoise || (SC.sfxMuted && SC.sfxMuted()) || SC.panelKind) return;
+    if ((stepT += dt) < 0.3) return; stepT = 0;
+    var ch = tileAt(Math.floor(me.x / T), Math.floor((me.y - 5) / T)), hard = ch === 'w' || ch === 'a' || ch === 'g' || ch === 'k';
+    SC.sfxNoise(0.035, hard ? 0.05 : 0.025, 0, hard ? 1500 : 500);
+  }
+
+  // Your own big wins get a show: a banner that counts up, coins raining down, a flash, and a shake for the biggest.
+  var shakeEnd = 0, shakeAmt = 0;
+  (function () {
+    var st = document.createElement('style');
+    st.textContent = '#winfx{position:fixed;inset:0;z-index:75;pointer-events:none;overflow:hidden}' +
+      '.wf-flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,rgba(255,215,100,.55),rgba(255,215,100,0) 65%);animation:wfflash .9s ease-out forwards}@keyframes wfflash{from{opacity:1}to{opacity:0}}' +
+      '.wf-ban{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%) scale(.3);text-align:center;font-weight:900;color:#fff;text-shadow:0 4px 0 rgba(0,0,0,.45),0 0 28px var(--wfc,#ffd166);animation:wfban 3.2s cubic-bezier(.2,1.4,.4,1) forwards;white-space:nowrap}' +
+      '.wf-ban .t{font-size:clamp(30px,7vw,64px);letter-spacing:.04em;color:var(--wfc,#ffd166)}.wf-ban .n{font-size:clamp(26px,5.5vw,48px);margin-top:2px;font-variant-numeric:tabular-nums}.wf-ban .m{font-size:clamp(14px,2.4vw,20px);opacity:.9;margin-top:2px}' +
+      '@keyframes wfban{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}10%{transform:translate(-50%,-50%) scale(1.15);opacity:1}16%{transform:translate(-50%,-50%) scale(1)}84%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-70%) scale(.9);opacity:0}}' +
+      '.wf-coin{position:absolute;top:-8vh;font-size:26px;animation:wfcoin linear forwards;filter:drop-shadow(0 3px 2px rgba(0,0,0,.4))}@keyframes wfcoin{to{transform:translateY(115vh) rotate(var(--r,360deg))}}';
+    document.head.appendChild(st);
+  })();
+  var WIN_TIERS = [[500000, 'JACKPOT WIN', '#ff6ec7', 110, 'jackpot'], [100000, 'MEGA WIN', '#ff9f43', 70, 'bigwin'], [25000, 'BIG WIN', '#ffd166', 38, 'bigwin'], [5000, 'NICE WIN', '#5cf2a8', 14, 'win']];
+  function celebrate(amount, mult, force) {
+    var tier = null; for (var i = 0; i < WIN_TIERS.length; i++) if (amount >= WIN_TIERS[i][0]) { tier = WIN_TIERS[i]; break; }
+    if (force) tier = WIN_TIERS.filter(function (x) { return x[1] === force; })[0] || tier;
+    if (!tier) return;
+    var host = document.getElementById('winfx'); if (!host) { host = document.createElement('div'); host.id = 'winfx'; document.body.appendChild(host); }
+    host.innerHTML = '';
+    var big = tier[3] >= 38;
+    if (big) { var f = document.createElement('div'); f.className = 'wf-flash'; host.appendChild(f); }
+    var b = document.createElement('div'); b.className = 'wf-ban'; b.style.setProperty('--wfc', tier[2]);
+    b.innerHTML = '<div class="t">' + tier[1] + '</div><div class="n">📜 0</div>' + (mult >= 3 ? '<div class="m">' + mult + '× your bet</div>' : ''); host.appendChild(b);
+    var nEl = b.querySelector('.n'), t0 = performance.now(), dur = 1300;
+    (function tick() { var k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 3); nEl.textContent = '📜 ' + fmt(Math.round(amount * e)); if (k < 1 && b.parentNode) requestAnimationFrame(tick); })();
+    for (var c = 0; c < tier[3]; c++) { var d = document.createElement('div'); d.className = 'wf-coin'; d.textContent = Math.random() < 0.8 ? '🪙' : '💰'; d.style.left = Math.random() * 100 + 'vw'; d.style.animationDuration = (1.6 + Math.random() * 1.6) + 's'; d.style.animationDelay = (Math.random() * (big ? 1.6 : 0.8)) + 's'; d.style.setProperty('--r', (Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 360) + 'deg'); d.style.fontSize = (20 + Math.random() * 14) + 'px'; host.appendChild(d); }
+    sfx(tier[4]); if (big) setTimeout(function () { sfx('coins'); }, 350);
+    if (tier[3] >= 70) { shakeEnd = tnow + 0.7; shakeAmt = 7; fxBurst('money'); } else if (big) { shakeEnd = tnow + 0.35; shakeAmt = 3; }
+    clearTimeout(host._t); host._t = setTimeout(function () { host.innerHTML = ''; }, 4600);
+  }
+  SC.celebrate = celebrate;
+  // The balance counts up and down instead of jumping.
+  var coinTween = 0, coinShown = null;
+  function animCoins(to) {
+    var el = $('coins'); if (coinShown == null || Math.abs(to - coinShown) < 2) { coinShown = to; el.textContent = fmt(to); return; }
+    cancelAnimationFrame(coinTween); var from = coinShown, t0 = performance.now(), dur = Math.min(900, 250 + Math.abs(to - from) / 40);
+    (function tk() { var k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 3); coinShown = Math.round(from + (to - from) * e); el.textContent = fmt(coinShown); if (k < 1) coinTween = requestAnimationFrame(tk); })();
+  }
+
   function frame(now) {
     var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now; tnow += dt;
     update(dt); syncObjects(dt);
     var k = Z * DPR;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0c0a22'; ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.setTransform(k, 0, 0, k, -cam.x * k, -cam.y * k);
+    var shx = 0, shy = 0; if (tnow < shakeEnd) { var sa = shakeAmt * (shakeEnd - tnow) / 0.7; shx = (Math.random() - 0.5) * sa * 2; shy = (Math.random() - 0.5) * sa * 2; }
+    ctx.setTransform(k, 0, 0, k, (-cam.x + shx) * k, (-cam.y + shy) * k);
     drawTiles();
     var vx0 = cam.x - 240, vx1 = cam.x + VW / Z + 240, vy0 = cam.y - 60, vy1 = cam.y + VH / Z + 300;
     var i, o;
@@ -826,7 +972,9 @@
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16;
     for (i = 0; i < GLOWS.length; i++) { o = GLOWS[i]; if (o.x < vx0 || o.x > vx1 || o.y < vy0 || o.y > vy1) continue; var gy = o.type === 'sign' ? o.y : o.y - 70, gr = o.type === 'sign' ? 120 : 80; ctx.drawImage(glowImg, o.x - gr, gy - gr * 0.7, gr * 2, gr * 1.4); }
     ctx.restore();
+    drawAtmos(vx0, vx1, vy0, vy1, dt); runTalkers(dt);
     for (i = 0; i < ents.length; i++) { var p = ents[i]; if (!p.type) drawOverlay(p); }
+    drawTalkers(vx0, vx1, vy0, vy1);
     drawPops(dt);
     drawPrompt();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -889,7 +1037,7 @@
       A.circ(ctx, p.x + 22, p.y - 44, 11); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = A.OL; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.font = '12px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(BUSY_ICON[p.busy], p.x + 22, p.y - 43);
     }
-    if (p.emote) { var age = (performance.now() - p.emote.at) / 1000, life = p.emote.text ? 4 : 3; if (age < life) drawBubble(ctx, p.x, top - 10 - tagUp, p.emote.e, age, p.emote.text); else p.emote = null; }
+    if (p.emote) { var age = (performance.now() - p.emote.at) / 1000, life = p.emote.life || (p.emote.text ? 4 : 3); if (age < life) drawBubble(ctx, p.x, top - 10 - tagUp, p.emote.e, age, p.emote.text, life); else p.emote = null; }
   }
   function drawPops(dt) {
     for (var i = pops.length - 1; i >= 0; i--) {
@@ -1041,14 +1189,14 @@
       case 'busy': if (players[m.id]) { players[m.id].busy = m.g; renderOnline(); } break;
       case 'look': if (players[m.id]) { players[m.id].look = m.look; players[m.id].cos = m.cos; } break;
       case 'pop': {
-        if (!m.v) break; addPop(m.id, m.v);
+        if (!m.v) break; addPop(m.id, m.v); if (m.id === me.id && m.v > 0) celebrate(m.v, m.m || 0);
         var w2 = m.id === me.id ? me : players[m.id]; if (w2) flashNear(w2);
         break;
       }
       case 'feed': {
         var mine = m.nick === me.nick, jp = m.game === 'jackpot';
         feed((jp ? '💰💰 ' : '🎉 ') + '<b>' + esc(m.nick) + '</b> won 📜 ' + fmt(m.amount) + (GAME_NAME[m.game] ? ' on ' + GAME_NAME[m.game] : '') + (m.mult >= 5 ? ' (' + m.mult + '×)' : '') + '!', '', jp ? 9000 : 6000);
-        if (mine) { fxBurst('confetti'); if (jp) fxBurst('money'); }
+        if (mine) { fxBurst('confetti'); if (jp) { fxBurst('money'); celebrate(m.amount, 0, 'JACKPOT WIN'); } }
         else { var wp = null; for (var k in players) if (players[k].nick === m.nick) wp = players[k]; if (wp) A.burst(parts, jp ? 'money' : 'confetti', wp.x, wp.y, 30); }
         if (jp) sfx('jackpot');
         break;
@@ -1069,7 +1217,7 @@
   // ================================================================ PROFILE / BOARDS
   var lastCoins = null;
   SC.profileListeners.push(function (p) {
-    $('coins').textContent = fmt(p.coins); $('pBal').textContent = fmt(p.coins);
+    animCoins(p.coins); $('pBal').textContent = fmt(p.coins);
     if (lastCoins != null && p.coins !== lastCoins) {
       var d = p.coins - lastCoins, el = $('coinDelta');
       el.textContent = (d > 0 ? '+' : '−') + fmt(Math.abs(d)); el.style.color = d > 0 ? '#2bd576' : '#ff5c6c';

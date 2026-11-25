@@ -738,7 +738,7 @@
     if (k === 'trap') { if (ev[1] === S.team) { e = S.ents.get(ev[2]); banner('TRAP TRIGGERED!', (e ? esc(e.nick) : 'Someone') + ' is in your base!', '#ffd166'); SC.sfx('alarm'); } return; }
     if (k === 'tl') { var tl = B.TIMELINE[ev[1]]; S.tl = ev[1] + 1; if (tl.ev === 'dia2') S.tier.dia = 1; if (tl.ev === 'em2') S.tier.em = 1; if (tl.ev === 'dia3') S.tier.dia = 2; if (tl.ev === 'em3') S.tier.em = 2; if (tl.ev !== 'beds' && tl.ev !== 'end') { banner(tl.ev.indexOf('dia') === 0 ? 'DIAMOND ' + (tl.ev === 'dia2' ? 'II' : 'III') : 'EMERALD ' + (tl.ev === 'em2' ? 'II' : 'III'), tl.text, tl.ev.indexOf('dia') === 0 ? '#5ff0e6' : '#2bd576'); SC.sfx('level'); } return; }
     if (k === 'elim') { feed('<b style="color:' + teamCol(ev[1]) + '">' + tname(ev[1]) + ' team</b> has been <b style="color:#ff5c6c">ELIMINATED</b>', true); if (ev[1] !== S.team) toastBig(tname(ev[1]).toUpperCase() + ' TEAM ELIMINATED', teamCol(ev[1])); return; }
-    if (k === 'say') { e = S.ents.get(ev[1]); chatAdd(ev[3] || (e && e.nick) || 'Player', ev[2]); if (e) { e.bubble = { text: ev[2].length > 38 ? ev[2].slice(0, 36) + '\u2026' : ev[2], t: now() }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
+    if (k === 'say') { e = S.ents.get(ev[1]); chatAdd(ev[3] || (e && e.nick) || 'Player', ev[2]); if (e) { e.bubble = { text: ev[2], t: now(), life: Math.min(10000, 4000 + ev[2].length * 70) }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
     if (k === 'qc') { e = S.ents.get(ev[1]); if (e) { e.bubble = { text: S.qc[ev[2]] || '', t: now() }; if (e.team === S.team || e.id === S.myId) SC.sfx('pop'); } return; }
     if (mgEvent(k, ev)) return;
     if (k === 'dc') { e = S.ents.get(ev[1]); if (e) { e.dc = !!ev[2]; if (ev[2] && e.id !== S.myId) feed(nameHtml(e) + ' disconnected — a bot took over'); } return; }
@@ -1652,13 +1652,18 @@
       A.rr(c, x - 18, y - 62, 36, 6, 3); c.fillStyle = 'rgba(15,10,40,.85)'; c.fill();
       A.rr(c, x - 17, y - 61, 34 * hp, 4, 2); c.fillStyle = hp > 0.5 ? '#2bd576' : hp > 0.25 ? '#ffd166' : '#ff5c6c'; c.fill();
     }
-    if (e.bubble && now() - e.bubble.t < 3000) {
-      var a = Math.min(1, (3000 - (now() - e.bubble.t)) / 300);
-      c.save(); c.globalAlpha = a; c.font = '700 13px Fredoka, sans-serif';
-      var w = c.measureText(e.bubble.text).width + 18, by = y - (mine ? 76 : 96);
-      A.rr(c, x - w / 2, by - 13, w, 24, 10); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke();
-      c.beginPath(); c.moveTo(x - 5, by + 11); c.lineTo(x, by + 17); c.lineTo(x + 5, by + 11); c.fillStyle = '#fff'; c.fill();
-      c.fillStyle = '#1b1636'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e.bubble.text, x, by);
+    if (e.bubble && now() - e.bubble.t < (e.bubble.life || 3000)) {
+      var blife = e.bubble.life || 3000, bage = now() - e.bubble.t, a = Math.min(1, (blife - bage) / 300), pop = bage < 150 ? 0.7 + bage / 150 * 0.4 : 1.1 - Math.min(0.1, (bage - 150) / 1000);
+      c.save(); c.font = '700 13px Fredoka, sans-serif';
+      var words = String(e.bubble.text).split(' '), lines = [], cur = '';
+      for (var wi = 0; wi < words.length; wi++) { var tt = cur ? cur + ' ' + words[wi] : words[wi]; if (c.measureText(tt).width > 190 && cur) { lines.push(cur); cur = words[wi]; } else cur = tt; }
+      if (cur) lines.push(cur); if (lines.length > 4) { lines = lines.slice(0, 4); lines[3] = lines[3].replace(/.{0,2}$/, '') + '\u2026'; }
+      var mw = 0; lines.forEach(function (ln) { mw = Math.max(mw, c.measureText(ln).width); });
+      var w = mw + 22, h = 12 + lines.length * 16, by = y - (mine ? 76 : 96);
+      c.globalAlpha = a; c.translate(x, by + 17); c.scale(pop, pop); c.translate(-x, -(by + 17));
+      A.rr(c, x - w / 2, by + 11 - h, w, h, 10); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke();
+      c.beginPath(); c.moveTo(x - 5, by + 10); c.lineTo(x, by + 17); c.lineTo(x + 5, by + 10); c.fillStyle = '#fff'; c.fill(); c.fillRect(x - 6, by + 8, 12, 3);
+      c.fillStyle = '#1b1636'; c.textAlign = 'center'; c.textBaseline = 'middle'; lines.forEach(function (ln, li) { c.fillText(ln, x, by + 11 - h + 14 + li * 16); });
       c.restore();
     }
   }

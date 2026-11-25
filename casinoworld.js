@@ -58,8 +58,8 @@ setPlayHook((prof, bet, payout) => {
   for (const p of players.values()) if (worldProfile(p.cid) === prof) { pl = p; break; }
   if (!pl) return;
   const net = payout - bet;
-  broadcast({ t: 'pop', id: pl.id, v: net });
   const mult = bet > 0 ? payout / bet : 0;
+  broadcast({ t: 'pop', id: pl.id, v: net, m: Math.round(mult * 10) / 10 });
   if (net >= 10000 || (mult >= 20 && net >= 1000)) broadcast({ t: 'feed', nick: pl.nick, game: pl.busy || '', amount: net, mult: Math.round(mult * 100) / 100 });
 });
 setJackpotHook((prof, amount) => { broadcast({ t: 'feed', nick: prof.nick || 'Someone', game: 'jackpot', amount, mult: 0 }); });
