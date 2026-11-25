@@ -79,8 +79,9 @@
   var rColor = function (n) { return n === 0 ? 'green' : REDS.indexOf(n) >= 0 ? 'red' : 'black'; };
   var lastRoul = null, rlHover = null;
   var TOKENS = [[10, '#e9ecef', 1], [50, '#e63946'], [100, '#2bd576'], [500, '#9b5de5'], [1000, '#111827', 1], [5000, '#7b2cbf']];
-  function tray(el, onPick, sel) {
-    el.innerHTML = TOKENS.map(function (t) { return '<button class="ctok' + (t[2] ? ' dark' : '') + (t[0] === sel ? ' on' : '') + '" style="--c:' + t[1] + (t[0] === 10 ? ';color:#3a86ff' : '') + '" data-tok="' + t[0] + '">' + (t[0] >= 1000 ? t[0] / 1000 + 'K' : t[0]) + '</button>'; }).join('');
+  var BJ_TOKENS = TOKENS.concat([[10000, '#d4a017', 1], [20000, '#0f9d8a'], [30000, '#c1121f']]);   // the high-roller chips, blackjack only
+  function tray(el, onPick, sel, toks) {
+    el.innerHTML = (toks || TOKENS).map(function (t) { return '<button class="ctok' + (t[2] ? ' dark' : '') + (t[0] === sel ? ' on' : '') + '" style="--c:' + t[1] + (t[0] === 10 ? ';color:#3a86ff' : '') + '" data-tok="' + t[0] + '">' + (t[0] >= 1000 ? t[0] / 1000 + 'K' : t[0]) + '</button>'; }).join('');
     el.querySelectorAll('[data-tok]').forEach(function (b) { b.onclick = function () { onPick(+b.dataset.tok, b); sfx('chip'); }; });
   }
   tray($('rlTray'), function (v, b) { $('rlAmt').value = v; $('rlTray').querySelectorAll('.ctok').forEach(function (x) { x.classList.toggle('on', x === b); }); }, 100);
@@ -148,7 +149,7 @@
     ctl.innerHTML = h;
     var trayEl = $('bjTray');
     if (trayEl) {
-      tray(trayEl, function (v) { bjPending += v; renderBj(); }, 0);
+      tray(trayEl, function (v) { bjPending += v; renderBj(); }, 0, BJ_TOKENS);
       $('bjClr').onclick = function () { bjPending = 0; renderBj(); };
       $('bjBetGo').onclick = function () { if (bjPending < 1) return toast('Add some chips first'); SC._bjLast = bjPending; send({ g: 'bj', a: 'bet', table: id, amt: bjPending }); bjPending = -1; sfx('chip'); };
     }
