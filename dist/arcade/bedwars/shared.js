@@ -215,7 +215,8 @@
   B.HUB_SPAWN = { x: 36 * T + T / 2, y: 43 * T + T / 2 };
   // One big Minecraft-style hub continent: every game portal in one plaza row
   // (signs BEHIND the portals), leaderboard corner, casino gate, park.
-  B.genHub = function () {
+  B.genHub = function (opts) {
+    var LITE = !!(opts && opts.lite);
     var m = blankMap();
     var G2 = B.G;
     // elliptical continent
@@ -277,6 +278,7 @@
     [[27, 52, 'bush'], [17, 52, 'pot'], [27, 58, 'stool'], [17, 58, 'barrel'], [30, 55, 'mailbox']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); });
     [[42, 52, 'pumpkin'], [45, 54, 'hay'], [42, 56, 'pumpkin'], [46, 51, 'crate'], [48, 56, 'snowman'], [36, 57, 'trash']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); });
 
+    if (!LITE) {
     // ================= HUB REBUILD: castle, lake, villages, farm, market, camp, stars, holograms =================
     function water(cx, cy, r) { disc(m, cx, cy, r, G2.WATER); for (var yy = cy - r; yy <= cy + r; yy++) for (var xx = cx - r; xx <= cx + r; xx++) if (m.g[yy * W + xx] === G2.WATER) m.obj[yy * W + xx] = 3; }
     function solid(list, tx, ty, w, h) { for (var yy = ty; yy < ty + h; yy++) for (var xx = tx; xx < tx + w; xx++) list.push([xx, yy]); return list; }
@@ -327,6 +329,7 @@
     ports.forEach(function (q) { obj(m, { kind: 'holo', tx: q.tx, ty: q.ty - 3, dy: -46, src: 'game', game: q.g, lines: [] }, []); });
     obj(m, { kind: 'holo', tx: 13, ty: 36, dy: -250, src: 'static', lines: ['LEADERBOARD PLAZA', 'Press E for every game'] }, []);
     obj(m, { kind: 'holo', tx: 59, ty: 37, dy: -80, src: 'casino', lines: [] }, []);
+    }
     // trees around the edges
     [[8, 24], [5, 34], [7, 48], [14, 55], [20, 61], [30, 63], [44, 62], [53, 59], [62, 50], [66, 38], [64, 24], [54, 14], [44, 10], [28, 10], [18, 13], [24, 34], [48, 34], [29, 50], [47, 46]].forEach(function (p) { if (m.g[p[1] * W + p[0]] === G2.GRASS) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
     [[24, 44], [48, 37]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });
@@ -339,7 +342,7 @@
     tree: [[32, 37], [40, 37], [10, 22], [62, 22], [55, 50]], gift: [[31, 38], [41, 38], [43, 32], [29, 32], [52, 50]], gift2: [[33, 38], [39, 38]],
     cane: [[34, 27], [38, 27], [34, 29], [38, 29], [34, 33], [38, 33]], ginger: [[28, 43], [44, 43]],
     statue: [[26, 47], [46, 48], [20, 34], [52, 36], [10, 48], [61, 46]], pile: [[12, 33], [60, 34], [50, 44], [23, 38], [52, 48], [15, 50], [57, 28], [27, 30]],
-    deer: [[21, 47], [19, 47]], sleigh: [[24, 47]], guard: [[56, 39], [62, 39], [10, 43], [16, 43]], crystal: [[17, 55], [26, 55]], orn: [[22, 50]],
+    deer: [[21, 47], [19, 47]], sleigh: [[24, 47]], guard: [[56, 39], [62, 39], [10, 43], [16, 43]], crystal: [], orn: [[22, 50]],
     ban1: [[10, 20]], ban2: [[62, 20]], wreath: [[30, 29], [42, 29]], lantern: [[24, 43], [48, 42]],
   };
   B.SEASONS = {

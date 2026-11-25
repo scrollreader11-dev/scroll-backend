@@ -239,10 +239,6 @@
       var g = c.createRadialGradient(fx, fy, 0, fx, fy, 11); g.addColorStop(0, 'rgba(255,248,170,' + (0.95 * a) + ')'); g.addColorStop(1, 'rgba(255,248,170,0)'); c.fillStyle = g; c.fillRect(fx - 11, fy - 11, 22, 22);
     }
     c.restore();
-    // the crystal hovering over the spawn fountain
-    var cx = 36 * T, cy = 39 * T - 74 + Math.sin(t * 1.5) * 5;
-    glow(c, cx, cy, 86, '150,220,255', 0.3);
-    c.save(); c.translate(cx, cy); c.scale(Math.cos(t * 1.1) * 0.35 + 0.65, 1); poly(c, [0, -22, 13, 0, 0, 22, -13, 0]); fs(c, '#9be8ff', OL, 3); poly(c, [0, -22, 6, 0, 0, 22, -6, 0]); c.fillStyle = 'rgba(255,255,255,.55)'; c.fill(); c.restore();
     // the balloon drifts a lazy loop over the whole island
     var bt = t * 0.045, bx = 36 * T + Math.cos(bt) * 22 * T, by = 30 * T + Math.sin(bt * 1.3) * 14 * T - 40;
     if (bx > L - 120 && bx < L + vw + 120 && by > Tp - 200 && by < Tp + vh + 200) {

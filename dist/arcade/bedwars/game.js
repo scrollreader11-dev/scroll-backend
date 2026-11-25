@@ -1267,7 +1267,7 @@
       if (cx < 0 || cy < 0 || cx * D.CH >= W || cy * D.CH >= H) continue;
       var ch = D.chunk(map, cx, cy); if (ch) c.drawImage(ch, cx * CS, cy * CS);
     }
-    var hubOn = S.screen === 'hub' && map === S.hubMap && D.hubWater; if (hubOn) D.hubWater(c, map, L, Tp, vw, vh, t);
+    var hubOn = S.screen === 'hub' && map === S.hubMap && D.hubWater && hubFxOn(); if (hubOn) D.hubWater(c, map, L, Tp, vw, vh, t);
     var tx0 = Math.max(0, Math.floor(L / T) - 1), tx1 = Math.min(W - 1, Math.ceil((L + vw) / T) + 1), ty0 = Math.max(0, Math.floor(Tp / T) - 1), ty1 = Math.min(H - 1, Math.ceil((Tp + vh) / T) + 2);
     var tnow = now(), x, y, i;
     // spawn-pad / bed glow for my team
@@ -1491,7 +1491,7 @@
     c.textBaseline = 'alphabetic';
   }
   // ---------------------------------------------------------------- HOLIDAY SEASON
-  function hubGen() { var m = B.genHub(); if (B.SEASONS[S.season]) B.addSeason(m, S.season); return m; }
+  function hubGen() { var m = B.genHub({ lite: !hubFxOn() }); if (B.SEASONS[S.season]) B.addSeason(m, S.season); return m; }
   function applySeason(v) {
     S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', !!S.season); SNOW.length = 0;
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks();
@@ -1610,6 +1610,16 @@
 
   // ------------------------------------------------------------------ hub extras: holograms, stars, fishing
   var HUBX = D.hub || {};
+  function hubFxOn() { try { return localStorage.getItem('sh_hubfx') !== '0'; } catch (e) { return true; } }
+  function hubFxPaint() { var b = $('hubFx'); if (!b) return; b.classList.toggle('off', !hubFxOn()); b.title = hubFxOn() ? 'Hub builds and floating text: ON (click to turn off)' : 'Hub builds and floating text: OFF (click to turn on)'; }
+  function hubFxToggle() {
+    var on = !hubFxOn(); try { localStorage.setItem('sh_hubfx', on ? '1' : '0'); } catch (e) {}
+    var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks(); S.fishing = null;
+    if (wasHub) { B.setDims(72, 72); S.hubMap = hubGen(); S.map = S.hubMap; if (P && B.solidAt(S.map, Math.floor(P.x / T), Math.floor(P.y / T))) { P.x = B.HUB_SPAWN.x; P.y = B.HUB_SPAWN.y; } }
+    if (!on && S.tut && S.tut.key === 'hub') { S.tut = null; $('tutor').classList.add('hidden'); }
+    hubFxPaint(); toast(on ? 'Hub builds and floating text: ON' : 'Hub builds and floating text: OFF', 1800);
+  }
+  if ($('hubFx')) { $('hubFx').onclick = hubFxToggle; hubFxPaint(); }
   function lsGet(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   var starsGot = lsGet('sh_stars', []), fishBook = lsGet('sh_fish', {});
@@ -3151,7 +3161,7 @@
     { d: 'Collect the <b>12 floating stars</b>, cast a line at the <b>fishing dock</b> by the lake, and read the glowing text for live player counts', wait: 9000 },
     { d: 'The <b>casino gate</b> and the <b>leaderboard</b> are right by the spawn. The whole island is yours — go explore!', wait: 7000 }];
   function hubTourTick() {
-    if (S.screen !== 'hub' || !P || S.school || S.watching || anyModal()) return;
+    if (S.screen !== 'hub' || !P || S.school || S.watching || anyModal() || !hubFxOn()) return;
     var tu = S.tut;
     if (!tu) {
       if (tutDone('hub') || !TUT.hub) return;
