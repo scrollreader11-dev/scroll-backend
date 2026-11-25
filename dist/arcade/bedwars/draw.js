@@ -80,6 +80,8 @@
     11: { top: '#fff4f4', alt: '#ffecec', rim: '#ffffff', cliff: ['#e07a8a', '#b5475b', '#6e2333'], band: '#b5475b' },
     12: { top: '#f3d891', alt: '#ecd086', rim: '#fff0bf', cliff: ['#d6a85a', '#a8783a', '#5e3f1b'], band: '#a8783a' },
     13: { top: '#c45a4a', alt: '#bb5343', rim: '#e88a78', cliff: ['#9a6a42', '#6e4428', '#3b2414'], band: '#7d7f8f' },
+    14: { top: '#2f8fe0', alt: '#2a84d4', rim: '#8fd0ff', cliff: ['#3b7fb8', '#2b5f94', '#18355c'], band: '#2b5f94' },
+    15: { top: '#8a5a34', alt: '#7e5030', rim: '#b98558', cliff: ['#7a4e2d', '#5a331b', '#2e1a0d'], band: '#5a331b' },
   };
   function gAt(m, x, y) { return x < 0 || y < 0 || x >= W || y >= H ? 0 : m.g[y * W + x]; }
   function drawGroundTile(c, m, tx, ty, x, y) {
@@ -120,6 +122,17 @@
     } else if (g === 13) { // red brick
       c.strokeStyle = 'rgba(80,25,20,.45)'; c.lineWidth = 2;
       for (var br2 = 0; br2 < 4; br2++) { var by3 = y + br2 * 10; c.beginPath(); c.moveTo(x, by3); c.lineTo(x + T, by3); c.stroke(); var off = (br2 + ty) & 1 ? 0 : 10; for (var bx3 = off; bx3 < T; bx3 += 20) { c.beginPath(); c.moveTo(x + bx3, by3); c.lineTo(x + bx3, by3 + 10); c.stroke(); } }
+    } else if (g === 14) { // water: deeper centre, soft shore line toward land
+      c.fillStyle = 'rgba(10,50,130,.22)'; c.fillRect(x + 4, y + 4, T - 8, T - 8);
+      c.strokeStyle = 'rgba(190,230,255,.4)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + 4, y + 12 + h * 6); c.quadraticCurveTo(x + 14, y + 7 + h * 6, x + 24, y + 12 + h * 6); c.stroke();
+      if (gAt(m, tx, ty - 1) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x, y, T, 3); }
+      if (gAt(m, tx, ty + 1) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x, y + T - 3, T, 3); }
+      if (gAt(m, tx - 1, ty) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x, y, 3, T); }
+      if (gAt(m, tx + 1, ty) !== 14) { c.fillStyle = 'rgba(255,255,255,.45)'; c.fillRect(x + T - 3, y, 3, T); }
+    } else if (g === 15) { // tilled farmland rows with sprouts
+      c.fillStyle = 'rgba(0,0,0,.22)'; for (var fr = 6; fr < T; fr += 13) c.fillRect(x, y + fr, T, 4);
+      c.strokeStyle = '#4fae3e'; c.lineWidth = 2.2; c.lineCap = 'round';
+      for (var fk = 0; fk < 3; fk++) { var fx = x + 7 + fk * 13, fy = y + 5 + ((tx + fk) & 1) * 13; c.beginPath(); c.moveTo(fx, fy + 6); c.lineTo(fx - 3, fy); c.moveTo(fx, fy + 6); c.lineTo(fx + 3, fy - 1); c.moveTo(fx, fy + 6); c.lineTo(fx, fy - 3); c.stroke(); }
     } else if (g === 6) {
       var tc = teamCol(teamOfTile(m, tx, ty));
       c.strokeStyle = 'rgba(80,90,110,.45)'; c.lineWidth = 2; c.strokeRect(x + 2, y + 2, T - 4, T - 4);

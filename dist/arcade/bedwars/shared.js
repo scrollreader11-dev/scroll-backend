@@ -274,10 +274,59 @@
     obj(m, { kind: 'npc', tx: 55, ty: 56, act: 'sprites', game: 'bw', mode: 'bw', label: 'SPRITE STUDIO', sub: 'draw gims & hats', look: { skin: 'gim', body: '#ffd166', hat: 'wizard' } });
     obj(m, { kind: 'board', tx: 55, ty: 53, act: 'builder', title: 'MAP BUILDER', lines: ['Make your own maps!', 'Owner: Scrollreader11'], dy: 14 }, [[53, 53], [54, 53], [55, 53], [56, 53], [57, 53]]);
     // ---- park (south-west): crystal pond + goodies
-    disc(m, 22, 55, 4, G2.MID);
-    disc(m, 22, 55, 2, G2.SNOW);
     [[27, 52, 'bush'], [17, 52, 'pot'], [27, 58, 'stool'], [17, 58, 'barrel'], [30, 55, 'mailbox']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); });
     [[42, 52, 'pumpkin'], [45, 54, 'hay'], [42, 56, 'pumpkin'], [46, 51, 'crate'], [48, 56, 'snowman'], [36, 57, 'trash']].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: p[2] }); });
+
+    // ================= HUB REBUILD: castle, lake, villages, farm, market, camp, stars, holograms =================
+    function water(cx, cy, r) { disc(m, cx, cy, r, G2.WATER); for (var yy = cy - r; yy <= cy + r; yy++) for (var xx = cx - r; xx <= cx + r; xx++) if (m.g[yy * W + xx] === G2.WATER) m.obj[yy * W + xx] = 3; }
+    function solid(list, tx, ty, w, h) { for (var yy = ty; yy < ty + h; yy++) for (var xx = tx; xx < tx + w; xx++) list.push([xx, yy]); return list; }
+    // the lake in the south-west with a sandy shore and a fishing dock
+    disc(m, 22, 57, 6, G2.SAND); water(22, 57, 4);
+    fill(m, 26, 56, 31, 57, G2.FLOOR);            // dock planks reach out over the water
+    m.g[56 * W + 25] = G2.FLOOR; m.g[57 * W + 25] = G2.FLOOR; m.obj[56 * W + 25] = 0; m.obj[57 * W + 25] = 0; m.g[56 * W + 26] = G2.FLOOR; m.obj[56 * W + 26] = 0; m.obj[57 * W + 26] = 0;
+    obj(m, { kind: 'fishspot', tx: 25, ty: 57, act: 'fish', label: 'FISHING DOCK', dy: 6 }, []);
+    obj(m, { kind: 'boat', tx: 21, ty: 59, dy: 4 }, []);
+    obj(m, { kind: 'lily', tx: 19, ty: 56 }, []); obj(m, { kind: 'lily', tx: 24, ty: 60 }, []); obj(m, { kind: 'lily', tx: 20, ty: 54 }, []);
+    obj(m, { kind: 'holo', tx: 28, ty: 55, dy: -36, src: 'fish', lines: ['FISHING DOCK', 'Press E to cast a line'] }, []);
+    // the castle behind the portal hall
+    fill(m, 28, 12, 44, 14, G2.COBBLE); fill(m, 29, 11, 43, 11, G2.COBBLE); fill(m, 35, 13, 37, 19, G2.PATH);
+    obj(m, { kind: 'castle', tx: 36, ty: 12, dy: 18 }, solid([], 31, 11, 11, 2));
+    obj(m, { kind: 'holo', tx: 36, ty: 8, dy: -4, src: 'welcome', lines: [] }, []);
+    // west: windmill farm
+    fill(m, 5, 31, 11, 34, G2.FARM);
+    obj(m, { kind: 'windmill', tx: 8, ty: 29, dy: 16 }, solid([], 7, 28, 2, 2));
+    [[5, 29], [10, 28], [5, 35], [11, 35]].forEach(function (p) { obj(m, { kind: 'deco', tx: p[0], ty: p[1], what: ['hay', 'pumpkin', 'bush', 'crate'][(p[0] + p[1]) % 4] }); });
+    obj(m, { kind: 'holo', tx: 8, ty: 27, dy: -150, src: 'static', lines: ['WINDMILL FARM', 'Fresh scrolls daily'] }, []);
+    // villages: west cottages and the east neighbourhood
+    [[6, 38, 0], [6, 44, 2], [20, 28, 4]].forEach(function (h) { obj(m, { kind: 'house', tx: h[0], ty: h[1], roof: h[2], dy: 14 }, solid([], h[0] - 1, h[1] - 1, 3, 2)); });
+    [[61, 29, 1], [66, 30, 3], [66, 36, 5], [61, 50, 6], [66, 44, 0]].forEach(function (h) { obj(m, { kind: 'house', tx: h[0], ty: h[1], roof: h[2], dy: 14 }, solid([], h[0] - 1, h[1] - 1, 3, 2)); });
+    obj(m, { kind: 'well', tx: 63, ty: 33, dy: 10 }, [[63, 33]]);
+    obj(m, { kind: 'holo', tx: 64, ty: 28, dy: -10, src: 'static', lines: ['EAST VILLAGE', 'Casino gate is just south'] }, []);
+    obj(m, { kind: 'holo', tx: 6, ty: 36, dy: -70, src: 'static', lines: ['WEST COTTAGES'] }, []);
+    // market stalls along the main road
+    [[22, 34, 0], [27, 34, 1], [45, 34, 2], [50, 34, 3]].forEach(function (p) { obj(m, { kind: 'stall', tx: p[0], ty: p[1], col: p[2], dy: 12 }, solid([], p[0] - 1, p[1], 2, 1)); });
+    obj(m, { kind: 'holo', tx: 36, ty: 32, dy: -30, src: 'tips', lines: [] }, []);
+    // the campfire camp in the south
+    disc(m, 36, 55, 3, G2.SAND);
+    obj(m, { kind: 'campfire', tx: 36, ty: 55, dy: 8 }, [[36, 55]]);
+    obj(m, { kind: 'bench', tx: 33, ty: 55, dy: 8 }, [[33, 55]]); obj(m, { kind: 'bench', tx: 39, ty: 55, dy: 8, flip: 1 }, [[39, 55]]);
+    obj(m, { kind: 'holo', tx: 36, ty: 52, dy: -10, src: 'static', lines: ['CAMPFIRE', 'Chill here with friends'] }, []);
+    // the lighthouse on the east shore
+    disc(m, 60, 54, 2, G2.SAND);
+    obj(m, { kind: 'lighthouse', tx: 60, ty: 54, dy: 14 }, [[59, 54], [60, 54]]);
+    // pines and palms on the rim
+    [[10, 20], [12, 12], [52, 10], [58, 12], [26, 8], [46, 8], [4, 40], [7, 52], [12, 60], [40, 66], [48, 64], [58, 58], [66, 52], [67, 40], [69, 28], [9, 56], [33, 62], [56, 62]].forEach(function (p) {
+      var t = m.g[p[1] * W + p[0]]; if (t === G2.GRASS || t === G2.SAND) obj(m, { kind: 'pine', tx: p[0], ty: p[1], v: (p[0] * 7 + p[1]) % 3 });
+    });
+    [[16, 62], [26, 61], [14, 58], [29, 60]].forEach(function (p) { var t = m.g[p[1] * W + p[0]]; if (t === G2.GRASS || t === G2.SAND) obj(m, { kind: 'palm', tx: p[0], ty: p[1] }); });
+    // twelve hidden stars: walk over one to collect it
+    B.STARS = [[13, 17], [62, 17], [8, 50], [30, 60], [41, 60], [66, 33], [23, 11], [49, 11], [15, 51], [57, 49], [37, 8], [33, 45]];
+    B.STARS.forEach(function (p, i) { obj(m, { kind: 'star', tx: p[0], ty: p[1], id: i }, []); });
+    obj(m, { kind: 'holo', tx: 29, ty: 40, dy: -30, src: 'stars', lines: [] }, []);
+    // holograms over every portal and the casino/leaderboard
+    ports.forEach(function (q) { obj(m, { kind: 'holo', tx: q.tx, ty: q.ty - 3, dy: -46, src: 'game', game: q.g, lines: [] }, []); });
+    obj(m, { kind: 'holo', tx: 13, ty: 36, dy: -250, src: 'static', lines: ['LEADERBOARD PLAZA', 'Press E for every game'] }, []);
+    obj(m, { kind: 'holo', tx: 59, ty: 37, dy: -80, src: 'casino', lines: [] }, []);
     // trees around the edges
     [[8, 24], [5, 34], [7, 48], [14, 55], [20, 61], [30, 63], [44, 62], [53, 59], [62, 50], [66, 38], [64, 24], [54, 14], [44, 10], [28, 10], [18, 13], [24, 34], [48, 34], [29, 50], [47, 46]].forEach(function (p) { if (m.g[p[1] * W + p[0]] === G2.GRASS) obj(m, { kind: 'tree', tx: p[0], ty: p[1] }); });
     [[24, 44], [48, 37]].forEach(function (p) { obj(m, { kind: 'lamp', tx: p[0], ty: p[1] }); });

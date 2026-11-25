@@ -472,7 +472,7 @@
   $('gmPractice').onclick = function () { closeModals(); openPractice(S.gmGame); };
   $('gmPrivate').onclick = function () { closeModals(); openPrivate(S.gmGame); };
   $('gmHow').onclick = function () { closeModals(); openHelp(S.gmGame); };
-  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'sprites' ? 'Sprite Studio' : o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : 'Coming soon'; }
+  function objLabel(o) { var g = objGame(o), gn = g === 'bw' ? '' : ' · ' + gname(g); return o.act === 'sprites' ? 'Sprite Studio' : o.act === 'skinshop' ? 'Skin Shop' : o.act === 'gmenu' ? 'Play ' + gname(g) + '!' : o.act === 'builder' ? 'Map Builder' : o.act === 'quick' ? (g === 'bw' ? 'Play ' + o.label.charAt(0) + o.label.slice(1).toLowerCase() : 'Play ' + gname(g)) : o.act === 'practice' ? 'Practice vs bots' + gn : o.act === 'private' ? 'Private room' + gn : o.act === 'how' ? 'How to play' + (g === 'bw' ? ' · Bedwars' : gn) : o.act === 'lb' ? 'Leaderboard' : o.act === 'casino' ? 'Go to the Casino' : o.act === 'fish' ? (S.fishing ? (S.fishing.bite ? 'REEL IT IN!' : 'Reel in') : 'Cast a line') : 'Coming soon'; }
   function useObj(o) {
     SC.sfx('click');
     if (o.act === 'casino' && S.school && !S.gamble) { toast('The casino is closed during School Mode — pick a game portal!', 2400); return; }
@@ -488,6 +488,7 @@
     else if (o.act === 'how') openHelp(g);
     else if (o.act === 'lb') { renderLb(); openModal('mLb'); }
     else if (o.act === 'casino') { toast('Heading to the casino…', 1500); D.burst('magic', P.x, P.y - 20, 20, '#ffd166'); setTimeout(function () { location.href = '/casino'; }, 350); }
+    else if (o.act === 'fish') fishUse(o);
     else if (o.act === 'soon') toast('A new game is coming to this island soon!', 2200);
   }
   // Click an NPC far away: walk there around obstacles (BFS over tiles).
@@ -1220,7 +1221,7 @@
   }
   function spaceTick() {
     if (S.screen !== 'hub' && S.screen !== 'wait') return;
-    if (S.screen === 'hub') portalWalk();
+    if (S.screen === 'hub') { portalWalk(); hubTick(); hubTourTick(); }
     var o = nearObj(), pr = $('prompt');
     if (o && !anyModal()) { pr.classList.remove('hidden'); pr.textContent = (touch ? 'Tap USE · ' : 'E · ') + objLabel(o); } else pr.classList.add('hidden');
     if (S.screen === 'wait' && now() - (S.wcAt || 0) > 250) { S.wcAt = now(); updateWaitCount(); }
@@ -1266,6 +1267,7 @@
       if (cx < 0 || cy < 0 || cx * D.CH >= W || cy * D.CH >= H) continue;
       var ch = D.chunk(map, cx, cy); if (ch) c.drawImage(ch, cx * CS, cy * CS);
     }
+    var hubOn = S.screen === 'hub' && map === S.hubMap && D.hubWater; if (hubOn) D.hubWater(c, map, L, Tp, vw, vh, t);
     var tx0 = Math.max(0, Math.floor(L / T) - 1), tx1 = Math.min(W - 1, Math.ceil((L + vw) / T) + 1), ty0 = Math.max(0, Math.floor(Tp / T) - 1), ty1 = Math.min(H - 1, Math.ceil((Tp + vh) / T) + 2);
     var tnow = now(), x, y, i;
     // spawn-pad / bed glow for my team
@@ -1290,7 +1292,7 @@
     map.npcs.forEach(function (n) { if (n.x > L - 80 && n.x < L + vw + 80 && n.y > Tp - 120 && n.y < Tp + vh + 80) list.push({ k: 'npc', y: n.y + 2, n: n }); });
     map.bases.forEach(function (b) { if (!b.flag) return; [b.flag, b.flag2].forEach(function (f) { var fx = f[0] * T + T / 2, fy = f[1] * T + T / 2; if (fx > L - 80 && fx < L + vw + 80 && fy > Tp - 120 && fy < Tp + vh + 60) list.push({ k: 'flag', y: fy, x: fx, team: b.team }); }); });
     S.tnts.forEach(function (tn, id) { if (snow() > tn.at + 1500) { S.tnts.delete(id); return; } list.push({ k: 'tnt', y: tn.y + 14, tn: tn }); });
-    (map.objs || []).forEach(function (o) { if (o.x > L - 260 && o.x < L + vw + 260 && o.y > Tp - 60 && o.y < Tp + vh + 260) list.push({ k: 'obj', y: o.y + (o.kind === 'fountain' ? -6 : 4), o: o }); });
+    (map.objs || []).forEach(function (o) { if (o.x > L - 300 && o.x < L + vw + 300 && o.y > Tp - 60 && o.y < Tp + vh + 300) list.push({ k: 'obj', y: o.kind === 'holo' ? 1e7 : o.y + (o.kind === 'fountain' ? -6 : 4), o: o }); });
     if (map.props) map.props.forEach(function (pp) { if (pp.x > L - 60 && pp.x < L + vw + 60 && pp.y > Tp - 60 && pp.y < Tp + vh + 80) list.push({ k: 'prop', y: pp.y + 12, p: pp }); });
     if (S.game === 'ctf' && map.game === 'ctf') mgCtfDrawables(list, t);
     else if (S.game === 'murder') murderDrawables(list, t);
@@ -1315,6 +1317,7 @@
       else if (d.k === 'prop') { var wb = S.propWob[d.p.id]; D.prop(c, d.p.kind, d.p.x, d.p.y + 12, t, { wob: wb && tnow - wb < 350 ? 1 - (tnow - wb) / 350 : 0, face: true }); }
       else if (d.k === 'fn') d.fn();
     }
+    if (hubOn && D.hubSky) D.hubSky(c, t, L, Tp, vw, vh);
     // floor cracks (bridge blocks)
     for (var ck in S.cracks) { ck = +ck; if (!map.w[ck] && map.f[ck] && map.obj[ck] !== 1) D.cracks(c, (ck % W) * T, ((ck / W) | 0) * T, S.cracks[ck], 0); }
     // target highlight
@@ -1604,6 +1607,86 @@
     if ((f & 16) && Math.random() < 0.08) D.burst('heart', x, y - 40, 1);
     c.restore();
   }
+
+  // ------------------------------------------------------------------ hub extras: holograms, stars, fishing
+  var HUBX = D.hub || {};
+  function lsGet(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  var starsGot = lsGet('sh_stars', []), fishBook = lsGet('sh_fish', {});
+  function starHas(id) { return starsGot.indexOf(id) >= 0; }
+  var FISH = [
+    { n: 'Old Boot', r: 'junk', w: 9, c: '#a1887f' }, { n: 'Minnow', r: 'common', w: 26, c: '#cfd8dc' }, { n: 'Perch', r: 'common', w: 22, c: '#cfd8dc' },
+    { n: 'Trout', r: 'uncommon', w: 16, c: '#5cf2a8' }, { n: 'Bass', r: 'uncommon', w: 12, c: '#5cf2a8' }, { n: 'Pufferfish', r: 'rare', w: 7, c: '#4aa8ff' },
+    { n: 'Golden Carp', r: 'epic', w: 4, c: '#b55cff' }, { n: 'Scroll Whale', r: 'legendary', w: 1.2, c: '#ffb02e' }];
+  function fishCount() { var n = 0; for (var k in fishBook) n += fishBook[k]; return n; }
+  function fishKinds() { var n = 0; FISH.forEach(function (f) { if (fishBook[f.n]) n++; }); return n; }
+  var TIPS = ['Walk into a glowing portal to jump into a game', 'Press E at a portal for private rooms and practice', 'Find all 12 floating stars hidden around the island', 'Cast a line at the fishing dock — rare catches count!', 'Winners climb the leaderboard by the plaza', 'Duels are ranked: Bronze, Silver, Gold, Diamond', 'The casino gate is on the east side — more games, more Scrolls', 'Chat with the Enter key — your words pop over your head', 'Warm up in Practice mode — bots fill every game'];
+  function holoLines(o, t) {
+    var on = S.online || {}, src = o.src, L = [], g, n;
+    if (src === 'static') { (o.lines || []).forEach(function (s2, i) { L.push({ t: s2, c: i ? '#e9e4ff' : '#ffd166', s: i ? 12 : 17 }); }); return L; }
+    if (src === 'welcome') {
+      n = Math.max(S.ents.size, (on.hub || 0) + (on.playing || 0));
+      L.push({ t: 'SCROLLHUB GAMES', c: '#ffd166', s: 30 });
+      L.push({ t: n + (n === 1 ? ' player online' : ' players online'), c: '#7dffb2', s: 15 });
+      if (S.x2) L.push({ t: '2x SCROLLS ARE ON RIGHT NOW', c: '#ff7eb6', s: 14 });
+      if (S.motd) L.push({ t: String(S.motd).slice(0, 60), c: '#cfc8ff', s: 12 });
+      return L;
+    }
+    if (src === 'game') {
+      g = o.game; var G2 = MG.GAMES[g] || MG.GAMES.bw, q = g === 'bw' ? (on.solo || 0) + (on.duos || 0) + (on.squads || 0) : on[g] || 0, ig = on.inGame ? on.inGame[g] || 0 : 0;
+      L.push({ t: q || ig ? (q ? q + ' waiting' : '') + (q && ig ? ' · ' : '') + (ig ? ig + ' playing' : '') : 'Be the first in!', c: q || ig ? '#7dffb2' : '#cfc8ff', s: 14 });
+      if (P && Math.hypot(o.x - P.x, o.y + 140 - P.y) < 260) L.push({ t: 'Walk in to play', c: '#ffd166', s: 12 });
+      return L;
+    }
+    if (src === 'lb') {
+      L.push({ t: 'TOP BEDWARS PLAYERS', c: '#ffd166', s: 17 });
+      var rows = (S.lb || []).slice(0, 3); if (!rows.length) L.push({ t: 'No winners yet — be the first!', c: '#cfc8ff', s: 12 });
+      rows.forEach(function (r, i) { L.push({ t: (i + 1) + '. ' + r.nick + ' — ' + r.wins + ' wins', c: ['#ffd166', '#dfe6f2', '#e0a070'][i], s: 13 }); });
+      L.push({ t: 'Press E for full boards', c: '#9ad7ff', s: 11 });
+      return L;
+    }
+    if (src === 'casino') { L.push({ t: 'CASINO GATE', c: '#ff7eb6', s: 19 }); L.push({ t: 'Slots · Poker · Arcade · Blackjack', c: '#e9e4ff', s: 12 }); L.push({ t: 'Press E to head in', c: '#ffd166', s: 12 }); return L; }
+    if (src === 'stars') { var gt = starsGot.length; L.push({ t: 'STAR HUNT', c: '#ffd166', s: 18 }); L.push({ t: gt + ' / ' + B.STARS.length + ' found', c: gt >= B.STARS.length ? '#7dffb2' : '#fff', s: 14 }); L.push({ t: gt >= B.STARS.length ? 'Star Collector!' : 'Floating stars hide all over the island', c: '#cfc8ff', s: 11 }); return L; }
+    if (src === 'fish') { L.push({ t: 'FISHING DOCK', c: '#7dd3fc', s: 18 }); L.push({ t: S.fishing ? (S.fishing.bite ? 'BITE! Press E now!' : 'Waiting for a bite...') : 'Press E to cast a line', c: S.fishing && S.fishing.bite ? '#ffd166' : '#fff', s: 13 }); L.push({ t: 'Caught ' + fishCount() + ' · ' + fishKinds() + '/' + FISH.length + ' kinds', c: '#cfc8ff', s: 11 }); return L; }
+    if (src === 'tips') { L.push({ t: 'TIP', c: '#ffd166', s: 15 }); L.push({ t: TIPS[Math.floor(t / 6) % TIPS.length], c: '#fff', s: 12 }); return L; }
+    return o.lines && o.lines.length ? o.lines.map(function (s2, i) { return { t: s2, c: i ? '#fff' : '#ffd166', s: i ? 12 : 16 }; }) : null;
+  }
+  function drawHolo(o, t) {
+    if (!P) return;
+    var far = o.src === 'welcome' || o.src === 'lb' || o.src === 'casino' ? 1200 : 760, d = Math.hypot(o.x - P.x, o.y - P.y), a = Math.max(0, Math.min(1, (far - d) / 260));
+    if (a < 0.03) return;
+    var L2 = holoLines(o, t); if (!L2) return;
+    c.save(); c.globalAlpha = a; HUBX.holo(c, o, t, L2); c.restore();
+  }
+  function fishUse(o) {
+    var f = S.fishing, tn = now();
+    if (!f) { S.fishing = { t0: tn, biteAt: tn + 2200 + Math.random() * 3600, bite: false, ox: o.x, oy: o.y }; toast('Line cast... wait for the "!"', 1800); SC.sfx('pop'); D.burst('smoke', o.x - 52, o.y + 6, 5, '#cfeaff'); return; }
+    if (f.bite && tn - f.biteAt < 1500) {
+      var tot = 0, r, i; FISH.forEach(function (x) { tot += x.w; }); r = Math.random() * tot; for (i = 0; i < FISH.length - 1; i++) { r -= FISH[i].w; if (r <= 0) break; }
+      var fh = FISH[i]; fishBook[fh.n] = (fishBook[fh.n] || 0) + 1; lsSet('sh_fish', fishBook); S.fishing = null;
+      toast('You caught: <b style="color:' + fh.c + '">' + fh.n + '</b> <span style="opacity:.7">(' + fh.r + ')</span> · ' + fishKinds() + '/' + FISH.length + ' kinds', 2800, true);
+      D.burst('magic', o.x - 52, o.y - 6, fh.r === 'legendary' || fh.r === 'epic' ? 40 : 14, fh.c); SC.sfx(fh.r === 'junk' ? 'click' : 'win');
+      return;
+    }
+    S.fishing = null; toast(f.bite ? 'It got away!' : 'Too early — reeled in', 1400);
+  }
+  function hubTick(dt, t) {
+    if (!P || !S.map || S.map !== S.hubMap) return;
+    var f = S.fishing, tn = now();
+    if (f) {
+      if (Math.hypot(f.ox - P.x, f.oy - P.y) > 150) { S.fishing = null; toast('You wandered off — line reeled in', 1400); }
+      else if (!f.bite && tn >= f.biteAt) { f.bite = true; SC.sfx('pop'); D.burst('smoke', f.ox - 52, f.oy + 4, 8, '#ffffff'); }
+      else if (f.bite && tn - f.biteAt > 1500) { S.fishing = null; toast('It got away!', 1400); }
+    }
+    (S.map.objs || []).forEach(function (o) {
+      if (o.kind !== 'star' || starHas(o.id)) return;
+      if (Math.hypot(o.x - P.x, o.y - 12 - P.y) < 38) {
+        starsGot.push(o.id); lsSet('sh_stars', starsGot); SC.sfx('win'); D.burst('magic', o.x, o.y - 24, 26, '#ffd166');
+        if (starsGot.length >= B.STARS.length) { toastBig('STAR COLLECTOR!', '#ffd166'); D.burst('magic', P.x, P.y - 30, 60, '#ffd166'); }
+        else toast('Star found! ' + starsGot.length + ' / ' + B.STARS.length, 1800);
+      }
+    });
+  }
   function drawObj(o, t, near) {
     var k = o.kind;
     if (k === 'npc') { var cnt = o.act === 'quick' && S.online ? (S.online[o.mode] || 0) + (o.game && o.game !== 'bedwars' && S.online.inGame ? S.online.inGame[o.game] || 0 : 0) : 0; D.hubNpc(c, o, t, near, cnt); }
@@ -1620,6 +1703,10 @@
     else if (k === 'podium') D.podium(c, o, t);
     else if (k === 'flag') D.flag(c, o.x, o.y + 14, o.team, t);
     else if (k === 'bedDeco') D.bed(c, { team: 0, x: o.x, y: o.y - T / 2, dir: [0, 1] }, t, false);
+    else if (k === 'holo') drawHolo(o, t);
+    else if (k === 'star') HUBX.star(c, o, t, { got: starHas(o.id) });
+    else if (k === 'fishspot') HUBX.fishspot(c, o, t, { fish: S.fishing });
+    else if (HUBX[k]) HUBX[k](c, o, t);
     if (near && k !== 'npc') { var ab = o.y - (k === 'board' ? 236 : k === 'portal' ? 206 : k === 'gport' ? 150 : 96) + Math.abs(Math.sin(t * 5)) * -8; c.beginPath(); c.moveTo(o.x - 9, ab); c.lineTo(o.x + 9, ab); c.lineTo(o.x, ab + 11); c.closePath(); c.fillStyle = '#ffd166'; c.fill(); c.strokeStyle = '#1b1636'; c.lineWidth = 2.5; c.stroke(); }
   }
   function drawWaitHolo(t) {
@@ -3056,6 +3143,29 @@
     { d: 'Build the theme on YOUR plot! Pick blocks from the palette below', t: 'Pick a block below, then tap ahead of you to place it', ok: function () { return S.did.bb; } },
     { d: '<b>Right click</b> erases. <kbd>R</kbd> cycles the palette', t: 'Tap to erase what’s in front of you', wait: 6000 },
     { d: 'When time runs out everyone tours the plots and votes — best build wins!', wait: 7000 }];
+
+  // First visit to the Games hub: a short guided tour in the same tutor card the games use.
+  TUT.hub = [
+    { d: 'Welcome to the <b>Games Hub</b>! Walk around with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or click where you want to go', t: 'Drag the joystick to walk around', ok: function () { return !!(S.tut && P && Math.hypot(P.x - S.tut.sx, P.y - S.tut.sy) > 160); } },
+    { d: 'Walk into a <b>glowing portal</b> to join a game. Press <kbd>E</kbd> next to one for private rooms and practice against bots', t: 'Walk into a portal to play. Tap USE next to one for more', wait: 8000 },
+    { d: 'Collect the <b>12 floating stars</b>, cast a line at the <b>fishing dock</b> by the lake, and read the glowing text for live player counts', wait: 9000 },
+    { d: 'The <b>casino gate</b> and the <b>leaderboard</b> are right by the spawn. The whole island is yours — go explore!', wait: 7000 }];
+  function hubTourTick() {
+    if (S.screen !== 'hub' || !P || S.school || S.watching || anyModal()) return;
+    var tu = S.tut;
+    if (!tu) {
+      if (tutDone('hub') || !TUT.hub) return;
+      S.tut = tu = { key: 'hub', i: 0, st: now(), sx: P.x, sy: P.y }; tutRender(); return;
+    }
+    if (tu.key !== 'hub') return;
+    var L2 = TUT.hub, st = L2[tu.i];
+    if (st.wait ? now() - tu.st > st.wait : st.ok()) {
+      tu.i++; tu.st = now(); SC.sfx('pop');
+      var el = $('tutor'); el.classList.remove('done'); void el.offsetWidth; el.classList.add('done');
+      if (tu.i >= L2.length) { tutMark('hub', 1); S.tut = null; el.innerHTML = '<div class="th">Games Hub</div><div class="tx">Have fun! Hover over any glowing text to see what is happening.</div><div class="bar"><i style="width:100%"></i></div>'; setTimeout(function () { if (!S.tut) el.classList.add('hidden'); }, 3200); return; }
+      tutRender();
+    }
+  }
   function tutDone(key) { try { return !!JSON.parse(localStorage.getItem('sh_tut') || '{}')[key]; } catch (e) { return false; } }
   function tutMark(key, v) { try { var o = JSON.parse(localStorage.getItem('sh_tut') || '{}'); if (v) o[key] = 1; else delete o[key]; localStorage.setItem('sh_tut', JSON.stringify(o)); } catch (e) {} }
   function tutStart() { if (S.watching) return;
@@ -3072,7 +3182,7 @@
     $('tutSkip').onclick = function () { tutMark(tu.key, 1); S.tut = null; el.classList.add('hidden'); toast('Tutorial skipped — open the help button any time', 1600); };
   }
   function tutTick() {
-    var tu = S.tut; if (!tu || S.screen !== 'game') return;
+    var tu = S.tut; if (!tu || S.screen !== 'game' || tu.key === 'hub') return;
     if (snow() < S.goAt) { tu.st = now(); return; }
     if (P && P.mv) S.did.move = true; if (P && P.sprint && P.mv) S.did.sprint = true;
     var L2 = TUT[tu.key], st = L2[tu.i];

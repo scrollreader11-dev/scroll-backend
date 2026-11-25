@@ -15,7 +15,7 @@
     { key: 'pink', name: 'Pink', color: '#ff6ec7', dark: '#b42d82', light: '#ffc9ea' },
     { key: 'cyan', name: 'Cyan', color: '#2ee6d6', dark: '#11968b', light: '#b5fff8' });
   // new ground types
-  G.COBBLE = 7; G.FLOOR = 8; G.SNOW = 9; G.ICE = 10; G.CANDY = 11; G.SAND = 12; G.BRICK = 13;
+  G.COBBLE = 7; G.FLOOR = 8; G.SNOW = 9; G.ICE = 10; G.CANDY = 11; G.SAND = 12; G.BRICK = 13; G.WATER = 14; G.FARM = 15;
   // new hand items (appended so Bedwars' held-item indexes don't change)
   ['shovel', 'snow', 'mask', 'taunt', 'radar', 'fists', 'knife'].forEach(function (k) { if (B.HOTBAR_ORDER.indexOf(k) < 0) B.HOTBAR_ORDER.push(k); });
   B.ITEM_NAMES.shovel = 'Spleef Shovel'; B.ITEM_NAMES.snow = 'Snowball'; B.ITEM_NAMES.mask = 'Disguise'; B.ITEM_NAMES.taunt = 'Taunt'; B.ITEM_NAMES.radar = 'Hider Radar';
