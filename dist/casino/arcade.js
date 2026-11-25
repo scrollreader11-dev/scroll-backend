@@ -116,6 +116,7 @@
     });
   };
 
+  SC.arc = { post: post, begin: begin, finish: finish, paintStats: paintStats, msg: msg, section: section, live: live, run: run, GAME: GAME, applyProfile: applyProfile, fail: fail, refresh: refresh, sleep: sleep, sfx: sfx, STATS: STATS };
   var OPEN = { echo: 1, aim: 1, mathrush: 1 };
   var prevOpen = SC.games.open;
   SC.games.open = function (kind) {

@@ -10,7 +10,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
   var sfx = function (n, a) { SC.sfx && SC.sfx(n, a); };
-  var T = 48, COLS = 60, ROWS = 44, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
+  var T = 48, COLS = 76, ROWS = 44, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
 
   // ================================================================ CLOCK (server time for shared rounds)
   var clockOff = 0, clockSet = false;
@@ -31,9 +31,11 @@
   fill(46, 2, 58, 14, 'p');   // The Vault
   fill(46, 16, 58, 28, 'a');  // Duel Arena
   fill(46, 30, 58, 42, 'w');  // Shop
+  fill(60, 14, 74, 30, 'k');  // The Arcade (skill games)
   fill(14, 5, 14, 7, 'r'); fill(14, 15, 14, 18, 'c'); fill(14, 34, 14, 37, 'g'); // west doors
   fill(10, 22, 12, 22, 'l');                                                     // slots <-> lounge
   fill(45, 6, 45, 8, 'p'); fill(45, 20, 45, 23, 'a'); fill(45, 35, 45, 38, 'w'); // east doors
+  fill(59, 20, 59, 23, 'k');                                                     // duel arena <-> arcade
   fill(51, 15, 53, 15, 'a'); fill(51, 29, 53, 29, 'w');                          // vault <-> arena <-> shop
   fill(29, 43, 30, 43, 'g');                                                     // exit
   function tileAt(tx, ty) { if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return '#'; return G[ty][tx]; }
@@ -90,6 +92,7 @@
     keno: ['🔢', 'Keno', 'Pick up to 10 numbers. Ten get drawn.'], scratch: ['🎟️', 'Scratch Cards', 'Match three symbols to win'],
     baccarat: ['🂡', 'Baccarat', 'Player, Banker or Tie'], shell: ['🥥', 'Shell Game', 'Find the ball under the cup'], penalty: ['⚽', 'Penalty Shootout', 'Pick a corner and beat the keeper'],
     echo: ['🎵', 'Echo', 'Repeat the pattern. Skill pays, a little.'], aim: ['🎯', 'Aim', 'Hit 20 targets before they fade'], mathrush: ['🧮', 'Math Rush', '45 seconds of quick sums'],
+    trivia: ['❓', 'Trivia Run', '10 questions, 15 seconds each'], colorclash: ['🎨', 'Color Clash', 'Name the ink, not the word'], pattern: ['🔢', 'Pattern Pro', 'What number comes next?'], scramble: ['🔤', 'Word Scramble', 'Unjumble as many words as you can'],
     war: ['⚔️', 'Casino War', 'High card wins. Ties go to war.'], hilo: ['🃏', 'Hi-Lo', 'Higher or lower. Cash out any time.'], poker: ['♠️', 'Video Poker', 'Jacks or Better, 8/5 pay table'],
   };
   // --- Slot Alley
@@ -128,9 +131,13 @@
   // --- Lobby
   add('rug', 1440, 1800, { w: 320, h: 110, text: 'SCROLLS CASINO', col: '#7d1d36', size: 22 });
   add('atm', 790, 1640); add('atm', 872, 1640);
-  // --- The Arcade: skill games that pay a little. Nothing is wagered here.
-  add('sign', 1430, 1566, { text: 'ARCADE', color: '#b8ff5c', size: 22, v: 7 });
-  station('echo', 1330, 1650, true); station('aim', 1430, 1650, true); station('mathrush', 1530, 1650, true);
+  // --- The Arcade: its own room east of the Duel Arena. Skill games that pay a little; nothing is wagered here.
+  add('rug', 3264, 1100, { w: 520, h: 330, col: '#1b1250' });
+  add('sign', 3264, 722, { text: 'THE ARCADE', color: '#b8ff5c', size: 26, v: 7 });
+  station('echo', 3030, 960, true); station('aim', 3180, 960, true); station('mathrush', 3330, 960, true); station('trivia', 3480, 960, true);
+  station('colorclash', 3105, 1250, true); station('pattern', 3255, 1250, true); station('scramble', 3405, 1250, true);
+  add('easel', 3560, 1160, { title: 'ARCADE', lines: ['Skill games pay a little', 'Up to 5,000 a day', 'Nothing is wagered'] });
+  add('plant', 2940, 1420); add('plant', 3590, 1420);
   station('penalty', 1860, 1650, true);
   add('wardrobe', 2060, 1640);
   add('easel', 1660, 1640, { title: 'WELCOME!', lines: ['Walk: WASD or click', 'E use · Q chat · T emote', 'Dance floor: the Lounge'] });
@@ -446,13 +453,13 @@
     dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
     plinko: ['🔵', 'Plinko', 'Drop it and pray'], wheel: ['🎡', 'The Big Wheel', 'Pick a color — everyone spins together'], crash: ['🚀', 'Crash', 'One rocket for everyone — cash out in time'],
     cases: ['📦', 'Case Vault', 'Open a case'],
-    keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, echo: MORE_META.echo, aim: MORE_META.aim, mathrush: MORE_META.mathrush, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
+    keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, echo: MORE_META.echo, aim: MORE_META.aim, mathrush: MORE_META.mathrush, trivia: MORE_META.trivia, colorclash: MORE_META.colorclash, pattern: MORE_META.pattern, scramble: MORE_META.scramble, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
     leaderboard: ['🏆', 'Richest Players', 'Top balances on ScrollHub'], tournament: ['🥇', 'Weekly Tournament', 'Most Scrolls won this week'],
     atm: ['🏧', 'ATM', 'Daily Scrolls & event codes'], shop: ['🛍️', 'The Shop', 'Characters, colors, hats, trails & more'],
     owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
-  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T }; }, 0);
+  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me }; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;
@@ -915,7 +922,7 @@
     var sx = mm.width / WW, sy = mm.height / WH;
     if (!mmBase) {
       mmBase = document.createElement('canvas'); mmBase.width = mm.width; mmBase.height = mm.height; var b = mmBase.getContext('2d');
-      var COL = { r: '#4b2a86', b: '#1d2a66', c: '#7d1d36', g: '#9c8a64', p: '#3a2d6e', w: '#8a5a32', l: '#145a63', d: '#b03a8a', a: '#5b5f73' };
+      var COL = { r: '#4b2a86', b: '#1d2a66', c: '#7d1d36', g: '#9c8a64', p: '#3a2d6e', w: '#8a5a32', l: '#145a63', d: '#b03a8a', a: '#5b5f73', k: '#3b2a8f' };
       for (var ty = 0; ty < ROWS; ty++) for (var tx = 0; tx < COLS; tx++) { var ch = G[ty][tx]; b.fillStyle = ch === '#' ? '#120e2e' : COL[ch]; b.fillRect(tx * T * sx, ty * T * sy, T * sx + 0.6, T * sy + 0.6); }
       b.fillStyle = 'rgba(255,255,255,.55)'; ACTS.forEach(function (o) { b.fillRect(o.x * sx - 1, o.y * sy - 1, 2, 2); });
     }

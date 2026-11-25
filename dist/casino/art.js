@@ -1177,6 +1177,10 @@
     echo: function (c, o, t) { var x = o.x, y = o.y, lit = Math.floor(t * 1.6) % 4; gbody(c, x, y, 88, 100, '#4c1d95', 'ECHO', '#c4b5fd'); ['#ff5c6c', '#3a86ff', '#2bd576', '#ffd166'].forEach(function (col, i) { var px = x - 20 + (i % 2) * 40, py = y - 78 + Math.floor(i / 2) * 34; rr(c, px - 17, py - 14, 34, 28, 7); fs(c, col, OL, 2.5); if (i !== lit) { c.fillStyle = 'rgba(10,6,30,.5)'; c.fill(); } }); },
     aim: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 88, 100, '#9f1239', 'AIM', '#fda4af'); rr(c, x - 36, y - 90, 72, 52, 5); fs(c, '#071126', OL, 2.5); var tx = x + Math.sin(t * 1.3) * 22, ty = y - 64 + Math.cos(t * 1.9) * 12; [14, 9, 4].forEach(function (r, i) { circ(c, tx, ty, r); fs(c, i % 2 ? '#fff' : '#ff5c6c', OL, 1.5); }); },
     mathrush: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 88, 100, '#0f766e', 'MATH', '#99f6e4'); rr(c, x - 36, y - 90, 72, 52, 5); fs(c, '#071126', OL, 2.5); A.label(c, ['7 × 8', '12 + 9', '6 × 4', '31 − 8'][Math.floor(t * 0.8) % 4], x, y - 64, { size: 15, color: '#99f6e4', stroke: false }); },
+    trivia: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 88, 100, '#1d4ed8', 'TRIVIA', '#93c5fd'); rr(c, x - 36, y - 90, 72, 52, 5); fs(c, '#071126', OL, 2.5); var on = Math.floor(t * 1.4) % 4; A.label(c, '?', x, y - 74, { size: 20, color: '#93c5fd', stroke: false }); for (var i = 0; i < 4; i++) { c.fillStyle = i === on ? '#b8ff5c' : 'rgba(150,190,255,.4)'; c.fillRect(x - 30 + (i % 2) * 31, y - 58 + Math.floor(i / 2) * 9, 28, 6); } },
+    colorclash: function (c, o, t) { var x = o.x, y = o.y, k = Math.floor(t * 1.6) % 4; gbody(c, x, y, 88, 100, '#7e22ce', 'COLOR', '#e9d5ff'); rr(c, x - 36, y - 90, 72, 52, 5); fs(c, '#071126', OL, 2.5); A.label(c, ['RED', 'BLUE', 'GREEN', 'GOLD'][k], x, y - 64, { size: 16, color: ['#3a86ff', '#2bd576', '#ffd166', '#ff5c6c'][k], stroke: false }); },
+    pattern: function (c, o, t) { var x = o.x, y = o.y; gbody(c, x, y, 88, 100, '#b45309', 'PATTERN', '#fde68a'); rr(c, x - 36, y - 90, 72, 52, 5); fs(c, '#071126', OL, 2.5); A.label(c, '2 4 8 ' + (Math.floor(t * 1.2) % 2 ? '16' : '?'), x, y - 64, { size: 14, color: '#fde68a', stroke: false }); },
+    scramble: function (c, o, t) { var x = o.x, y = o.y, w = ['TNAEPL', 'PLANET'][Math.floor(t * 0.9) % 2]; gbody(c, x, y, 88, 100, '#047857', 'WORDS', '#a7f3d0'); rr(c, x - 36, y - 90, 72, 52, 5); fs(c, '#071126', OL, 2.5); A.label(c, w, x, y - 64, { size: 14, color: '#a7f3d0', stroke: false }); },
   };
   O.gstation = function (c, o, t) { var f = GS[o.kind]; if (f) f(c, o, t); else O.cabinet(c, o, t); };
   O.gtable = O.gstand = O.gstation;
@@ -1271,13 +1275,18 @@
   // Floor tiles for the new zones (lounge, duel arena); the dance floor is animated (drawn live).
   var _floor = A.floorTile;
   A.floorTile = function (c, type, x, y, S, v) {
-    if (type !== 'l' && type !== 'a') return _floor(c, type, x, y, S, v);
+    if (type !== 'l' && type !== 'a' && type !== 'k') return _floor(c, type, x, y, S, v);
     var u = S / 48; c.save(); c.translate(x, y); c.scale(u, u);
     if (type === 'l') {
       c.fillStyle = '#123a44'; c.fillRect(0, 0, 48, 48);
       c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(0, 46, 48, 2); c.fillRect(46, 0, 2, 48);
       c.fillStyle = 'rgba(255,209,102,.45)'; [[12, 12], [36, 36]].forEach(function (p) { circ(c, p[0], p[1], 1.6); c.fill(); });
       c.strokeStyle = 'rgba(94,234,212,.12)'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 24); c.lineTo(24, 0); c.moveTo(24, 48); c.lineTo(48, 24); c.stroke();
+    } else if (type === 'k') {   // the Arcade: dark carpet with neon grid and scattered pixels
+      c.fillStyle = '#140f33'; c.fillRect(0, 0, 48, 48);
+      c.strokeStyle = 'rgba(184,255,92,.16)'; c.lineWidth = 2; c.strokeRect(1, 1, 46, 46);
+      c.fillStyle = 'rgba(92,242,255,.10)'; c.fillRect(0, 23, 48, 2); c.fillRect(23, 0, 2, 48);
+      var cs = ['#ff5c6c', '#3a86ff', '#2bd576', '#ffd166']; c.fillStyle = cs[(v ? 1 : 0) + 2 * (v ? 1 : 0)]; c.globalAlpha = .55; c.fillRect(10, 10, 5, 5); c.fillStyle = cs[(v ? 3 : 0)]; c.fillRect(32, 32, 5, 5); c.globalAlpha = 1;
     } else {
       c.fillStyle = v ? '#5b5f73' : '#555a6d'; c.fillRect(0, 0, 48, 48);
       c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(2, 2, 21, 21); c.fillRect(25, 25, 21, 21);
@@ -1294,9 +1303,9 @@
   };
   var _wall = A.wallTile;
   A.wallTile = function (c, x, y, S, face, zone, edges) {
-    if (!face || (zone !== 'l' && zone !== 'a' && zone !== 'd')) return _wall(c, x, y, S, face, zone, edges);
+    if (!face || (zone !== 'l' && zone !== 'a' && zone !== 'd' && zone !== 'k')) return _wall(c, x, y, S, face, zone, edges);
     var u = S / 48; c.save(); c.translate(x, y); c.scale(u, u);
-    var top = zone === 'a' ? '#4a2626' : '#1b4a52';
+    var top = zone === 'a' ? '#4a2626' : zone === 'k' ? '#2c1b66' : '#1b4a52';
     var g = c.createLinearGradient(0, 0, 0, 48); g.addColorStop(0, shade(top, 0.15)); g.addColorStop(1, shade(top, -0.2)); c.fillStyle = g; c.fillRect(0, 0, 48, 48);
     c.fillStyle = 'rgba(255,255,255,.06)'; for (var i = 6; i < 48; i += 12) c.fillRect(i, 8, 2, 28);
     c.fillStyle = shade(top, -0.4); c.fillRect(0, 36, 48, 12); c.fillStyle = '#d4a63a'; c.fillRect(0, 35, 48, 2.5);
