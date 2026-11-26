@@ -350,7 +350,7 @@
     function region(x, y) { var th = Math.atan2(y - CY, x - CX) + wob(x, y) * 0.5; var k = Math.round(th / (Math.PI / 4)); return ((k % 8) + 8) % 8; }   // 0 E, 1 SE, 2 S, 3 SW, 4 W, 5 NW, 6 N, 7 NE
     for (var y = 3; y < HW - 3; y++) for (var x = 3; x < HW - 3; x++) {
       var dx = (x - CX) / 68, dy = (y - CY) / 68, r = Math.hypot(dx, dy), th0 = Math.atan2(dy, dx);
-      var edge = 1 + 0.06 * Math.sin(3 * th0 + 0.5) + 0.05 * Math.sin(7 * th0 + 2) + 0.025 * Math.sin(13 * th0);
+      var edge = 1.03 + 0.03 * Math.sin(3 * th0 + 0.5) + 0.025 * Math.sin(7 * th0 + 2) + 0.015 * Math.sin(13 * th0);
       if (r > edge * 0.97) continue;
       var rg = region(x, y), h = B.hash(y * HW + x), t = G2.GRASS;
       if (rg === 0) t = h < 0.1 ? G2.GRASS : G2.CHERRY;
@@ -373,23 +373,26 @@
     core.objs.forEach(function (o) { o.tx += OX; o.ty += OY; o.x += OX * T; o.y += OY * T; m.objs.push(o); });
     B.HUB_PORTS = (B.HUB_PORTS || []).map(function (q) { return { g: q.g, tx: q.tx + OX, ty: q.ty + OY }; });
     function inb(x, y) { return x > 1 && y > 1 && x < HW - 1 && y < HW - 1; }
+    var rsv = new Uint8Array(HW * HW), occ = new Uint8Array(HW * HW), coreCount = m.objs.length;
+    function reserve(x0, y0, x1, y1) { for (var yy = y0; yy <= y1; yy++) for (var xx = x0; xx <= x1; xx++) if (xx >= 0 && yy >= 0 && xx < HW && yy < HW) rsv[yy * HW + xx] = 1; }
     function put(o, solidTiles) { if (LITE) return null; return obj(m, o, solidTiles); }
     function ok(x, y) { if (!inb(x, y)) return false; var i = y * HW + x, g = m.g[i]; return g && g !== G2.WATER && g !== G2.ROCK && !m.obj[i] && g !== G2.PATH; }
     function okAll(list) { for (var i = 0; i < list.length; i++) if (!ok(list[i][0], list[i][1])) return false; return true; }
     function rect(x, y, w, h) { var l = []; for (var yy = y; yy < y + h; yy++) for (var xx = x; xx < x + w; xx++) l.push([xx, yy]); return l; }
     function build(o, w, h) { var tiles = rect(o.tx - (w >> 1), o.ty - h + 1, w, h); if (!okAll(tiles)) { (B._hubFail = B._hubFail || []).push(o.kind + '@' + o.tx + ',' + o.ty); return null; } return put(o, tiles); }
+    function anyRsv(tiles, m2) { for (var i = 0; i < tiles.length; i++) if (rsv[tiles[i][1] * HW + tiles[i][0]]) return true; return false; }
     function buildNear(o, w, h) {
       var tx0 = o.tx, ty0 = o.ty;
       for (var rad = 0; rad <= 9; rad++) for (var dy2 = -rad; dy2 <= rad; dy2++) for (var dx2 = -rad; dx2 <= rad; dx2++) {
         if (Math.max(Math.abs(dx2), Math.abs(dy2)) !== rad) continue;
         var tiles = rect(tx0 + dx2 - (w >> 1), ty0 + dy2 - h + 1, w, h);
-        if (okAll(tiles)) { o.tx = tx0 + dx2; o.ty = ty0 + dy2; return put(o, tiles); }
+        if (okAll(tiles) && !anyRsv(tiles, 1)) { o.tx = tx0 + dx2; o.ty = ty0 + dy2; reserve(o.tx - (w >> 1) - 1, o.ty - h, o.tx - (w >> 1) + w, o.ty + 1); return put(o, tiles); }
       }
       (B._hubFail = B._hubFail || []).push(o.kind + '@' + tx0 + ',' + ty0); return null;
     }
     function pool(cx, cy, r, tile) { for (var yy = -r; yy <= r; yy++) for (var xx = -r; xx <= r; xx++) if (xx * xx + yy * yy <= r * r + r * 0.5) { var i = (cy + yy) * HW + cx + xx; if (!inb(cx + xx, cy + yy) || !m.g[i]) continue; m.g[i] = tile; m.obj[i] = tile === G2.WATER ? 3 : 0; } }
-    function road(x0, y0, x1, y1, wd) { wd = wd || 2; var sx = x1 > x0 ? 1 : -1, sy = y1 > y0 ? 1 : -1, xx, yy, k; for (xx = x0; xx !== x1 + sx; xx += sx) for (k = 0; k < wd; k++) if (inb(xx, y0 + k) && m.g[(y0 + k) * HW + xx]) { m.g[(y0 + k) * HW + xx] = G2.PATH; m.obj[(y0 + k) * HW + xx] = 0; } for (yy = y0; yy !== y1 + sy; yy += sy) for (k = 0; k < wd; k++) if (inb(x1 + k, yy) && m.g[yy * HW + x1 + k]) { m.g[yy * HW + x1 + k] = G2.PATH; m.obj[yy * HW + x1 + k] = 0; } }
-    function plaza(cx, cy, r, tile) { for (var yy = -r; yy <= r; yy++) for (var xx = -r; xx <= r; xx++) if (xx * xx + yy * yy <= r * r + 1) { var i = (cy + yy) * HW + cx + xx; if (inb(cx + xx, cy + yy) && m.g[i]) { m.g[i] = tile; m.obj[i] = 0; } } }
+    function road(x0, y0, x1, y1, wd) { wd = wd || 2; reserve(Math.min(x0, x1) - 2, y0 - 2, Math.max(x0, x1) + wd + 1, y0 + wd + 1); reserve(x1 - 2, Math.min(y0, y1) - 2, x1 + wd + 1, Math.max(y0, y1) + wd + 1); var sx = x1 > x0 ? 1 : -1, sy = y1 > y0 ? 1 : -1, xx, yy, k; for (xx = x0; xx !== x1 + sx; xx += sx) for (k = 0; k < wd; k++) if (inb(xx, y0 + k) && m.g[(y0 + k) * HW + xx] && !m.obj[(y0 + k) * HW + xx]) { m.g[(y0 + k) * HW + xx] = G2.PATH; } for (yy = y0; yy !== y1 + sy; yy += sy) for (k = 0; k < wd; k++) if (inb(x1 + k, yy) && m.g[yy * HW + x1 + k] && !m.obj[yy * HW + x1 + k]) { m.g[yy * HW + x1 + k] = G2.PATH; } }
+    function plaza(cx, cy, r, tile) { reserve(cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2); for (var yy = -r; yy <= r; yy++) for (var xx = -r; xx <= r; xx++) if (xx * xx + yy * yy <= r * r + 1) { var i = (cy + yy) * HW + cx + xx; if (inb(cx + xx, cy + yy) && m.g[i]) { m.g[i] = tile; m.obj[i] = 0; } } }
     // ---- roads out of town to every region
     road(44, 66, 22, 66, 2); road(44, 70, 22, 70, 2);                       // west
     road(100, 66, 120, 66, 2); road(100, 70, 120, 70, 2);                   // east
@@ -405,13 +408,20 @@
     function holo(tx, ty, dy, lines, src) { put({ kind: 'holo', tx: tx, ty: ty, dy: dy, src: src || 'static', lines: lines }, []); }
     function post(tx, ty, lines) { put({ kind: 'post', tx: tx, ty: ty, dy: 8 }, []); holo(tx, ty, -70, lines); }
     var oh = function (a, b) { return B.hash(a * 977 + b * 131); };
-    // scatter: put an object on random matching tiles of a region
-    function scatter(rgn, kind, n, tiles, extra, solid) {
-      var tries = 0, put0 = 0;
-      while (put0 < n && tries < n * 40) { tries++; var xx = 6 + ((oh(tries, kind.length + n * 3 + rgn) * (HW - 12)) | 0), yy = 6 + ((oh(tries * 7, rgn * 31 + n) * (HW - 12)) | 0), i = yy * HW + xx;
-        if (region(xx, yy) !== rgn || tiles.indexOf(m.g[i]) < 0 || m.obj[i] || Math.hypot(xx - CX, yy - CY) < 40) continue;
-        var o = { kind: kind, tx: xx, ty: yy, v: (xx * 7 + yy) % 3 }; if (extra) for (var k in extra) o[k] = extra[k];
-        if (solid && !ok(xx, yy)) continue; put(o); put0++; }
+    // scatter: trees and plants come in groves (never beside a road or plaza), spaced out so nothing overlaps
+    function scatter(rgn, kind, n, tiles, extra) {
+      var groves = Math.max(1, Math.ceil(n / 5)), per = Math.ceil(n / groves), placed = 0, g, tries;
+      for (g = 0; g < groves; g++) {
+        var gx = 0, gy = 0, found = false;
+        for (tries = 0; tries < 160 && !found; tries++) { gx = 8 + ((oh(g * 13 + tries, rgn * 7 + n) * (HW - 16)) | 0); gy = 8 + ((oh(g * 29 + tries * 3, rgn * 19 + kind.length) * (HW - 16)) | 0); if (region(gx, gy) === rgn && Math.hypot(gx - CX, gy - CY) > 44 && tiles.indexOf(m.g[gy * HW + gx]) >= 0 && !rsv[gy * HW + gx]) found = true; }
+        if (!found) continue;
+        for (var k = 0, tr2 = 0; k < per && tr2 < per * 12; tr2++) {
+          var xx = gx + Math.round((oh(g * 101 + tr2, 3 + rgn) - 0.5) * 9), yy = gy + Math.round((oh(g * 57 + tr2, 11 + rgn) - 0.5) * 9), i = yy * HW + xx;
+          if (!inb(xx, yy) || region(xx, yy) !== rgn || tiles.indexOf(m.g[i]) < 0 || m.obj[i] || rsv[i] || occ[i]) continue;
+          var o = { kind: kind, tx: xx, ty: yy, v: (xx * 7 + yy) % 3 }; if (extra) for (var kk in extra) o[kk] = extra[kk];
+          put(o); k++; placed++; for (var oy2 = -1; oy2 <= 1; oy2++) for (var ox2 = -1; ox2 <= 1; ox2++) occ[(yy + oy2) * HW + xx + ox2] = 1;
+        }
+      }
     }
     var tr = []; // stars to add
     // signposts along the roads leaving town
@@ -424,7 +434,7 @@
     buildNear({ kind: 'igloo', tx: 66, ty: 21 }, 3, 2); buildNear({ kind: 'igloo', tx: 80, ty: 20 }, 3, 2); buildNear({ kind: 'house', tx: 77, ty: 27, roof: 1, dy: 14 }, 3, 2);
     put({ kind: 'campfire', tx: 72, ty: 19 }); put({ kind: 'bench', tx: 69, ty: 19 }); put({ kind: 'bench', tx: 75, ty: 19, flip: true });
     [[68, 15], [76, 15], [62, 18], [83, 18], [56, 11]].forEach(function (p) { if (ok(p[0], p[1])) put({ kind: 'deco', tx: p[0], ty: p[1], what: 'snowman' }); });
-    scatter(6, 'pine', 36, [G2.SNOW], null, true);
+    scatter(6, 'pine', 20, [G2.SNOW]);
     holo(72, 14, -30, ['FROST PEAKS', 'Warm up by the fire']);
     tr.push([46, 22], [100, 12], [64, 6]);
     // ===== NE: SUNSCORCH DESERT =====
@@ -432,50 +442,62 @@
     [[102, 33], [107, 34], [105, 39]].forEach(function (p) { if (ok(p[0], p[1])) put({ kind: 'palm', tx: p[0], ty: p[1] }); });
     [[122, 38], [126, 34], [112, 44]].forEach(function (p, i) { buildNear({ kind: 'tent', tx: p[0], ty: p[1], col: i }, 3, 2); });
     put({ kind: 'campfire', tx: 116, ty: 40 });
-    scatter(7, 'cactus', 34, [G2.SAND], null, true); scatter(7, 'palm', 6, [G2.SAND], null, true);
+    scatter(7, 'cactus', 15, [G2.SAND]); scatter(7, 'palm', 3, [G2.SAND]);
     holo(118, 24, -150, ['SUNSCORCH DESERT', 'A pyramid with a secret']);
     tr.push([128, 26], [108, 20], [126, 44]);
     // ===== E: CHERRY GROVE =====
     pool(114, 78, 3, G2.WATER); put({ kind: 'fishspot', tx: 118, ty: 78, act: 'fish', label: 'KOI POND', dy: 6 }); put({ kind: 'lily', tx: 113, ty: 77 }); put({ kind: 'lily', tx: 115, ty: 80 });
     buildNear({ kind: 'pagoda', tx: 124, ty: 66 }, 5, 3); put({ kind: 'bench', tx: 120, ty: 70 }); put({ kind: 'bench', tx: 127, ty: 70, flip: true });
     [[119, 64], [129, 64], [119, 72], [129, 72]].forEach(function (p) { put({ kind: 'lamp', tx: p[0], ty: p[1] }); });
-    scatter(0, 'cherry', 50, [G2.CHERRY], null, true);
+    scatter(0, 'cherry', 26, [G2.CHERRY]);
     holo(124, 60, -130, ['CHERRY GROVE', 'Koi pond and a quiet pagoda']);
     tr.push([130, 78], [112, 60], [126, 86]);
     // ===== SE: ROCKY QUARRY =====
     buildNear({ kind: 'mine', tx: 112, ty: 100 }, 4, 2); buildNear({ kind: 'stall', tx: 106, ty: 108, col: 3 }, 2, 1); buildNear({ kind: 'stall', tx: 118, ty: 108, col: 0 }, 2, 1);
     [[108, 112], [117, 113], [112, 114]].forEach(function (p, i) { if (ok(p[0], p[1])) put({ kind: 'deco', tx: p[0], ty: p[1], what: ['crate', 'barrel', 'hay'][i] }); });
     for (var q = 0; q < 26; q++) { var rx = 96 + ((oh(q, 5) * 34) | 0), ry = 96 + ((oh(q, 9) * 30) | 0), ri = ry * HW + rx; if (region(rx, ry) === 1 && (m.g[ri] === G2.STONE || m.g[ri] === G2.MESA) && !m.obj[ri] && Math.hypot(rx - 112, ry - 106) > 7 && Math.hypot(rx - 112, ry - 74) > 4) m.g[ri] = G2.ROCK; }
-    scatter(1, 'pine', 6, [G2.MESA], null, true);
+    scatter(1, 'pine', 4, [G2.MESA]);
     holo(112, 94, -100, ['ROCKY QUARRY', 'Dig deep, shop later']);
     tr.push([98, 118], [124, 104], [104, 94]);
     // ===== S: SUNSET BEACH =====
     fill(m, 71, 120, 73, 134, G2.FLOOR); for (var py = 120; py <= 134; py++) for (var px = 71; px <= 73; px++) m.obj[py * HW + px] = 0;
     put({ kind: 'fishspot', tx: 71, ty: 131, act: 'fish', label: 'PIER', dy: 6 }); put({ kind: 'boat', tx: 66, ty: 133, dy: 4 }); put({ kind: 'boat', tx: 78, ty: 126, dy: 4 });
     [[62, 118], [82, 118], [58, 122], [86, 122]].forEach(function (p, i) { if (ok(p[0], p[1])) put({ kind: 'umbrella', tx: p[0], ty: p[1], col: i }); });
-    scatter(2, 'palm', 22, [G2.SAND], null, true);
+    scatter(2, 'palm', 9, [G2.SAND]);
     holo(71, 116, -50, ['SUNSET BEACH', 'Cast a line off the pier']);
     tr.push([56, 112], [90, 114], [50, 104]);
     // ===== SW: MISTY SWAMP =====
     [[22, 112], [40, 116], [28, 120], [44, 106], [20, 98]].forEach(function (p) { pool(p[0], p[1], 3 + (p[0] % 2), G2.WATER); });
     buildNear({ kind: 'house', tx: 32, ty: 100, roof: 2, dy: 14, witch: true }, 3, 2); put({ kind: 'deco', tx: 36, ty: 100, what: 'cauldron' });
-    scatter(3, 'mushroom', 30, [G2.SWAMP], null, true); scatter(3, 'tree', 12, [G2.SWAMP], null, true);
+    scatter(3, 'mushroom', 14, [G2.SWAMP]); scatter(3, 'tree', 6, [G2.SWAMP]);
     for (q = 0; q < 14; q++) { var lx = 14 + ((oh(q, 3) * 36) | 0), ly = 96 + ((oh(q, 6) * 30) | 0); if (m.g[ly * HW + lx] === G2.WATER) put({ kind: 'lily', tx: lx, ty: ly }); }
     holo(32, 94, -110, ['MISTY SWAMP', 'Do not feed the witch']);
     tr.push([16, 108], [44, 120], [26, 92]);
     // ===== W: WHISPERING WOODS =====
     buildNear({ kind: 'house', tx: 24, ty: 62, roof: 5, dy: 14 }, 3, 2); buildNear({ kind: 'house', tx: 14, ty: 74, roof: 6, dy: 14 }, 3, 2);
     put({ kind: 'campfire', tx: 20, ty: 68 }); put({ kind: 'bench', tx: 17, ty: 68 }); put({ kind: 'bench', tx: 23, ty: 68, flip: true });
-    scatter(4, 'pine', 40, [G2.GRASS], null, true); scatter(4, 'tree', 36, [G2.GRASS], null, true);
+    scatter(4, 'pine', 22, [G2.GRASS]); scatter(4, 'tree', 14, [G2.GRASS]);
     holo(20, 64, -30, ['WHISPERING WOODS', 'Stay on the path']);
     tr.push([12, 56], [10, 84], [26, 50]);
     // ===== NW: ANCIENT RUINS =====
     plaza(32, 32, 7, G2.COBBLE);
     [[28, 28], [36, 28], [28, 36], [36, 36], [32, 26], [32, 38]].forEach(function (p, i) { put({ kind: 'pillar', tx: p[0], ty: p[1], broken: i % 2 === 1 }); });
     buildNear({ kind: 'ruingate', tx: 32, ty: 44 }, 5, 1); put({ kind: 'deco', tx: 32, ty: 32, what: 'crate' });
-    scatter(5, 'pillar', 10, [G2.COBBLE, G2.STONE], { broken: true }, true); scatter(5, 'pine', 10, [G2.GRASS], null, true);
+    scatter(5, 'pillar', 5, [G2.COBBLE, G2.STONE], { broken: true }); scatter(5, 'pine', 6, [G2.GRASS]);
     holo(32, 24, -110, ['ANCIENT RUINS', 'Something sleeps below']);
     tr.push([16, 32], [44, 20], [20, 46]);
+    // tidy up: nothing decorative may sit on a road or right beside one (this also catches the old town's props)
+    var SOFT = { deco: 1, pine: 1, tree: 1, palm: 1, cactus: 1, cherry: 1, mushroom: 1, house: 1, tent: 1, stall: 1, pillar: 1, umbrella: 1, igloo: 1 };
+    function pathNear(x, y, d) { for (var yy = -d; yy <= d; yy++) for (var xx = -d; xx <= d; xx++) if (m.g[(y + yy) * HW + x + xx] === G2.PATH) return true; return false; }
+    m.objs = m.objs.filter(function (o) {
+      if (!SOFT[o.kind]) return true;
+      var wide = o.kind === 'house' || o.kind === 'tent' || o.kind === 'stall' || o.kind === 'igloo';
+      var bad = m.g[o.ty * HW + o.tx] === G2.PATH || (wide ? pathNear(o.tx, o.ty, 1) || pathNear(o.tx - 1, o.ty, 0) || pathNear(o.tx + 1, o.ty, 0) : pathNear(o.tx, o.ty, 1));
+      if (o.kind === 'pillar' && o.tx > 26 && o.tx < 38 && o.ty > 25 && o.ty < 40) bad = false;
+      if (!bad) return true;
+      var hw = wide ? 3 : 1, hh = wide ? 2 : 1; for (var yy = o.ty - hh + 1; yy <= o.ty; yy++) for (var xx = o.tx - (hw >> 1); xx < o.tx - (hw >> 1) + hw; xx++) if (m.obj[yy * HW + xx] === 3 && m.g[yy * HW + xx] !== G2.WATER) m.obj[yy * HW + xx] = 0;
+      return false;
+    });
     // stars hide in every region
     var starBase = coreStars.length;
     var seen = new Uint8Array(HW * HW), stack = [Math.floor(B.HUB_SPAWN.y / T) * HW + Math.floor(B.HUB_SPAWN.x / T)];
