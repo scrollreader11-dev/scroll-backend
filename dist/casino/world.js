@@ -10,7 +10,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
   var sfx = function (n, a) { SC.sfx && SC.sfx(n, a); };
-  var T = 48, COLS = 76, ROWS = 44, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
+  var T = 48, COLS = 76, ROWS = 78, PUBH = 44 * T, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
 
   // ================================================================ CLOCK (server time for shared rounds)
   var clockOff = 0, clockSet = false;
@@ -32,11 +32,10 @@
   fill(46, 16, 58, 28, 'a');  // Duel Arena
   fill(46, 30, 58, 42, 'w');  // Shop
   fill(60, 14, 74, 30, 'k');  // The Arcade (skill games)
-  fill(60, 2, 74, 12, 'o');   // The Owner Vault (owners only; the grate is in the doorway at x59)
+  fill(10, 47, 65, 76, 'o');  // The Owner Vault: a big hidden hall below the casino. Only a small hatch in The Vault leads down.
   fill(14, 5, 14, 7, 'r'); fill(14, 15, 14, 18, 'c'); fill(14, 34, 14, 37, 'g'); // west doors
   fill(10, 22, 12, 22, 'l');                                                     // slots <-> lounge
   fill(45, 6, 45, 8, 'p'); fill(45, 20, 45, 23, 'a'); fill(45, 35, 45, 38, 'w'); // east doors
-  fill(59, 5, 59, 8, 'o');                                                        // the grate: Vault <-> Owner Vault
   fill(59, 20, 59, 23, 'k');                                                     // duel arena <-> arcade
   fill(51, 15, 53, 15, 'a'); fill(51, 29, 53, 29, 'w');                          // vault <-> arena <-> shop
   fill(29, 43, 30, 43, 'g');                                                     // exit
@@ -80,11 +79,13 @@
     piano: { box: [-62, -48, 62, 0], act: 'piano', label: 'Play the piano', ia: [0, 26], pr: -128, ar: 70 },
     statue: { box: [-40, -30, 40, 0] },
     easel: { box: [-32, -8, 32, 0] },
-    vgate: { layer: 'decal', box: [-24, -96, 24, 96] },
-    hammer: { box: [-32, -30, 32, 0], act: 'hammer', label: 'Grab the Ban Hammer', ia: [0, 34], pr: -176, ar: 76 },
-    modterm: { box: [-52, -26, 52, 0], act: 'modmenu', label: 'Open the Mod Menu', ia: [0, 34], pr: -136, ar: 84 },
-    rigcon: { box: [-54, -36, 54, 0], act: 'owner', label: 'Open the Rig Console', ia: [0, 34], pr: -126, ar: 84 },
-    podium: { box: [-22, -22, 22, 0], act: 'modmenu', label: 'Make an announcement', ia: [0, 30], pr: -146, ar: 66 },
+    vhatch: { layer: 'decal', act: 'descend', label: 'Open the hatch', ia: [0, 0], pr: -44, ar: 62, ownerOnly: 1 },
+    vladder: { layer: 'decal', act: 'ascend', label: 'Climb out', ia: [0, 0], pr: -70, ar: 66, ownerOnly: 1 },
+    chest: { box: [-54, -36, 54, 0] },
+    hammer: { box: [-32, -30, 32, 0], act: 'hammer', label: 'Grab the Ban Hammer', ia: [0, 34], pr: -176, ar: 76, ownerOnly: 1 },
+    modterm: { box: [-52, -26, 52, 0], act: 'modmenu', label: 'Open the Mod Menu', ia: [0, 34], pr: -136, ar: 84, ownerOnly: 1 },
+    rigcon: { box: [-54, -36, 54, 0], act: 'owner', label: 'Open the Rig Console', ia: [0, 34], pr: -126, ar: 84, ownerOnly: 1 },
+    podium: { box: [-22, -22, 22, 0], act: 'modmenu', label: 'Make an announcement', ia: [0, 30], pr: -146, ar: 66, ownerOnly: 1 },
     throne: { box: [-46, -30, 46, 0] }, brazier: { box: [-14, -10, 14, 0] }, vrune: { layer: 'decal' }, vbanner: { layer: 'wall' },
     portal: { box: [-50, -22, 50, 0], act: 'arcade', label: 'Enter ScrollHub Games', ia: [0, 26], pr: -150, ar: 74 },
   };
@@ -93,7 +94,7 @@
     var d = DEF[type] || {}, ob = o || {};
     ob.type = type; ob.x = x; ob.y = y; ob.layer = ob.layer || d.layer || 'ent';
     if (d.box && !ob.nobox) ob.box = [x + d.box[0], y + d.box[1], x + d.box[2], y + d.box[3]];
-    ob.act = ob.act || d.act || null; ob.label = ob.label || d.label || '';
+    ob.act = ob.act || d.act || null; ob.label = ob.label || d.label || ''; if (d.ownerOnly) ob.ownerOnly = true;
     if (ob.act) { var ia = ob.ia || d.ia || [0, 24]; ob.ax = x + ia[0]; ob.ay = y + ia[1]; ob.ar = ob.ar || d.ar || 58; ob.py = y + (ob.pr != null ? ob.pr : (d.pr != null ? d.pr : -110)); }
     OBJ.push(ob); return ob;
   }
@@ -180,15 +181,21 @@
   add('wardrobe', 2716, 1900);
   add('plant', 2790, 2030);
 
-  // --- The Owner Vault: the grate opens for owners only (the server also keeps everyone else out)
-  var gateObj = add('vgate', 59 * T + 24, 7 * T);
-  add('vrune', 3264, 400);
-  add('sign', 3264, 26, { text: 'OWNER VAULT', color: '#ff3b5c', size: 26, v: 14 });
-  add('vbanner', 3090, 104); add('vbanner', 3438, 104);
-  add('throne', 3264, 250);
-  add('hammer', 3264, 408);
-  add('modterm', 3060, 262); add('rigcon', 3470, 262);
-  add('podium', 3090, 560); add('brazier', 2940, 210); add('brazier', 3600, 210); add('brazier', 2940, 596); add('brazier', 3600, 596);
+  // --- The Owner Vault. Everyone can see the small hatch in The Vault; the big hall below it (rows 44+) is never drawn for
+  // anyone who is not standing in it, and the server never sends them a word about who is down there.
+  var hatchObj = add('vhatch', 2800, 480);
+  add('vladder', 1824, 2330);
+  add('vrune', 1824, 3000, { len: 560, r: 150 });
+  add('sign', 1824, 2186, { text: 'OWNER VAULT', color: '#ff3b5c', size: 30, v: 14 });
+  [700, 1100, 1500, 2150, 2550, 2950].forEach(function (bx) { add('vbanner', bx, 2264); });
+  add('hammer', 1824, 3010);
+  add('podium', 1690, 2580, { tab: 'cast' });
+  add('modterm', 1130, 2800, { title: 'MOD MENU' }); add('modterm', 1130, 3200, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' });
+  add('rigcon', 2518, 2800); add('chest', 2518, 3200, { title: 'TREASURY' });
+  add('throne', 1824, 3560); add('brazier', 1690, 3600); add('brazier', 1958, 3600);
+  [[560, 2340], [3088, 2340], [560, 3640], [3088, 3640], [1300, 2340], [2348, 2340]].forEach(function (b) { add('brazier', b[0], b[1]); });
+  [[820, 2560], [820, 3000], [820, 3440], [2828, 2560], [2828, 3000], [2828, 3440], [1450, 2560], [2198, 2560], [1450, 3440], [2198, 3440]].forEach(function (b) { add('pillar', b[0], b[1]); });
+  add('couch', 700, 3000, { col: '#7d1424' }); add('couch', 2950, 3000, { col: '#7d1424' });
 
   // The Arcade board on the wall shows each game's champion; it refreshes every minute and flips pages every few seconds.
   var ARC_NAMES = [['echo', '🎵 Echo'], ['aim', '🎯 Aim'], ['mathrush', '🧮 Math'], ['trivia', '❓ Trivia'], ['colorclash', '🎨 Color'], ['pattern', '🔢 Pattern'], ['scramble', '🔤 Words']], ARC_KEY = { mathrush: 'math', colorclash: 'color' }, arcData = null, arcPage = 0;
@@ -212,17 +219,20 @@
     } }
   })();
 
-  // ---- Owner Vault grate: slides up when an owner walks near it, stays shut for everyone else.
-  // The server also refuses to move anyone but an owner into the room, so this is only the look and the feel.
-  var GATE = SC.vault.gate, gateBox = gateObj.box.slice(), gateNear = false, gateSolid = true;
+  // ---- The hatch in The Vault slides open when an owner stands near it (everyone watching sees that, nothing more).
+  var GATE = SC.vault.gate, gateNear = false;
   function gateTick(dt) {
-    var gx = gateObj.x, gy = gateObj.y, near = false, id, q;
-    if (me.own && Math.hypot(me.x - gx, me.y - gy) < 200) near = true;
-    if (!near) for (id in players) { q = players[id]; if (q.own && !q.leaving && Math.hypot(q.x - gx, q.y - gy) < 200) { near = true; break; } }
-    if (near !== gateNear) { gateNear = near; if (Math.hypot(me.x - gx, me.y - gy) < 720) sfx(near ? 'gate' : (GATE.open > 0 ? 'gateclose' : 'click')); }
-    GATE.open = clamp(GATE.open + (near ? dt / 0.9 : -dt / 1.2), 0, 1);
-    var solid = !(me.own && GATE.open > 0.7);
-    if (solid !== gateSolid) { gateSolid = solid; for (var k = 0; k < 4; k++) gateObj.box[k] = solid ? gateBox[k] : 0; for (var ty = 5; ty <= 8; ty++) BLOCK[ty][59] = solid; }
+    var gx = hatchObj.x, gy = hatchObj.y, near = false, id, q;
+    if (me.y < PUBH) {
+      if (me.own && Math.hypot(me.x - gx, me.y - gy) < 150) near = true;
+      if (!near) for (id in players) { q = players[id]; if (q.own && !q.leaving && Math.hypot(q.x - gx, q.y - gy) < 150) { near = true; break; } }
+    }
+    if (near !== gateNear) { gateNear = near; if (me.y < PUBH && Math.hypot(me.x - gx, me.y - gy) < 700) sfx(near ? 'gate' : 'gateclose'); }
+    GATE.open = clamp(GATE.open + (near ? dt / 0.7 : -dt / 0.9), 0, 1);
+  }
+  function fade() {
+    var f = $('vfade'); if (!f) { f = document.createElement('div'); f.id = 'vfade'; f.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:70;transition:opacity .22s'; document.body.appendChild(f); }
+    f.style.opacity = '1'; clearTimeout(f._t); f._t = setTimeout(function () { f.style.opacity = '0'; }, 420);
   }
 
   // ================================================================ STATE
@@ -263,7 +273,7 @@
   function drawTiles() {
     var tx0 = Math.max(0, Math.floor(cam.x / T) - 1), ty0 = Math.max(0, Math.floor(cam.y / T) - 1);
     var tx1 = Math.min(COLS - 1, Math.ceil((cam.x + VW / Z) / T) + 1), ty1 = Math.min(ROWS - 1, Math.ceil((cam.y + VH / Z) / T) + 1);
-    var ty, tx, ch;
+    var ty, tx, ch, vm = me.y > PUBH; ty0 = Math.max(ty0, vm ? 44 : 0); ty1 = Math.min(ty1, vm ? ROWS - 1 : 43);   // nobody sees the hidden hall unless they are standing in it
     for (ty = ty0; ty <= ty1; ty++) for (tx = tx0; tx <= tx1; tx++) {
       ch = G[ty][tx]; if (ch === '#') continue;
       if (ch === 'd') { A.danceTile(ctx, tx * T, ty * T, tx, ty, tnow); continue; }
@@ -310,7 +320,7 @@
     var wx = cam.x + e.clientX / Z, wy = cam.y + e.clientY / Z;
     // Clicked on something you can use? Walk to it and use it on arrival.
     var hit = null, hd = 1e9;
-    ACTS.forEach(function (o) { var top = o.layer === 'wall' ? o.y - 110 : o.y - 140, x0 = o.x - (o.box ? (o.box[2] - o.box[0]) / 2 + 10 : 70); if (wx > x0 && wx < 2 * o.x - x0 && wy > top && wy < o.y + 34) { var d = Math.hypot(wx - o.x, wy - (o.y - 40)); if (d < hd) { hd = d; hit = o; } } });
+    ACTS.forEach(function (o) { if (o.ownerOnly && !me.own) return; var top = o.layer === 'wall' ? o.y - 110 : o.y - 140, x0 = o.x - (o.box ? (o.box[2] - o.box[0]) / 2 + 10 : 70); if (wx > x0 && wx < 2 * o.x - x0 && wy > top && wy < o.y + 34) { var d = Math.hypot(wx - o.x, wy - (o.y - 40)); if (d < hd) { hd = d; hit = o; } } });
     for (var id in players) { var p = players[id]; if (Math.abs(wx - p.x) < 22 && wy > p.y - 56 && wy < p.y + 4) { hit = { act: 'player', p: p, ax: p.x, ay: p.y + 20, x: p.x }; break; } }
     if (hit) {
       if (Math.hypot(me.x - hit.ax, me.y - hit.ay) < (hit.ar || 56)) { target = hit.act === 'player' ? { act: 'player', p: hit.p } : hit; interact(); return; }
@@ -464,7 +474,8 @@
     // camera
     var vw = VW / Z, vh = VH / Z;
     var tx = me.x - vw / 2, ty = me.y - 30 - vh / 2;
-    tx = vw >= WW ? (WW - vw) / 2 : clamp(tx, 0, WW - vw); ty = vh >= WH ? (WH - vh) / 2 : clamp(ty, 0, WH - vh);
+    var ctop = me.y > PUBH ? PUBH : 0, cbot = me.y > PUBH ? WH : PUBH, cah = cbot - ctop;
+    tx = vw >= WW ? (WW - vw) / 2 : clamp(tx, 0, WW - vw); ty = vh >= cah ? ctop + (cah - vh) / 2 : clamp(ty, ctop, cbot - vh);
     var cf = cam._init ? Math.min(1, dt * 8) : 1; cam._init = true;
     cam.x += (tx - cam.x) * cf; cam.y += (ty - cam.y) * cf;
     gateTick(dt);
@@ -477,13 +488,18 @@
   function findTarget() {
     target = null; if (panelOpen()) return;
     var best = 1e9;
-    for (var i = 0; i < ACTS.length; i++) { var o = ACTS[i], d = Math.hypot(me.x - o.ax, me.y - o.ay); if (d < o.ar && d < best) { best = d; target = o; } }
-    for (var id in players) { var p = players[id], d2 = Math.hypot(me.x - p.x, me.y - p.y); if (d2 < 54 && d2 < best - 10) { best = d2; target = { act: 'player', p: p, label: 'Talk to ' + p.nick, ax: p.x, ay: p.y, x: p.x, py: p.y - (p.look.hat ? 100 : 86) }; } }
+    for (var i = 0; i < ACTS.length; i++) { var o = ACTS[i]; if (o.ownerOnly && !me.own) continue; var d = Math.hypot(me.x - o.ax, me.y - o.ay); if (d < o.ar && d < best) { best = d; target = o; } }
+    var swing = me.own && me.hammer, pbest = 1e9;
+    for (var id in players) { var p = players[id], d2 = Math.hypot(me.x - p.x, me.y - p.y); if (swing && !p.own) { if (d2 < 96 && d2 < pbest) { pbest = d2; best = -1; target = { act: 'player', p: p, label: 'Talk to ' + p.nick, ax: p.x, ay: p.y, x: p.x, py: p.y - (p.look.hat ? 100 : 86) }; } continue; } if (best >= 0 && d2 < 54 && d2 < best - 10) { best = d2; target = { act: 'player', p: p, label: 'Talk to ' + p.nick, ax: p.x, ay: p.y, x: p.x, py: p.y - (p.look.hat ? 100 : 86) }; } }
     var ab = $('actBtn');
-    if (target) { ab.classList.add('show'); ab.textContent = target.act === 'player' ? 'HI' : target.act === 'exit' ? 'EXIT' : 'USE'; } else ab.classList.remove('show');
+    if (target && target.act === 'player' && me.own && me.hammer && !target.p.own) target.label = 'Swing the hammer at ' + target.p.nick;
+    if (target) { ab.classList.add('show'); ab.textContent = target.act === 'player' ? (me.own && me.hammer && !target.p.own ? 'SWING' : 'HI') : target.act === 'exit' ? 'EXIT' : 'USE'; } else ab.classList.remove('show');
   }
   function interact() {
     if (!target || panelOpen()) return;
+    if (target.act === 'descend') { if (me.own) { fade(); netSend({ t: 'v', op: 'enter' }); } return; }
+    if (target.act === 'ascend') { if (me.own) { fade(); netSend({ t: 'v', op: 'leave' }); } return; }
+    if (target.act === 'player' && me.own && me.hammer && !target.p.own && SC.hammerPick) return SC.hammerPick(target.p);
     if (target.act === 'player') return openPanel('player', target.p);
     if (target.act === 'arcade') { sfx('open'); setTimeout(function () { location.href = '/arcade'; }, 180); return; }
     if (target.act === 'bar') {
@@ -508,7 +524,7 @@
     owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], hammer: ['🔨', 'The Ban Hammer', 'Remove a player. Every ban is logged.'], modmenu: ['🛡️', 'Mod Menu', 'Players, the whole casino, and you'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
-  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G, gate: gateObj, bar: SC.bar, players: function () { return players; } }; }, 0);
+  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G, gate: hatchObj, bar: SC.bar, players: function () { return players; } }; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;
@@ -869,7 +885,7 @@
   (function () {   // a soft pool of coloured light every few tiles, tinted by the room it hangs in
     for (var ty = 3; ty < ROWS - 1; ty += 6) for (var tx = 3; tx < COLS - 1; tx += 6) { var ch = G[ty][tx]; if (LIGHT_COL[ch]) POOLS.push({ x: tx * T + T / 2, y: ty * T + T / 2, col: LIGHT_COL[ch], ph: (tx * 7 + ty * 3) % 10 }); }
     // chase-light strips along the top wall of each room: [x0, x1, y]
-    [[15, 44, 2], [1, 13, 2], [46, 58, 2], [46, 58, 16], [46, 58, 30], [60, 74, 14], [1, 13, 23], [15, 44, 31], [60, 74, 2]].forEach(function (r) {
+    [[15, 44, 2], [1, 13, 2], [46, 58, 2], [46, 58, 16], [46, 58, 30], [60, 74, 14], [1, 13, 23], [15, 44, 31], [10, 65, 47]].forEach(function (r) {
       var y = r[2] * T - 15, n = Math.floor(((r[1] + 1 - r[0]) * T - 20) / 30);
       for (var i = 0; i <= n; i++) BULBS.push({ x: r[0] * T + 10 + i * 30, y: y, i: i });
     });
@@ -996,13 +1012,13 @@
     ctx.setTransform(k, 0, 0, k, (-cam.x + shx) * k, (-cam.y + shy) * k);
     drawTiles();
     var vx0 = cam.x - 240, vx1 = cam.x + VW / Z + 240, vy0 = cam.y - 60, vy1 = cam.y + VH / Z + 300;
-    var i, o;
-    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if (o.layer === 'decal' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
-    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if (o.layer === 'wall' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
+    var i, o, vm = me.y > PUBH;
+    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if ((vm ? o.y >= PUBH : o.y < PUBH) && o.layer === 'decal' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
+    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if ((vm ? o.y >= PUBH : o.y < PUBH) && o.layer === 'wall' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
     if (marker && tnow - marker.at < 0.8) { var mp = (tnow - marker.at) / 0.8; ctx.strokeStyle = 'rgba(255,255,255,' + (1 - mp) + ')'; ctx.lineWidth = 3; A.ell(ctx, marker.x, marker.y, 10 + mp * 14, 5 + mp * 6); ctx.stroke(); }
     A.drawParticles(ctx, parts, dt);
     var ents = [];
-    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if (o.layer === 'ent' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) ents.push(o); }
+    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if ((vm ? o.y >= PUBH : o.y < PUBH) && o.layer === 'ent' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) ents.push(o); }
     for (var id in players) ents.push(players[id]);
     ents.push(me);
     ents.sort(function (a, b) { return a.y - b.y; });
@@ -1118,21 +1134,24 @@
   // minimap
   var mm = $('minimap'), mmc = mm.getContext('2d'), mmBase = null;
   mm.width = 200; mm.height = 147;
+  var mmMode = 0;
   function drawMinimap() {
     if (isTouch) return;
-    var sx = mm.width / WW, sy = mm.height / WH;
+    var mode = me.y > PUBH ? 1 : 0, y0 = mode ? PUBH : 0, hh = mode ? WH - PUBH : PUBH;
+    if (mode !== mmMode || !mmBase) { if (mode !== mmMode || !mmBase) { mmMode = mode; mmBase = null; mm.height = Math.round(mm.width * hh / WW); } }
+    var sx = mm.width / WW, sy = mm.height / hh;
     if (!mmBase) {
       mmBase = document.createElement('canvas'); mmBase.width = mm.width; mmBase.height = mm.height; var b = mmBase.getContext('2d');
       var COL = { r: '#4b2a86', b: '#1d2a66', c: '#7d1d36', g: '#9c8a64', p: '#3a2d6e', w: '#8a5a32', l: '#145a63', d: '#b03a8a', a: '#5b5f73', k: '#3b2a8f', o: '#7a1630' };
-      for (var ty = 0; ty < ROWS; ty++) for (var tx = 0; tx < COLS; tx++) { var ch = G[ty][tx]; b.fillStyle = ch === '#' ? '#120e2e' : COL[ch]; b.fillRect(tx * T * sx, ty * T * sy, T * sx + 0.6, T * sy + 0.6); }
-      b.fillStyle = 'rgba(255,255,255,.55)'; ACTS.forEach(function (o) { b.fillRect(o.x * sx - 1, o.y * sy - 1, 2, 2); });
+      for (var ty = mode ? 44 : 0; ty < (mode ? ROWS : 44); ty++) for (var tx = 0; tx < COLS; tx++) { var ch = G[ty][tx]; b.fillStyle = ch === '#' ? '#120e2e' : COL[ch]; b.fillRect(tx * T * sx, (ty * T - y0) * sy, T * sx + 0.6, T * sy + 0.6); }
+      b.fillStyle = 'rgba(255,255,255,.55)'; ACTS.forEach(function (o) { if ((mode ? o.y < PUBH : o.y >= PUBH) || (o.ownerOnly && !me.own)) return; b.fillRect(o.x * sx - 1, (o.y - y0) * sy - 1, 2, 2); });
     }
     mmc.clearRect(0, 0, mm.width, mm.height); mmc.drawImage(mmBase, 0, 0);
-    for (var id in players) { var p = players[id]; mmc.fillStyle = +id === findId ? '#ff3b7a' : '#ffd166'; mmc.beginPath(); mmc.arc(p.x * sx, p.y * sy, +id === findId ? 3.6 : 2.6, 0, 7); mmc.fill(); }
-    mmc.fillStyle = '#fff'; mmc.strokeStyle = '#120e2e'; mmc.lineWidth = 1.5; mmc.beginPath(); mmc.arc(me.x * sx, me.y * sy, 3.6, 0, 7); mmc.fill(); mmc.stroke();
-    mmc.strokeStyle = 'rgba(255,255,255,.5)'; mmc.lineWidth = 1; mmc.strokeRect(cam.x * sx, cam.y * sy, VW / Z * sx, VH / Z * sy);
+    for (var id in players) { var p = players[id]; if (mode ? p.y < PUBH : p.y >= PUBH) continue; mmc.fillStyle = +id === findId ? '#ff3b7a' : '#ffd166'; mmc.beginPath(); mmc.arc(p.x * sx, (p.y - y0) * sy, +id === findId ? 3.6 : 2.6, 0, 7); mmc.fill(); }
+    mmc.fillStyle = '#fff'; mmc.strokeStyle = '#120e2e'; mmc.lineWidth = 1.5; mmc.beginPath(); mmc.arc(me.x * sx, (me.y - y0) * sy, 3.6, 0, 7); mmc.fill(); mmc.stroke();
+    mmc.strokeStyle = 'rgba(255,255,255,.5)'; mmc.lineWidth = 1; mmc.strokeRect(cam.x * sx, (cam.y - y0) * sy, VW / Z * sx, VH / Z * sy);
   }
-  mm.addEventListener('click', function (e) { var r = mm.getBoundingClientRect(); walkTo((e.clientX - r.left) / mm.width * WW, (e.clientY - r.top) / mm.height * WH, null); });
+  mm.addEventListener('click', function (e) { var r = mm.getBoundingClientRect(), hh = me.y > PUBH ? WH - PUBH : PUBH, y0 = me.y > PUBH ? PUBH : 0; walkTo((e.clientX - r.left) / mm.width * WW, (e.clientY - r.top) / mm.height * hh + y0, null); });
 
   // ================================================================ EFFECTS / FEED
   function announce(text, by) {
@@ -1219,7 +1238,7 @@
       }
       case 'leave': if (players[m.id]) { players[m.id].leaving = performance.now(); } break;
       case 'snap': m.ps.forEach(function (a) { var p = players[a[0]]; if (!p) return; p.tx = a[1]; p.ty = a[2]; p.dir = a[3]; p.mv = !!a[4]; }); break;
-      case 'pos': me.x = m.x; me.y = m.y; path = null; break;
+      case 'pos': if (Math.hypot(m.x - me.x, m.y - me.y) > 500) { cam._init = false; fade(); } me.x = m.x; me.y = m.y; path = null; break;
       case 'coins': if (state.profile) { state.profile.coins = m.c; SC.setProfile(state.profile); } break;
       case 'jp': if (SC.gs) SC.gs.jp = { pool: m.pool, last: m.last }; if (SC.panelKind === 'slots') renderJackpot(); break;
       case 'g': syncClock(m.now); if (SC.mp) SC.mp.onGame(m); break;
@@ -1247,6 +1266,8 @@
       case 'vdeny': toast('Only owners can use that.'); break;
       case 'vannounce': announce(m.text, m.by); break;
       case 'vfx': {
+        if (m.k === 'hatch') { if (me.y < PUBH) { SC.vfx.add('warp', 0, hatchObj.x, hatchObj.y + 10); if (Math.hypot(me.x - hatchObj.x, me.y - hatchObj.y) < 900) sfx('warp'); } break; }
+        if (m.k === 'smite' && m.by != null) { var atk = m.by === me.id ? me : players[m.by]; if (atk) atk.slamAt = tnow; }
         var vt = m.id === me.id ? me : players[m.id], near = !vt || Math.hypot(vt.x - me.x, vt.y - me.y) < 900;
         if (m.k === 'party' || m.k === 'fireworks' || m.k === 'storm' || m.k === 'disco' || m.k === 'snow') {
           SC.gfx.start(m.k, m.k === 'snow' ? 25 : m.k === 'storm' ? 12 : 10);
@@ -1254,7 +1275,7 @@
           feed('✨ <b>' + esc(m.by || 'The owner') + '</b> started ' + ({ party: 'a party', fireworks: 'fireworks', storm: 'a thunderstorm', disco: 'a disco', snow: 'snow' })[m.k], '', 4500);
           break;
         }
-        if (vt) SC.vfx.add(m.k, vt.id, vt.x, vt.y);
+        if (vt) SC.vfx.add(m.k, vt.id, vt.x, vt.y, { ban: !!m.b });
         if (m.k === 'freeze' || m.k === 'thaw') { if (vt) vt.frozen = m.k === 'freeze'; if (near) sfx('ice'); }
         else if (near) {
           sfx(m.k === 'smite' ? 'smite' : m.k === 'slam' ? 'slam' : 'warp');

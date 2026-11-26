@@ -188,6 +188,39 @@
     });
   }
 
+  // ================================================================ swing the hammer at someone in the world: ban or smite
+  var pick = null;
+  function closePick() { if (pick && pick.parentNode) pick.parentNode.removeChild(pick); pick = null; }
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && pick) { closePick(); e.stopPropagation(); } }, true);
+  SC.hammerPick = function (p) {
+    if (!allowed() || !p) return; closePick();
+    var d = document.createElement('div'); d.className = 'hpick'; pick = d;
+    d.innerHTML = '<div class="hp-t">🔨 ' + esc(p.nick) + '</div><div class="hp-s">Swing the hammer. What happens to them?</div><div class="hp-row" id="hpRow"></div><div class="hp-row" id="hpBan"></div><label class="hp-r">Reason<select id="hpWhy"></select></label>';
+    document.body.appendChild(d);
+    var whys = ['Breaking the rules', 'Cheating', 'Harassing players', 'Spam', 'Exploiting a bug'], sel = d.querySelector('#hpWhy');
+    whys.forEach(function (w) { var o = document.createElement('option'); o.textContent = w; sel.appendChild(o); }); noKeys(sel);
+    function done() { closePick(); }
+    var row = d.querySelector('#hpRow'), bans = d.querySelector('#hpBan');
+    var sm = document.createElement('button'); sm.className = 'btn dark small'; sm.textContent = '⚡ Smite (kick for 1 min)';
+    sm.onclick = function () { net({ op: 'smite', id: p.id }); done(); };
+    var cn = document.createElement('button'); cn.className = 'btn small'; cn.textContent = 'Cancel'; cn.onclick = done;
+    row.appendChild(sm); row.appendChild(cn);
+    [['Ban 1 hour', 60], ['Ban 1 day', 1440], ['Ban 7 days', 10080], ['Ban forever', 0]].forEach(function (b) {
+      var x = document.createElement('button'); x.className = 'btn red small'; x.textContent = '🔨 ' + b[0];
+      x.onclick = function () {
+        x.disabled = true;
+        staff({ action: 'player.ban', username: p.nick, minutes: b[1], reason: sel.value }).then(function (r) {
+          if (r && r.ok) { net({ op: 'smite', id: p.id, ban: 1 }); SC.toast('🔨 ' + p.nick + ' banned (' + b[0].toLowerCase().replace('ban ', '') + ')'); }
+          else if (r && r.error === 'no-account') { net({ op: 'smite', id: p.id }); SC.toast(p.nick + ' has no account to ban, so they were smitten instead.'); }
+          else SC.toast(say(r));
+          done();
+        });
+      };
+      bans.appendChild(x);
+    });
+    var iv = setInterval(function () { if (!pick || pick !== d) { clearInterval(iv); return; } if (!(W().players && W().players()[p.id])) done(); }, 500);
+  };
+
   var prev = SC.games && SC.games.open;
   if (SC.games) SC.games.open = function (kind) {
     if (prev) prev(kind);

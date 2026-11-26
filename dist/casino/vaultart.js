@@ -154,39 +154,37 @@
   };
 
   // ================================================================ Owner Vault objects
-  // The grate in the doorway between The Vault and the Owner Vault: it slides up into the wall when an owner walks up.
-  O.vgate = function (c, o, t) {
-    var x = o.x, y = o.y, G = SC.vault.gate, open = ease(G.open), mine = !!SC.vault.own, moving = G.open > 0.02 && G.open < 0.98;
-    c.fillStyle = '#0a0409'; c.fillRect(x - 24, y - 96, 48, 192);
-    c.fillStyle = 'rgba(255,59,92,.16)'; c.fillRect(x - 24, y - 96, 48, 192);
-    c.save(); c.beginPath(); c.rect(x - 24, y - 96, 48, 192); c.clip();
-    var off = -open * 196;
-    if (open < 0.99) {
-      c.translate(0, off);
-      var ay = y - 96;
-      rr(c, x - 22, ay + 2, 44, 188, 4); fs(c, '#2b2432', OL, 3);
-      for (var k = 0; k < 15; k++) { var yy = ay + 8 + k * 12.4; c.fillStyle = '#4a4356'; c.fillRect(x - 21, yy, 42, 6); c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(x - 21, yy, 42, 1.5); c.fillStyle = 'rgba(255,59,92,' + (0.35 + 0.25 * Math.sin(t * 3 + k)) + ')'; c.fillRect(x - 21, yy + 7, 42, 3); }
-      c.fillStyle = '#d4a63a'; c.fillRect(x - 22, ay + 2, 5, 188); c.fillRect(x + 17, ay + 2, 5, 188);
-      circ(c, x, ay + 96, 15); fs(c, '#d4a63a', OL, 3.5); circ(c, x, ay + 96, 10); fs(c, '#1b0b12', OL, 2);
-      c.fillStyle = mine ? '#2bd576' : (Math.sin(t * 4) > 0 ? '#ff3b5c' : '#8a1a2b'); circ(c, x, ay + 96, 5); c.fill();
+  // The hatch in the floor of The Vault: the only part of the Owner Vault anyone else can see. It slides open for an owner.
+  O.vhatch = function (c, o, t) {
+    var x = o.x, y = o.y, G = SC.vault.gate, open = ease(G.open), mine = !!SC.vault.own, W = 66, H = 40;
+    c.fillStyle = 'rgba(10,6,30,.3)'; rr(c, x - W / 2 - 8, y - H / 2 - 5, W + 16, H + 14, 8); c.fill();
+    rr(c, x - W / 2 - 8, y - H / 2 - 8, W + 16, H + 16, 8); fs(c, '#2b2432', OL, 3);
+    c.fillStyle = '#d4a63a'; [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (k) { circ(c, x + k[0] * (W / 2 + 1), y + k[1] * (H / 2 + 1), 2.2); c.fill(); });
+    // the shaft
+    c.fillStyle = '#050207'; c.fillRect(x - W / 2, y - H / 2, W, H);
+    if (open > 0.02) {
+      var g = c.createLinearGradient(0, y - H / 2, 0, y + H / 2); g.addColorStop(0, 'rgba(255,59,92,.55)'); g.addColorStop(1, 'rgba(120,10,30,.15)'); c.fillStyle = g; c.fillRect(x - W / 2, y - H / 2, W, H);
+      c.strokeStyle = 'rgba(255,209,102,.8)'; c.lineWidth = 2.5; [-12, -2, 8].forEach(function (dy) { c.beginPath(); c.moveTo(x - 14, y + dy); c.lineTo(x + 14, y + dy); c.stroke(); });
     }
+    c.save(); c.beginPath(); c.rect(x - W / 2, y - H / 2, W, H); c.clip();
+    [-1, 1].forEach(function (k) {   // two plates slide apart
+      var px = x + k * (W / 4) + k * open * (W / 2 + 2); rr(c, px - W / 4, y - H / 2 + 1, W / 2 - 1, H - 2, 3); fs(c, '#4a4356', OL, 2.5);
+      c.fillStyle = '#2b2432'; for (var i = 0; i < 4; i++) c.fillRect(px - W / 4 + 3, y - H / 2 + 6 + i * 9, W / 2 - 7, 3);
+      c.fillStyle = 'rgba(255,255,255,.2)'; c.fillRect(px - W / 4 + 3, y - H / 2 + 4, W / 2 - 7, 1.5);
+    });
     c.restore();
-    // frame: gold posts at both ends of the opening
-    [-1, 1].forEach(function (s) { var py = y + s * 96; rr(c, x - 29, py - (s < 0 ? 18 : 2), 58, 20, 5); fs(c, '#3a2230', OL, 3); c.fillStyle = '#d4a63a'; c.fillRect(x - 25, py - (s < 0 ? 15 : -1), 50, 3); c.fillStyle = moving || (open < 0.1 && !mine) ? (Math.sin(t * 8) > 0 ? '#ff3b5c' : '#5a0f1c') : '#2bd576'; circ(c, x, py - (s < 0 ? 8 : 8) + (s < 0 ? 0 : 0), 4.2); c.fill(); });
-    if (open > 0.4 && !mine) {   // the doorway is open for the owner, but not for you
-      c.save(); c.beginPath(); c.rect(x - 22, y - 94, 44, 188); c.clip();
-      for (var s2 = 0; s2 < 10; s2++) { var yy2 = (y - 94) + ((s2 * 22 + t * 60) % 200); c.fillStyle = 'rgba(255,59,92,' + (0.16 + 0.1 * Math.sin(t * 6 + s2)) + ')'; c.fillRect(x - 22, yy2, 44, 8); }
-      c.strokeStyle = 'rgba(255,120,140,.8)'; c.lineWidth = 2; c.strokeRect(x - 20, y - 92, 40, 184);
-      c.restore();
-    }
-    if (moving) { c.fillStyle = '#ffd166'; for (var q = 0; q < 5; q++) { circ(c, x + (Math.random() - 0.5) * 40, y - 96 + Math.random() * 190, 1.4 + Math.random() * 1.2); c.fill(); } }
-    glow(c, x, y, 120, '255,59,92', open < 0.5 ? 0.16 : 0.1);
-    // floor lettering on the Vault side of the grate
-    c.save(); c.globalAlpha = 0.65 + 0.3 * Math.sin(t * 2.2);
-    A.label(c, '🔒', x - 88, y - 18, { size: 22, stroke: false });
-    A.label(c, 'OWNERS ONLY', x - 88, y + 10, { size: 12, color: '#ff6b81', glow: '#ff3b5c', blur: 8, lw: 3 });
-    c.restore();
-    c.fillStyle = 'rgba(255,209,102,.8)'; for (var h = 0; h < 6; h++) { c.save(); c.translate(x - 54 + h * 6, y + 40); c.rotate(0.6); c.fillRect(0, 0, 3, 18); c.restore(); }
+    if (open < 0.99) { c.fillStyle = 'rgba(255,59,92,' + (0.35 + 0.3 * Math.sin(t * 2.4)) + ')'; c.fillRect(x - 1.5, y - H / 2 + 2, 3, H - 4); circ(c, x, y, 6.5); fs(c, '#d4a63a', OL, 2); circ(c, x, y, 2.5); c.fillStyle = mine ? '#2bd576' : '#ff3b5c'; c.fill(); }
+    if (open > 0.05) { glow(c, x, y - 14, 90, '255,59,92', 0.38 * open); for (var q = 0; q < 4; q++) { var a = (t * 0.8 + q * 0.25) % 1; c.fillStyle = 'rgba(255,200,160,' + (1 - a) * open + ')'; c.fillRect(x - 20 + q * 13, y - a * 46, 2, 7); } }
+    else glow(c, x, y, 40, '255,59,92', 0.08);
+  };
+  O.vladder = function (c, o, t) {   // the way back up, inside the vault
+    var x = o.x, y = o.y;
+    c.save(); var g = c.createLinearGradient(0, y - 150, 0, y); g.addColorStop(0, 'rgba(255,240,200,0)'); g.addColorStop(1, 'rgba(255,240,200,.28)'); c.fillStyle = g; c.beginPath(); c.moveTo(x - 24, y); c.lineTo(x - 40, y - 150); c.lineTo(x + 40, y - 150); c.lineTo(x + 24, y); c.closePath(); c.fill(); c.restore();
+    ell(c, x, y, 46, 18); fs(c, '#2a2030', 'rgba(255,209,102,.85)', 3); ell(c, x, y, 34, 12); fs(c, '#0b0610', OL, 2);
+    c.strokeStyle = '#d4a63a'; c.lineWidth = 3; [-18, 18].forEach(function (dx) { c.beginPath(); c.moveTo(x + dx, y); c.lineTo(x + dx * 0.8, y - 70); c.stroke(); });
+    c.lineWidth = 2.5; for (var i = 1; i < 5; i++) { c.beginPath(); c.moveTo(x - 17 * (1 - i * 0.04), y - i * 15); c.lineTo(x + 17 * (1 - i * 0.04), y - i * 15); c.stroke(); }
+    glow(c, x, y - 40, 80, '255,235,190', 0.22);
+    A.neon(c, 'CLIMB OUT', x, y - 100, '#ffd166', 12, t, 4);
   };
 
   O.hammer = function (c, o, t) {
@@ -216,7 +214,7 @@
     c.restore();
     rr(c, x - 32, y - 16, 64, 9, 3); fs(c, '#3b3158', OL, 2);
     glow(c, x, y - 70, 74, '92,242,255', 0.16);
-    A.neon(c, 'MOD MENU', x, y - 128, '#5cf2ff', 15, t, 5);
+    A.neon(c, o.title || 'MOD MENU', x, y - 128, '#5cf2ff', 15, t, 5);
   };
 
   O.rigcon = function (c, o, t) {   // the treasury: a chest of gold. Opens the Rig Console.
@@ -228,8 +226,9 @@
     for (var i = 0; i < 12; i++) { var cx = x - 40 + (i * 37 % 80), cy = y - 46 - ((i * 13) % 14); circ(c, cx, cy, 6); fs(c, i % 2 ? '#ffd166' : '#ffb703', OL, 1.5); c.fillStyle = 'rgba(255,255,255,.5)'; c.fillRect(cx - 2, cy - 3, 2, 3); }
     for (var s = 0; s < 4; s++) { var a = (t * 0.9 + s * 0.27) % 1; c.fillStyle = 'rgba(255,255,255,' + (1 - a) + ')'; var sx = x - 38 + s * 25, sy = y - 62 - a * 24; c.fillRect(sx - 1, sy - 5, 2, 10); c.fillRect(sx - 5, sy - 1, 10, 2); }
     glow(c, x, y - 60, 92, '255,200,80', 0.26 + 0.06 * Math.sin(t * 3));
-    A.neon(c, 'RIG CONSOLE', x, y - 112, '#ffd166', 14, t, 7);
+    A.neon(c, o.title || 'RIG CONSOLE', x, y - 112, '#ffd166', 14, t, 7);
   };
+  O.chest = O.rigcon;
 
   O.podium = function (c, o, t) {
     var x = o.x, y = o.y;
@@ -267,17 +266,18 @@
     glow(c, x, y - 44, 86, '255,140,40', 0.26 + Math.sin(t * 9 + x) * 0.04);
   };
 
-  O.vrune = function (c, o, t) {   // crimson runner from the grate to the hammer, and a sigil under it
-    var x = o.x, y = o.y, r = 124;
-    rr(c, 2880, y - 28, x - 2880, 56, 4); c.fillStyle = 'rgba(122,20,36,.9)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.75)'; c.lineWidth = 3; c.stroke();
-    c.fillStyle = 'rgba(255,209,102,.5)'; for (var i = 0; i < 6; i++) { c.beginPath(); var rx = 2900 + i * ((x - 2960) / 5); c.moveTo(rx, y); c.lineTo(rx + 7, y - 7); c.lineTo(rx + 14, y); c.lineTo(rx + 7, y + 7); c.closePath(); c.fill(); }
+  O.vrune = function (c, o, t) {   // crimson runner from the ladder down to the hammer, with a sigil under the hammer
+    var x = o.x, y = o.y, r = o.r || 124, len = o.len || 300;
+    rr(c, x - 28, y - len, 56, len, 4); c.fillStyle = 'rgba(122,20,36,.92)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.75)'; c.lineWidth = 3; c.stroke();
+    c.fillStyle = 'rgba(255,209,102,.5)'; for (var i = 0; i < 12; i++) { var ry = y - len + 30 + i * ((len - 140) / 11); c.beginPath(); c.moveTo(x, ry - 7); c.lineTo(x + 7, ry); c.lineTo(x, ry + 7); c.lineTo(x - 7, ry); c.closePath(); c.fill(); }
     c.save(); c.translate(x, y); c.scale(1, 0.62);
-    circ(c, 0, 0, r); c.fillStyle = 'rgba(70,8,22,.8)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.8)'; c.lineWidth = 4; c.stroke();
+    circ(c, 0, 0, r); c.fillStyle = 'rgba(70,8,22,.85)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.8)'; c.lineWidth = 4; c.stroke();
     circ(c, 0, 0, r - 14); c.strokeStyle = 'rgba(255,59,92,.55)'; c.lineWidth = 2; c.setLineDash([10, 8]); c.lineDashOffset = -t * 30; c.stroke(); c.setLineDash([]);
+    circ(c, 0, 0, r * 0.45); c.strokeStyle = 'rgba(255,209,102,.4)'; c.lineWidth = 2; c.stroke();
     c.rotate(t * 0.25); c.strokeStyle = 'rgba(255,209,102,.6)'; c.lineWidth = 2.5; c.beginPath();
     for (var k = 0; k < 5; k++) { var a = k * TAU * 2 / 5 - Math.PI / 2; c[k ? 'lineTo' : 'moveTo'](Math.cos(a) * (r - 24), Math.sin(a) * (r - 24)); } c.closePath(); c.stroke();
     c.restore();
-    glow(c, x, y, 150, '255,59,92', 0.14 + 0.04 * Math.sin(t * 2));
+    glow(c, x, y, r + 40, '255,59,92', 0.14 + 0.04 * Math.sin(t * 2));
   };
 
   O.vbanner = function (c, o, t) {
@@ -291,31 +291,43 @@
   // ================================================================ world effects (positions follow the player they belong to)
   var list = [];
   SC.vfx = {
-    add: function (k, id, x, y) { list.push({ k: k, id: id, x: x, y: y, at: performance.now() / 1000 }); },
+    add: function (k, id, x, y, opt) { list.push({ k: k, id: id, x: x, y: y, at: performance.now() / 1000, ban: !!(opt && opt.ban) }); },
     draw: function (c, who, dt) {
       var now = performance.now() / 1000;
       for (var i = list.length - 1; i >= 0; i--) {
-        var f = list[i], age = now - f.at, life = f.k === 'smite' ? 2.2 : f.k === 'slam' ? 0.9 : f.k === 'warp' ? 1 : 0.8;
+        var f = list[i], age = now - f.at, life = f.k === 'smite' ? (f.ban ? 2.5 : 2.6) : f.k === 'slam' ? 0.9 : f.k === 'warp' ? 1 : 0.8;
         if (age > life) { list.splice(i, 1); continue; }
         var w = who(f.id); if (w) { f.x = w.x; f.y = w.y; }
         var x = f.x, y = f.y;
         if (f.k === 'smite') {
-          if (age < 1.0) {   // a red target closes in
-            var q = age / 1.0; c.strokeStyle = 'rgba(255,59,92,' + (0.4 + 0.5 * q) + ')'; c.lineWidth = 3; ell(c, x, y, 62 - q * 34, 26 - q * 14); c.stroke(); ell(c, x, y, 14, 6); c.stroke();
-            c.fillStyle = 'rgba(255,59,92,.12)'; ell(c, x, y, 62 - q * 34, 26 - q * 14); c.fill();
-            A.label(c, '⚡', x, y - 86 - Math.sin(age * 12) * 3, { size: 24, stroke: false });
-          } else if (age < 1.5) {
-            var b = age - 1.0, seed = Math.floor(b * 24);
-            c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
-            for (var pass = 0; pass < 2; pass++) {
-              c.strokeStyle = pass ? '#ffffff' : 'rgba(140,170,255,.8)'; c.lineWidth = pass ? 3 : 9; c.beginPath(); c.moveTo(x + 6, y - 520);
-              for (var s = 1; s <= 12; s++) { var jx = Math.sin(seed * 7.3 + s * 3.1) * 22; c.lineTo(x + jx * (1 - s / 12), y - 520 + s * (520 / 12)); }
-              c.stroke();
+          var ban = f.ban, hitAt = ban ? 0.6 : 1.0;
+          if (age < hitAt) {   // red target closes in; for a ban the hammer falls out of the sky
+            var q = age / hitAt; c.strokeStyle = 'rgba(255,59,92,' + (0.4 + 0.5 * q) + ')'; c.lineWidth = 3; ell(c, x, y, 62 - q * 34, 26 - q * 14); c.stroke(); ell(c, x, y, 14, 6); c.stroke();
+            c.fillStyle = 'rgba(255,59,92,.14)'; ell(c, x, y, 62 - q * 34, 26 - q * 14); c.fill();
+            if (ban) { var hy = y - 40 - (1 - q * q) * 560; glow(c, x, hy, 140, '255,59,92', 0.5); c.save(); c.translate(x, hy); c.rotate(0.12); c.scale(2.3, 2.3); hammerShape(c, true); c.restore(); }
+            else A.label(c, '⚡', x, y - 86 - Math.sin(age * 12) * 3, { size: 24, stroke: false });
+          } else {
+            var b0 = age - hitAt;
+            if (!f.hit) { f.hit = 1; f.sp = []; var pal = ban ? ['#ff3b5c', '#ffd166', '#ffffff', '#ff8a4c'] : ['#aac8ff', '#ffffff', '#ffd166', '#b185ff']; for (var n = 0; n < 60; n++) { var an = Math.random() * TAU, spd = 140 + Math.random() * 360; f.sp.push({ x: x, y: y - 20, vx: Math.cos(an) * spd, vy: Math.sin(an) * spd * 0.7 - 160, life: 0, max: 0.9 + Math.random() * 0.8, col: pal[n % pal.length], r: 2 + Math.random() * 3 }); } }
+            if (!ban && b0 < 0.5) {
+              var seed = Math.floor(b0 * 24); c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+              for (var pass = 0; pass < 2; pass++) { c.strokeStyle = pass ? '#ffffff' : 'rgba(140,170,255,.8)'; c.lineWidth = pass ? 3 : 9; c.beginPath(); c.moveTo(x + 6, y - 520); for (var s2 = 1; s2 <= 12; s2++) { var jx = Math.sin(seed * 7.3 + s2 * 3.1) * 22; c.lineTo(x + jx * (1 - s2 / 12), y - 520 + s2 * (520 / 12)); } c.stroke(); }
+              c.restore();
             }
-            c.restore();
-            glow(c, x, y - 20, 160, '170,200,255', 0.55 * (1 - b * 1.6));
-            c.strokeStyle = 'rgba(255,255,255,' + (0.8 - b) + ')'; c.lineWidth = 4; ell(c, x, y, 20 + b * 160, 8 + b * 64); c.stroke();
-          } else { c.fillStyle = 'rgba(0,0,0,' + (0.5 * (1 - (age - 1.5) / 0.7)) + ')'; ell(c, x, y, 26, 10); c.fill(); }
+            glow(c, x, y - 20, 170, ban ? '255,80,100' : '170,200,255', Math.max(0, 0.6 * (1 - b0 * 1.4)));
+            c.strokeStyle = ban ? 'rgba(255,209,102,' + Math.max(0, 0.9 - b0) + ')' : 'rgba(255,255,255,' + Math.max(0, 0.8 - b0) + ')'; c.lineWidth = 5; ell(c, x, y, 20 + b0 * 220, 8 + b0 * 88); c.stroke();
+            c.strokeStyle = 'rgba(255,59,92,' + Math.max(0, 0.7 - b0) + ')'; c.lineWidth = 3; ell(c, x, y, 10 + b0 * 140, 4 + b0 * 56); c.stroke();
+            if (b0 < 1.5) {   // the big stamp
+              var sc = b0 < 0.14 ? 2.6 - (b0 / 0.14) * 1.6 : 1 + Math.sin(b0 * 9) * 0.03, al = b0 > 1.2 ? Math.max(0, 1 - (b0 - 1.2) / 0.3) : 1, txt = ban ? 'BANNED' : 'SMITTEN';
+              c.save(); c.globalAlpha = al; c.translate(x, y - 120 - b0 * 14); c.rotate(-0.08); c.scale(sc, sc);
+              c.font = '900 50px Fredoka, system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+              c.shadowColor = ban ? '#ff3b5c' : '#8fb4ff'; c.shadowBlur = 24; c.strokeStyle = '#12040a'; c.lineWidth = 11; c.strokeText(txt, 0, 0); c.shadowBlur = 0;
+              var tg = c.createLinearGradient(0, -26, 0, 26); tg.addColorStop(0, ban ? '#ff7a8a' : '#ffffff'); tg.addColorStop(1, ban ? '#d4132f' : '#8fb4ff'); c.fillStyle = tg; c.fillText(txt, 0, 0);
+              c.restore();
+            }
+            if (b0 > 1.2) { c.fillStyle = 'rgba(0,0,0,' + (0.5 * Math.max(0, 1 - (b0 - 1.2) / 0.6)) + ')'; ell(c, x, y, 26, 10); c.fill(); }
+          }
+          if (f.sp) for (var u = f.sp.length - 1; u >= 0; u--) { var pp = f.sp[u]; pp.life += dt; if (pp.life > pp.max) { f.sp.splice(u, 1); continue; } pp.vy += 380 * dt; pp.vx *= 0.97; pp.x += pp.vx * dt; pp.y += pp.vy * dt; c.globalAlpha = 1 - pp.life / pp.max; c.fillStyle = pp.col; c.beginPath(); c.arc(pp.x, pp.y, pp.r, 0, TAU); c.fill(); c.globalAlpha = 1; }
         } else if (f.k === 'slam') {
           var p = age / life; c.strokeStyle = 'rgba(255,209,102,' + (1 - p) + ')'; c.lineWidth = 5 * (1 - p) + 1; ell(c, x, y, 20 + p * 170, 8 + p * 68); c.stroke();
           c.strokeStyle = 'rgba(255,59,92,' + (0.8 - p) + ')'; ell(c, x, y, 10 + p * 110, 4 + p * 44); c.stroke();
