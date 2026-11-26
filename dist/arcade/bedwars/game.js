@@ -119,7 +119,7 @@
     if (t === 'slow') { S.slowUntil = now() + m.ms; toast('You triggered a trap!', 2200); return; }
     if (t === 'fix') { setTileLocal(m.i, m.f, m.fc, m.w, m.wc, true); return; }
     if (t === 'buy') return onBuy(m);
-    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; S.squiz = m.squiz !== false; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('Welcome! Click Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; ownerSync(); helloArrived(); testFromBuilder(); return; }
+    if (t === 'hello') { S.hello = m; S.myCid = m.cid || ''; if (m.season !== undefined && (m.season || '') !== S.season) applySeason(m.season); S.school = !!m.school; S.gamble = !!m.gamble; S.squiz = m.squiz !== false; document.body.classList.toggle('school', S.school); $('schoolTag').classList.toggle('hidden', !S.school); S.qc = m.qc || []; if (m.elo != null) S.myElo = m.elo; if (m.stats) S.mystats = m.stats; S.owner = !!m.owner; S.teacher = !!m.teacher; if (S.teacher && !S.owner && /teacher=1/.test(location.search)) setTimeout(function () { toast('Welcome! Click Teacher (top right) to start votes, ask the class questions and see scores.', 6000); }, 1500); S.mapper = !!m.mapper; S.motd = m.motd || ''; S.x2 = !!m.x2; S.hubfx = m.hubfx !== false; hubFxSync(); ownerSync(); helloArrived(); testFromBuilder(); return; }
     if (t === 'adminfo') { S.adm = m; renderAdmin(); return; }
     if (t === 'admres') { toast((m.ok ? '' : '') + m.msg, 2200); SC.sfx(m.ok ? 'pop' : 'no'); if ($('mAdmin') && !$('mAdmin').classList.contains('hidden')) send({ t: 'adm', a: 'info' }); return; }
     if (t === 'ann') { banner('' + esc(m.from || 'Owner'), esc(m.text), '#ffd166'); SC.sfx('level'); return; }
@@ -127,6 +127,7 @@
     if (t === 'goat') { S.goAt = m.goAt; lastTimerS = -1; return; }
     if (t === 'join') { if (S.screen === 'game' && m.ent && !S.ents.has(m.ent.id)) { S.ents.set(m.ent.id, mkEnt(m.ent)); feed('' + nameHtml(S.ents.get(m.ent.id)) + ' joined the match'); } return; }
     if (t === 'frozen') { S.frozen = !!m.on; toast(m.on ? 'An owner froze you' : 'You can move again', 2000); return; }
+    if (t === 'hubfx') { S.hubfx = !!m.on; hubFxSync(); toast(m.on ? 'Hub builds and floating text are back on' : 'Hub builds and floating text were turned off', 2600); return; }
     if (t === 'motd') { S.motd = m.text; if (m.text) banner('' + esc(m.text), '', '#ffd166'); updateOnline(); return; }
     if (t === 'z') { if (P) { P.z = m.z; P.falling = 0; P.vx = P.vy = 0; if (m.x != null) { P.x = m.x; P.y = m.y; } } var mz = S.ents.get(S.myId); if (mz) mz.z = m.z; D.burst('dust', P.x, P.y, 10); S.shake = Math.max(S.shake, 6); SC.sfx('place'); toast('Floor ' + (m.z + 1) + ' of ' + MG.SP_LAYERS + (m.z === MG.SP_LAYERS - 1 ? ' — the LAST one!' : ''), 1500); return; }
     if (t === 'role') { S.team = m.role; var mr = S.ents.get(S.myId); if (mr) { mr.team = m.role; mr.prop = ''; } S.held = 'sword'; renderHotbar(); mgHudInit(); banner('YOU’RE A SEEKER NOW', 'Find the hiders that are left!', '#ff5c6c'); tutStart(); return; }
@@ -302,7 +303,7 @@
     S.spaceKind = m.kind; S.myId = m.you; S.team = -1; S.ended = null; S.dead = S.elim = false; S.held = 'sword'; S.sword = 1; S.armor = 1;
     S.ents = new Map(); S.projs = new Map(); S.tnts = new Map(); S.cracks = {}; S.placeAnim = {}; S.slashes = []; S.gens = []; S.teams = []; trails.length = 0; D.parts.length = 0;
     offset = m.now - Date.now(); bestRtt = 1e9;
-    if (m.lb) S.lb = m.lb; if (m.stats) S.mystats = m.stats; if (m.online) S.online = m.online; if (m.qc) S.qc = m.qc; if (m.motd != null) S.motd = m.motd; if (m.x2 != null) S.x2 = m.x2;
+    if (m.lb) S.lb = m.lb; if (m.stats) S.mystats = m.stats; if (m.online) S.online = m.online; if (m.qc) S.qc = m.qc; if (m.motd != null) S.motd = m.motd; if (m.x2 != null) S.x2 = m.x2; if (m.hubfx != null) { S.hubfx = m.hubfx !== false; hubFxSync(); }
     S.room = m.room; if (S.room) S.room._at = Date.now();
     m.players.forEach(addSpacePlayer);
     P = newBody(m.x, m.y);
@@ -1492,7 +1493,7 @@
     c.textBaseline = 'alphabetic';
   }
   // ---------------------------------------------------------------- HOLIDAY SEASON
-  function hubGen() { var m = B.genHub({ lite: !hubFxOn() }); if (B.SEASONS[S.season]) B.addSeason(m, S.season); return m; }
+  function hubGen() { S.hubMapFx = hubFxOn(); var m = B.genHub({ lite: !S.hubMapFx }); if (B.SEASONS[S.season]) B.addSeason(m, S.season); return m; }
   function applySeason(v) {
     S.season = v || ''; D.season = S.season; A.season = S.season; document.body.classList.toggle('xmas', !!S.season); SNOW.length = 0;
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks();
@@ -1611,16 +1612,14 @@
 
   // ------------------------------------------------------------------ hub extras: holograms, stars, fishing
   var HUBX = D.hub || {};
-  function hubFxOn() { try { return localStorage.getItem('sh_hubfx') !== '0'; } catch (e) { return true; } }
-  function hubFxPaint() { var b = $('hubFx'); if (!b) return; b.classList.toggle('off', !hubFxOn()); b.title = hubFxOn() ? 'Hub builds and floating text: ON (click to turn off)' : 'Hub builds and floating text: OFF (click to turn on)'; }
-  function hubFxToggle() {
-    var on = !hubFxOn(); try { localStorage.setItem('sh_hubfx', on ? '1' : '0'); } catch (e) {}
+  // The owner switches the hub builds and floating text on or off for everyone from the admin panel (Hub extras card).
+  function hubFxOn() { return S.hubfx !== false; }
+  function hubFxSync() {
+    var on = hubFxOn(); if (S.hubMapFx === on) return;
     var wasHub = S.hubMap && S.map === S.hubMap; S.hubMap = null; if (D.resetChunks) D.resetChunks(); S.fishing = null;
-    if (wasHub) { B.setDims(B.HUB_W, B.HUB_W); S.hubMap = hubGen(); S.map = S.hubMap; if (P && B.solidAt(S.map, Math.floor(P.x / T), Math.floor(P.y / T))) { P.x = B.HUB_SPAWN.x; P.y = B.HUB_SPAWN.y; } }
     if (!on && S.tut && S.tut.key === 'hub') { S.tut = null; $('tutor').classList.add('hidden'); }
-    hubFxPaint(); toast(on ? 'Hub builds and floating text: ON' : 'Hub builds and floating text: OFF', 1800);
+    if (wasHub) { B.setDims(B.HUB_W, B.HUB_W); S.hubMap = hubGen(); S.map = S.hubMap; if (P && B.solidAt(S.map, Math.floor(P.x / T), Math.floor(P.y / T))) { P.x = B.HUB_SPAWN.x; P.y = B.HUB_SPAWN.y; } }
   }
-  if ($('hubFx')) { $('hubFx').onclick = hubFxToggle; hubFxPaint(); }
   function lsGet(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   var starsGot = lsGet('sh_stars', []), fishBook = lsGet('sh_fish', {});
@@ -2469,6 +2468,7 @@
       var st = d.settings || {};
       var num = function (k, label, unit) { return '<div class="admrow"><span class="lbl" style="min-width:150px">' + label + '</span><input class="admin-in" data-set="' + k + '" type="number" value="' + esc(st[k]) + '" style="max-width:90px;min-width:70px"><span style="color:var(--mut);font-size:12px">' + (unit || '') + '</span></div>'; };
       html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-sparkles"/></svg> Double Scrolls event ' + (d.x2Left ? '<span class="tag2" style="background:#2bd576;color:#05240f">ON · ' + Math.ceil(d.x2Left / 60000) + ' min left</span>' : '') + '</div><div class="admrow">' + ab('30 min', { act: 'double', mins: 30 }, 'gold') + ab('1 hour', { act: 'double', mins: 60 }, 'gold') + ab('3 hours', { act: 'double', mins: 180 }, 'gold') + (d.x2Left ? ab('Stop', { act: 'double', mins: 0 }, 'red') : '') + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Every game pays 2× Scrolls while it’s on. Everyone gets an announcement.</div></div>';
+      html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-sparkles"/></svg> Hub builds and floating text ' + (st.hubFx === 0 ? '<span class="tag2">Off</span>' : '<span class="tag2" style="background:#2bd576;color:#05240f">ON</span>') + '</div><div class="admrow">' + ab('On', { act: 'setting', k: 'hubFx', v: 1 }, st.hubFx === 0 ? '' : 'green') + ab('Off', { act: 'setting', k: 'hubFx', v: 0 }, st.hubFx === 0 ? 'red' : '') + '</div><div style="color:var(--mut);font-size:12px;margin-top:6px">Castle, villages, regions, floating text, stars and fishing in the Games hub. Switching it changes the hub for everyone right away. Only you can change this.</div></div>';
       html += '<div class="admcard"><div class="admhead">Hub message (shows at the top of the hub)</div><div class="admrow"><input class="admin-in" id="admMotd" maxlength="120" placeholder="e.g. Tournament at 7pm!" value="' + esc(S.admMotdDraft != null ? S.admMotdDraft : st.motd || '') + '">' + ab('Set', { act: 'setting', k: 'motd' }, 'gold') + ab('Clear', { act: 'setting', k: 'motd', v: '' }) + '</div></div>';
       html += '<div class="admcard"><div class="admhead"><svg class="ui-i" aria-hidden="true"><use href="#ui-gamepad-2"/></svg> Game settings <span class="tag2">new matches</span></div>' + num('ctfCaps', 'CTF captures to win', 'captures') + num('ctfMins', 'CTF time limit', 'minutes') + num('hideSec', 'Prop Hunt hiding time', 'seconds') + num('seekSec', 'Prop Hunt seeking time', 'seconds') + num('spleefMins', 'Spleef sudden death after', 'minutes') +
         '<div class="admrow"><span class="lbl" style="min-width:150px"><svg class="ui-i" aria-hidden="true"><use href="#ui-bot"/></svg> Quick-play bots</span>' + ['easy', 'normal', 'hard'].map(function (v) { return ab(v[0].toUpperCase() + v.slice(1), { act: 'setting', k: 'publicDiff', v: v }, st.publicDiff === v ? 'gold' : ''); }).join('') + '</div><div class="admrow">' + ab('Save numbers', { act: 'saveset' }, 'green') + '</div></div>';

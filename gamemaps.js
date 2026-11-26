@@ -13,7 +13,7 @@ const KEY = 'sh:gamemaps';
 const GAMES = ['bw', 'ctf', 'spleef', 'hide'];
 export const MAPPER = 'scrollreader11';           // the only account that can make maps
 
-export const DEFAULT_SETTINGS = { ctfCaps: 3, ctfMins: 8, hideSec: 30, seekSec: 180, spleefMins: 4, publicDiff: 'normal', motd: '', doubleUntil: 0 };
+export const DEFAULT_SETTINGS = { ctfCaps: 3, ctfMins: 8, hideSec: 30, seekSec: 180, spleefMins: 4, publicDiff: 'normal', motd: '', doubleUntil: 0, hubFx: 1 };
 export const store = { maps: {}, rot: {}, settings: { ...DEFAULT_SETTINGS }, bans: {}, logs: [], elo: {}, gstats: {} };
 GAMES.forEach((g) => { store.rot[g] = { def: true, ids: [] }; });
 
@@ -57,6 +57,7 @@ const LIMITS = { ctfCaps: [1, 10], ctfMins: [2, 20], hideSec: [10, 90], seekSec:
 export function setSetting(k, v) {
   if (k === 'publicDiff') { if (['easy', 'normal', 'hard'].includes(v)) store.settings.publicDiff = v; else return false; }
   else if (k === 'motd') store.settings.motd = String(v || '').slice(0, 120);
+  else if (k === 'hubFx') store.settings.hubFx = (v === 1 || v === '1' || v === true) ? 1 : 0;
   else if (LIMITS[k]) { const n = Math.round(Number(v)); if (!Number.isFinite(n)) return false; store.settings[k] = Math.max(LIMITS[k][0], Math.min(LIMITS[k][1], n)); }
   else return false;
   applySettings(); save(); return true;

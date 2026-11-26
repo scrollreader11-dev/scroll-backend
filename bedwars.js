@@ -107,7 +107,7 @@ function enterSpace(c, sp, x, y) {
   send(c, {
     t: 'space', kind: sp.kind, you: c.pid, x: Math.round(c.sx), y: Math.round(c.sy), now: Date.now(),
     players: [...sp.conns].map((o) => ({ id: o.pid, nick: o.nick, look: o.look, x: Math.round(o.sx), y: Math.round(o.sy), team: spaceTeam(o) })),
-    room: sp.room ? roomInfo(sp.room, c) : null, lb: sp.kind === 'hub' ? bwLeaderboard() : null, online: lobbyList(), stats: bwStats(c.cid), qc: BW_QC, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1,
+    room: sp.room ? roomInfo(sp.room, c) : null, lb: sp.kind === 'hub' ? bwLeaderboard() : null, online: lobbyList(), stats: bwStats(c.cid), qc: BW_QC, motd: GMS.store.settings.motd, hubfx: GMS.store.settings.hubFx !== 0, x2: GMS.rewardMult() > 1,
   });
   sp.events.push(['pj', c.pid, c.nick, c.look, Math.round(c.sx), Math.round(c.sy), spaceTeam(c)]);
 }
@@ -1322,7 +1322,7 @@ export function handleBedwarsUpgrade(req, socket, head) {
     conns.add(c);
     for (const p of parties.values()) if (p.members.includes(cid)) { c.party = p.id; p.nicks[cid] = c.nick; }
     ws.on('pong', () => { c.alive = true; });
-    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), gamble: !!(schoolCfg() && schoolCfg().gamble), squiz: !!(schoolCfg() && schoolCfg().quiz !== false), season: seasonCfg() });
+    send(c, { t: 'hello', now: Date.now(), nick: c.nick, look: c.look, stats: bwStats(cid), online: lobbyList(), qc: BW_QC, owner: c.owner, teacher: !!c.teacher, mapper: c.mapper, motd: GMS.store.settings.motd, hubfx: GMS.store.settings.hubFx !== 0, x2: GMS.rewardMult() > 1, elo: GMS.eloOf(cid), cid, school: !!schoolCfg(), gamble: !!(schoolCfg() && schoolCfg().gamble), squiz: !!(schoolCfg() && schoolCfg().quiz !== false), season: seasonCfg() });
     setTimeout(() => { try { socialMsg(c, { t: 'soc' }, Date.now()); } catch (e) {} }, 600);
     // Rejoin a match in progress.
     if (!c.room) for (const r of rooms.values()) {
@@ -1711,7 +1711,7 @@ function adminMsg(c, m, now) {
     return ok('You joined match #' + r2.id + '.');
   }
   if (a === 'double') { const mins = clamp(Math.round(Number(m.mins) || 0), 0, 24 * 60); GMS.store.settings.doubleUntil = mins ? Date.now() + mins * 60000 : 0; GMS.save(); GMS.log('' + c.nick + (mins ? ' started 2× Scrolls for ' + mins + ' min' : ' ended 2× Scrolls')); if (mins) for (const x of conns) send(x, { t: 'ann', text: 'DOUBLE SCROLLS for the next ' + mins + ' minutes! Every game pays 2×', from: c.nick }); return ok(mins ? '2× Scrolls on for ' + mins + ' minutes.' : '2× Scrolls ended.'); }
-  if (a === 'setting') { if (!GMS.setSetting(String(m.k), m.v)) return no('Bad value.'); GMS.log('' + c.nick + ' set ' + m.k + ' = ' + m.v); if (m.k === 'motd' && m.v) for (const x of conns) send(x, { t: 'motd', text: GMS.store.settings.motd }); return ok('Saved. New matches use it.'); }
+  if (a === 'setting') { if (!GMS.setSetting(String(m.k), m.v)) return no('Bad value.'); GMS.log('' + c.nick + ' set ' + m.k + ' = ' + m.v); if (m.k === 'motd' && m.v) for (const x of conns) send(x, { t: 'motd', text: GMS.store.settings.motd }); if (m.k === 'hubFx') for (const x of conns) send(x, { t: 'hubfx', on: GMS.store.settings.hubFx !== 0 }); return ok('Saved. New matches use it.'); }
   if (a === 'endall') { let n = 0; for (const r2 of rooms.values()) if (r2.state === 'play') { endMatch(r2, -1); n++; } GMS.log('' + c.nick + ' ended all matches'); return ok('Ended ' + n + ' match(es).'); }
   if (a === 'maprot' || a === 'mapdel') {
     if (!c.mapper) return no('Only the map maker can change maps.');
