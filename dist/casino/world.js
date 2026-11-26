@@ -32,9 +32,11 @@
   fill(46, 16, 58, 28, 'a');  // Duel Arena
   fill(46, 30, 58, 42, 'w');  // Shop
   fill(60, 14, 74, 30, 'k');  // The Arcade (skill games)
+  fill(60, 2, 74, 12, 'o');   // The Owner Vault (owners only; the grate is in the doorway at x59)
   fill(14, 5, 14, 7, 'r'); fill(14, 15, 14, 18, 'c'); fill(14, 34, 14, 37, 'g'); // west doors
   fill(10, 22, 12, 22, 'l');                                                     // slots <-> lounge
   fill(45, 6, 45, 8, 'p'); fill(45, 20, 45, 23, 'a'); fill(45, 35, 45, 38, 'w'); // east doors
+  fill(59, 5, 59, 8, 'o');                                                        // the grate: Vault <-> Owner Vault
   fill(59, 20, 59, 23, 'k');                                                     // duel arena <-> arcade
   fill(51, 15, 53, 15, 'a'); fill(51, 29, 53, 29, 'w');                          // vault <-> arena <-> shop
   fill(29, 43, 30, 43, 'g');                                                     // exit
@@ -78,6 +80,12 @@
     piano: { box: [-62, -48, 62, 0], act: 'piano', label: 'Play the piano', ia: [0, 26], pr: -128, ar: 70 },
     statue: { box: [-40, -30, 40, 0] },
     easel: { box: [-32, -8, 32, 0] },
+    vgate: { layer: 'decal', box: [-24, -96, 24, 96] },
+    hammer: { box: [-32, -30, 32, 0], act: 'hammer', label: 'Grab the Ban Hammer', ia: [0, 34], pr: -176, ar: 76 },
+    modterm: { box: [-52, -26, 52, 0], act: 'modmenu', label: 'Open the Mod Menu', ia: [0, 34], pr: -136, ar: 84 },
+    rigcon: { box: [-54, -36, 54, 0], act: 'owner', label: 'Open the Rig Console', ia: [0, 34], pr: -126, ar: 84 },
+    podium: { box: [-22, -22, 22, 0], act: 'modmenu', label: 'Make an announcement', ia: [0, 30], pr: -146, ar: 66 },
+    throne: { box: [-46, -30, 46, 0] }, brazier: { box: [-14, -10, 14, 0] }, vrune: { layer: 'decal' }, vbanner: { layer: 'wall' },
     portal: { box: [-50, -22, 50, 0], act: 'arcade', label: 'Enter ScrollHub Games', ia: [0, 26], pr: -150, ar: 74 },
   };
   var OBJ = [];
@@ -172,6 +180,16 @@
   add('wardrobe', 2716, 1900);
   add('plant', 2790, 2030);
 
+  // --- The Owner Vault: the grate opens for owners only (the server also keeps everyone else out)
+  var gateObj = add('vgate', 59 * T + 24, 7 * T);
+  add('vrune', 3264, 400);
+  add('sign', 3264, 26, { text: 'OWNER VAULT', color: '#ff3b5c', size: 26, v: 14 });
+  add('vbanner', 3090, 104); add('vbanner', 3438, 104);
+  add('throne', 3264, 250);
+  add('hammer', 3264, 408);
+  add('modterm', 3060, 262); add('rigcon', 3470, 262);
+  add('podium', 3090, 560); add('brazier', 2940, 210); add('brazier', 3600, 210); add('brazier', 2940, 596); add('brazier', 3600, 596);
+
   // The Arcade board on the wall shows each game's champion; it refreshes every minute and flips pages every few seconds.
   var ARC_NAMES = [['echo', '🎵 Echo'], ['aim', '🎯 Aim'], ['mathrush', '🧮 Math'], ['trivia', '❓ Trivia'], ['colorclash', '🎨 Color'], ['pattern', '🔢 Pattern'], ['scramble', '🔤 Words']], ARC_KEY = { mathrush: 'math', colorclash: 'color' }, arcData = null, arcPage = 0;
   function arcRows() {
@@ -194,8 +212,21 @@
     } }
   })();
 
+  // ---- Owner Vault grate: slides up when an owner walks near it, stays shut for everyone else.
+  // The server also refuses to move anyone but an owner into the room, so this is only the look and the feel.
+  var GATE = SC.vault.gate, gateBox = gateObj.box.slice(), gateNear = false, gateSolid = true;
+  function gateTick(dt) {
+    var gx = gateObj.x, gy = gateObj.y, near = false, id, q;
+    if (me.own && Math.hypot(me.x - gx, me.y - gy) < 200) near = true;
+    if (!near) for (id in players) { q = players[id]; if (q.own && !q.leaving && Math.hypot(q.x - gx, q.y - gy) < 200) { near = true; break; } }
+    if (near !== gateNear) { gateNear = near; if (Math.hypot(me.x - gx, me.y - gy) < 720) sfx(near ? 'gate' : (GATE.open > 0 ? 'gateclose' : 'click')); }
+    GATE.open = clamp(GATE.open + (near ? dt / 0.9 : -dt / 1.2), 0, 1);
+    var solid = !(me.own && GATE.open > 0.7);
+    if (solid !== gateSolid) { gateSolid = solid; for (var k = 0; k < 4; k++) gateObj.box[k] = solid ? gateBox[k] : 0; for (var ty = 5; ty <= 8; ty++) BLOCK[ty][59] = solid; }
+  }
+
   // ================================================================ STATE
-  var me = { id: 0, x: 1440, y: 1824, dir: 0, mv: false, walk: 0, look: { skin: 'gim', body: '#3fa9ff' }, cos: {}, nick: '', cid: '', emote: null, busy: '', idle: 0 };
+  var me = { id: 0, x: 1440, y: 1824, dir: 0, mv: false, walk: 0, look: { skin: 'gim', body: '#3fa9ff' }, cos: {}, nick: '', cid: '', emote: null, busy: '', idle: 0, own: false, fast: false, scale: 1, frozen: false, hammer: false, drink: null };
   var players = {}, parts = [], pops = [], tnow = 0, storeById = {}, QC = [];
   SC.myId = function () { return me.id; };
   var GAME_NAME = { slots: 'Slots', blackjack: 'Blackjack', roulette: 'Roulette', dice: 'Dice', coinflip: 'Coinflip', duels: 'Duels', mines: 'Mines', plinko: 'Plinko', wheel: 'the Big Wheel', crash: 'Crash', cases: 'Cases', battles: 'Case Battles', jackpot: 'the PROGRESSIVE JACKPOT', echo: 'Echo', aim: 'Aim', mathrush: 'Math Rush', trivia: 'Trivia Run', colorclash: 'Color Clash', pattern: 'Pattern Pro', scramble: 'Word Scramble' };
@@ -401,11 +432,12 @@
         else { ix = dx / dd; iy = dy / dd; if (dd < 20) { ix *= dd / 20; iy *= dd / 20; } }
       }
     }
+    if (me.frozen) { ix = iy = 0; path = null; }
     var len = Math.hypot(ix, iy);
     me.mv = len > 0.01;
     if (me.mv) {
       if (len > 1) { ix /= len; iy /= len; }
-      var sp = SPEED * Math.min(1, joy.on ? Math.max(0.45, len) : Math.max(0.3, len));
+      var sp = SPEED * (me.fast ? 2 : 1) * Math.min(1, joy.on ? Math.max(0.45, len) : Math.max(0.3, len));
       var nx = me.x + ix * sp * dt, ny = me.y + iy * sp * dt, moved = false;
       if (!hits(nx, me.y)) { me.x = nx; moved = true; } else {
         if (!hits(nx, me.y - 6) && iy <= 0) { me.x = nx; me.y -= 6 * dt * 10; moved = true; } else if (!hits(nx, me.y + 6) && iy >= 0) { me.x = nx; me.y += 6 * dt * 10; moved = true; }
@@ -435,6 +467,7 @@
     tx = vw >= WW ? (WW - vw) / 2 : clamp(tx, 0, WW - vw); ty = vh >= WH ? (WH - vh) / 2 : clamp(ty, 0, WH - vh);
     var cf = cam._init ? Math.min(1, dt * 8) : 1; cam._init = true;
     cam.x += (tx - cam.x) * cf; cam.y += (ty - cam.y) * cf;
+    gateTick(dt);
     netTick();
     findTarget();
   }
@@ -453,7 +486,12 @@
     if (!target || panelOpen()) return;
     if (target.act === 'player') return openPanel('player', target.p);
     if (target.act === 'arcade') { sfx('open'); setTimeout(function () { location.href = '/arcade'; }, 180); return; }
-    if (target.act === 'bar') { netSend({ t: 'drink' }); sfx('drink'); return; }
+    if (target.act === 'bar') {
+      var pend = SC.bar.jobs.some(function (j) { return j.id === me.id && performance.now() - j.t0 < j.ms + 500; });
+      if (pend) { toast('Your drink is on its way'); return; }
+      netSend({ t: 'drink' }); sfx('click'); return;
+    }
+    SC.vault.tab = target.tab || '';
     if (target.act === 'piano') { var n = Math.floor(Math.random() * 15); netSend({ t: 'piano', n: n }); return; }
     openPanel(target.act, target);
   }
@@ -467,10 +505,10 @@
     keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, echo: MORE_META.echo, aim: MORE_META.aim, mathrush: MORE_META.mathrush, trivia: MORE_META.trivia, colorclash: MORE_META.colorclash, pattern: MORE_META.pattern, scramble: MORE_META.scramble, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
     leaderboard: ['🏆', 'Richest Players', 'Top balances on ScrollHub'], tournament: ['🥇', 'Weekly Tournament', 'Most Scrolls won this week'],
     atm: ['🏧', 'ATM', 'Daily Scrolls & event codes'], shop: ['🛍️', 'The Shop', 'Characters, colors, hats, trails & more'],
-    owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
+    owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], hammer: ['🔨', 'The Ban Hammer', 'Remove a player. Every ban is logged.'], modmenu: ['🛡️', 'Mod Menu', 'Players, the whole casino, and you'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
-  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G }; }, 0);
+  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G, gate: gateObj, bar: SC.bar, players: function () { return players; } }; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;
@@ -819,7 +857,7 @@
   var GLOWS = OBJ.filter(function (o) { return o.type === 'sign' || o.type === 'slot' || o.type === 'atm' || o.type === 'casebox' || o.type === 'dj' || o.type === 'plinko'; });
 
   // ================================================================ ATMOSPHERE (lights, glints, chatter, ambient sound, big-win show)
-  var LIGHT_COL = { c: '255,196,92', b: '110,150,255', g: '255,214,140', p: '176,130',  w: '255,170,90', a: '255,110,110', k: '120,255,230', l: '90,230,220', r: '255,120,200', d: '255,120,230' };
+  var LIGHT_COL = { c: '255,196,92', b: '110,150,255', g: '255,214,140', p: '176,130',  w: '255,170,90', a: '255,110,110', k: '120,255,230', o: '255,59,92', l: '90,230,220', r: '255,120,200', d: '255,120,230' };
   LIGHT_COL.p = '176,130,255';
   var lightImgs = {}, POOLS = [], BULBS = [];
   function lightImg(col) {
@@ -831,7 +869,7 @@
   (function () {   // a soft pool of coloured light every few tiles, tinted by the room it hangs in
     for (var ty = 3; ty < ROWS - 1; ty += 6) for (var tx = 3; tx < COLS - 1; tx += 6) { var ch = G[ty][tx]; if (LIGHT_COL[ch]) POOLS.push({ x: tx * T + T / 2, y: ty * T + T / 2, col: LIGHT_COL[ch], ph: (tx * 7 + ty * 3) % 10 }); }
     // chase-light strips along the top wall of each room: [x0, x1, y]
-    [[15, 44, 2], [1, 13, 2], [46, 58, 2], [46, 58, 16], [46, 58, 30], [60, 74, 14], [1, 13, 23], [15, 44, 31]].forEach(function (r) {
+    [[15, 44, 2], [1, 13, 2], [46, 58, 2], [46, 58, 16], [46, 58, 30], [60, 74, 14], [1, 13, 23], [15, 44, 31], [60, 74, 2]].forEach(function (r) {
       var y = r[2] * T - 15, n = Math.floor(((r[1] + 1 - r[0]) * T - 20) / 30);
       for (var i = 0; i <= n; i++) BULBS.push({ x: r[0] * T + 10 + i * 30, y: y, i: i });
     });
@@ -875,6 +913,7 @@
   };
   var TALK_DY = { blackjack: -178, roulette: -176, dice: -174, bar: -140, shop: -138, wheel: -242, npc: -64 }, TALKERS = [];
   OBJ.forEach(function (o) { var k = o.name && TALK[o.name] ? o.name : TALK[o.type] ? o.type : ''; if (k) { TALKERS.push({ o: o, k: k, dy: TALK_DY[o.type] != null ? TALK_DY[o.type] : -100, next: Math.random() * 6, tk: null }); } });
+  SC.bar.say = function (text, bx) { for (var i = 0; i < TALKERS.length; i++) if (TALKERS[i].o.type === 'bar') { TALKERS[i].tk = { text: text, at: tnow }; TALKERS[i].next = tnow + 20; } };
   var talkT = 0;
   function runTalkers(dt) {
     talkT += dt; if (talkT < 0.5) return; talkT = 0;
@@ -885,7 +924,7 @@
     }
   }
   function drawTalkers(vx0, vx1, vy0, vy1) {
-    for (var i = 0; i < TALKERS.length; i++) { var t = TALKERS[i]; if (!t.tk) continue; var age = tnow - t.tk.at; if (age > 4) { t.tk = null; continue; } if (t.o.x < vx0 || t.o.x > vx1 || t.o.y < vy0 || t.o.y > vy1 + 200) continue; drawBubble(ctx, t.o.x, t.o.y + t.dy, null, age, t.tk.text, 4); }
+    for (var i = 0; i < TALKERS.length; i++) { var t = TALKERS[i]; if (!t.tk) continue; var age = tnow - t.tk.at; if (age > 4) { t.tk = null; continue; } if (t.o.x < vx0 || t.o.x > vx1 || t.o.y < vy0 || t.o.y > vy1 + 200) continue; drawBubble(ctx, t.o.bx != null && t.o.type === 'bar' ? t.o.bx : t.o.x, t.o.y + t.dy, null, age, t.tk.text, 4); }
   }
 
   // Quiet sound of the floor: distant reels, the ball on the wheel, dice, arcade blips. Louder the closer you are, and it follows the mute button.
@@ -905,7 +944,7 @@
   function footstep(dt) {   // soft tick underfoot; wood and tile ring a little more than carpet
     if (!SC.sfxNoise || (SC.sfxMuted && SC.sfxMuted()) || SC.panelKind) return;
     if ((stepT += dt) < 0.3) return; stepT = 0;
-    var ch = tileAt(Math.floor(me.x / T), Math.floor((me.y - 5) / T)), hard = ch === 'w' || ch === 'a' || ch === 'g' || ch === 'k';
+    var ch = tileAt(Math.floor(me.x / T), Math.floor((me.y - 5) / T)), hard = ch === 'w' || ch === 'a' || ch === 'g' || ch === 'k' || ch === 'o';
     SC.sfxNoise(0.035, hard ? 0.05 : 0.025, 0, hard ? 1500 : 500);
   }
 
@@ -968,6 +1007,7 @@
     ents.push(me);
     ents.sort(function (a, b) { return a.y - b.y; });
     for (i = 0; i < ents.length; i++) { var e = ents[i]; if (e.type) drawObj(e); else drawPlayer(e); }
+    if (SC.vfx) SC.vfx.draw(ctx, function (id) { return id === me.id ? me : players[id]; }, dt);
     // soft additive glow on neon / machines
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16;
     for (i = 0; i < GLOWS.length; i++) { o = GLOWS[i]; if (o.x < vx0 || o.x > vx1 || o.y < vy0 || o.y > vy1) continue; var gy = o.type === 'sign' ? o.y : o.y - 70, gr = o.type === 'sign' ? 120 : 80; ctx.drawImage(glowImg, o.x - gr, gy - gr * 0.7, gr * 2, gr * 1.4); }
@@ -979,6 +1019,7 @@
     drawPrompt();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = vign; ctx.fillRect(0, 0, VW, VH);
+    if (SC.gfx) SC.gfx.draw(ctx, VW, VH, dt);
     drawFinder();
     animPreviews(tnow);
     if (now - mmLast > 250) { mmLast = now; drawMinimap(); }
@@ -1020,11 +1061,12 @@
   }
   function drawPlayer(p) {
     var isMe = p === me, blink = ((tnow + (p.blinkSeed || 0)) % 4.2) < 0.12;
-    A.drawGim(ctx, p.x, p.y, p.look, { t: tnow + (p.blinkSeed || 0), dir: p.dir, moving: isMe ? p.mv : p.moving, walk: p.walk, blink: blink, dance: p.dance, alpha: p.leaving ? Math.max(0.15, 1 - (performance.now() - p.leaving) / 2500) : null });
+    A.drawGim(ctx, p.x, p.y, p.look, { t: tnow + (p.blinkSeed || 0), dir: p.dir, moving: isMe ? p.mv : p.moving, walk: p.walk, blink: blink, dance: p.dance && !p.frozen, scale: p.scale > 1.01 || p.scale < 0.99 ? p.scale : null, alpha: p.leaving ? Math.max(0.15, 1 - (performance.now() - p.leaving) / 2500) : null });
+    if (p.hammer || p.drink || p.frozen) A.playerProps(ctx, p, tnow, p.scale);
   }
   function drawOverlay(p) {
     var L = p.look || {}, tall = { bunny: 10, alien: 6, robot: 6, unicorn: 10, mushroom: 14, knight: 8 }[L.skin] || 0;
-    var top = p.y - (L.hat ? 80 : 66) - tall;
+    var top = p.y - ((L.hat ? 80 : 66) + tall) * (p.scale || 1);
     drawNameTag(ctx, p.x, top, p.nick || '…', p.cos, tnow, 1);
     if (window.BWV && BWV.hearing && (p === me ? BWV.on && BWV.talking : BWV.isTalking(p.id))) {
       var vy = top - (p.cos && p.cos.tag ? 40 : 24), pulse = (Math.sin(tnow * 14) + 1) / 2;
@@ -1081,7 +1123,7 @@
     var sx = mm.width / WW, sy = mm.height / WH;
     if (!mmBase) {
       mmBase = document.createElement('canvas'); mmBase.width = mm.width; mmBase.height = mm.height; var b = mmBase.getContext('2d');
-      var COL = { r: '#4b2a86', b: '#1d2a66', c: '#7d1d36', g: '#9c8a64', p: '#3a2d6e', w: '#8a5a32', l: '#145a63', d: '#b03a8a', a: '#5b5f73', k: '#3b2a8f' };
+      var COL = { r: '#4b2a86', b: '#1d2a66', c: '#7d1d36', g: '#9c8a64', p: '#3a2d6e', w: '#8a5a32', l: '#145a63', d: '#b03a8a', a: '#5b5f73', k: '#3b2a8f', o: '#7a1630' };
       for (var ty = 0; ty < ROWS; ty++) for (var tx = 0; tx < COLS; tx++) { var ch = G[ty][tx]; b.fillStyle = ch === '#' ? '#120e2e' : COL[ch]; b.fillRect(tx * T * sx, ty * T * sy, T * sx + 0.6, T * sy + 0.6); }
       b.fillStyle = 'rgba(255,255,255,.55)'; ACTS.forEach(function (o) { b.fillRect(o.x * sx - 1, o.y * sy - 1, 2, 2); });
     }
@@ -1093,6 +1135,12 @@
   mm.addEventListener('click', function (e) { var r = mm.getBoundingClientRect(); walkTo((e.clientX - r.left) / mm.width * WW, (e.clientY - r.top) / mm.height * WH, null); });
 
   // ================================================================ EFFECTS / FEED
+  function announce(text, by) {
+    var d = document.createElement('div'); d.className = 'vann';
+    d.innerHTML = '<div class="vk">📢 ' + esc(by || 'The owner') + ' announces</div><div class="vt">' + esc(text) + '</div>';
+    document.body.appendChild(d); sfx('announce');
+    setTimeout(function () { d.classList.add('out'); }, 6500); setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 7300);
+  }
   function fxBurst(kind) { A.burst(parts, kind === 'money' ? 'money' : 'confetti', me.x, me.y, kind === 'money' ? 18 : 40); }
   SC.fx = fxBurst;
   function addPop(id, v) { pops.push({ id: id, text: (v >= 0 ? '+' : '−') + fmt(Math.abs(v)), col: v >= 0 ? '#2bd576' : '#ff5c6c', age: 0, x: 0, y: 0 }); }
@@ -1129,7 +1177,7 @@
     lastSent = { x: me.x, y: me.y, d: me.dir, m: me.mv, at: now };
     netSend({ t: 'mv', x: Math.round(me.x), y: Math.round(me.y), d: me.dir, m: me.mv ? 1 : 0 });
   }
-  function mkPlayer(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir || 0, mv: !!p.mv, walk: 0, look: p.look || {}, cos: p.cos || {}, busy: p.busy || '', blinkSeed: Math.random() * 4, emote: null, idle: 0 }; }
+  function mkPlayer(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir || 0, mv: !!p.mv, walk: 0, look: p.look || {}, cos: p.cos || {}, busy: p.busy || '', blinkSeed: Math.random() * 4, emote: null, idle: 0, own: !!p.own, hammer: !!p.hm, scale: p.sc || 1, frozen: !!p.fz }; }
   function connect() {
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
     try { if (ws) { ws.onclose = null; ws.onmessage = null; ws.close(); } } catch (e) {}
@@ -1152,6 +1200,7 @@
         me.id = m.you.id; me.cid = m.you.cid; me.nick = m.you.nick;
         if (!me._placed) { me.x = m.you.x; me.y = m.you.y; me._placed = true; }
         me.look = m.you.look || me.look; me.cos = m.you.cos || me.cos;
+        me.own = !!m.you.own; me.role = m.you.role || null; SC.vault.own = me.own; SC.role = me.role; me.scale = m.you.sc || 1; me.hammer = !!m.you.hm; me.frozen = !!m.you.fz; me.fast = false;
         players = {}; (m.players || []).forEach(function (p) { if (p.cid !== me.cid && p.id !== me.id) players[p.id] = mkPlayer(p); });
         if (m.qc) QC = m.qc;
         if (m.games && SC.mp) SC.mp.snapshot(m.games);
@@ -1180,9 +1229,39 @@
         var who = m.id === me.id ? me : players[m.id]; if (!who) break;
         if (m.t === 'qc') who.emote = { text: QC[m.i] || '…', at: performance.now() };
         else who.emote = { e: m.e, at: performance.now() };
+        if (m.k === 'drink') who.drink = { e: m.e, from: tnow, until: tnow + 45 };
         if (m.e === '💸') A.burst(parts, 'money', who.x, who.y, 16);
         if (m.e === '🎉' || m.e === '🥳') A.burst(parts, 'confetti', who.x, who.y, 24);
         if (Math.hypot(who.x - me.x, who.y - me.y) < 500) sfx(m.k === 'drink' ? 'drink' : 'pop');
+        break;
+      }
+      case 'serve': {   // the bartender makes a drink for someone: the animation starts after any queue ahead of it
+        SC.bar.jobs.push({ id: m.id, nick: m.nick, d: m.d, x: m.x, t0: performance.now() + (m.in || 0), ms: m.ms || 3600 });
+        if (SC.bar.jobs.length > 8) SC.bar.jobs.shift();
+        break;
+      }
+      case 'barbusy': toast('The bartender is swamped. Try again in a few seconds.'); break;
+      case 'vstate': me.fast = !!m.fast; me.scale = m.scale || 1; if (m.frozen != null) me.frozen = !!m.frozen; break;
+      case 'vsize': { var vz = m.id === me.id ? me : players[m.id]; if (vz) { vz.scale = m.s || 1; SC.vfx.add('warp', vz.id, vz.x, vz.y); } break; }
+      case 'vhammer': { var vh = m.id === me.id ? me : players[m.id]; if (vh) vh.hammer = !!m.on; if (vh && m.on && Math.hypot(vh.x - me.x, vh.y - me.y) < 700) sfx('chip'); break; }
+      case 'vdeny': toast('Only owners can use that.'); break;
+      case 'vannounce': announce(m.text, m.by); break;
+      case 'vfx': {
+        var vt = m.id === me.id ? me : players[m.id], near = !vt || Math.hypot(vt.x - me.x, vt.y - me.y) < 900;
+        if (m.k === 'party' || m.k === 'fireworks' || m.k === 'storm' || m.k === 'disco' || m.k === 'snow') {
+          SC.gfx.start(m.k, m.k === 'snow' ? 25 : m.k === 'storm' ? 12 : 10);
+          if (m.k === 'party') { sfx('bigwin'); fxBurst('confetti'); }
+          feed('✨ <b>' + esc(m.by || 'The owner') + '</b> started ' + ({ party: 'a party', fireworks: 'fireworks', storm: 'a thunderstorm', disco: 'a disco', snow: 'snow' })[m.k], '', 4500);
+          break;
+        }
+        if (vt) SC.vfx.add(m.k, vt.id, vt.x, vt.y);
+        if (m.k === 'freeze' || m.k === 'thaw') { if (vt) vt.frozen = m.k === 'freeze'; if (near) sfx('ice'); }
+        else if (near) {
+          sfx(m.k === 'smite' ? 'smite' : m.k === 'slam' ? 'slam' : 'warp');
+          if (m.k === 'slam' && vt) vt.slamAt = tnow;
+          if (m.k === 'smite') { shakeEnd = tnow + 0.8; shakeAmt = 7; }
+          if (m.k === 'slam') { shakeEnd = tnow + 0.5; shakeAmt = 4; }
+        }
         break;
       }
       case 'piano': { var pw = m.id === me.id ? me : players[m.id]; var po = OBJ.filter(function (o) { return o.type === 'piano'; })[0]; if (po) po.flash = tnow; if (pw && Math.hypot(pw.x - me.x, pw.y - me.y) < 700) { sfx('note', m.n); setTimeout(function () { sfx('note', (m.n + 4) % 15); }, 180); setTimeout(function () { sfx('note', (m.n + 7) % 15); }, 360); } break; }
@@ -1202,9 +1281,9 @@
         break;
       }
       case 'error':
-        if (m.code === 'login' || m.code === 'replaced' || m.code === 'full') {
+        if (m.code === 'login' || m.code === 'replaced' || m.code === 'full' || m.code === 'kicked') {
           fatal = true; hideLoading();
-          $('gateTitle').textContent = m.code === 'login' ? 'Log in to play' : m.code === 'replaced' ? 'Opened somewhere else' : 'Casino is packed';
+          $('gateTitle').textContent = m.code === 'login' ? 'Log in to play' : m.code === 'replaced' ? 'Opened somewhere else' : m.code === 'kicked' ? 'Removed from the casino' : 'Casino is packed';
           $('gateMsg').textContent = m.msg || ''; $('gate').style.display = 'flex';
         }
         break;

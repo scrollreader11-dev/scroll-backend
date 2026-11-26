@@ -22,6 +22,15 @@ const GAMES = new Set(['', 'slots', 'blackjack', 'roulette', 'dice', 'coinflip',
 // Preset quick-chat lines (index-only on the wire, so nothing needs moderating).
 export const QUICKCHAT = ['Hi! 👋', 'GG!', "Let's go!", 'Nice win!', 'Join my table!', 'Duel me!', 'Follow me', 'One more spin…', 'So close 😩', 'Lucky!', 'brb', 'Bye!', 'Rigged 😤', "I'm rich! 🤑", 'Help?', 'Thanks!'];
 const DRINKS = ['🥤', '🧃', '🍹', '☕', '🥛', '🧋'];
+// The bar in The Lounge (must match dist/casino/world.js: add('bar', 240, 1250) with a 176px half width).
+// The bartender makes one drink at a time; orders queue up for a few seconds at most.
+const BAR = { x: 240, y: 1250, half: 176 }, DRINK_MS = 3600;
+let barFree = 0;
+// Owner Vault: the room east of The Vault (tiles x60..74, y2..12). Only owner / co-owner accounts may stand in it,
+// and the server enforces that here, so a modified client cannot walk through the grate.
+const VAULT = { x0: 59 * TILE + 4, y1: 13 * TILE + 2, gate: { x: 58 * TILE, y: 7 * TILE } };
+const kickBlock = new Map();   // cid -> until: a removed player cannot walk straight back in
+export function worldKick(cid, ms) { if (cid) kickBlock.set(cid, Date.now() + (ms || 60000)); for (const p of [...players.values()]) if (p.cid === cid) { send(p.ws, { t: 'error', code: 'kicked', msg: 'You were removed from the casino by staff.' }); try { p.ws.close(4003); } catch (e) {} removePlayer(p); } }
 
 const players = new Map(); // pid -> player
 const lastPos = new Map(); // cid -> {x, y, ts}  (resume where you stood after a reconnect)
@@ -47,7 +56,7 @@ function voiceFrame(me, buf) {
     try { if (p.ws.bufferedAmount < 256 * 1024) p.ws.send(out, { binary: true }); } catch (e) {}
   }
 }
-function pub(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, mv: p.mv, look: p.look, cos: p.cos, busy: p.busy }; }
+function pub(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, mv: p.mv, look: p.look, cos: p.cos, busy: p.busy, own: p.own ? 1 : 0, hm: p.hammer ? 1 : 0, sc: p.scale || 1, fz: p.frozen > Date.now() ? 1 : 0 }; }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 initTables({ broadcast, sendTo: (pl, o) => send(pl.ws, o), players });
@@ -94,6 +103,73 @@ function removePlayer(p) {
   setTimeout(() => { for (const q of players.values()) if (q.cid === cid) return; tablesLeave({ cid }); }, 20000);
 }
 
+
+// ---- Owner Vault operations. Everything here is checked against the account role the socket was opened with.
+const VFX = new Set(['party', 'fireworks', 'storm', 'disco', 'snow']);
+const SPOTS = { lobby: [1440, 1824], slots: [350, 500], stakes: [1440, 330], lounge: [360, 1500], vault: [2515, 400], arena: [2515, 1000], shop: [2520, 1700], arcade: [3240, 900], owner: [3264, 470] };
+function vaultOp(me, m, now) {
+  if (!me.own) { send(me.ws, { t: 'vdeny' }); return; }
+  me.vTok = Math.min(12, me.vTok + (now - me.vAt) / 1000 * 4); me.vAt = now;
+  if (me.vTok < 1) return; me.vTok--;
+  const op = String(m.op || '');
+  const tgt = (m.id != null) ? players.get(Number(m.id)) : null;
+  // A co-owner may use the tools but never on the owner.
+  const protectedT = (t) => t && t !== me && t.role === 'owner' && me.role !== 'owner';
+  switch (op) {
+    case 'hammer': { me.hammer = !!m.on; broadcast({ t: 'vhammer', id: me.id, on: me.hammer }); return; }
+    case 'slam': { broadcast({ t: 'vfx', k: 'slam', id: me.id }); return; }
+    case 'speed': { me.fast = !!m.on; send(me.ws, { t: 'vstate', fast: me.fast, scale: me.scale }); return; }
+    case 'size': {
+      const s = [0.5, 1, 1.7, 2.6].includes(Number(m.s)) ? Number(m.s) : 1;
+      const t = tgt || me; if (protectedT(t)) return;
+      t.scale = s; broadcast({ t: 'vsize', id: t.id, s }); if (t === me) send(me.ws, { t: 'vstate', fast: me.fast, scale: me.scale });
+      return;
+    }
+    case 'warp': {
+      const sp = SPOTS[String(m.spot || '')]; if (!sp) return;
+      me.x = sp[0]; me.y = sp[1]; dirty.add(me.id);
+      send(me.ws, { t: 'pos', x: me.x, y: me.y }); broadcast({ t: 'vfx', k: 'warp', id: me.id });
+      return;
+    }
+    case 'goto': {
+      if (!tgt || tgt === me) return;
+      me.x = clamp(tgt.x + 40, 0, WORLD_W); me.y = tgt.y; dirty.add(me.id);
+      send(me.ws, { t: 'pos', x: me.x, y: me.y }); broadcast({ t: 'vfx', k: 'warp', id: me.id });
+      return;
+    }
+    case 'bring': {
+      if (!tgt || tgt === me || protectedT(tgt)) return;
+      // Never carry someone into the vault itself: they would be stuck against the server rule.
+      const inVault = me.x > VAULT.x0 && me.y < VAULT.y1;
+      tgt.x = inVault ? VAULT.gate.x - 60 : clamp(me.x + (Math.random() * 80 - 40), 0, WORLD_W);
+      tgt.y = inVault ? VAULT.gate.y : clamp(me.y + 50, 0, WORLD_H);
+      dirty.add(tgt.id); send(tgt.ws, { t: 'pos', x: tgt.x, y: tgt.y });
+      broadcast({ t: 'vfx', k: 'warp', id: tgt.id });
+      return;
+    }
+    case 'freeze': {
+      if (!tgt || tgt === me || protectedT(tgt)) return;
+      tgt.frozen = m.on === false ? 0 : now + 60000;
+      broadcast({ t: 'vfx', k: tgt.frozen ? 'freeze' : 'thaw', id: tgt.id });
+      send(tgt.ws, { t: 'vstate', fast: tgt.fast, scale: tgt.scale, frozen: tgt.frozen ? 1 : 0 });
+      return;
+    }
+    case 'smite': {   // lightning bolt, then out of the casino for a minute
+      if (!tgt || tgt === me || protectedT(tgt)) return;
+      broadcast({ t: 'vfx', k: 'smite', id: tgt.id });
+      const cid = tgt.cid;
+      setTimeout(() => { worldKick(cid, 60000); }, 1800);
+      return;
+    }
+    case 'announce': {
+      const text = String(m.text || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 140); if (!text) return;
+      broadcast({ t: 'vannounce', text, by: me.nick });
+      return;
+    }
+    case 'fx': { const k = String(m.k || ''); if (VFX.has(k)) broadcast({ t: 'vfx', k, by: me.nick }); return; }
+  }
+}
+
 export function worldOnline() { return players.size; }
 
 export function handleWorldUpgrade(req, socket, head) {
@@ -108,6 +184,7 @@ export function handleWorldUpgrade(req, socket, head) {
       removePlayer(p);
       try { p.ws.terminate(); } catch (e) {}
     }
+    { const kb = kickBlock.get(cid); if (kb && kb > Date.now() && !(req._auth && req._auth.role)) { send(ws, { t: 'error', code: 'kicked', msg: 'You were removed from the casino. Try again in a minute.' }); try { ws.close(4003); } catch (e) {} return; } }
     if (players.size >= MAX_PLAYERS) { send(ws, { t: 'error', code: 'full', msg: 'The casino floor is full right now — try again in a minute.' }); try { ws.close(4002); } catch (e) {} return; }
     worldProfile(cid); // make sure a profile exists so look/cosmetics resolve
     if (!resume) { const lp = lastPos.get(cid); if (lp && Date.now() - lp.ts < RESUME_MS) resume = lp; }
@@ -117,12 +194,12 @@ export function handleWorldUpgrade(req, socket, head) {
       x: resume ? clamp(resume.x, 0, WORLD_W) : SPAWN.x + (Math.random() * 160 - 80),
       y: resume ? clamp(resume.y, 0, WORLD_H) : SPAWN.y + (Math.random() * 60 - 30),
       dir: 0, mv: false, look: worldLook(cid), cos: cosOf(cid), busy: '',
-      ip: ipOf(req), cst: {}, lastMove: Date.now(), moveTokens: 30, gTokens: 20, lastG: Date.now(), lastEmote: 0, lastBusy: 0,
+      ip: ipOf(req), cst: {}, role: (req._auth && req._auth.role) || null, own: !!(req._auth && (req._auth.role === 'owner' || req._auth.role === 'coowner')), hammer: false, scale: 1, fast: false, frozen: 0, lastDrink: 0, vTok: 12, vAt: Date.now(), lastMove: Date.now(), moveTokens: 30, gTokens: 20, lastG: Date.now(), lastEmote: 0, lastBusy: 0,
     };
     players.set(me.id, me);
     lastPos.delete(cid);
     ws.on('pong', () => { me.alive = true; });
-    send(ws, { t: 'welcome', now: Date.now(), you: pub(me), players: [...players.values()].filter((p) => p !== me && p.cid !== cid).map(pub), world: { w: WORLD_W, h: WORLD_H }, qc: QUICKCHAT, games: tablesSnapshot() });
+    send(ws, { t: 'welcome', now: Date.now(), you: Object.assign(pub(me), { role: me.role }), vault: me.own ? 1 : 0, players: [...players.values()].filter((p) => p !== me && p.cid !== cid).map(pub), world: { w: WORLD_W, h: WORLD_H }, qc: QUICKCHAT, games: tablesSnapshot() });
     broadcast({ t: 'join', p: pub(me) }, ws);
     tablesJoin(me);
 
@@ -141,8 +218,10 @@ export function handleWorldUpgrade(req, socket, head) {
         let x = Number(m.x), y = Number(m.y);
         if (!Number.isFinite(x) || !Number.isFinite(y)) return;
         x = clamp(x, 0, WORLD_W); y = clamp(y, 0, WORLD_H);
+        // Frozen by staff, or trying to step into the Owner Vault without being an owner: stay where you were.
+        if ((me.frozen > now) || (!me.own && x > VAULT.x0 && y < VAULT.y1)) { send(ws, { t: 'pos', x: Math.round(me.x), y: Math.round(me.y) }); return; }
         // No teleporting: limit distance to what walking could cover (+ slack for jitter).
-        const maxD = SPEED * dt * 1.6 + 30;
+        const maxD = SPEED * (me.fast ? 2.1 : 1) * dt * 1.6 + 30;
         const dx = x - me.x, dy = y - me.y, d = Math.hypot(dx, dy);
         let corrected = false;
         if (d > maxD) { x = me.x + dx / d * maxD; y = me.y + dy / d * maxD; corrected = true; }
@@ -183,10 +262,19 @@ export function handleWorldUpgrade(req, socket, head) {
         return;
       }
       if (m.t === 'drink') {
-        if (now - me.lastEmote < 3000) return; me.lastEmote = now;
-        broadcast({ t: 'emote', id: me.id, e: DRINKS[(Math.random() * DRINKS.length) | 0], k: 'drink' });
+        // Stand at the bar. The bartender makes it (about 3.6 seconds), slides it to you, then you get the drink.
+        if (now - me.lastDrink < 5000) return;
+        if (Math.abs(me.x - BAR.x) > BAR.half + 90 || me.y < BAR.y - 6 || me.y > BAR.y + 150) return;
+        const start = Math.max(now, barFree);
+        if (start - now > 9000) { send(ws, { t: 'barbusy' }); return; }
+        me.lastDrink = now; barFree = start + DRINK_MS - 500;
+        const di = (Math.random() * DRINKS.length) | 0, wait = start - now;
+        broadcast({ t: 'serve', id: me.id, nick: me.nick, d: di, x: Math.round(me.x), in: wait, ms: DRINK_MS });
+        const who = me;
+        setTimeout(() => { if (players.get(who.id) === who) broadcast({ t: 'emote', id: who.id, e: DRINKS[di], k: 'drink' }); }, wait + DRINK_MS);
         return;
       }
+      if (m.t === 'v') { vaultOp(me, m, now); return; }
       if (m.t === 'piano') {
         if (now - me.lastEmote < 600) return; me.lastEmote = now;
         broadcast({ t: 'piano', id: me.id, n: Math.floor(Number(m.n)) % 24 });

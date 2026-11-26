@@ -1460,7 +1460,7 @@
   // ---- Bar & Lounge
   O.bar = function (c, o, t, ctx) {
     var x = o.x, y = o.y, W = o.w || 340;
-    A.drawGim(c, x - 40 + Math.sin(t * 0.4) * 60, y - 62, A.NPC.bartender, { t: t, lookAt: ctx.lookAt(x, y - 80), blink: ctx.blink(5) });
+    if (A.barKeeper) A.barKeeper(c, o, t, ctx); else A.drawGim(c, x - 40 + Math.sin(t * 0.4) * 60, y - 62, A.NPC.bartender, { t: t, lookAt: ctx.lookAt(x, y - 80), blink: ctx.blink(5) });
     shadow(c, x, y + 2, W * 0.52, 10);
     rr(c, x - W / 2, y - 46, W, 46, 8); fs(c, '#3d2416', OL, 3);
     for (var i = 0; i < 6; i++) { rr(c, x - W / 2 + 12 + i * (W - 24) / 6, y - 38, (W - 24) / 6 - 8, 30, 5); c.strokeStyle = 'rgba(255,209,102,.25)'; c.lineWidth = 2; c.stroke(); }
@@ -1468,6 +1468,7 @@
     [-120, -60, 20, 90, 140].forEach(function (dx, i) { if (dx > W / 2 - 10) return; var gx = x + dx; rr(c, gx - 5, y - 74, 10, 14, 3); c.fillStyle = 'rgba(200,240,255,.35)'; c.fill(); c.strokeStyle = OL; c.lineWidth = 1.5; c.stroke(); c.fillStyle = ['#ff6ec7', '#ffd166', '#5cf2ff', '#b8ff5c', '#ff922b'][i]; c.fillRect(gx - 4, y - 68, 8, 7); });
     // stools
     [-130, -70, -10, 50, 110].forEach(function (dx) { if (dx > W / 2 - 20) return; var sx2 = x + dx; c.strokeStyle = OL; c.lineWidth = 4; c.beginPath(); c.moveTo(sx2, y + 26); c.lineTo(sx2, y + 10); c.stroke(); ell(c, sx2, y + 8, 12, 5); fs(c, '#c1121f', OL, 2.5); });
+    if (A.barGlass) A.barGlass(c, o, t);
   };
   O.bottles = function (c, o, t) {
     var x = o.x, y = o.y, W = o.w || 300;

@@ -313,6 +313,17 @@
   .ow-card .ow-grid{margin:8px 0}
   .ow-empty{color:var(--mut);text-align:center;padding:14px}
   .chip.red{background:#b3364a}
+  .ow-row.sel{border-color:#ff3b5c;background:rgba(255,59,92,.14)}
+  .hm-hero{display:flex;gap:14px;align-items:center;margin-bottom:10px}
+  .hm-ico{font-size:54px;line-height:1;transform-origin:50% 90%;filter:drop-shadow(0 0 12px rgba(255,59,92,.6))}
+  .hm-ico.swing{animation:hmSwing .55s cubic-bezier(.3,0,.2,1)}
+  @keyframes hmSwing{0%{transform:rotate(0)}35%{transform:rotate(-70deg)}60%{transform:rotate(25deg) scale(1.15)}100%{transform:rotate(0)}}
+  .vann{position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:60;max-width:min(680px,92vw);background:linear-gradient(135deg,#7d1424,#3a0a18);border:4px solid var(--line);outline:3px solid #d4a63a;border-radius:20px;padding:12px 22px;text-align:center;color:#fff;box-shadow:0 6px 0 rgba(0,0,0,.4),0 0 40px rgba(255,59,92,.45);animation:vannIn .45s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
+  .vann .vk{color:#ffd166;font-weight:700;font-size:13px}
+  .vann .vt{font-size:21px;font-weight:700;margin-top:3px;word-break:break-word}
+  .vann.out{opacity:0;transition:opacity .6s,transform .6s;transform:translateX(-50%) translateY(-14px)}
+  @keyframes vannIn{from{opacity:0;transform:translateX(-50%) translateY(-30px) scale(.8)}}
+  @media(prefers-reduced-motion:reduce){.hm-ico.swing,.vann{animation:none}}
   @media(max-width:560px){.ow-grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -511,6 +522,8 @@
       </section>
 
       <section class="view" data-panel="owner"></section>
+      <section class="view" data-panel="hammer"></section>
+      <section class="view" data-panel="modmenu"></section>
 
       <section class="view center" data-panel="atm">
         <div class="hint">Your Scrolls balance</div>
@@ -578,17 +591,19 @@
 
 <script src="/stealth.js?v=1"></script>
 <script src="/casino/sfx.js?v=3"></script>
-<script src="/casino/art.js?v=18"></script>
+<script src="/casino/art.js?v=19"></script>
+<script src="/casino/vaultart.js?v=1"></script>
 <script src="/casino/games.js?v=2"></script>
 <script src="/casino/more.js?v=3"></script>
 <script src="/casino/arcade.js?v=4"></script>
 <script src="/casino/arcade2.js?v=3"></script>
 <script src="/casino/owner.js?v=2"></script>
+<script src="/casino/vault.js?v=1"></script>
 <script src="/casino/scenes.js?v=2"></script>
 <script src="/casino/mp.js?v=3"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
 <script src="/music.js?v=4"></script>
-<script src="/casino/world.js?v=28"></script>
+<script src="/casino/world.js?v=29"></script>
 <script src="/dc-notify.js?v=1" defer></script>
 <script src="/hub/hub-back.js?v=1"></script>
 </body>
