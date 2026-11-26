@@ -183,7 +183,7 @@
 
   // --- The Owner Vault. Everyone can see the small hatch in The Vault; the big hall below it (rows 44+) is never drawn for
   // anyone who is not standing in it, and the server never sends them a word about who is down there.
-  var hatchObj = add('vhatch', 2800, 480);
+  var hatchObj = add('vhatch', 2515, 128);
   add('vladder', 1632, 2330);
   add('vrune', 1632, 3860, { len: 1440, r: 150 });
   add('sign', 1632, 2186, { text: 'OWNER VAULT', color: '#ff3b5c', size: 30, v: 14 });
@@ -1091,6 +1091,7 @@
     var v = p.vent; if (!v) return null;
     var u = (performance.now() - v.t0) / 1000, hx = hatchObj.x, hy = hatchObj.y + 4, x, y, sx = 1, sy = 1, clip = null, hide = false, k, lerp = function (a, b, t) { return a + (b - a) * t; };
     if (v.dir === 'in') {
+      if (u >= VENT_IN + 0.6) { p.vent = null; return null; }   // long gone (or the server said no): back to normal, never stay hidden
       if (u >= VENT_IN) { return { hide: true, x: hx, y: hy, sx: 1, sy: 1 }; }
       if (u < 0.32) { k = u / 0.32; k = k * k * (3 - 2 * k); x = lerp(v.x0, hx, k); y = lerp(v.y0, hy, k); sy = 1 - 0.07 * Math.sin(k * Math.PI); }
       else if (u < 0.5) { k = (u - 0.32) / 0.18; x = hx; y = hy; sy = 1 - 0.24 * k; sx = 1 + 0.16 * k; }

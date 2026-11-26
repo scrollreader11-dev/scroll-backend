@@ -28,7 +28,7 @@ const BAR = { x: 240, y: 1250, half: 176 }, DRINK_MS = 3600;
 let barFree = 0;
 // Owner Vault: the room east of The Vault (tiles x60..74, y2..12). Only owner / co-owner accounts may stand in it,
 // and the server enforces that here, so a modified client cannot walk through the grate.
-const VAULT = { y0: 45 * TILE, hatch: { x: 2800, y: 480 }, ladder: { x: 1632, y: 2330 }, inn: { x: 1632, y: 2430 }, out: { x: 2800, y: 548 } };
+const VAULT = { y0: 45 * TILE, hatch: { x: 2515, y: 128 }, ladder: { x: 1632, y: 2330 }, inn: { x: 1632, y: 2430 }, out: { x: 2515, y: 200 } };
 const kickBlock = new Map();   // cid -> until: a removed player cannot walk straight back in
 export function worldKick(cid, ms) { if (cid) kickBlock.set(cid, Date.now() + (ms || 60000)); for (const p of [...players.values()]) if (p.cid === cid) { send(p.ws, { t: 'error', code: 'kicked', msg: 'You were removed from the casino by staff.' }); try { p.ws.close(4003); } catch (e) {} removePlayer(p); } }
 
