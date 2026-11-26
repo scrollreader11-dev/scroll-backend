@@ -10,7 +10,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
   var sfx = function (n, a) { SC.sfx && SC.sfx(n, a); };
-  var T = 48, COLS = 76, ROWS = 78, PUBH = 44 * T, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
+  var T = 48, COLS = 76, ROWS = 102, PUBH = 44 * T, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
 
   // ================================================================ CLOCK (server time for shared rounds)
   var clockOff = 0, clockSet = false;
@@ -32,7 +32,7 @@
   fill(46, 16, 58, 28, 'a');  // Duel Arena
   fill(46, 30, 58, 42, 'w');  // Shop
   fill(60, 14, 74, 30, 'k');  // The Arcade (skill games)
-  fill(10, 47, 65, 76, 'o');  // The Owner Vault: a big hidden hall below the casino. Only a small hatch in The Vault leads down.
+  fill(27, 47, 40, 100, 'o');  // The Owner Vault: a tall hidden tower below the casino (14 tiles wide, 54 tall). Only a small hatch in The Vault leads down.
   fill(14, 5, 14, 7, 'r'); fill(14, 15, 14, 18, 'c'); fill(14, 34, 14, 37, 'g'); // west doors
   fill(10, 22, 12, 22, 'l');                                                     // slots <-> lounge
   fill(45, 6, 45, 8, 'p'); fill(45, 20, 45, 23, 'a'); fill(45, 35, 45, 38, 'w'); // east doors
@@ -184,18 +184,18 @@
   // --- The Owner Vault. Everyone can see the small hatch in The Vault; the big hall below it (rows 44+) is never drawn for
   // anyone who is not standing in it, and the server never sends them a word about who is down there.
   var hatchObj = add('vhatch', 2800, 480);
-  add('vladder', 1824, 2330);
-  add('vrune', 1824, 3000, { len: 560, r: 150 });
-  add('sign', 1824, 2186, { text: 'OWNER VAULT', color: '#ff3b5c', size: 30, v: 14 });
-  [700, 1100, 1500, 2150, 2550, 2950].forEach(function (bx) { add('vbanner', bx, 2264); });
-  add('hammer', 1824, 3010);
-  add('podium', 1690, 2580, { tab: 'cast' });
-  add('modterm', 1130, 2800, { title: 'MOD MENU' }); add('modterm', 1130, 3200, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' });
-  add('rigcon', 2518, 2800); add('chest', 2518, 3200, { title: 'TREASURY' });
-  add('throne', 1824, 3560); add('brazier', 1690, 3600); add('brazier', 1958, 3600);
-  [[560, 2340], [3088, 2340], [560, 3640], [3088, 3640], [1300, 2340], [2348, 2340]].forEach(function (b) { add('brazier', b[0], b[1]); });
-  [[820, 2560], [820, 3000], [820, 3440], [2828, 2560], [2828, 3000], [2828, 3440], [1450, 2560], [2198, 2560], [1450, 3440], [2198, 3440]].forEach(function (b) { add('pillar', b[0], b[1]); });
-  add('couch', 700, 3000, { col: '#7d1424' }); add('couch', 2950, 3000, { col: '#7d1424' });
+  add('vladder', 1632, 2330);
+  add('vrune', 1632, 3860, { len: 1440, r: 150 });
+  add('sign', 1632, 2186, { text: 'OWNER VAULT', color: '#ff3b5c', size: 30, v: 14 });
+  [1420, 1844].forEach(function (bx) { add('vbanner', bx, 2264); });
+  add('hammer', 1632, 3870);
+  add('podium', 1632, 3480, { tab: 'cast' });
+  add('modterm', 1400, 2760, { title: 'MOD MENU' }); add('modterm', 1400, 3200, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' });
+  add('rigcon', 1864, 2760); add('chest', 1864, 3200, { title: 'TREASURY' });
+  add('throne', 1632, 4440); add('brazier', 1500, 4480); add('brazier', 1764, 4480);
+  [[1360, 2340], [1904, 2340], [1340, 3640], [1924, 3640], [1340, 4700], [1924, 4700]].forEach(function (b) { add('brazier', b[0], b[1]); });
+  [2560, 2980, 3420, 4100, 4620].forEach(function (py) { add('pillar', 1380, py); add('pillar', 1884, py); });
+  add('couch', 1400, 4150, { col: '#7d1424' }); add('couch', 1864, 4150, { col: '#7d1424' });
 
   // The Arcade board on the wall shows each game's champion; it refreshes every minute and flips pages every few seconds.
   var ARC_NAMES = [['echo', '🎵 Echo'], ['aim', '🎯 Aim'], ['mathrush', '🧮 Math'], ['trivia', '❓ Trivia'], ['colorclash', '🎨 Color'], ['pattern', '🔢 Pattern'], ['scramble', '🔤 Words']], ARC_KEY = { mathrush: 'math', colorclash: 'color' }, arcData = null, arcPage = 0;
@@ -227,6 +227,7 @@
       if (me.own && Math.hypot(me.x - gx, me.y - gy) < 150) near = true;
       if (!near) for (id in players) { q = players[id]; if (q.own && !q.leaving && Math.hypot(q.x - gx, q.y - gy) < 150) { near = true; break; } }
     }
+    if (!near && me.y < PUBH && ventBusy()) near = true;
     if (near !== gateNear) { gateNear = near; if (me.y < PUBH && Math.hypot(me.x - gx, me.y - gy) < 700) sfx(near ? 'gate' : 'gateclose'); }
     GATE.open = clamp(GATE.open + (near ? dt / 0.7 : -dt / 0.9), 0, 1);
   }
@@ -442,7 +443,7 @@
         else { ix = dx / dd; iy = dy / dd; if (dd < 20) { ix *= dd / 20; iy *= dd / 20; } }
       }
     }
-    if (me.frozen) { ix = iy = 0; path = null; }
+    if (me.frozen || (me.ventUntil && performance.now() < me.ventUntil)) { ix = iy = 0; path = null; }
     var len = Math.hypot(ix, iy);
     me.mv = len > 0.01;
     if (me.mv) {
@@ -475,6 +476,7 @@
     var vw = VW / Z, vh = VH / Z;
     var tx = me.x - vw / 2, ty = me.y - 30 - vh / 2;
     var ctop = me.y > PUBH ? PUBH : 0, cbot = me.y > PUBH ? WH : PUBH, cah = cbot - ctop;
+    if (me.y > PUBH) { var hx0 = 27 * T - 64, hx1 = 41 * T + 64; tx = vw >= hx1 - hx0 ? (hx0 + hx1 - vw) / 2 : clamp(tx, hx0, hx1 - vw); } else
     tx = vw >= WW ? (WW - vw) / 2 : clamp(tx, 0, WW - vw); ty = vh >= cah ? ctop + (cah - vh) / 2 : clamp(ty, ctop, cbot - vh);
     var cf = cam._init ? Math.min(1, dt * 8) : 1; cam._init = true;
     cam.x += (tx - cam.x) * cf; cam.y += (ty - cam.y) * cf;
@@ -497,7 +499,7 @@
   }
   function interact() {
     if (!target || panelOpen()) return;
-    if (target.act === 'descend') { if (me.own) { fade(); netSend({ t: 'v', op: 'enter' }); } return; }
+    if (target.act === 'descend') { if (me.own && !(me.ventUntil && performance.now() < me.ventUntil)) { startVent(me, 'in'); setTimeout(fade, 860); netSend({ t: 'v', op: 'enter' }); } return; }
     if (target.act === 'ascend') { if (me.own) { fade(); netSend({ t: 'v', op: 'leave' }); } return; }
     if (target.act === 'player' && me.own && me.hammer && !target.p.own && SC.hammerPick) return SC.hammerPick(target.p);
     if (target.act === 'player') return openPanel('player', target.p);
@@ -1075,12 +1077,52 @@
     }
     if (f) f(ctx, o, tnow, npcCtx);
   }
+  // ---- Among Us style vent hop: hop onto the hatch, squash, get sucked in; coming back you pop out and land with a squish.
+  var VENT_IN = 1.05, VENT_OUT = 1.0;
+  function startVent(p, dir) {
+    var now = performance.now();
+    if (p.vent && p.vent.dir === dir && now - p.vent.t0 < 600) return;   // the local start and the server's broadcast are the same event
+    p.vent = { dir: dir, t0: now, x0: p.x, y0: p.y, puffed: 0 };
+    if (p === me) me.ventUntil = now + (dir === 'in' ? 1300 : VENT_OUT * 1000 + 100);
+    if (me.y < PUBH && Math.hypot(me.x - hatchObj.x, me.y - hatchObj.y) < 900) sfx(dir === 'in' ? 'ventin' : 'ventout');
+    if (dir === 'in') SC.vfx.puff(hatchObj.x, hatchObj.y + 8, 0.45, 0.5);
+  }
+  function ventPose(p) {
+    var v = p.vent; if (!v) return null;
+    var u = (performance.now() - v.t0) / 1000, hx = hatchObj.x, hy = hatchObj.y + 4, x, y, sx = 1, sy = 1, clip = null, hide = false, k, lerp = function (a, b, t) { return a + (b - a) * t; };
+    if (v.dir === 'in') {
+      if (u >= VENT_IN) { return { hide: true, x: hx, y: hy, sx: 1, sy: 1 }; }
+      if (u < 0.32) { k = u / 0.32; k = k * k * (3 - 2 * k); x = lerp(v.x0, hx, k); y = lerp(v.y0, hy, k); sy = 1 - 0.07 * Math.sin(k * Math.PI); }
+      else if (u < 0.5) { k = (u - 0.32) / 0.18; x = hx; y = hy; sy = 1 - 0.24 * k; sx = 1 + 0.16 * k; }
+      else if (u < 0.7) { k = (u - 0.5) / 0.2; x = hx; y = hy - 46 * Math.sin(k * Math.PI); sy = 1.22 - 0.1 * k; sx = 0.88 + 0.06 * k; }
+      else { k = (u - 0.7) / 0.35; x = hx; y = hy + 8 + 74 * k * k; sx = 1 - 0.35 * k; sy = 1 - 0.2 * k; clip = hy + 10; hide = k > 0.85; if (!v.puffed) { v.puffed = 1; SC.vfx.puff(hx, hy + 6, 0.5, 0.6); } }
+    } else {
+      if (u >= VENT_OUT) { p.vent = null; return null; }
+      if (u < 0.3) { k = u / 0.3; x = hx; y = hy + 70 - 64 * k; sx = 0.7 + 0.3 * k; sy = 0.75 + 0.3 * k; clip = hy + 10; hide = k < 0.2; }
+      else if (u < 0.85) { k = (u - 0.3) / 0.55; var ek = 1 - (1 - k) * (1 - k); x = lerp(hx, p.x, ek); y = lerp(hy + 6, p.y, ek) - 60 * Math.sin(k * Math.PI); sy = 1 + 0.22 * Math.sin(k * Math.PI); sx = 1 - 0.1 * Math.sin(k * Math.PI); if (!v.puffed) { v.puffed = 1; SC.vfx.puff(hx, hy + 4, 0.5, 0.6); } }
+      else { k = (u - 0.85) / 0.15; x = p.x; y = p.y; sy = 0.8 + 0.2 * k; sx = 1.18 - 0.18 * k; if (v.puffed < 2) { v.puffed = 2; SC.vfx.puff(p.x, p.y, 0.35, 0.4); } }
+    }
+    return { x: x, y: y, sx: sx, sy: sy, clip: clip, hide: hide };
+  }
+  function ventBusy() { var id; if (me.vent && performance.now() - me.vent.t0 < 1400) return true; for (id in players) if (players[id].vent && performance.now() - players[id].vent.t0 < 1400) return true; return false; }
   function drawPlayer(p) {
+    var pose = p.vent ? ventPose(p) : null;
+    if (pose) {
+      if (pose.hide) return;
+      var isMe0 = p === me;
+      ctx.save();
+      if (pose.clip != null) { ctx.beginPath(); ctx.rect(pose.x - 220, pose.y - 520, 440, pose.clip - (pose.y - 520)); ctx.clip(); }
+      ctx.translate(pose.x, pose.y); ctx.scale(pose.sx, pose.sy); ctx.translate(-pose.x, -pose.y);
+      A.drawGim(ctx, pose.x, pose.y, p.look, { t: tnow + (p.blinkSeed || 0), dir: p.vent.dir === 'in' && performance.now() - p.vent.t0 > 320 ? 0 : p.dir, moving: (performance.now() - p.vent.t0) / 1000 < 0.32 && p.vent.dir === 'in', walk: p.walk, blink: false, scale: p.scale > 1.01 || p.scale < 0.99 ? p.scale : null });
+      ctx.restore();
+      return;
+    }
     var isMe = p === me, blink = ((tnow + (p.blinkSeed || 0)) % 4.2) < 0.12;
     A.drawGim(ctx, p.x, p.y, p.look, { t: tnow + (p.blinkSeed || 0), dir: p.dir, moving: isMe ? p.mv : p.moving, walk: p.walk, blink: blink, dance: p.dance && !p.frozen, scale: p.scale > 1.01 || p.scale < 0.99 ? p.scale : null, alpha: p.leaving ? Math.max(0.15, 1 - (performance.now() - p.leaving) / 2500) : null });
     if (p.hammer || p.drink || p.frozen) A.playerProps(ctx, p, tnow, p.scale);
   }
   function drawOverlay(p) {
+    if (p.vent) { var vp = ventPose(p); if (!vp || vp.hide || vp.clip != null) return; p = Object.assign({}, p, { x: vp.x, y: vp.y }); }
     var L = p.look || {}, tall = { bunny: 10, alien: 6, robot: 6, unicorn: 10, mushroom: 14, knight: 8 }[L.skin] || 0;
     var top = p.y - ((L.hat ? 80 : 66) + tall) * (p.scale || 1);
     drawNameTag(ctx, p.x, top, p.nick || '…', p.cos, tnow, 1);
@@ -1135,23 +1177,25 @@
   var mm = $('minimap'), mmc = mm.getContext('2d'), mmBase = null;
   mm.width = 200; mm.height = 147;
   var mmMode = 0;
+  var MMW0 = mm.width;
+  function mmGeom(mode) { return mode ? { x0: 26 * T, w: 16 * T, y0: PUBH, h: WH - PUBH } : { x0: 0, w: WW, y0: 0, h: PUBH }; }
   function drawMinimap() {
     if (isTouch) return;
-    var mode = me.y > PUBH ? 1 : 0, y0 = mode ? PUBH : 0, hh = mode ? WH - PUBH : PUBH;
-    if (mode !== mmMode || !mmBase) { if (mode !== mmMode || !mmBase) { mmMode = mode; mmBase = null; mm.height = Math.round(mm.width * hh / WW); } }
-    var sx = mm.width / WW, sy = mm.height / hh;
+    var mode = me.y > PUBH ? 1 : 0, g = mmGeom(mode), y0 = g.y0, x0 = g.x0;
+    if (mode !== mmMode || !mmBase) { mmMode = mode; mmBase = null; mm.width = mode ? 64 : MMW0; mm.height = Math.round(mm.width * g.h / g.w); }
+    var sx = mm.width / g.w, sy = mm.height / g.h;
     if (!mmBase) {
       mmBase = document.createElement('canvas'); mmBase.width = mm.width; mmBase.height = mm.height; var b = mmBase.getContext('2d');
       var COL = { r: '#4b2a86', b: '#1d2a66', c: '#7d1d36', g: '#9c8a64', p: '#3a2d6e', w: '#8a5a32', l: '#145a63', d: '#b03a8a', a: '#5b5f73', k: '#3b2a8f', o: '#7a1630' };
-      for (var ty = mode ? 44 : 0; ty < (mode ? ROWS : 44); ty++) for (var tx = 0; tx < COLS; tx++) { var ch = G[ty][tx]; b.fillStyle = ch === '#' ? '#120e2e' : COL[ch]; b.fillRect(tx * T * sx, (ty * T - y0) * sy, T * sx + 0.6, T * sy + 0.6); }
-      b.fillStyle = 'rgba(255,255,255,.55)'; ACTS.forEach(function (o) { if ((mode ? o.y < PUBH : o.y >= PUBH) || (o.ownerOnly && !me.own)) return; b.fillRect(o.x * sx - 1, (o.y - y0) * sy - 1, 2, 2); });
+      for (var ty = mode ? 44 : 0; ty < (mode ? ROWS : 44); ty++) for (var tx = 0; tx < COLS; tx++) { var ch = G[ty][tx]; b.fillStyle = ch === '#' ? '#120e2e' : COL[ch]; b.fillRect((tx * T - x0) * sx, (ty * T - y0) * sy, T * sx + 0.6, T * sy + 0.6); }
+      b.fillStyle = 'rgba(255,255,255,.55)'; ACTS.forEach(function (o) { if ((mode ? o.y < PUBH : o.y >= PUBH) || (o.ownerOnly && !me.own)) return; b.fillRect((o.x - x0) * sx - 1, (o.y - y0) * sy - 1, 2, 2); });
     }
     mmc.clearRect(0, 0, mm.width, mm.height); mmc.drawImage(mmBase, 0, 0);
-    for (var id in players) { var p = players[id]; if (mode ? p.y < PUBH : p.y >= PUBH) continue; mmc.fillStyle = +id === findId ? '#ff3b7a' : '#ffd166'; mmc.beginPath(); mmc.arc(p.x * sx, (p.y - y0) * sy, +id === findId ? 3.6 : 2.6, 0, 7); mmc.fill(); }
-    mmc.fillStyle = '#fff'; mmc.strokeStyle = '#120e2e'; mmc.lineWidth = 1.5; mmc.beginPath(); mmc.arc(me.x * sx, (me.y - y0) * sy, 3.6, 0, 7); mmc.fill(); mmc.stroke();
-    mmc.strokeStyle = 'rgba(255,255,255,.5)'; mmc.lineWidth = 1; mmc.strokeRect(cam.x * sx, (cam.y - y0) * sy, VW / Z * sx, VH / Z * sy);
+    for (var id in players) { var p = players[id]; if (mode ? p.y < PUBH : p.y >= PUBH) continue; mmc.fillStyle = +id === findId ? '#ff3b7a' : '#ffd166'; mmc.beginPath(); mmc.arc((p.x - x0) * sx, (p.y - y0) * sy, +id === findId ? 3.6 : 2.6, 0, 7); mmc.fill(); }
+    mmc.fillStyle = '#fff'; mmc.strokeStyle = '#120e2e'; mmc.lineWidth = 1.5; mmc.beginPath(); mmc.arc((me.x - x0) * sx, (me.y - y0) * sy, 3.6, 0, 7); mmc.fill(); mmc.stroke();
+    mmc.strokeStyle = 'rgba(255,255,255,.5)'; mmc.lineWidth = 1; mmc.strokeRect((cam.x - x0) * sx, (cam.y - y0) * sy, VW / Z * sx, VH / Z * sy);
   }
-  mm.addEventListener('click', function (e) { var r = mm.getBoundingClientRect(), hh = me.y > PUBH ? WH - PUBH : PUBH, y0 = me.y > PUBH ? PUBH : 0; walkTo((e.clientX - r.left) / mm.width * WW, (e.clientY - r.top) / mm.height * hh + y0, null); });
+  mm.addEventListener('click', function (e) { var r = mm.getBoundingClientRect(), g = mmGeom(me.y > PUBH ? 1 : 0); walkTo((e.clientX - r.left) / r.width * g.w + g.x0, (e.clientY - r.top) / r.height * g.h + g.y0, null); });
 
   // ================================================================ EFFECTS / FEED
   function announce(text, by) {
@@ -1266,6 +1310,7 @@
       case 'vdeny': toast('Only owners can use that.'); break;
       case 'vannounce': announce(m.text, m.by); break;
       case 'vfx': {
+        if (m.k === 'vent') { var vw0 = m.id === me.id ? me : players[m.id]; if (vw0) startVent(vw0, m.d === 'out' ? 'out' : 'in'); break; }
         if (m.k === 'hatch') { if (me.y < PUBH) { SC.vfx.add('warp', 0, hatchObj.x, hatchObj.y + 10); if (Math.hypot(me.x - hatchObj.x, me.y - hatchObj.y) < 900) sfx('warp'); } break; }
         if (m.k === 'smite' && m.by != null) { var atk = m.by === me.id ? me : players[m.by]; if (atk) atk.slamAt = tnow; }
         var vt = m.id === me.id ? me : players[m.id], near = !vt || Math.hypot(vt.x - me.x, vt.y - me.y) < 900;

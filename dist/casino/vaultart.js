@@ -291,14 +291,22 @@
   // ================================================================ world effects (positions follow the player they belong to)
   var list = [];
   SC.vfx = {
+    puff: function (x, y, size, life) { list.push({ k: 'puff', id: -1, x: x, y: y, at: performance.now() / 1000, sz: size || 0.5, life: life || 0.5, fixed: true, ban: false }); },
     add: function (k, id, x, y, opt) { list.push({ k: k, id: id, x: x, y: y, at: performance.now() / 1000, ban: !!(opt && opt.ban) }); },
     draw: function (c, who, dt) {
       var now = performance.now() / 1000;
       for (var i = list.length - 1; i >= 0; i--) {
-        var f = list[i], age = now - f.at, life = f.k === 'smite' ? (f.ban ? 2.5 : 2.6) : f.k === 'slam' ? 0.9 : f.k === 'warp' ? 1 : 0.8;
+        var f = list[i], age = now - f.at, life = f.k === 'puff' ? f.life : f.k === 'smite' ? (f.ban ? 2.5 : 2.6) : f.k === 'slam' ? 0.9 : f.k === 'warp' ? 1 : 0.8;
         if (age > life) { list.splice(i, 1); continue; }
-        var w = who(f.id); if (w) { f.x = w.x; f.y = w.y; }
+        var w = f.fixed ? null : who(f.id); if (w) { f.x = w.x; f.y = w.y; }
         var x = f.x, y = f.y;
+        if (f.k === 'puff') {   // dust and a red glint kicked up around the hatch
+          var pq = age / f.life, pr = 14 + pq * 44 * (f.sz / 0.5 + 0.4);
+          c.save(); c.globalAlpha = (1 - pq) * 0.55; c.fillStyle = '#d8cfe8';
+          for (var pk = 0; pk < 7; pk++) { var pa = pk * TAU / 7 + 0.4; circ(c, x + Math.cos(pa) * pr, y + Math.sin(pa) * pr * 0.45 - pq * 16, 7 * (1 - pq) + 2); c.fill(); }
+          c.globalAlpha = (1 - pq) * 0.7; c.strokeStyle = 'rgba(255,90,120,.9)'; c.lineWidth = 3; ell(c, x, y, pr * 1.1, pr * 0.5); c.stroke(); c.restore();
+          continue;
+        }
         if (f.k === 'smite') {
           var ban = f.ban, hitAt = ban ? 0.6 : 1.0;
           if (age < hitAt) {   // red target closes in; for a ban the hammer falls out of the sky
@@ -390,6 +398,8 @@
   // sounds for the vault
   if (SC.sfxAdd && SC.sfxTone && SC.sfxNoise) {
     var T = SC.sfxTone, N = SC.sfxNoise;
+    SC.sfxAdd('ventin', function () { T(520, 0.32, 'sine', 0.16, 0.45, 90); N(0.08, 0.25, 0.45, 1800); T(150, 0.1, 'square', 0.1, 0.2, 110); T(110, 0.14, 'square', 0.14, 0.78, 60); N(0.12, 0.3, 0.78, 600); });
+    SC.sfxAdd('ventout', function () { T(90, 0.32, 'sine', 0.14, 0, 560); N(0.1, 0.25, 0.3, 1500); T(170, 0.1, 'square', 0.12, 0.34, 230); T(120, 0.12, 'square', 0.1, 0.86, 80); });
     SC.sfxAdd('gate', function () { N(0.9, 0.16, 0, 160); T(70, 0.9, 'sawtooth', 0.07, 0, 45); T(110, 0.5, 'square', 0.05, 0.5, 80); });
     SC.sfxAdd('gateclose', function () { N(0.7, 0.14, 0, 160); T(60, 0.7, 'sawtooth', 0.07, 0, 40); T(90, 0.18, 'square', 0.14, 0.62, 40); N(0.12, 0.3, 0.62, 400); });
     SC.sfxAdd('thunder', function () { N(1.1, 0.35, 0, 60); T(70, 0.9, 'sine', 0.25, 0, 30); });

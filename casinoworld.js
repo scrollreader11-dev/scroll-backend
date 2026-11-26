@@ -12,7 +12,7 @@ import { initTables, tablesSnapshot, tablesJoin, tablesLeave, handleTableMsg } f
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
 // Must match the client map (dist/casino/world.js): 60 x 44 tiles of 48px.
-const TILE = 48, WORLD_W = 76 * TILE, WORLD_H = 78 * TILE;   // rows 0..43 are the casino everyone sees; rows 44..77 are the secret Owner Vault
+const TILE = 48, WORLD_W = 76 * TILE, WORLD_H = 102 * TILE;   // rows 0..43 are the casino everyone sees; rows 44..101 are the secret Owner Vault
 const SPAWN = { x: 30 * TILE, y: 38 * TILE };
 const SPEED = 230;            // px/s walking (client sprint is not allowed)
 const MAX_PLAYERS = 150;
@@ -28,7 +28,7 @@ const BAR = { x: 240, y: 1250, half: 176 }, DRINK_MS = 3600;
 let barFree = 0;
 // Owner Vault: the room east of The Vault (tiles x60..74, y2..12). Only owner / co-owner accounts may stand in it,
 // and the server enforces that here, so a modified client cannot walk through the grate.
-const VAULT = { y0: 45 * TILE, hatch: { x: 2800, y: 480 }, ladder: { x: 1824, y: 2330 }, inn: { x: 1824, y: 2430 }, out: { x: 2800, y: 548 } };
+const VAULT = { y0: 45 * TILE, hatch: { x: 2800, y: 480 }, ladder: { x: 1632, y: 2330 }, inn: { x: 1632, y: 2430 }, out: { x: 2800, y: 548 } };
 const kickBlock = new Map();   // cid -> until: a removed player cannot walk straight back in
 export function worldKick(cid, ms) { if (cid) kickBlock.set(cid, Date.now() + (ms || 60000)); for (const p of [...players.values()]) if (p.cid === cid) { send(p.ws, { t: 'error', code: 'kicked', msg: 'You were removed from the casino by staff.' }); try { p.ws.close(4003); } catch (e) {} removePlayer(p); } }
 
@@ -112,10 +112,10 @@ function removePlayer(p) {
 const VFX = new Set(['party', 'fireworks', 'storm', 'disco', 'snow']);
 const SPOTS = { lobby: [1440, 1824], slots: [350, 500], stakes: [1440, 330], lounge: [360, 1500], vault: [2515, 400], arena: [2515, 1000], shop: [2520, 1700], arcade: [3240, 900], owner: [VAULT.inn.x, VAULT.inn.y] };
 // An owner going down the hatch (or coming back up) vanishes from, or reappears for, everyone who is not an owner.
-function setVault(me, inside) {
+function setVault(me, inside, quiet) {   // quiet: the vent hop already told everyone what happened
   if (inside === !!me.hidden) return;
-  if (inside) { bcastPublic({ t: 'vfx', k: 'hatch', id: me.id }); bcastPublic({ t: 'leave', id: me.id }); me.hidden = true; }
-  else { me.hidden = false; bcastPublic({ t: 'join', p: pub(me) }); bcastPublic({ t: 'vfx', k: 'hatch', id: me.id }); }
+  if (inside) { if (!quiet) bcastPublic({ t: 'vfx', k: 'hatch', id: me.id }); bcastPublic({ t: 'leave', id: me.id }); me.hidden = true; }
+  else { me.hidden = false; bcastPublic({ t: 'join', p: pub(me) }); if (!quiet) bcastPublic({ t: 'vfx', k: 'hatch', id: me.id }); }
 }
 function teleport(p, x, y) { p.x = clamp(x, 0, WORLD_W); p.y = clamp(y, 0, WORLD_H); p.tpUntil = Date.now() + 450; dirty.add(p.id); send(p.ws, { t: 'pos', x: p.x, y: p.y }); }
 function vaultOp(me, m, now) {
@@ -137,12 +137,21 @@ function vaultOp(me, m, now) {
       return;
     }
     case 'enter': {   // down the hatch in The Vault
-      if (me.hidden || Math.hypot(me.x - VAULT.hatch.x, me.y - VAULT.hatch.y) > 160) return;
-      setVault(me, true); teleport(me, VAULT.inn.x, VAULT.inn.y); return;
+      if (me.hidden || (me.lockUntil || 0) > now || Math.hypot(me.x - VAULT.hatch.x, me.y - VAULT.hatch.y) > 160) return;
+      me.lockUntil = now + 1250;
+      broadcast({ t: 'vfx', k: 'vent', id: me.id, d: 'in' });   // everyone watching sees the owner hop into the vent
+      setTimeout(() => {
+        if (players.get(me.id) !== me || me.hidden || Math.hypot(me.x - VAULT.hatch.x, me.y - VAULT.hatch.y) > 220) return;
+        setVault(me, true, true); teleport(me, VAULT.inn.x, VAULT.inn.y);
+      }, 1100);
+      return;
     }
     case 'leave': {   // back up the ladder
-      if (!me.hidden) return;
-      teleport(me, VAULT.out.x, VAULT.out.y); setVault(me, false); return;
+      if (!me.hidden || (me.lockUntil || 0) > now) return;
+      me.lockUntil = now + 1100;
+      teleport(me, VAULT.out.x, VAULT.out.y); setVault(me, false, true);
+      broadcast({ t: 'vfx', k: 'vent', id: me.id, d: 'out' });   // ...and pop back out of it
+      return;
     }
     case 'warp': {
       const sp = SPOTS[String(m.spot || '')]; if (!sp) return;
@@ -239,7 +248,7 @@ export function handleWorldUpgrade(req, socket, head) {
         if (!Number.isFinite(x) || !Number.isFinite(y)) return;
         x = clamp(x, 0, WORLD_W); y = clamp(y, 0, WORLD_H);
         // Frozen by staff, or trying to step into the Owner Vault without being an owner: stay where you were.
-        if (now < me.tpUntil) return;
+        if (now < me.tpUntil || now < (me.lockUntil || 0)) return;
         if ((me.frozen > now) || (!me.own && y > VAULT.y0)) { send(ws, { t: 'pos', x: Math.round(me.x), y: Math.round(me.y) }); return; }
         // No teleporting: limit distance to what walking could cover (+ slack for jitter).
         const maxD = SPEED * (me.fast ? 2.1 : 1) * dt * 1.6 + 30;
