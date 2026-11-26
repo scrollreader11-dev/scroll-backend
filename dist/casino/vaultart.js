@@ -27,11 +27,9 @@
   A.floorTile = function (c, type, x, y, S, v) {
     if (type !== 'o') return _floor(c, type, x, y, S, v);
     var u = S / 48; c.save(); c.translate(x, y); c.scale(u, u);
-    c.fillStyle = '#150a14'; c.fillRect(0, 0, 48, 48);
-    c.fillStyle = 'rgba(255,255,255,.035)'; c.fillRect(2, 2, 21, 21); c.fillRect(25, 25, 21, 21);
-    c.strokeStyle = 'rgba(255,209,102,.38)'; c.lineWidth = 1.5; c.strokeRect(1, 1, 46, 46);
-    c.strokeStyle = 'rgba(255,59,92,.16)'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 48); c.lineTo(48, 0); c.stroke();
-    c.fillStyle = 'rgba(255,209,102,.6)'; c.beginPath(); c.arc(24, 24, 1.8, 0, TAU); c.fill();
+    c.fillStyle = '#130912'; c.fillRect(0, 0, 48, 48);
+    c.fillStyle = 'rgba(255,255,255,.028)'; c.fillRect(0, 0, 24, 24); c.fillRect(24, 24, 24, 24);
+    c.strokeStyle = 'rgba(255,209,102,.07)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, 47, 47);
     c.restore();
   };
   var _wall = A.wallTile;
@@ -153,6 +151,8 @@
     c.restore();
   };
 
+  A.hammerShape = hammerShape;
+
   // ================================================================ Owner Vault objects
   // The hatch in the floor of The Vault: the only part of the Owner Vault anyone else can see. It slides open for an owner.
   O.vhatch = function (c, o, t) {
@@ -268,8 +268,8 @@
 
   O.vrune = function (c, o, t) {   // crimson runner from the ladder down to the hammer, with a sigil under the hammer
     var x = o.x, y = o.y, r = o.r || 124, len = o.len || 300;
-    rr(c, x - 28, y - len, 56, len, 4); c.fillStyle = 'rgba(122,20,36,.92)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.75)'; c.lineWidth = 3; c.stroke();
-    c.fillStyle = 'rgba(255,209,102,.5)'; for (var i = 0; i < 12; i++) { var ry = y - len + 30 + i * ((len - 140) / 11); c.beginPath(); c.moveTo(x, ry - 7); c.lineTo(x + 7, ry); c.lineTo(x, ry + 7); c.lineTo(x - 7, ry); c.closePath(); c.fill(); }
+    if (len > 20) { rr(c, x - 28, y - len, 56, len, 4); c.fillStyle = 'rgba(122,20,36,.92)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.75)'; c.lineWidth = 3; c.stroke(); }
+    if (len > 20) { c.fillStyle = 'rgba(255,209,102,.5)'; for (var i = 0; i < 12; i++) { var ry = y - len + 30 + i * ((len - 140) / 11); c.beginPath(); c.moveTo(x, ry - 7); c.lineTo(x + 7, ry); c.lineTo(x, ry + 7); c.lineTo(x - 7, ry); c.closePath(); c.fill(); } }
     c.save(); c.translate(x, y); c.scale(1, 0.62);
     circ(c, 0, 0, r); c.fillStyle = 'rgba(70,8,22,.85)'; c.fill(); c.strokeStyle = 'rgba(255,209,102,.8)'; c.lineWidth = 4; c.stroke();
     circ(c, 0, 0, r - 14); c.strokeStyle = 'rgba(255,59,92,.55)'; c.lineWidth = 2; c.setLineDash([10, 8]); c.lineDashOffset = -t * 30; c.stroke(); c.setLineDash([]);

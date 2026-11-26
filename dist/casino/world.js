@@ -10,7 +10,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
   var sfx = function (n, a) { SC.sfx && SC.sfx(n, a); };
-  var T = 48, COLS = 76, ROWS = 102, PUBH = 44 * T, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
+  var T = 48, COLS = 76, ROWS = 124, PUBH = 44 * T, WW = COLS * T, WH = ROWS * T, SPEED = 230, TAU = Math.PI * 2;
 
   // ================================================================ CLOCK (server time for shared rounds)
   var clockOff = 0, clockSet = false;
@@ -32,7 +32,7 @@
   fill(46, 16, 58, 28, 'a');  // Duel Arena
   fill(46, 30, 58, 42, 'w');  // Shop
   fill(60, 14, 74, 30, 'k');  // The Arcade (skill games)
-  fill(27, 47, 40, 100, 'o');  // The Owner Vault: a tall hidden tower below the casino (14 tiles wide, 54 tall). Only a small hatch in The Vault leads down.
+  fill(27, 47, 40, 122, 'o');  // The Owner Vault: a tall hidden tower below the casino (14 tiles wide, 76 tall). Only a small hatch in The Vault leads down.
   fill(14, 5, 14, 7, 'r'); fill(14, 15, 14, 18, 'c'); fill(14, 34, 14, 37, 'g'); // west doors
   fill(10, 22, 12, 22, 'l');                                                     // slots <-> lounge
   fill(45, 6, 45, 8, 'p'); fill(45, 20, 45, 23, 'a'); fill(45, 35, 45, 38, 'w'); // east doors
@@ -86,6 +86,13 @@
     modterm: { box: [-52, -26, 52, 0], act: 'modmenu', label: 'Open the Mod Menu', ia: [0, 34], pr: -136, ar: 84, ownerOnly: 1 },
     rigcon: { box: [-54, -36, 54, 0], act: 'owner', label: 'Open the Rig Console', ia: [0, 34], pr: -126, ar: 84, ownerOnly: 1 },
     podium: { box: [-22, -22, 22, 0], act: 'modmenu', label: 'Make an announcement', ia: [0, 30], pr: -146, ar: 66, ownerOnly: 1 },
+    fxm: { box: [-30, -24, 30, 0], act: 'fx', label: 'Use it', ia: [0, 30], pr: -112, ar: 62, ownerOnly: 1 },
+    vpad: { layer: 'decal', act: 'warp', label: 'Warp', ia: [0, 4], pr: -78, ar: 46, ownerOnly: 1 },
+    radar: { box: [-70, -26, 70, 0], act: 'modmenu', label: 'Watch the casino live', ia: [0, 38], pr: -150, ar: 96, ownerOnly: 1 },
+    shame: { box: [-52, -14, 52, 0], act: 'hammer', label: 'Open the ban list', ia: [0, 34], pr: -172, ar: 80, ownerOnly: 1 },
+    cctv: { box: [-64, -14, 64, 0] }, serverrack: { box: [-27, -14, 27, 0] }, rack: { box: [-50, -14, 50, 0] }, tcase: { box: [-38, -14, 38, 0] },
+    obelisk: { box: [-18, -12, 18, 0] }, aquarium: { box: [-88, -20, 88, 0] }, fire: { box: [-60, -14, 60, 0] }, bookcase: { box: [-50, -14, 50, 0] },
+    goldpile: { box: [-48, -18, 48, 0] }, lamp: { box: [-8, -6, 8, 0] }, vzone: { layer: 'decal' }, vcarpet: { layer: 'decal' }, vpool: { layer: 'decal' },
     throne: { box: [-46, -30, 46, 0] }, brazier: { box: [-14, -10, 14, 0] }, vrune: { layer: 'decal' }, vbanner: { layer: 'wall' },
     portal: { box: [-50, -22, 50, 0], act: 'arcade', label: 'Enter ScrollHub Games', ia: [0, 26], pr: -150, ar: 74 },
   };
@@ -96,6 +103,7 @@
     if (d.box && !ob.nobox) ob.box = [x + d.box[0], y + d.box[1], x + d.box[2], y + d.box[3]];
     ob.act = ob.act || d.act || null; ob.label = ob.label || d.label || ''; if (d.ownerOnly) ob.ownerOnly = true;
     if (ob.act) { var ia = ob.ia || d.ia || [0, 24]; ob.ax = x + ia[0]; ob.ay = y + ia[1]; ob.ar = ob.ar || d.ar || 58; ob.py = y + (ob.pr != null ? ob.pr : (d.pr != null ? d.pr : -110)); }
+    ob.ext = ob.len || (ob.h ? ob.h / 2 : 0) || ob.r || 0;   // big decals are drawn while any part of them is on screen
     OBJ.push(ob); return ob;
   }
   var MORE_META = {
@@ -184,18 +192,46 @@
   // --- The Owner Vault. Everyone can see the small hatch in The Vault; the big hall below it (rows 44+) is never drawn for
   // anyone who is not standing in it, and the server never sends them a word about who is down there.
   var hatchObj = add('vhatch', 2515, 128);
+  // --- floor dressing first, so the rugs sit under the carpet and the carpet under everything else
+  [[1632, 2470, 340, '255,59,92', 0.09], [1632, 3190, 400, '92,242,255', 0.06], [1632, 3900, 340, '180,120,255', 0.08], [1632, 4590, 360, '255,59,92', 0.11], [1632, 5180, 340, '255,110,199', 0.07], [1632, 5700, 320, '255,170,90', 0.08]].forEach(function (q) { add('vpool', q[0], q[1], { r: q[2], col: q[3], a: q[4] }); });
+  add('vzone', 1632, 2650, { w: 620, h: 190, title: 'SERVICES', col: '30,16,44' });
+  add('vzone', 1632, 3190, { w: 620, h: 700, title: 'COMMAND CENTER', col: '14,22,44' });
+  add('vzone', 1632, 3900, { w: 620, h: 560, title: 'WARP HUB', col: '34,16,60' });
+  add('vzone', 1632, 4560, { w: 620, h: 620, title: 'ARMORY', col: '48,12,24' });
+  add('vzone', 1632, 5180, { w: 620, h: 500, title: 'PARTY ROOM', col: '50,16,50' });
+  add('vzone', 1632, 5690, { w: 620, h: 380, title: 'LOUNGE', col: '44,26,16' });
+  add('vcarpet', 1632, 5430, { len: 3000 });
+  add('vrune', 1632, 4590, { len: 8, r: 150 });
+  // --- entrance
   add('vladder', 1632, 2330);
-  add('vrune', 1632, 3860, { len: 1440, r: 150 });
   add('sign', 1632, 2186, { text: 'OWNER VAULT', color: '#ff3b5c', size: 30, v: 14 });
-  [1420, 1844].forEach(function (bx) { add('vbanner', bx, 2264); });
-  add('hammer', 1632, 3870);
+  [1380, 1884].forEach(function (bx) { add('vbanner', bx, 2264); });
+  add('brazier', 1350, 2350); add('brazier', 1914, 2350); add('plant', 1340, 2480); add('plant', 1924, 2480);
+  add('wardrobe', 1400, 2715); add('atm', 1864, 2705);
+  // --- command center
+  add('cctv', 1632, 2985); add('modterm', 1400, 3020, { title: 'MOD MENU' }); add('rigcon', 1864, 3020);
+  add('radar', 1632, 3230); add('serverrack', 1334, 3190); add('serverrack', 1930, 3190);
+  add('modterm', 1400, 3360, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' }); add('shame', 1864, 3380);
   add('podium', 1632, 3480, { tab: 'cast' });
-  add('modterm', 1400, 2760, { title: 'MOD MENU' }); add('modterm', 1400, 3200, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' });
-  add('rigcon', 1864, 2760); add('chest', 1864, 3200, { title: 'TREASURY' });
-  add('throne', 1632, 4440); add('brazier', 1500, 4480); add('brazier', 1764, 4480);
-  [[1360, 2340], [1904, 2340], [1340, 3640], [1924, 3640], [1340, 4700], [1924, 4700]].forEach(function (b) { add('brazier', b[0], b[1]); });
-  [2560, 2980, 3420, 4100, 4620].forEach(function (py) { add('pillar', 1380, py); add('pillar', 1884, py); });
-  add('couch', 1400, 4150, { col: '#7d1424' }); add('couch', 1864, 4150, { col: '#7d1424' });
+  // --- warp hub: eight pads, one for every spot in the casino
+  [['lobby', 'Lobby', '🏠', '120,200,255'], ['slots', 'Slot Alley', '🎰', '255,110,199'], ['stakes', 'High Stakes', '💎', '92,242,255'], ['lounge', 'Lounge', '🛋️', '255,170,90'],
+   ['vault', 'The Vault', '🗝️', '255,209,102'], ['arena', 'Duel Arena', '⚔️', '255,92,108'], ['shop', 'Shop', '🛍️', '125,255,154'], ['arcade', 'Arcade', '🕹️', '177,133,255']].forEach(function (q, i) {
+    add('vpad', i < 4 ? 1480 : 1784, 3770 + (i % 4) * 110, { spot: q[0], name: q[1], icon: q[2], col: q[3], label: 'Warp to ' + q[1] });
+  });
+  // --- armory
+  add('hammer', 1632, 4590);
+  add('rack', 1380, 4350); add('rack', 1884, 4350); add('tcase', 1362, 4590); add('tcase', 1902, 4590);
+  add('obelisk', 1400, 4780); add('obelisk', 1864, 4780); add('brazier', 1540, 4800); add('brazier', 1724, 4800);
+  // --- party room
+  [['fireworks', 1390, 'Launch fireworks'], ['party', 1510, 'Confetti party'], ['disco', 1632, 'Disco lights'], ['storm', 1754, 'Summon a storm'], ['snow', 1874, 'Make it snow']].forEach(function (q) { add('fxm', q[1], 5090, { k: q[0], label: q[2] }); });
+  add('fxm', 1480, 5290, { k: 'rain', act: 'modmenu', tab: 'casino', label: 'Coin rain' }); add('fxm', 1784, 5290, { k: 'raffle', act: 'modmenu', tab: 'casino', label: 'Run a raffle' });
+  add('speaker', 1350, 5390); add('speaker', 1914, 5390);
+  // --- lounge
+  add('plant', 1330, 5510); add('plant', 1934, 5510); add('bookcase', 1350, 5640); add('piano', 1850, 5600);
+  add('aquarium', 1632, 5620); add('lounge', 1440, 5760, { col: '#7d1424' }); add('lounge', 1824, 5760, { col: '#7d1424' });
+  add('fire', 1400, 5885); add('goldpile', 1864, 5885); add('throne', 1632, 5885); add('brazier', 1520, 5890); add('brazier', 1744, 5890);
+  [[1340, 3640], [1924, 3640], [1340, 4200], [1924, 4200], [1340, 4900], [1924, 4900]].forEach(function (b) { add('lamp', b[0], b[1]); });
+  [2560, 4960].forEach(function (py) { add('pillar', 1380, py); add('pillar', 1884, py); });
 
   // The Arcade board on the wall shows each game's champion; it refreshes every minute and flips pages every few seconds.
   var ARC_NAMES = [['echo', '🎵 Echo'], ['aim', '🎯 Aim'], ['mathrush', '🧮 Math'], ['trivia', '❓ Trivia'], ['colorclash', '🎨 Color'], ['pattern', '🔢 Pattern'], ['scramble', '🔤 Words']], ARC_KEY = { mathrush: 'math', colorclash: 'color' }, arcData = null, arcPage = 0;
@@ -501,6 +537,8 @@
     if (!target || panelOpen()) return;
     if (target.act === 'descend') { if (me.own && !(me.ventUntil && performance.now() < me.ventUntil)) { startVent(me, 'in'); setTimeout(fade, 860); netSend({ t: 'v', op: 'enter' }); } return; }
     if (target.act === 'ascend') { if (me.own) { fade(); netSend({ t: 'v', op: 'leave' }); } return; }
+    if (target.act === 'warp') { if (me.own) { fade(); netSend({ t: 'v', op: 'warp', spot: target.spot }); } return; }
+    if (target.act === 'fx') { if (me.own) { target.hit = performance.now(); netSend({ t: 'v', op: 'fx', k: target.k }); sfx('click'); } return; }
     if (target.act === 'player' && me.own && me.hammer && !target.p.own && SC.hammerPick) return SC.hammerPick(target.p);
     if (target.act === 'player') return openPanel('player', target.p);
     if (target.act === 'arcade') { sfx('open'); setTimeout(function () { location.href = '/arcade'; }, 180); return; }
@@ -1015,7 +1053,7 @@
     drawTiles();
     var vx0 = cam.x - 240, vx1 = cam.x + VW / Z + 240, vy0 = cam.y - 60, vy1 = cam.y + VH / Z + 300;
     var i, o, vm = me.y > PUBH;
-    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if ((vm ? o.y >= PUBH : o.y < PUBH) && o.layer === 'decal' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
+    for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if ((vm ? o.y >= PUBH : o.y < PUBH) && o.layer === 'decal' && o.x > vx0 && o.x < vx1 && o.y > vy0 - o.ext && o.y < vy1 + o.ext) drawObj(o); }
     for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if ((vm ? o.y >= PUBH : o.y < PUBH) && o.layer === 'wall' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
     if (marker && tnow - marker.at < 0.8) { var mp = (tnow - marker.at) / 0.8; ctx.strokeStyle = 'rgba(255,255,255,' + (1 - mp) + ')'; ctx.lineWidth = 3; A.ell(ctx, marker.x, marker.y, 10 + mp * 14, 5 + mp * 6); ctx.stroke(); }
     A.drawParticles(ctx, parts, dt);
@@ -1183,7 +1221,7 @@
   function drawMinimap() {
     if (isTouch) return;
     var mode = me.y > PUBH ? 1 : 0, g = mmGeom(mode), y0 = g.y0, x0 = g.x0;
-    if (mode !== mmMode || !mmBase) { mmMode = mode; mmBase = null; mm.width = mode ? 64 : MMW0; mm.height = Math.round(mm.width * g.h / g.w); }
+    if (mode !== mmMode || !mmBase) { mmMode = mode; mmBase = null; mm.width = mode ? 52 : MMW0; mm.height = Math.round(mm.width * g.h / g.w); }
     var sx = mm.width / g.w, sy = mm.height / g.h;
     if (!mmBase) {
       mmBase = document.createElement('canvas'); mmBase.width = mm.width; mmBase.height = mm.height; var b = mmBase.getContext('2d');

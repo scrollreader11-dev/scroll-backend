@@ -12,7 +12,7 @@ import { initTables, tablesSnapshot, tablesJoin, tablesLeave, handleTableMsg } f
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
 // Must match the client map (dist/casino/world.js): 60 x 44 tiles of 48px.
-const TILE = 48, WORLD_W = 76 * TILE, WORLD_H = 102 * TILE;   // rows 0..43 are the casino everyone sees; rows 44..101 are the secret Owner Vault
+const TILE = 48, WORLD_W = 76 * TILE, WORLD_H = 124 * TILE;   // rows 0..43 are the casino everyone sees; rows 44..123 are the secret Owner Vault
 const SPAWN = { x: 30 * TILE, y: 38 * TILE };
 const SPEED = 230;            // px/s walking (client sprint is not allowed)
 const MAX_PLAYERS = 150;
