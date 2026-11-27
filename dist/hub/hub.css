@@ -1164,3 +1164,21 @@ button.nav-g .ic { width: 14px; height: 14px; transition: transform .18s var(--e
 /* ---------- recovery code ---------- */
 .rc-box { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; padding: 14px 16px; border-radius: 14px; background: rgba(59, 130, 246, .12); box-shadow: inset 0 0 0 1px rgba(125, 175, 255, .3); }
 .rc-code { font: 700 19px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; color: #fff; user-select: all; word-break: break-all; }
+
+/* ---------- iPad / small laptop: keep the names. A bar of bare icons told nobody what anything was. ---------- */
+@media (min-width: 761px) and (max-width: 1180px) {
+  :root { --side: 216px; }
+  .side { padding-left: calc(12px + var(--safe-l)); padding-right: 10px; }
+  .me { flex-direction: row; gap: 6px; padding: 2px 2px 14px; }
+  .me .who { flex: 1; } .me .who .meta { display: block; min-width: 0; } .me .iconbtn.gift { display: grid; }
+  .nav a, .nav button.nb { justify-content: flex-start; padding: 0 12px; gap: 12px; height: 46px; font-size: 14.5px; }
+  .nav a span, .nav button.nb span { display: inline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-more a, .nav-more button.nb { height: 40px; font-size: 13.5px; justify-content: flex-start; padding: 0 12px; }
+  .nav-more a span, .nav-more button.nb span { display: inline; }
+  .sect { display: block; } .rec .info { display: block; } .queue-link .tx { display: block; } .queue-link .s { display: block; }
+  .rec { justify-content: flex-start; padding: 6px 8px; } .rec .tile { width: 40px; height: 40px; }
+  .queue-link { justify-content: flex-start; padding: 10px 12px 6px; }
+  .nav > .nav-g, .nav-more > .nav-g { display: block; }
+  button.nav-g, .nav-more button.nav-g { display: flex; }
+  .side { scrollbar-width: thin; } .side::-webkit-scrollbar { display: block; width: 6px; }
+}
