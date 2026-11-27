@@ -1548,6 +1548,16 @@
     A.label(c, o.title || 'WELCOME!', x, y - 111, { size: 12, color: '#ffd166', stroke: false, maxW: 156 });
     lines.forEach(function (l, i) { A.label(c, l, x, y - 94 + i * 13, { size: 10, color: '#dce3ff', stroke: false, weight: 600, maxW: 156 }); });
   };
+  O.ubboard = function (c, o, t) {
+    var x = o.x, y = o.y, U = (window.SC && SC.updates) || { list: [] }, W = 150, H = 76, top = y - 48 - H + 28;
+    c.strokeStyle = OL; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(x - 46, y); c.lineTo(x - 46, top + H - 6); c.moveTo(x + 46, y); c.lineTo(x + 46, top + H - 6); c.stroke(); c.strokeStyle = '#8b5a2b'; c.lineWidth = 3; c.stroke();
+    rr(c, x - W / 2 - 4, top - 4, W + 8, H + 8, 9); fs(c, '#8b5a2b', OL, 3);
+    rr(c, x - W / 2, top, W, H, 6); fs(c, '#1b1636', null);
+    A.label(c, "WHAT'S NEW", x - (U.unseen ? 14 : 0), top + 12, { size: 11, color: '#ffd166', stroke: false, maxW: 110 });
+    if (U.unseen) { var p = 0.7 + 0.3 * Math.sin(t * 5); rr(c, x + 24, top + 5, 26, 14, 7); fs(c, '#ff4f6d', OL, 2); A.label(c, 'NEW', x + 37, top + 12.5, { size: 8, color: '#fff', stroke: false, weight: 700 }); c.globalAlpha = 1 - p; c.strokeStyle = '#ff4f6d'; c.lineWidth = 2; rr(c, x + 22 - (1 - p) * 4, top + 3 - (1 - p) * 4, 30 + (1 - p) * 8, 18 + (1 - p) * 8, 9); c.stroke(); c.globalAlpha = 1; }
+    (U.list || []).slice(0, 3).forEach(function (u, i) { A.label(c, '• ' + u[0], x, top + 30 + i * 14, { size: 9.5, color: '#dce3ff', stroke: false, weight: 600, maxW: W - 14 }); });
+    A.label(c, 'press E', x, top + H - 7, { size: 8, color: '#93a0c4', stroke: false, weight: 600 });
+  };
   O.arcboard = function (c, o, t) { o.title = '🏆 ARCADE TOP'; O.board(c, o, t); };
   O.duelboard = function (c, o, t) {
     o.title = '⚔️ OPEN DUELS'; O.board(c, o, t);

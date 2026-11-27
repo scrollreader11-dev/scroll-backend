@@ -79,6 +79,7 @@
     piano: { box: [-62, -48, 62, 0], act: 'piano', label: 'Play the piano', ia: [0, 26], pr: -128, ar: 70 },
     statue: { box: [-40, -30, 40, 0] },
     easel: { box: [-32, -8, 32, 0] },
+    ubboard: { act: 'updates', label: "Read what's new", box: [-30, -8, 30, 0], ia: [0, 28], pr: -100, ar: 70 },
     vhatch: { layer: 'decal', act: 'descend', label: 'Open the hatch', ia: [0, 0], pr: -44, ar: 62, ownerOnly: 1 },
     vladder: { layer: 'decal', act: 'ascend', label: 'Climb out', ia: [0, 0], pr: -70, ar: 66, ownerOnly: 1 },
     chest: { box: [-54, -36, 54, 0] },
@@ -159,6 +160,7 @@
   add('plant', 2950, 1420); add('plant', 3570, 1420);
   station('penalty', 1860, 1650, true);
   add('wardrobe', 2060, 1640);
+  add('ubboard', 1440, 1640);
   add('easel', 1660, 1640, { title: 'WELCOME!', lines: ['Walk: WASD or click', 'E use · Q chat · T emote', 'Dance floor: the Lounge'] });
   add('couch', 1150, 2010, { col: '#5a189a' }); add('couch', 1730, 2010, { col: '#5a189a' });
   add('plant', 760, 2010); add('plant', 2120, 2010);
@@ -555,7 +557,7 @@
   // ================================================================ PANELS
   var META = {
     slots: ['🎰', 'Slots', 'Every spin feeds the progressive jackpot'], blackjack: ['🃏', 'Blackjack', 'Up to 5 players · beat the dealer'], roulette: ['🔴', 'Roulette', 'One wheel, everyone bets on the same spin'],
-    dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], hiscores: ['🏆', 'Arcade High Scores', 'The best round on the floor, per game'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
+    dice: ['🎲', 'Dice', 'Duel other players or play the house'], coinflip: ['🪙', 'Coinflip', 'Duel other players or play the house'], updates: ['📰', "What's New", 'Recent changes to the casino and ScrollHub'], hiscores: ['🏆', 'Arcade High Scores', 'The best round on the floor, per game'], duels: ['⚔️', 'Duel Board', 'Every open duel on the floor'], mines: ['💣', 'Mines', 'Find the gems, dodge the bombs'],
     plinko: ['🔵', 'Plinko', 'Drop it and pray'], wheel: ['🎡', 'The Big Wheel', 'Pick a color — everyone spins together'], crash: ['🚀', 'Crash', 'One rocket for everyone — cash out in time'],
     cases: ['📦', 'Case Vault', 'Open a case'],
     keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, echo: MORE_META.echo, aim: MORE_META.aim, mathrush: MORE_META.mathrush, trivia: MORE_META.trivia, colorclash: MORE_META.colorclash, pattern: MORE_META.pattern, scramble: MORE_META.scramble, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
