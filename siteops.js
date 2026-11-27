@@ -58,6 +58,8 @@ export function createSiteOps(ctx) {
     ['POST', '/api/apply', 'apply', 4, 3600000, 'who', 'You already sent an application a moment ago.'],
     ['POST', '/api/client-error', 'cerr', 20, 60000, 'ip', 'Slow down.'],
     ['POST', '/api/push/subscribe', 'psub', 20, 3600000, 'who', 'Too many tries. Wait a little.'],
+    ['POST', '/api/auth/recover', 'recover', 30, 600000, 'ip', 'Too many recovery tries. Wait a bit and try again.'],
+    ['POST', '/api/auth/recovery-code', 'rcode', 10, 600000, 'who', 'Wait a little before making another code.'],
     ['POST', '/api/push/test', 'ptest', 5, 600000, 'who', 'Wait a moment before sending another test.'],
   ];
   // Returns true (and answers 429) when this request is over its limit.

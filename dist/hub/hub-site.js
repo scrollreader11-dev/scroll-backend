@@ -52,7 +52,7 @@
     }
     if (node && node.insertBefore && Hub.me && Hub.me.kind === 'user' && !Hub.pushHas && !Hub.ls.get('sh_pushcta_off', false) && !(pushOK && Notification.permission === 'denied') && (pushOK || isIOS)) {
       var pc = h('div', { class: 'nw-pill push' }, [icon('bell'), h('span', { class: 'nw-stretch', text: pushOK ? 'Get a pop-up when someone messages you, even when ScrollHub is closed.' : 'Add ScrollHub to your Home Screen to get pop-ups for messages.' }),
-        h('button', { class: 'btn sm primary nw-btn', type: 'button', onclick: function () { if (pushOK) Hub.pushEnable().then(function (r) { if (r && r.ok) { Hub.toast('Pop-ups are on', { icon: 'bell' }); pc.remove(); } else Hub.toast(r && r.error === 'denied' ? 'Pop-ups were blocked' : 'Could not turn them on', { bad: true }); }); else Hub.installApp(); } }, pushOK ? 'Turn on' : 'How'),
+        h('button', { class: 'btn sm primary nw-btn', type: 'button', onclick: function () { if (pushOK) { Hub.toast('Asking your browser…'); Hub.pushEnable().then(function (r) { if (r && r.ok) { Hub.toast('Pop-ups are on', { icon: 'bell' }); pc.remove(); } else Hub.toast((r && r.message) || 'Could not turn them on', { bad: true }); }); } else Hub.installApp(); } }, pushOK ? 'Turn on' : 'How'),
         h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Hide this', onclick: function () { Hub.ls.set('sh_pushcta_off', true); pc.remove(); } }, icon('x'))]);
       node.insertBefore(pc, node.firstChild);
     }
@@ -189,20 +189,40 @@
   var pushOK = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
   Hub.pushHas = false;
   function key64(k) { var p = '='.repeat((4 - k.length % 4) % 4), b = (k + p).replace(/-/g, '+').replace(/_/g, '/'), r = atob(b), o = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
-  function reg() { return navigator.serviceWorker.getRegistration('/hub/').then(function (r) { return r || navigator.serviceWorker.register('/hub/sw.js', { scope: '/hub/' }); }).then(function (r) { return navigator.serviceWorker.ready.then(function () { return r; }); }); }
+  function withTimeout(pr, ms, tag) { return new Promise(function (res, rej) { var t = setTimeout(function () { rej(new Error(tag || 'timeout')); }, ms); pr.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); }); }); }
+  // The registration that belongs to /hub/ (the site also has a root worker, which must not be used for pop-ups).
+  function reg() {
+    return navigator.serviceWorker.getRegistrations().then(function (list) {
+      for (var i = 0; i < list.length; i++) if (/\/hub\/$/.test(list[i].scope)) return list[i];
+      return navigator.serviceWorker.register('/hub/sw.js', { scope: '/hub/' });
+    }).then(function (r) {
+      if (r.active) return r;
+      var w = r.installing || r.waiting; if (!w) return r;
+      return withTimeout(new Promise(function (res) { if (w.state === 'activated') return res(r); w.addEventListener('statechange', function () { if (w.state === 'activated') res(r); }); }), 10000, 'sw');
+    });
+  }
   Hub.pushRefresh = function () {
     if (!pushOK || !signedIn()) { Hub.pushHas = false; return Promise.resolve(false); }
     return reg().then(function (r) { return r.pushManager.getSubscription(); }).then(function (s) { Hub.pushHas = !!s && Notification.permission === 'granted'; return Hub.pushHas; }).catch(function () { return false; });
   };
   Hub.pushEnable = function () {
-    if (!pushOK) return Promise.resolve({ error: 'unsupported' });
-    return Notification.requestPermission().then(function (perm) {
-      if (perm !== 'granted') return { error: 'denied' };
-      return Promise.all([reg(), Hub.api('/api/push/key')]).then(function (a) {
-        if (!a[1] || !a[1].key) return { error: 'server' };
-        return a[0].pushManager.getSubscription().then(function (old) { return old || a[0].pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key64(a[1].key) }); });
-      }).then(function (sub) { if (sub && sub.error) return sub; return Hub.api('/api/push/subscribe', { body: { subscription: sub.toJSON() } }).then(function (r) { Hub.pushHas = !!(r && r.ok); return r && r.ok ? { ok: true } : { error: 'server', message: r && r.message }; }); });
-    }).catch(function () { return { error: 'failed' }; });
+    if (!pushOK) return Promise.resolve({ error: 'unsupported', message: 'This browser cannot show pop-ups when ScrollHub is closed.' });
+    if (Notification.permission === 'denied') return Promise.resolve({ error: 'denied', message: 'Pop-ups are blocked for this site. Allow notifications in your browser settings, then try again.' });
+    var framed = false; try { framed = window.top !== window.self; } catch (e) { framed = true; }
+    var ask = new Promise(function (res) { var done = false, fin = function (p) { if (!done) { done = true; res(p); } }; try { var r = Notification.requestPermission(fin); if (r && r.then) r.then(fin, function () { fin('denied'); }); } catch (e) { fin('denied'); } });
+    return withTimeout(ask, 45000, 'prompt').then(function (perm) {
+      if (perm !== 'granted') return { error: 'denied', message: perm === 'default' ? 'You closed the permission box. Tap Turn on again and choose Allow.' : 'Pop-ups were blocked. Allow notifications for ScrollHub in your browser settings.' };
+      return withTimeout(Promise.all([reg(), Hub.api('/api/push/key')]), 15000, 'setup').then(function (a) {
+        if (!a[1] || !a[1].key) return { error: 'server', message: 'ScrollHub could not get its pop-up key. Try again in a minute.' };
+        return a[0].pushManager.getSubscription().then(function (old) { return old || withTimeout(a[0].pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key64(a[1].key) }), 20000, 'subscribe'); });
+      }).then(function (sub) { if (sub && sub.error) return sub; return Hub.api('/api/push/subscribe', { body: { subscription: sub.toJSON() } }).then(function (r) { Hub.pushHas = !!(r && r.ok); return r && r.ok ? { ok: true } : { error: 'server', message: (r && r.message) || 'ScrollHub could not save this device. Try again.' }; }); });
+    }).catch(function (e) {
+      var m = e && e.message;
+      if (framed) return { error: 'framed', message: 'Pop-ups cannot be turned on from inside another page. Open ScrollHub in its own tab and try there.' };
+      if (m === 'prompt') return { error: 'timeout', message: 'Your browser never showed the permission box. Check the address bar for a blocked-notifications icon.' };
+      if (m === 'subscribe' || (e && e.name === 'AbortError')) return { error: 'push', message: 'Your browser could not connect to its push service. Check your connection, or try a different browser.' };
+      return { error: 'failed', message: 'Could not turn pop-ups on. Reload the page and try again.' };
+    });
   };
   Hub.pushDisable = function () {
     if (!pushOK) return Promise.resolve();
@@ -225,7 +245,7 @@
       Hub.pushRefresh().then(function (on) {
         Hub.clear(body);
         body.appendChild(Hub.toggle('Pop-ups on this device', on ? 'On' : 'Off', on, function (v) {
-          if (v) Hub.pushEnable().then(function (r) { if (r && r.ok) Hub.toast('Pop-ups are on', { icon: 'bell' }); else Hub.toast(r && r.error === 'denied' ? 'Pop-ups were blocked' : (r && r.message) || 'Could not turn them on', { bad: true }); paint(); });
+          if (v) Hub.pushEnable().then(function (r) { if (r && r.ok) Hub.toast('Pop-ups are on', { icon: 'bell' }); else Hub.toast((r && r.message) || 'Could not turn them on', { bad: true }); paint(); });
           else Hub.pushDisable().then(function () { Hub.toast('Pop-ups are off'); paint(); });
         }));
         if (!on) return;

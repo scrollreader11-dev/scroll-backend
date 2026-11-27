@@ -53,6 +53,36 @@ function verifyPassword(acct, password) {
   } catch (e) { return false; }
 }
 
+// ---- password recovery ----
+// No email on file, so recovery works with a one-time-shown recovery code (kept by the player) or a short-lived
+// code from staff. Either one lets the player pick a new password.
+const RC_ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function newCode(groups) {
+  const b = crypto.randomBytes(groups * 4); let o = '';
+  for (let i = 0; i < b.length; i++) { if (i && i % 4 === 0) o += '-'; o += RC_ALPHA[b[i] % RC_ALPHA.length]; }
+  return o;
+}
+const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function hashCode(code, salt) { return crypto.scryptSync(normCode(code), salt, 32).toString('hex'); }
+function codeMatches(rec, code) {
+  try {
+    if (!rec || !rec.hash || normCode(code).length < 8) return false;
+    const a = Buffer.from(hashCode(code, rec.salt), 'hex'), b = Buffer.from(rec.hash, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+function issueRecovery(acct) { const code = newCode(4), salt = crypto.randomBytes(12).toString('hex'); acct.rec = { salt, hash: hashCode(code, salt), ts: Date.now() }; return code; }
+// Owner tool: a one-hour code the player can use on the "Forgot password" screen.
+export async function staffResetCode(username) {
+  const a = await accountByName(username); if (!a) return null;
+  const code = newCode(3), salt = crypto.randomBytes(12).toString('hex');
+  a.reset = { salt, hash: hashCode(code, salt), exp: Date.now() + 3600 * 1000 };
+  await putAccount(a); return code;
+}
+const recoverTries = new Map(); // "u:name" / "ip:addr" -> { n, ts }
+function recoverBlocked(keys) { const now = Date.now(); for (const k of keys) { const t = recoverTries.get(k); if (t && now - t.ts < 15 * 60 * 1000 && t.n >= 8) return true; } return false; }
+function recoverFail(keys) { const now = Date.now(); for (const k of keys) { const t = recoverTries.get(k); if (!t || now - t.ts >= 15 * 60 * 1000) recoverTries.set(k, { n: 1, ts: now }); else t.n++; } if (recoverTries.size > 5000) recoverTries.clear(); }
+
 async function getAccount(username) {
   const key = normUser(username).toLowerCase();
   if (acctCache.has(key)) return acctCache.get(key);
@@ -285,10 +315,11 @@ export async function handleAuth(url, req, res) {
     const existing = await getAccount(username);
     if (existing) { sendJson(res, 200, { error: 'taken', message: 'That username is taken.' }); return true; }
     const acct = makeAccount(username, password);
+    const recoveryCode = issueRecovery(acct);
     await putAccount(acct); indexName(acct.username);
     const token = await createSession(acct);
     // token is returned so cross-domain frontends can store it (header auth).
-    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id, token }, authCookies(acct, token));
+    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id, token, recoveryCode }, authCookies(acct, token));
     return true;
   }
 
@@ -318,6 +349,49 @@ export async function handleAuth(url, req, res) {
     acct.hash = hashPassword(nw, acct.salt);
     await putAccount(acct);
     sendJson(res, 200, { ok: true });
+    return true;
+  }
+
+  if (path === '/api/auth/recovery-status' && req.method === 'GET') {
+    const s = await resolveSession(req);
+    if (!s) return (sendJson(res, 200, { error: 'login', message: 'Log in first.' }), true);
+    const acct = await getAccount(s.username);
+    sendJson(res, 200, { ok: true, has: !!(acct && acct.rec) });
+    return true;
+  }
+
+  // Make (or replace) the recovery code. Needs the current password, and the code is shown only in this reply.
+  if (path === '/api/auth/recovery-code' && req.method === 'POST') {
+    const s = await resolveSession(req);
+    if (!s) return (sendJson(res, 200, { error: 'login', message: 'Log in first.' }), true);
+    const body = await readBody(req);
+    const acct = await getAccount(s.username);
+    if (!acct || !verifyPassword(acct, String(body.current || ''))) return (sendJson(res, 200, { error: 'bad-current', message: 'Your password is wrong.' }), true);
+    const code = issueRecovery(acct); await putAccount(acct);
+    sendJson(res, 200, { ok: true, code });
+    return true;
+  }
+
+  if (path === '/api/auth/recover' && req.method === 'POST') {
+    const body = await readBody(req);
+    const username = normUser(body.username), code = String(body.code || ''), pw = String(body.password || '');
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    const keys = ['u:' + username.toLowerCase(), 'ip:' + ip];
+    if (recoverBlocked(keys)) { sendJson(res, 200, { error: 'slow-down', message: 'Too many tries. Wait 15 minutes and try again.' }); return true; }
+    if (pw.length < 6 || pw.length > 100) { sendJson(res, 200, { error: 'bad-password', message: 'Password must be at least 6 characters.' }); return true; }
+    const acct = USER_RE.test(username) ? await getAccount(username) : null;
+    const viaStaff = !!(acct && acct.reset && acct.reset.exp > Date.now() && codeMatches(acct.reset, code));
+    const viaCode = !!(acct && acct.rec && codeMatches(acct.rec, code));
+    if (!viaStaff && !viaCode) { recoverFail(keys); sendJson(res, 200, { error: 'bad-recovery', message: 'That username and recovery code do not match.' }); return true; }
+    if (banActive(acct)) { sendJson(res, 200, { error: 'banned', message: 'This account is banned.' }); return true; }
+    acct.salt = crypto.randomBytes(16).toString('hex'); acct.hash = hashPassword(pw, acct.salt);
+    acct.revokedBefore = Date.now(); delete acct.reset;
+    const recoveryCode = issueRecovery(acct);   // the used code is gone; here is the next one
+    await putAccount(acct);
+    for (const [tok, sess] of sessions) if (sess.username.toLowerCase() === acct.username.toLowerCase()) sessions.delete(tok);
+    await new Promise((r) => setTimeout(r, 5));
+    const token = await createSession(acct);
+    sendJson(res, 200, { ok: true, username: acct.username, id: acct.id, token, recoveryCode }, authCookies(acct, token));
     return true;
   }
 

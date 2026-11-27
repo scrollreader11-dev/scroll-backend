@@ -30,8 +30,8 @@ import { setChatCheck, setIpFn, recent as chatRecent } from './chatguard.js';
 import { likeCount, likedBy, likeToggle, setSubHook, setAutoHook, trustSet, trustList, isTrusted, questEvent, questsView, questClaim, surveyState, surveySubmit, surveyAdmin, surveySet, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { createSiteOps } from './siteops.js';
 import { createPush } from './push.js';
-import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
-import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete, modHQAdd, modHQPost } from './discord.js';
+import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, staffResetCode, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete, modHQAdd, modHQRemove, modHQPost } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -236,6 +236,14 @@ try { const s = await kvGet('sh:state'); if (s) applyState(JSON.parse(s)); } cat
 // Pop-ups for people who are not on the site (web push). Owners and mods also get staff alerts and a Mod HQ post.
 let push = { send() {}, handle: async () => false };
 try { push = await createPush({ admin, saveState, kvGet, kvSet, resolveSession, sendJson, readBody }); } catch (e) { console.log('push init failed:', e.message); }
+// Everyone on staff (owner, co-owner, mod) is put in Mod HQ automatically; nobody has to open Discord or accept an invite.
+async function syncStaffToModHQ() {
+  try {
+    const staff = await listStaff();
+    for (const st of staff) { const a = await accountByName(st.username); if (a) modHQAdd(a.id, a.username); }
+  } catch (e) {}
+}
+setTimeout(syncStaffToModHQ, 10000).unref(); setInterval(syncStaffToModHQ, 5 * 60 * 1000).unref();
 async function staffAlert(o) {
   try {
     if (o.channel && o.text) modHQPost(o.channel, o.text);
@@ -1372,7 +1380,7 @@ async function handleStaff(req, res) {
   if (action === 'audit.list') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, audit: admin.audit.slice(-200).reverse() }); }
 
   // ---- everything below is owner only ----
-  const ownerActions = ['staff.setrole', 'player.coins', 'player.item', 'player.streak', 'player.dailyReset', 'player.resetProfile', 'player.signout', 'store.list'];
+  const ownerActions = ['staff.setrole', 'player.coins', 'player.item', 'player.streak', 'player.dailyReset', 'player.resetProfile', 'player.signout', 'player.resetpw', 'store.list'];
   if (ownerActions.includes(action) && !owner) return needOwner();
   if (action === 'staff.setrole' && !trueOwner) return needOwner();
 
@@ -1386,6 +1394,7 @@ async function handleStaff(req, res) {
     const before = await roleForName(acct.username).catch(() => null);
     await setRole(acct.username, role);
     audit(who, role ? 'grant ' + role : 'remove ' + (before || 'role'), acct.username, '');
+    if (role) modHQAdd(acct.id, acct.username); else modHQRemove(acct.id);
     return sendJson(res, 200, { ok: true, staff: await listStaff() });
   }
 
@@ -1417,6 +1426,12 @@ async function handleStaff(req, res) {
   if (action === 'player.streak') { adminSetField(acct.id, 'streak', body.value); audit(who, 'set streak', acct.username, String(body.value)); return sendJson(res, 200, { ok: true }); }
   if (action === 'player.dailyReset') { adminSetField(acct.id, 'dailyReady', 0); audit(who, 'reset daily', acct.username, ''); return sendJson(res, 200, { ok: true }); }
   if (action === 'player.resetProfile') { adminResetProfile(acct.id); audit(who, 'reset profile', acct.username, ''); return sendJson(res, 200, { ok: true }); }
+  if (action === 'player.resetpw') {
+    if (isOwnerName(acct.username)) return sendJson(res, 200, { error: 'fixed', message: 'Owner accounts cannot be reset this way.' });
+    const code = await staffResetCode(acct.username);
+    audit(who, 'password reset code', acct.username, '');
+    return sendJson(res, 200, { ok: true, code, minutes: 60 });
+  }
   if (action === 'player.signout') {
     await revokeSessions(acct.username);
     audit(who, 'sign out everywhere', acct.username, '');
@@ -3001,10 +3016,30 @@ httpServer.on('clientError', (err, socket) => { try { socket.destroy(); } catch 
 
 const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, '0.0.0.0', () => {
+  banner(PORT);
   console.log(`Scroll Unblocker running on port ${PORT}`);
   console.log(kvEnabled ? 'Durable storage: Upstash Redis (ON)' : 'Durable storage: OFF (set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)');
 });
 // Best-effort final flush so the last messages aren't lost on shutdown.
 for (const sig of ['SIGTERM', 'SIGINT']) {
   process.on(sig, async () => { try { await kvFlush(); } catch {} process.exit(0); });
+}
+
+
+// Startup banner for the server console (colour only when the terminal supports it).
+function banner(port) {
+  const tty = process.stdout.isTTY && !process.env.NO_COLOR, c = (n, t) => (tty ? `\x1b[${n}m${t}\x1b[0m` : t);
+  const art = [
+    ' ____   ____ ____   ___  _     _     _   _ _   _ ____  ',
+    '/ ___| / ___|  _ \\ / _ \\| |   | |   | | | | | | | __ ) ',
+    '\\___ \\| |   | |_) | | | | |   | |   | |_| | | | |  _ \\ ',
+    ' ___) | |___|  _ <| |_| | |___| |___|  _  | |_| | |_) |',
+    '|____/ \\____|_| \\_\\\\___/|_____|_____|_| |_|\\___/|____/ ',
+  ];
+  const cols = [96, 96, 36, 34, 94];
+  console.log('');
+  art.forEach((l, i) => console.log('  ' + c(cols[i], l)));
+  console.log('  ' + c(90, '-----------------------------------------------------'));
+  console.log('  ' + c(93, '*') + ' ' + c(97, 'arcade online') + c(90, '  |  ') + c(92, 'port ' + port) + c(90, '  |  ') + c(95, 'have fun, play fair') + ' ' + c(93, '*'));
+  console.log('');
 }

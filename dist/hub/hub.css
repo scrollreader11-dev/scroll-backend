@@ -1143,3 +1143,24 @@ button.nav-g .ic { width: 14px; height: 14px; transition: transform .18s var(--e
 .nw-pill .iconbtn { width: 32px; height: 32px; flex: none; }
 .pu-box { margin-top: 22px; }
 .pu-box .switch { margin-top: 8px; }
+
+/* ---------- sidebar always reachable: the whole left bar scrolls when the window is short ---------- */
+.side { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .22) transparent; padding-bottom: calc(18px + var(--safe-b)); }
+.side::-webkit-scrollbar { width: 8px; } .side::-webkit-scrollbar-track { background: transparent; } .side::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .2); border-radius: 4px; } .side::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .34); }
+.side > * { flex-shrink: 0; }
+.side .recents { overflow: visible; }
+@media (max-width: 1180px) { .side { scrollbar-width: none; } .side::-webkit-scrollbar { display: none; } }
+@media (max-height: 640px) { .nav a, .nav-more a, .nav-more button.nb { height: 42px; } }
+
+/* ---------- Discord: keep the voice bar (mute / leave) on screen ---------- */
+/* The grid row used to grow to fit a long channel list, which pushed the bottom bar out of the clipped frame. */
+.dc { grid-template-rows: minmax(0, 1fr); }
+.dc-side, .dc-chat, .dc-mem, .dc-rail { min-height: 0; }
+.dc-side { overflow: hidden; }
+.dvbar { position: relative; z-index: 2; }
+/* 100vh is taller than the visible screen on iPad and phones, which also clipped the bottom of the page. */
+@supports (height: 100dvh) { :root { --app-h: 100dvh; } }
+
+/* ---------- recovery code ---------- */
+.rc-box { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; padding: 14px 16px; border-radius: 14px; background: rgba(59, 130, 246, .12); box-shadow: inset 0 0 0 1px rgba(125, 175, 255, .3); }
+.rc-code { font: 700 19px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; color: #fff; user-select: all; word-break: break-all; }

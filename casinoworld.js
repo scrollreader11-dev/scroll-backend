@@ -122,6 +122,32 @@ function removePlayer(p) {
 }
 
 
+// ---- Casino regulars: pretend visitors who wander the floor so it never feels empty. They are not accounts and nothing real
+// happens to them. Each player's browser walks them around; the server only decides who exists, and runs the smite / "ban" show.
+const NPC_COUNT = process.env.CASINO_NPCS != null ? Math.max(0, Math.min(20, Number(process.env.CASINO_NPCS) || 0)) : 7;
+const NPC_NAMES = ['Lucky Larry', 'Miss Mochi', 'Big Tony', 'Penny', 'Dealer Dan', 'Captain Chips', 'Sir Spinsalot', 'Nova', 'Gizmo', 'Lady Luck', 'Bluffin Bob', 'Coco', 'Roulette Rita', 'High Roller Hank', 'Jackpot Jen', 'Pixel', 'Diamond Dave', 'Fizz', 'Sunny', 'Mr. Monocle'];
+const NPC_SKINS = ['gim', 'cat', 'bear', 'bunny', 'frog', 'penguin', 'robot', 'fox'];
+const NPC_HATS = ['', '', '', 'cap', 'beanie', 'party', 'chef', 'cowboy', 'top', 'prop', 'phones'];
+const NPC_COLORS = ['#3fa9ff', '#ff6b6b', '#ffd166', '#06d6a0', '#c77dff', '#ff9f43', '#4ecdc4', '#f78fb3'];
+const npcs = new Map();   // id (negative number) -> { id, cid, nick, look }
+let npcSeq = 0;
+const pickOf = (a) => a[Math.floor(Math.random() * a.length)];
+function npcPub(n) { return { id: n.id, cid: n.cid, nick: n.nick, look: n.look, cos: {}, npc: 1 }; }
+function npcSpawn(announce) {
+  if (npcs.size >= NPC_COUNT) return null;
+  const used = new Set([...npcs.values()].map((n) => n.nick)); for (const p of players.values()) used.add(p.nick);
+  const free = NPC_NAMES.filter((n) => !used.has(n)); if (!free.length) return null;
+  const id = -(++npcSeq), n = { id, cid: 'npc' + id, nick: pickOf(free), look: { skin: pickOf(NPC_SKINS), body: pickOf(NPC_COLORS), hat: pickOf(NPC_HATS), acc: '', trail: '' } };
+  npcs.set(id, n); if (announce) broadcast({ t: 'npcjoin', p: npcPub(n) });
+  return n;
+}
+function npcSmite(id, by, ban) {
+  const n = npcs.get(id); if (!n || n.dying) return; n.dying = true;
+  broadcast({ t: 'vfx', k: 'smite', id, by: by.id, b: ban ? 1 : 0 });
+  setTimeout(() => { npcs.delete(id); broadcast({ t: 'leave', id }); setTimeout(() => npcSpawn(true), 15000 + Math.random() * 25000); }, 2400);
+}
+for (let i = 0; i < NPC_COUNT; i++) npcSpawn(false);
+
 // ---- Owner Vault operations. Everything here is checked against the account role the socket was opened with.
 const VFX = new Set(['party', 'fireworks', 'storm', 'disco', 'snow']);
 const SPOTS = { lobby: [1440, 1824], slots: [350, 500], stakes: [1440, 330], lounge: [360, 1500], vault: [2515, 400], arena: [2515, 1000], shop: [2520, 1700], arcade: [3240, 900], owner: [VAULT.inn.x, VAULT.inn.y] };
@@ -167,6 +193,21 @@ function vaultOp(me, m, now) {
       broadcast({ t: 'vfx', k: 'vent', id: me.id, d: 'out' });   // ...and pop back out of it
       return;
     }
+    case 'ventto': {   // vent network: hop into the vent here and crawl out somewhere else on the floor
+      if ((me.lockUntil || 0) > now) return;
+      let key = String(m.spot || '');
+      if (key === 'random') { const ks = Object.keys(SPOTS).filter((k) => k !== 'owner' && k !== 'vault'); key = ks[Math.floor(Math.random() * ks.length)]; }
+      const sp = SPOTS[key]; if (!sp) return;
+      me.lockUntil = now + 1700;
+      broadcast({ t: 'vfx', k: 'vent', id: me.id, d: 'in' });
+      setTimeout(() => {
+        if (players.get(me.id) !== me) return;
+        if (sp[1] > VAULT.y0) setVault(me, true, true); else if (me.hidden) setVault(me, false, true);
+        teleport(me, sp[0] + (Math.random() * 60 - 30), sp[1] + 20);
+        broadcast({ t: 'vfx', k: 'vent', id: me.id, d: 'out' });
+      }, 1100);
+      return;
+    }
     case 'warp': {
       const sp = SPOTS[String(m.spot || '')]; if (!sp) return;
       const inside = sp[1] > VAULT.y0;
@@ -197,6 +238,7 @@ function vaultOp(me, m, now) {
       return;
     }
     case 'smite': {   // lightning bolt, then out of the casino for a minute
+      if (m.id != null && npcs.has(Number(m.id))) { npcSmite(Number(m.id), me, !!m.ban); return; }
       if (!tgt || tgt === me || protectedT(tgt)) return;
       broadcast({ t: 'vfx', k: 'smite', id: tgt.id, by: me.id, b: m.ban ? 1 : 0 });   // b: 1 = the hammer came down for a ban
       const cid = tgt.cid;
@@ -242,7 +284,7 @@ export function handleWorldUpgrade(req, socket, head) {
     players.set(me.id, me);
     lastPos.delete(cid);
     ws.on('pong', () => { me.alive = true; });
-    send(ws, { t: 'welcome', now: Date.now(), you: Object.assign(pub(me), { role: me.role }), vault: me.own ? 1 : 0, players: [...players.values()].filter((p) => p !== me && p.cid !== cid && (!p.hidden || me.own)).map(pub), world: { w: WORLD_W, h: WORLD_H }, qc: QUICKCHAT, games: tablesSnapshot() });
+    send(ws, { t: 'welcome', now: Date.now(), you: Object.assign(pub(me), { role: me.role }), vault: me.own ? 1 : 0, npcs: [...npcs.values()].filter((n) => !n.dying).map(npcPub), players: [...players.values()].filter((p) => p !== me && p.cid !== cid && (!p.hidden || me.own)).map(pub), world: { w: WORLD_W, h: WORLD_H }, qc: QUICKCHAT, games: tablesSnapshot() });
     broadcast({ t: 'join', p: pub(me) }, ws);
     tablesJoin(me);
 

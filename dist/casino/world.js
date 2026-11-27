@@ -503,6 +503,7 @@
     for (var id in players) {
       var p = players[id], f = Math.min(1, dt * 12);
       if (p.leaving && performance.now() - p.leaving > 2500) { delete players[id]; updateOnlineCount(); continue; }
+      if (p.npc && !p.leaving) npcThink(p, dt);
       p.x += (p.tx - p.x) * f; p.y += (p.ty - p.y) * f;
       var moving = p.mv || Math.hypot(p.tx - p.x, p.ty - p.y) > 2;
       if (moving) { p.walk += dt * 13; p.idle = 0; } else p.idle = (p.idle || 0) + dt;
@@ -542,6 +543,7 @@
     if (target.act === 'warp') { if (me.own) { fade(); netSend({ t: 'v', op: 'warp', spot: target.spot }); } return; }
     if (target.act === 'fx') { if (me.own) { target.hit = performance.now(); netSend({ t: 'v', op: 'fx', k: target.k }); sfx('click'); } return; }
     if (target.act === 'player' && me.own && me.hammer && !target.p.own && SC.hammerPick) return SC.hammerPick(target.p);
+    if (target.act === 'player' && target.p.npc) { var np = target.p; np.emote = { text: NPC_SAY[Math.floor(Math.random() * NPC_SAY.length)], at: performance.now() }; toast('🎰 ' + np.nick + ' is a casino regular (NPC)'); return; }
     if (target.act === 'player') return openPanel('player', target.p);
     if (target.act === 'arcade') { sfx('open'); setTimeout(function () { location.href = '/arcade'; }, 180); return; }
     if (target.act === 'bar') {
@@ -1297,13 +1299,67 @@
   function flashNear(p) { var best = null, bd = 150; ACTS.forEach(function (o) { var d = Math.hypot(o.ax - p.x, o.ay - p.y); if (d < bd) { bd = d; best = o; } }); if (best) best.flash = tnow; }
   function renderOnline() {
     var l = $('onlineList'); if (l.style.display !== 'block') return;
-    var all = [me].concat(Object.keys(players).map(function (k) { return players[k]; }));
+    var all = [me].concat(Object.keys(players).map(function (k) { return players[k]; }).filter(function (q) { return !q.npc; }));
     l.innerHTML = '<div style="font-weight:700;margin-bottom:4px">In the casino (' + all.length + ')</div><div class="hint" style="margin:0 0 6px;font-size:12px">Click someone to find them</div>' + all.map(function (p) {
       return '<div class="row" data-find="' + (p === me ? 0 : p.id) + '" style="cursor:pointer"><span class="dot" style="background:' + A.baseHex(p.look && p.look.body) + '"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (p.cos && p.cos.color && p.cos.color[0] === '#' ? p.cos.color : '#fff') + '">' + esc(p.nick) + (p === me ? ' (you)' : '') + '</span>' + (p.busy && BUSY_ICON[p.busy] ? '<span>' + BUSY_ICON[p.busy] + '</span>' : '') + '</div>';
     }).join('');
     l.querySelectorAll('[data-find]').forEach(function (r) { r.onclick = function () { var id = +r.dataset.find; if (!id) return; findId = id; findUntil = tnow + 12; l.style.display = 'none'; var p = players[id]; if (p) toast('📍 Showing where ' + p.nick + ' is — click the minimap to walk there'); }; });
   }
-  function updateOnlineCount() { $('onlineN').textContent = 1 + Object.keys(players).length; renderOnline(); }
+  function updateOnlineCount() { $('onlineN').textContent = 1 + Object.keys(players).filter(function (k) { return !players[k].npc; }).length; renderOnline(); }
+
+
+  // ================================================================ CASINO REGULARS (NPCs)
+  // Pretend visitors. The server decides who exists; each browser just walks them around the floor.
+  var NPC_SAY = ['Feeling lucky!', 'One more spin…', 'Nice place!', 'Anyone seen the jackpot?', 'Hot streak 🔥', 'Drinks are on me', 'Good luck!', 'Big win incoming', 'Just browsing', 'Love this music 🎵'];
+  function npcSpot(cx, cy, rad) {
+    for (var i = 0; i < 60; i++) {
+      var gx = cx == null ? 2 + Math.floor(Math.random() * (COLS - 4)) : clamp(cx + Math.round((Math.random() * 2 - 1) * rad), 1, COLS - 2);
+      var gy = cy == null ? 3 + Math.floor(Math.random() * 39) : clamp(cy + Math.round((Math.random() * 2 - 1) * rad), 3, 41);
+      if (!BLOCK[gy][gx]) return [gx, gy];
+    }
+    return null;
+  }
+  function npcPath(sx, sy, gx, gy) {
+    var key = function (x, y) { return y * COLS + x; }, open = [[sx, sy]], came = {}, gsc = {}, fsc = {}, found = false, it = 0;
+    gsc[key(sx, sy)] = 0; fsc[key(sx, sy)] = 0;
+    var h = function (x, y) { return Math.hypot(x - gx, y - gy); };
+    while (open.length && it++ < 900) {
+      var bi = 0; for (var i = 1; i < open.length; i++) if (fsc[key(open[i][0], open[i][1])] < fsc[key(open[bi][0], open[bi][1])]) bi = i;
+      var c = open.splice(bi, 1)[0]; if (c[0] === gx && c[1] === gy) { found = true; break; }
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue; var nx = c[0] + dx, ny = c[1] + dy;
+        if (nx < 0 || ny < 0 || nx >= COLS || ny > 41 || BLOCK[ny][nx]) continue;
+        if (dx && dy && (BLOCK[c[1]][nx] || BLOCK[ny][c[0]])) continue;
+        var g2 = gsc[key(c[0], c[1])] + (dx && dy ? 1.414 : 1), k2 = key(nx, ny);
+        if (gsc[k2] == null || g2 < gsc[k2]) { gsc[k2] = g2; fsc[k2] = g2 + h(nx, ny); came[k2] = c; if (!open.some(function (o) { return o[0] === nx && o[1] === ny; })) open.push([nx, ny]); }
+      }
+    }
+    if (!found) return null;
+    var pts = [], cur = [gx, gy];
+    while (!(cur[0] === sx && cur[1] === sy)) { pts.unshift([cur[0] * T + T / 2, cur[1] * T + T / 2 + 10]); cur = came[key(cur[0], cur[1])]; if (!cur) return null; }
+    return pts;
+  }
+  function npcAdd(d) {
+    if (!d || players[d.id]) return;
+    var sp = npcSpot(null, null, 0) || [38, 20], p = mkPlayer({ id: d.id, cid: d.cid, nick: d.nick, look: d.look, cos: d.cos, npc: 1, x: sp[0] * T + T / 2, y: sp[1] * T + T / 2 + 10 });
+    p.ai = { path: null, wait: Math.random() * 6, say: 8 + Math.random() * 30 };
+    players[d.id] = p;
+  }
+  function npcThink(p, dt) {
+    var a = p.ai; if (!a) a = p.ai = { path: null, wait: 2, say: 20 };
+    if ((a.say -= dt) <= 0) { a.say = 25 + Math.random() * 50; if (Math.hypot(p.x - me.x, p.y - me.y) < 700) p.emote = { text: NPC_SAY[Math.floor(Math.random() * NPC_SAY.length)], at: performance.now() }; }
+    if (!a.path) {
+      p.mv = false; if ((a.wait -= dt) > 0) return;
+      var sx = clamp(Math.floor(p.tx / T), 0, COLS - 1), sy = clamp(Math.floor((p.ty - 5) / T), 0, 41), g = npcSpot(sx, sy, 9);
+      a.wait = 1 + Math.random() * 3;
+      if (!g || BLOCK[sy][sx] || (g[0] === sx && g[1] === sy)) return;
+      var path = npcPath(sx, sy, g[0], g[1]); if (path && path.length) a.path = path;
+      return;
+    }
+    var w = a.path[0], dx = w[0] - p.tx, dy = w[1] - p.ty, d = Math.hypot(dx, dy), step = 105 * dt;
+    if (d <= step) { p.tx = w[0]; p.ty = w[1]; a.path.shift(); if (!a.path.length) { a.path = null; a.wait = 3 + Math.random() * 9; p.mv = false; } }
+    else { p.tx += dx / d * step; p.ty += dy / d * step; p.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : 2) : (dy < 0 ? 3 : 0); p.mv = true; }
+  }
 
   // ================================================================ NETWORK
   var ws = null, wsOk = false, fatal = false, retry = 800, lastSent = { x: 0, y: 0, d: -1, m: false, at: 0 }, lastRecv = 0, lastPing = 0;
@@ -1326,7 +1382,7 @@
     lastSent = { x: me.x, y: me.y, d: me.dir, m: me.mv, at: now };
     netSend({ t: 'mv', x: Math.round(me.x), y: Math.round(me.y), d: me.dir, m: me.mv ? 1 : 0 });
   }
-  function mkPlayer(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir || 0, mv: !!p.mv, walk: 0, look: p.look || {}, cos: p.cos || {}, busy: p.busy || '', blinkSeed: Math.random() * 4, emote: null, idle: 0, own: !!p.own, hammer: !!p.hm, scale: p.sc || 1, frozen: !!p.fz }; }
+  function mkPlayer(p) { return { id: p.id, cid: p.cid, nick: p.nick, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir || 0, mv: !!p.mv, walk: 0, look: p.look || {}, cos: p.cos || {}, busy: p.busy || '', blinkSeed: Math.random() * 4, emote: null, idle: 0, own: !!p.own, hammer: !!p.hm, scale: p.sc || 1, frozen: !!p.fz, npc: !!p.npc }; }
   function connect() {
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
     try { if (ws) { ws.onclose = null; ws.onmessage = null; ws.close(); } } catch (e) {}
@@ -1353,11 +1409,13 @@
         players = {}; (m.players || []).forEach(function (p) { if (p.cid !== me.cid && p.id !== me.id) players[p.id] = mkPlayer(p); });
         if (m.qc) QC = m.qc;
         if (m.games && SC.mp) SC.mp.snapshot(m.games);
+        (m.npcs || []).forEach(npcAdd);
         updateOnlineCount(); hideLoading();
         lastSent.at = 0; lastSent.d = -1; lastPing = performance.now();
         if (me.busy) netSend({ t: 'busy', g: me.busy });
         break;
       case 'pong': syncClock(m.now); break;
+      case 'npcjoin': npcAdd(m.p); break;
       case 'join': {
         if (m.p.cid === me.cid) break;
         var back = null; for (var oid in players) if (players[oid].cid === m.p.cid) { back = players[oid]; delete players[oid]; }

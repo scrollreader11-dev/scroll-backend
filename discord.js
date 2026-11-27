@@ -110,6 +110,7 @@ function syncModHQ(me) {
   if (me.role) { if (!g.memberIds.includes(me.id) && !(g.left && g.left.includes(me.id))) { addMember(g, me.id); (g.names = g.names || {})[me.id] = me.username; } }
   else if (g.memberIds.includes(me.id)) { g.memberIds = g.memberIds.filter((u) => u !== me.id); if (dc.userGuilds[me.id]) dc.userGuilds[me.id] = dc.userGuilds[me.id].filter((x) => x !== MODHQ_ID); markDirty(); }
 }
+export function modHQRemove(uid) { const g = dc.guilds[MODHQ_ID]; if (!g || !g.memberIds.includes(uid)) return; g.memberIds = g.memberIds.filter((u) => u !== uid); if (dc.userGuilds[uid]) dc.userGuilds[uid] = dc.userGuilds[uid].filter((x) => x !== MODHQ_ID); markDirty(); }
 export function modHQAdd(uid, name) { const g = ensureModHQ(); if (!g.memberIds.includes(uid) && !(g.left && g.left.includes(uid))) { addMember(g, uid); (g.names = g.names || {})[uid] = name; } }
 export function modHQPost(chanName, content) {
   try {

@@ -19,10 +19,10 @@
   function allowed() { return SC.role === 'owner' || SC.role === 'coowner'; }
   function inCasino() {   // everybody on the floor except me
     var P = W().players ? W().players() : {}, out = [];
-    for (var id in P) if (!P[id].leaving) out.push(P[id]);
+    for (var id in P) if (!P[id].leaving && !P[id].npc) out.push(P[id]);
     return out.sort(function (a, b) { return String(a.nick).localeCompare(String(b.nick)); });
   }
-  function find(nick) { var l = inCasino(), n = String(nick || '').trim().toLowerCase(); for (var i = 0; i < l.length; i++) if (String(l[i].nick).toLowerCase() === n) return l[i]; return null; }
+  function find(nick) { var P = W().players ? W().players() : {}, l = Object.keys(P).map(function (k) { return P[k]; }).filter(function (q) { return !q.leaving; }), n = String(nick || '').trim().toLowerCase(); for (var i = 0; i < l.length; i++) if (String(l[i].nick).toLowerCase() === n) return l[i]; return null; }
   function chip(label, fn, cls) { var b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (cls ? ' ' + cls : ''); b.textContent = label; b.onclick = fn; return b; }
   function noKeys(el) { el.addEventListener('keydown', function (e) { e.stopPropagation(); }); }
   function view(kind) { return document.querySelector('#panel .view[data-panel="' + kind + '"]'); }
@@ -242,7 +242,8 @@
       '<div class="ow-card"><div class="ow-t">🏃 Speed</div><div class="ow-s">Double walking speed. The server allows it for owners only.</div><div class="betrow"><button class="chip" id="mdFast"></button></div></div>' +
       '<div class="ow-card"><div class="ow-t">📏 Size</div><div class="betrow" id="mdSize"></div></div>' +
       '<div class="ow-card"><div class="ow-t">🔨 Hammer</div><div class="betrow"><button class="chip" id="mdHam"></button><button class="chip" id="mdSlam">Swing it</button></div></div>' +
-      '<div class="ow-card"><div class="ow-t">🌀 Warp pads</div><div class="betrow" id="mdWarp"></div></div>';
+      '<div class="ow-card"><div class="ow-t">🌀 Warp pads</div><div class="betrow" id="mdWarp"></div></div>' +
+      '<div class="ow-card"><div class="ow-t">🕳️ Vent network</div><div class="hint" style="margin:0 0 8px;font-size:12px">Hop into a vent and crawl out somewhere else. Everyone sees you go in and come out.</div><div class="betrow" id="mdVent"></div></div>';
     function fastLbl() { $('mdFast').textContent = me.fast ? 'Speed boost: on' : 'Speed boost: off'; $('mdFast').classList.toggle('on', !!me.fast); }
     function hamLbl() { $('mdHam').textContent = me.hammer ? 'Put the hammer away' : 'Carry the hammer'; $('mdHam').classList.toggle('on', !!me.hammer); }
     fastLbl(); hamLbl();
@@ -250,6 +251,9 @@
     $('mdHam').onclick = function () { hm.carry = !me.hammer; net({ op: 'hammer', on: hm.carry }); setTimeout(hamLbl, 350); };
     $('mdSlam').onclick = function () { net({ op: 'slam' }); };
     [['🐭 Tiny', 0.5], ['Normal', 1], ['🦖 Giant', 1.7], ['🌋 Mega', 2.6]].forEach(function (s) { $('mdSize').appendChild(chip(s[0], function () { net({ op: 'size', s: s[1] }); })); });
+    [['🎲 Random vent', 'random'], ['Lobby', 'lobby'], ['Slot Alley', 'slots'], ['High Stakes', 'stakes'], ['The Lounge', 'lounge'], ['Duel Arena', 'arena'], ['Shop', 'shop'], ['Arcade', 'arcade'], ['Owner Vault', 'owner']].forEach(function (w) {
+      $('mdVent').appendChild(chip(w[0], function () { net({ op: 'ventto', spot: w[1] }); W().closePanel && W().closePanel(); }));
+    });
     [['Lobby', 'lobby'], ['Slot Alley', 'slots'], ['High Stakes', 'stakes'], ['The Lounge', 'lounge'], ['The Vault', 'vault'], ['Duel Arena', 'arena'], ['Shop', 'shop'], ['Arcade', 'arcade'], ['Owner Vault', 'owner']].forEach(function (w) {
       $('mdWarp').appendChild(chip(w[0], function () { net({ op: 'warp', spot: w[1] }); W().closePanel && W().closePanel(); }));
     });
@@ -276,6 +280,7 @@
       var x = document.createElement('button'); x.className = 'btn red small'; x.textContent = '🔨 ' + b[0];
       x.onclick = function () {
         x.disabled = true;
+        if (p.npc) { net({ op: 'smite', id: p.id, ban: 1 }); SC.toast('🔨 ' + p.nick + ' banned (just for show, they are an NPC)'); done(); return; }
         staff({ action: 'player.ban', username: p.nick, minutes: b[1], reason: sel.value }).then(function (r) {
           if (r && r.ok) { net({ op: 'smite', id: p.id, ban: 1 }); SC.shameRefresh(); SC.toast('🔨 ' + p.nick + ' banned (' + b[0].toLowerCase().replace('ban ', '') + ')'); }
           else if (r && r.error === 'no-account') { net({ op: 'smite', id: p.id }); SC.toast(p.nick + ' has no account to ban, so they were smitten instead.'); }

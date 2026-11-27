@@ -27,10 +27,17 @@
   };
   document.addEventListener('visibilitychange', function () { var v = $('#bgv'); if (!v) return; if (document.hidden) { try { v.pause(); } catch (e) {} } else Hub.syncVideo(); });
 
+  // The recovery code on screen, with a copy button. Used after sign-up, after a reset, and in Settings.
+  Hub.recoveryBox = function (code) {
+    var copy = h('button', { class: 'btn sm', type: 'button', text: 'Copy code' });
+    copy.addEventListener('click', function () { var done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy code'; }, 1600); }; try { navigator.clipboard.writeText(code).then(done, function () {}); } catch (e) {} });
+    return h('div', { class: 'rc-box' }, [h('code', { class: 'rc-code', text: code }), copy]);
+  };
+
   // ---------- sign in ----------
   function showLogin(opts) {
     opts = opts || {}; var host = $('#login'); Hub.clear(host); host.hidden = false; $('#app').classList.remove('on');
-    var mode = Hub.locked() ? 'guest' : 'signin', card = h('div', { class: 'login-card' });
+    var mode = Hub.locked() ? 'guest' : 'signin', card = h('div', { class: 'login-card' }), shownCode = '';
     function build() {
       Hub.clear(card); card.appendChild(glossLogo(true));
       if (mode === 'guest') {
@@ -42,15 +49,44 @@
         else card.appendChild(h('p', { class: 'swap' }, [h('button', { class: 'link', type: 'button', text: 'I have an account', onclick: function () { mode = 'signin'; build(); } })]));
         setTimeout(function () { try { nick.focus({ preventScroll: true }); } catch (e) {} }, 400); return;
       }
+      if (mode === 'code') {
+        card.appendChild(h('h1', { text: 'Save your recovery code' }));
+        card.appendChild(h('p', { class: 'sub', text: 'If you ever forget your password, this code lets you back in. It is shown only once, so write it down or screenshot it.' }));
+        card.appendChild(Hub.recoveryBox(shownCode));
+        card.appendChild(h('button', { class: 'btn primary block', type: 'button', style: 'height:48px;margin-top:14px', text: 'I saved it', onclick: function () { finish(); } }));
+        return;
+      }
+      if (mode === 'recover') {
+        var ru = h('input', { class: 'input', placeholder: 'Username', maxlength: '20', autocomplete: 'username', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Username', required: true }),
+          rc = h('input', { class: 'input', placeholder: 'Recovery code (XXXX-XXXX-XXXX-XXXX)', maxlength: '30', autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Recovery code', required: true }),
+          rp = h('input', { class: 'input', type: 'password', placeholder: 'New password (6+ characters)', maxlength: '100', autocomplete: 'new-password', 'aria-label': 'New password', required: true }), rerr = h('div', { class: 'err', role: 'alert' });
+        card.appendChild(h('h1', { text: 'Reset your password' }));
+        card.appendChild(h('p', { class: 'sub', text: 'Enter your username, the recovery code you saved, and a new password. No code? Ask a ScrollHub owner to make you a one-hour reset code and use that here.' }));
+        var rf = h('form', { novalidate: true }, [h('label', { class: 'field' }, [h('span', { text: 'Username' }), ru]), h('label', { class: 'field' }, [h('span', { text: 'Recovery code' }), rc]), h('label', { class: 'field' }, [h('span', { text: 'New password' }), rp]), rerr, h('button', { class: 'btn primary block', type: 'submit', style: 'height:48px', text: 'Set new password' })]);
+        rf.addEventListener('submit', function (e) {
+          e.preventDefault(); rerr.textContent = ''; if (!ru.value.trim() || !rc.value.trim() || !rp.value) { rerr.textContent = 'Fill in all three boxes.'; return; }
+          var rb = $('button[type=submit]', rf); rb.disabled = true;
+          Hub.api('/api/auth/recover', { body: { username: ru.value.trim(), code: rc.value.trim(), password: rp.value } }).then(function (r) {
+            rb.disabled = false;
+            if (r && r.ok) { if (r.token) Hub.ls.setRaw('sh_token', r.token); if (r.recoveryCode) { shownCode = r.recoveryCode; mode = 'code'; build(); } else finish(); }
+            else rerr.textContent = (r && r.message) || (r && r.error === 'network' ? 'Could not reach ScrollHub. Check your connection.' : 'Something went wrong. Try again.');
+          });
+        });
+        card.appendChild(rf);
+        card.appendChild(h('p', { class: 'swap' }, [h('button', { class: 'link', type: 'button', text: 'Back to sign in', onclick: function () { mode = 'signin'; build(); } })]));
+        setTimeout(function () { try { ru.focus({ preventScroll: true }); } catch (e) {} }, 400); return;
+      }
       var up = mode === 'signup', user = h('input', { class: 'input', placeholder: 'Username', maxlength: '20', autocomplete: 'username', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Username', required: true }), pass = h('input', { class: 'input', type: 'password', placeholder: 'Password', maxlength: '100', autocomplete: up ? 'new-password' : 'current-password', 'aria-label': 'Password', required: true }), err2 = h('div', { class: 'err', role: 'alert' });
       card.appendChild(h('h1', { text: up ? 'Create your account' : 'Sign in' })); card.appendChild(h('p', { class: 'sub', text: up ? 'Keep your Scrolls, friends and library on every device.' : 'Use your ScrollHub account to bring your Scrolls and friends along.' }));
       var form = h('form', { novalidate: true }, [h('label', { class: 'field' }, [h('span', { text: 'Username' }), user]), h('label', { class: 'field' }, [h('span', { text: 'Password' }), pass]), err2, h('button', { class: 'btn primary block', type: 'submit', style: 'height:48px', text: up ? 'Create account' : 'Sign in' })]);
       form.addEventListener('submit', function (e) {
         e.preventDefault(); err2.textContent = ''; var u = user.value.trim(), p = pass.value; if (!u || !p) { err2.textContent = 'Enter your username and password.'; return; }
         var b = $('button[type=submit]', form); b.disabled = true;
-        Hub.api(up ? '/api/auth/signup' : '/api/auth/login', { body: { username: u, password: p } }).then(function (r) { b.disabled = false; if (r && r.ok) { if (r.token) Hub.ls.setRaw('sh_token', r.token); finish(); } else err2.textContent = (r && r.message) || (r && r.error === 'network' ? 'Could not reach ScrollHub. Check your connection.' : 'Something went wrong. Try again.'); });
+        Hub.api(up ? '/api/auth/signup' : '/api/auth/login', { body: { username: u, password: p } }).then(function (r) { b.disabled = false; if (r && r.ok) { if (r.token) Hub.ls.setRaw('sh_token', r.token); if (up && r.recoveryCode) { shownCode = r.recoveryCode; mode = 'code'; build(); } else finish(); } else err2.textContent = (r && r.message) || (r && r.error === 'network' ? 'Could not reach ScrollHub. Check your connection.' : 'Something went wrong. Try again.'); });
       });
-      card.appendChild(form); card.appendChild(h('div', { class: 'or', text: 'or' }));
+      card.appendChild(form);
+      if (!up) card.appendChild(h('p', { class: 'swap', style: 'margin-top:10px' }, [h('button', { class: 'link', type: 'button', text: 'Forgot your password?', onclick: function () { mode = 'recover'; build(); } })]));
+      card.appendChild(h('div', { class: 'or', text: 'or' }));
       card.appendChild(h('button', { class: 'btn block', type: 'button', style: 'height:46px', text: 'Play as a guest', onclick: function () { mode = 'guest'; build(); } }));
       card.appendChild(h('p', { class: 'swap' }, [up ? 'Already have an account? ' : 'New here? ', h('button', { class: 'link', type: 'button', text: up ? 'Sign in' : 'Create an account', onclick: function () { mode = up ? 'signin' : 'signup'; build(); } })]));
       setTimeout(function () { try { user.focus({ preventScroll: true }); } catch (e) {} }, 400);
@@ -236,6 +272,11 @@
         var cur = h('input', { class: 'input', type: 'password', placeholder: 'Current password', autocomplete: 'current-password', 'aria-label': 'Current password' }), nw = h('input', { class: 'input', type: 'password', placeholder: 'New password (6+ characters)', autocomplete: 'new-password', style: 'margin-top:10px', 'aria-label': 'New password' }), pb = h('button', { class: 'btn sm', type: 'button', style: 'margin-top:12px', text: 'Change password' });
         pb.addEventListener('click', function () { Hub.api('/api/auth/change-password', { body: { current: cur.value, new: nw.value } }).then(function (r) { if (r && r.ok) { Hub.toast('Password changed'); cur.value = nw.value = ''; } else Hub.toast((r && r.message) || 'Could not change password', { bad: true }); }); });
         b.appendChild(cur); b.appendChild(nw); b.appendChild(pb);
+        b.appendChild(h('h4', { text: 'Recovery code' }));
+        var rcInfo = h('p', { class: 'hint', text: 'Checking…' }), rcBox = h('div'), rcPw = h('input', { class: 'input', type: 'password', placeholder: 'Your password', autocomplete: 'current-password', 'aria-label': 'Your password to make a recovery code' }), rcBtn = h('button', { class: 'btn', type: 'button', style: 'margin-top:10px', text: 'Make a recovery code' });
+        Hub.api('/api/auth/recovery-status').then(function (r) { rcInfo.textContent = r && r.has ? 'You have a recovery code. Making a new one replaces the old one.' : 'You do not have a recovery code yet. Make one so you can get back in if you forget your password.'; });
+        rcBtn.addEventListener('click', function () { Hub.api('/api/auth/recovery-code', { body: { current: rcPw.value } }).then(function (r) { if (r && r.ok) { rcPw.value = ''; Hub.clear(rcBox); rcBox.appendChild(h('p', { class: 'hint', text: 'Save this now. It is shown only once.' })); rcBox.appendChild(Hub.recoveryBox(r.code)); rcInfo.textContent = 'Your recovery code is ready.'; } else Hub.toast((r && r.message) || 'Could not make a code', { bad: true }); }); });
+        b.appendChild(rcInfo); b.appendChild(rcPw); b.appendChild(rcBtn); b.appendChild(rcBox);
       }
       b.appendChild(h('h4', { text: 'Redeem a code' })); b.appendChild(h('button', { class: 'btn', type: 'button', text: 'Redeem', onclick: Hub.redeemModal }));
     },
