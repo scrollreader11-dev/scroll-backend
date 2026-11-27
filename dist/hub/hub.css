@@ -1132,3 +1132,6 @@ button.nav-g .ic { width: 14px; height: 14px; transition: transform .18s var(--e
 .tabbar button .ic { width: 23px; height: 23px; } .tabbar button.on { color: #fff; background: linear-gradient(180deg, rgba(120, 175, 255, .26), rgba(59, 130, 246, .12)); }
 @media (max-width: 1180px) { .nav-more a span, .nav button.nb span { display: none; } .nav-more a, .nav button.nb { justify-content: center; padding: 0; } }
 @media (max-width: 1100px) { button.nav-g, .nav-more .nav-g { display: none; } }
+
+.nw-card .nw-go { margin-top: 12px; }
+.nw-stretch { flex: 1; color: inherit; display: block; }

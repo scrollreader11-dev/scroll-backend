@@ -14,14 +14,14 @@
   P.news = function (host) {
     var box = h('div');
     var title = inp('Short title', { }), text = h('textarea', { class: 'input', maxlength: '600', rows: '3', placeholder: 'What changed, in a sentence or two.', 'aria-label': 'Details' }), tag = h('select', { class: 'input', 'aria-label': 'Kind' }, [['new', 'New'], ['fix', 'Fixed'], ['event', 'Event'], ['info', 'Info']].map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
-    var pin = Hub.toggle('Pin to the top', '', false, function () {}), editId = '';
+    var pin = Hub.toggle('Pin to the top', '', false, function () {}), editId = '', linkLabel = inp('Button text, like Become a mod'), linkUrl = inp('Link: #/apply or https://...');
     var save = btn('Post', function (b) {
       if (title.value.trim().length < 3) { Hub.toast('Give it a title', { bad: true }); return; }
-      K.busy(b, post({ action: 'news.save', id: editId, title: title.value, body: text.value, tag: tag.value, pin: pin.getAttribute('aria-checked') === 'true' })).then(function (r) {
-        if (r && r.ok) { Hub.toast(editId ? 'Saved' : 'Posted'); editId = ''; title.value = ''; text.value = ''; save.lastChild.textContent = 'Post'; Hub.loadNews && Hub.loadNews(true); load(); } else toastErr(r);
+      K.busy(b, post({ action: 'news.save', id: editId, title: title.value, body: text.value, tag: tag.value, pin: pin.getAttribute('aria-checked') === 'true', linkLabel: linkLabel.value, linkUrl: linkUrl.value })).then(function (r) {
+        if (r && r.ok) { Hub.toast(editId ? 'Saved' : 'Posted'); editId = ''; title.value = ''; text.value = ''; linkLabel.value = ''; linkUrl.value = ''; save.lastChild.textContent = 'Post'; Hub.loadNews && Hub.loadNews(true); load(); } else toastErr(r);
       });
     }, { primary: true, icon: 'send' });
-    host.appendChild(card('Write a news post', 'Shows on the What\'s New page for everyone, and on the board in the casino lobby. The bell dot appears for players who have not read it.', [field('Title', title), field('Details', text), h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:140px' }, field('Kind', tag)), pin]), h('div', { class: 'adm-row', style: 'margin-top:12px' }, [save])]));
+    host.appendChild(card('Write a news post', 'Shows on the What\'s New page for everyone, and on the board in the casino lobby. The bell dot appears for players who have not read it.', [field('Title', title), field('Details', text), h('div', { class: 'adm-row wrap' }, [h('div', { style: 'flex:1;min-width:160px' }, field('Button text (optional)', linkLabel)), h('div', { style: 'flex:1;min-width:160px' }, field('Button link (optional)', linkUrl))]), h('div', { class: 'adm-row wrap', style: 'margin-top:10px' }, [h('div', { style: 'flex:1;min-width:140px' }, field('Kind', tag)), pin]), h('div', { class: 'adm-row', style: 'margin-top:12px' }, [save])]));
     host.appendChild(card('Posts', 'Newest first. Edit or remove any post.', box));
     function load() {
       Hub.clear(box); box.appendChild(loading());
@@ -31,7 +31,7 @@
         l.forEach(function (n) {
           box.appendChild(h('div', { class: 'adm-sub', style: 'padding:10px 0;border-top:1px solid var(--line,rgba(255,255,255,.08))' }, [
             h('div', { class: 'adm-row wrap', style: 'gap:8px' }, [h('b', { text: n.title }), h('span', { class: 'hint', text: (n.pin ? 'Pinned · ' : '') + n.tag + ' · ' + when(n.ts) }), h('span', { style: 'flex:1' }),
-              btn('Edit', function () { editId = n.id; title.value = n.title; text.value = n.body; tag.value = n.tag; pin.setAttribute('aria-checked', n.pin ? 'true' : 'false'); save.lastChild.textContent = 'Save changes'; title.focus(); window.scrollTo && document.getElementById('scroll') && (document.getElementById('scroll').scrollTop = 0); }, { ghost: true, icon: 'pencil' }),
+              btn('Edit', function () { editId = n.id; title.value = n.title; text.value = n.body; tag.value = n.tag; linkLabel.value = n.link ? n.link.label : ''; linkUrl.value = n.link ? n.link.url : ''; pin.setAttribute('aria-checked', n.pin ? 'true' : 'false'); save.lastChild.textContent = 'Save changes'; title.focus(); window.scrollTo && document.getElementById('scroll') && (document.getElementById('scroll').scrollTop = 0); }, { ghost: true, icon: 'pencil' }),
               btn('Remove', function () { confirmBox('Remove this post?', n.title, 'Remove').then(function (ok) { if (ok) post({ action: 'news.delete', id: n.id }).then(function (x) { x && x.ok ? (Hub.toast('Removed'), Hub.loadNews && Hub.loadNews(true), load()) : toastErr(x); }); }); }, { ghost: true, icon: 'trash-2' })]),
             n.body ? h('p', { class: 'hint', style: 'margin:4px 0 0', text: n.body }) : null]));
         });

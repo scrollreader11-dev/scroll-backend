@@ -6,8 +6,8 @@ const TAGS = ['new', 'fix', 'event', 'info'];
 
 const DEFAULT_NEWS = [
   { id: 'n-news', ts: Date.UTC(2026, 10, 26, 18), tag: 'new', title: 'One What\'s New page for the whole site', body: 'News from ScrollHub and the casino now lives in one place. The little board in the casino lobby shows the same list.' },
-  { id: 'n-apply', ts: Date.UTC(2026, 10, 26, 18), tag: 'new', title: 'Apply to be a moderator', body: 'Want to help run ScrollHub? Open your profile menu and choose Apply to be a mod. Tell us how you plan to contribute. Every application gets read.' },
-  { id: 'n-report', ts: Date.UTC(2026, 10, 26, 18), tag: 'new', title: 'Report button and status page', body: 'Report a player or a problem from the profile menu. The Status page shows whether games are up.' },
+  { id: 'n-apply', ts: Date.UTC(2026, 10, 26, 18), tag: 'new', title: 'Apply to be a moderator', body: 'Want to help run ScrollHub? Tell us how you plan to contribute. Every application gets read.', link: { label: 'Become a mod', url: '#/apply' } },
+  { id: 'n-report', ts: Date.UTC(2026, 10, 26, 18), tag: 'new', title: 'Report button and status page', body: 'Report a player or a problem from the profile menu. The Status page shows whether games are up.', link: { label: 'See site status', url: '#/status' } },
   { id: 'n-app', ts: Date.UTC(2026, 10, 26, 18), tag: 'new', title: 'Install ScrollHub as an app', body: 'Use Install app in the profile menu. The hub opens like an app and shows a friendly page when you are offline.' },
   { id: 'n-hs', ts: Date.UTC(2026, 10, 24, 18), tag: 'new', title: 'Arcade high scores', body: 'A board in the casino Arcade shows the best round per game. Press E on it for every top ten.' },
   { id: 'n-duel', ts: Date.UTC(2026, 10, 24, 18), tag: 'new', title: 'Duel board', body: 'See every open duel on the casino floor from one board.' },
@@ -72,6 +72,7 @@ export function createSiteOps(ctx) {
   // ------------------------------------------------------------ news
   function newsList() {
     if (!Array.isArray(st().news)) st().news = DEFAULT_NEWS.map((n) => ({ ...n, by: 'ScrollHub' }));
+    for (const n of st().news) { const d = DEFAULT_NEWS.find((x) => x.id === n.id); if (d && d.link && !n.link && !n.linkEdited) { n.link = d.link; n.body = d.body; } }
     return st().news;
   }
 
@@ -102,7 +103,7 @@ export function createSiteOps(ctx) {
     if (url === '/api/news' && req.method === 'GET') {
       const l = newsList().slice().sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.ts - a.ts).slice(0, 40);
       res.writeHead(200, { 'Content-Type': 'application/json', 'cache-control': 'no-store' });
-      res.end(JSON.stringify({ ok: true, news: l.map((n) => ({ id: n.id, ts: n.ts, tag: n.tag, title: n.title, body: n.body, pin: !!n.pin })) }));
+      res.end(JSON.stringify({ ok: true, news: l.map((n) => ({ id: n.id, ts: n.ts, tag: n.tag, title: n.title, body: n.body, pin: !!n.pin, link: n.link || null })) }));
       return true;
     }
     if (url === '/api/status' && req.method === 'GET') {
@@ -165,9 +166,12 @@ export function createSiteOps(ctx) {
       if (!top) return no;
       const title = clean(body.title, 80), text = clean(body.body, 600), tag = TAGS.includes(body.tag) ? body.tag : 'info';
       if (title.length < 3) return { error: 'short', message: 'Give it a title.' };
+      const lu = clean(body.linkUrl, 200), ll = clean(body.linkLabel, 30) || 'Open';
+      if (lu && !/^#\/[a-z0-9\/_-]{1,40}$/i.test(lu) && !/^https:\/\/[^\s]{4,190}$/i.test(lu)) return { error: 'badlink', message: 'The link must be a page like #/apply or a full https:// address.' };
+      const link = lu ? { label: ll, url: lu } : null;
       const l = newsList(); let n = body.id ? l.find((x) => x.id === String(body.id)) : null;
-      if (n) { n.title = title; n.body = text; n.tag = tag; n.pin = !!body.pin; audit(w, 'news.save', n.id, 'edited: ' + title); }
-      else { n = { id: 'n' + Date.now().toString(36), ts: Date.now(), tag, title, body: text, pin: !!body.pin, by: w.username }; l.unshift(n); if (l.length > 80) l.length = 80; audit(w, 'news.save', n.id, 'posted: ' + title); }
+      if (n) { n.title = title; n.body = text; n.tag = tag; n.pin = !!body.pin; n.link = link; n.linkEdited = true; audit(w, 'news.save', n.id, 'edited: ' + title); }
+      else { n = { id: 'n' + Date.now().toString(36), ts: Date.now(), tag, title, body: text, pin: !!body.pin, link, by: w.username }; l.unshift(n); if (l.length > 80) l.length = 80; audit(w, 'news.save', n.id, 'posted: ' + title); }
       await saveState().catch(() => {}); return { ok: true, id: n.id };
     }
     if (action === 'news.delete') {
