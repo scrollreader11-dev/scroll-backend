@@ -47,7 +47,7 @@
   if (homeView) Hub.views.home = function (a) {
     var node = homeView(a);
     if (node && node.insertBefore && Hub.me && Hub.me.kind === 'user' && !Hub.me.role && !Hub.ls.get('sh_modcta_off', false)) {
-      var cta = h('div', { class: 'nw-pill mod' }, [icon('user-plus'), h('a', { href: '#/apply', class: 'nw-stretch' }, [h('span', { text: 'Want to help run ScrollHub? ' }), h('b', { style: 'margin:0', text: 'Become a mod' })]), h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Hide this', onclick: function () { Hub.ls.set('sh_modcta_off', true); cta.remove(); } }, icon('x'))]);
+      var cta = h('div', { class: 'nw-pill mod' }, [icon('user-plus'), h('a', { href: '#/apply', class: 'nw-stretch' }, [h('span', { text: 'Want to help run ScrollHub? ' }), h('b', { style: 'margin:0', text: 'Become a mod' })]), h('a', { href: '#/apply', class: 'btn sm primary nw-btn' }, ['Apply now', icon('chevron-right')]), h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Hide this', onclick: function () { Hub.ls.set('sh_modcta_off', true); cta.remove(); } }, icon('x'))]);
       node.insertBefore(cta, node.firstChild);
     }
     if (Hub.newsUnseen && node && node.insertBefore) node.insertBefore(h('a', { class: 'nw-pill', href: '#/news' }, [icon('megaphone'), h('span', { text: "There's news you haven't read" }), h('b', { text: 'Read it' })]), node.firstChild);

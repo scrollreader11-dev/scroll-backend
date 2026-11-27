@@ -1135,3 +1135,6 @@ button.nav-g .ic { width: 14px; height: 14px; transition: transform .18s var(--e
 
 .nw-card .nw-go { margin-top: 12px; }
 .nw-stretch { flex: 1; color: inherit; display: block; }
+
+.nw-pill .nw-btn { flex: none; margin-left: auto; height: 32px; }
+@media (max-width: 520px) { .nw-pill.mod .nw-stretch span { display: block; } }
