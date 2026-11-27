@@ -54,6 +54,29 @@
     loadAct();
   };
 
+  // ================================================================ SECURITY CAMERAS
+  var cm = { built: false, timer: 0 };
+  function buildCams() {
+    var host = view('cams'); if (!host || !SC.cams) return;
+    if (!allowed()) { host.innerHTML = '<div class="ow-empty">Only owners can use the cameras.</div>'; cm.built = false; return; }
+    if (!cm.built) {
+      cm.built = true; host.innerHTML = '<div class="ow-s" style="margin:0 0 8px">Live views of six spots on the casino floor. Players cannot see these.</div><div class="camgrid"></div>';
+      var grid = host.querySelector('.camgrid');
+      SC.cams.feeds.forEach(function (f, i) {
+        var d = document.createElement('div'); d.className = 'cam';
+        d.innerHTML = '<div class="cam-h"><span class="cam-rec">● REC</span><b>' + esc(f.name) + '</b><span class="cam-n" data-i="' + i + '">👥 0</span></div>';
+        d.appendChild(f.cv);
+        var bt = document.createElement('div'); bt.className = 'betrow'; bt.appendChild(chip('Go there', function () { net({ op: 'warp', spot: f.spot }); if (SC.closePanel) SC.closePanel(); }));
+        d.appendChild(bt); grid.appendChild(d);
+      });
+    }
+    SC.cams.watch = 1; clearInterval(cm.timer);
+    cm.timer = setInterval(function () {
+      if (!visible('cams')) { clearInterval(cm.timer); SC.cams.watch = 0; return; }
+      [].forEach.call(host.querySelectorAll('.cam-n'), function (e) { var f = SC.cams.feeds[+e.dataset.i]; if (f) e.textContent = '👥 ' + f.n; });
+    }, 400);
+  }
+
   // ================================================================ BAN HAMMER
   function buildHammer() {
     var host = view('hammer'); if (!host) return;
@@ -251,6 +274,7 @@
   if (SC.games) SC.games.open = function (kind) {
     if (prev) prev(kind);
     if (kind === 'hammer') buildHammer();
+    if (kind === 'cams') buildCams();
     if (kind === 'modmenu') buildMod();
   };
 })();

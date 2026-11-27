@@ -85,6 +85,14 @@
       var sx = x - 59 + (i % 3) * 40, sy = y - 121 + Math.floor(i / 3) * 44;
       rr(c, sx, sy, 37, 40, 3); fs(c, '#03120b', OL, 1.5);
       c.save(); c.beginPath(); c.rect(sx, sy, 37, 40); c.clip();
+      var feed = SC.cams && SC.cams.feeds[i];
+      if (feed && feed.at && performance.now() - feed.at < 4000) {   // a real, live picture from the casino floor
+        c.drawImage(feed.cv, 67, 0, 185, 200, sx, sy, 37, 40);
+        c.fillStyle = 'rgba(255,255,255,.06)'; c.fillRect(sx, sy + ((t * 22 + i * 9) % 40), 37, 3);
+        c.fillStyle = '#9dffbf'; c.font = '700 6px Fredoka, system-ui, sans-serif'; c.textAlign = 'left'; c.fillText('CAM ' + (i + 1), sx + 3, sy + 6);
+        if (Math.sin(t * 4 + i) > 0) { c.fillStyle = '#ff5c6c'; circ(c, sx + 32, sy + 5, 1.8); c.fill(); }
+        c.restore(); continue;
+      }
       for (var k = 0; k < 3; k++) { var bx = sx + 6 + ((rnd(i * 7 + k) * 30 + t * (6 + k * 3) * (k % 2 ? -1 : 1) + 60) % 30); c.fillStyle = 'rgba(80,255,150,' + (0.35 + 0.2 * k / 3) + ')'; circ(c, bx, sy + 26 - k * 5, 3.2); c.fill(); c.fillRect(bx - 2.4, sy + 28 - k * 5, 4.8, 8); }
       c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(sx, sy + ((t * 22 + i * 9) % 40), 37, 4); c.restore();
       c.fillStyle = '#ff5c6c'; c.font = '700 6px Fredoka, system-ui, sans-serif'; c.textAlign = 'left'; c.fillText('CAM ' + (i + 1), sx + 3, sy + 6); if (Math.sin(t * 4 + i) > 0) { circ(c, sx + 32, sy + 5, 1.8); c.fill(); }

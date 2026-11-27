@@ -90,7 +90,7 @@
     vpad: { layer: 'decal', act: 'warp', label: 'Warp', ia: [0, 4], pr: -78, ar: 46, ownerOnly: 1 },
     radar: { box: [-70, -26, 70, 0], act: 'modmenu', label: 'Watch the casino live', ia: [0, 38], pr: -150, ar: 96, ownerOnly: 1 },
     shame: { box: [-52, -14, 52, 0], act: 'hammer', label: 'Open the ban list', ia: [0, 34], pr: -172, ar: 80, ownerOnly: 1 },
-    cctv: { box: [-64, -14, 64, 0] }, serverrack: { box: [-27, -14, 27, 0] }, rack: { box: [-50, -14, 50, 0] }, tcase: { box: [-38, -14, 38, 0] },
+    cctv: { box: [-64, -14, 64, 0], act: 'cams', label: 'Watch the security cameras', ia: [0, 34], pr: -150, ar: 86, ownerOnly: 1 }, serverrack: { box: [-27, -14, 27, 0] }, rack: { box: [-50, -14, 50, 0] }, tcase: { box: [-38, -14, 38, 0] },
     obelisk: { box: [-18, -12, 18, 0] }, aquarium: { box: [-88, -20, 88, 0] }, fire: { box: [-60, -14, 60, 0] }, bookcase: { box: [-50, -14, 50, 0] },
     goldpile: { box: [-48, -18, 48, 0] }, lamp: { box: [-8, -6, 8, 0] }, vzone: { layer: 'decal' }, vcarpet: { layer: 'decal' }, vpool: { layer: 'decal' },
     throne: { box: [-46, -30, 46, 0] }, brazier: { box: [-14, -10, 14, 0] }, vrune: { layer: 'decal' }, vbanner: { layer: 'wall' },
@@ -209,7 +209,7 @@
   add('brazier', 1350, 2350); add('brazier', 1914, 2350); add('plant', 1340, 2480); add('plant', 1924, 2480);
   add('wardrobe', 1400, 2715); add('atm', 1864, 2705);
   // --- command center
-  add('cctv', 1632, 2985); add('modterm', 1400, 3020, { title: 'MOD MENU' }); add('rigcon', 1864, 3020);
+  var cctvObj = add('cctv', 1632, 2985); add('modterm', 1400, 3020, { title: 'MOD MENU' }); add('rigcon', 1864, 3020);
   add('radar', 1632, 3230); add('serverrack', 1334, 3190); add('serverrack', 1930, 3190);
   add('modterm', 1400, 3360, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' }); add('shame', 1864, 3380);
   add('podium', 1632, 3480, { tab: 'cast' });
@@ -302,7 +302,7 @@
   (function () { var c = document.createElement('canvas'); c.width = c.height = 128; var g = c.getContext('2d'); var gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); glowImg = c; })();
   function tileImg(key, draw) {
     var c = tileCache[key]; if (c) return c;
-    var S = Math.ceil(T * Z * DPR) + 1; c = document.createElement('canvas'); c.width = S; c.height = S;
+    var S = Math.ceil(T * (inFeed ? mainK : Z * DPR)) + 1; c = document.createElement('canvas'); c.width = S; c.height = S;
     draw(c.getContext('2d'), S); tileCache[key] = c; return c;
   }
   var shadowStrip = (function () { var c = document.createElement('canvas'); c.width = 4; c.height = 32; var g = c.getContext('2d'); var gr = g.createLinearGradient(0, 0, 0, 32); gr.addColorStop(0, 'rgba(8,5,25,.45)'); gr.addColorStop(1, 'rgba(8,5,25,0)'); g.fillStyle = gr; g.fillRect(0, 0, 4, 32); return c; })();
@@ -310,7 +310,7 @@
   function drawTiles() {
     var tx0 = Math.max(0, Math.floor(cam.x / T) - 1), ty0 = Math.max(0, Math.floor(cam.y / T) - 1);
     var tx1 = Math.min(COLS - 1, Math.ceil((cam.x + VW / Z) / T) + 1), ty1 = Math.min(ROWS - 1, Math.ceil((cam.y + VH / Z) / T) + 1);
-    var ty, tx, ch, vm = me.y > PUBH; ty0 = Math.max(ty0, vm ? 44 : 0); ty1 = Math.min(ty1, vm ? ROWS - 1 : 43);   // nobody sees the hidden hall unless they are standing in it
+    var ty, tx, ch, vm = camVm == null ? me.y > PUBH : camVm; ty0 = Math.max(ty0, vm ? 44 : 0); ty1 = Math.min(ty1, vm ? ROWS - 1 : 43);   // nobody sees the hidden hall unless they are standing in it
     for (ty = ty0; ty <= ty1; ty++) for (tx = tx0; tx <= tx1; tx++) {
       ch = G[ty][tx]; if (ch === '#') continue;
       if (ch === 'd') { A.danceTile(ctx, tx * T, ty * T, tx, ty, tnow); continue; }
@@ -561,10 +561,10 @@
     keno: MORE_META.keno, scratch: MORE_META.scratch, baccarat: MORE_META.baccarat, shell: MORE_META.shell, penalty: MORE_META.penalty, echo: MORE_META.echo, aim: MORE_META.aim, mathrush: MORE_META.mathrush, trivia: MORE_META.trivia, colorclash: MORE_META.colorclash, pattern: MORE_META.pattern, scramble: MORE_META.scramble, war: MORE_META.war, hilo: MORE_META.hilo, poker: MORE_META.poker, battles: ['⚔️', 'Case Battles', 'Open cases against other players'],
     leaderboard: ['🏆', 'Richest Players', 'Top balances on ScrollHub'], tournament: ['🥇', 'Weekly Tournament', 'Most Scrolls won this week'],
     atm: ['🏧', 'ATM', 'Daily Scrolls & event codes'], shop: ['🛍️', 'The Shop', 'Characters, colors, hats, trails & more'],
-    owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], hammer: ['🔨', 'The Ban Hammer', 'Remove a player. Every ban is logged.'], modmenu: ['🛡️', 'Mod Menu', 'Players, the whole casino, and you'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
+    cams: ['📹', 'Security cameras', 'Live views of the casino floor'], owner: ['★', 'Owner Panel', 'Rig games for a player or for everyone'], hammer: ['🔨', 'The Ban Hammer', 'Remove a player. Every ban is logged.'], modmenu: ['🛡️', 'Mod Menu', 'Players, the whole casino, and you'], wardrobe: ['👕', 'Wardrobe', 'Dress up your character'], player: ['💬', 'Player', ''], exit: ['🚪', 'Exit', ''],
   };
   SC.panelKind = '';
-  setTimeout(function () { SC.openPanel = openPanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G, gate: hatchObj, bar: SC.bar, players: function () { return players; } }; }, 0);
+  setTimeout(function () { SC.openPanel = openPanel; SC.closePanel = closePanel; SC.dbg = { OBJ: OBJ, BLOCK: BLOCK, T: T, me: me, G: G, gate: hatchObj, bar: SC.bar, players: function () { return players; } }; }, 0);
   function openPanel(kind, data) {
     if (!META[kind]) return;
     toggleEmotes(false); toggleQuick(false); path = null;
@@ -1044,6 +1044,45 @@
     (function tk() { var k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 3); coinShown = Math.round(from + (to - from) * e); el.textContent = fmt(coinShown); if (k < 1) coinTween = requestAnimationFrame(tk); })();
   }
 
+  // ---- security cameras: the monitors in the Owner Vault show real, live views of the casino floor
+  var CAMS = [['LOBBY', 1440, 1740, 'lobby'], ['SLOT ALLEY', 400, 520, 'slots'], ['HIGH STAKES', 1440, 420, 'stakes'], ['THE VAULT', 2515, 380, 'vault'], ['DUEL ARENA', 2515, 1000, 'arena'], ['LOUNGE BAR', 360, 1380, 'lounge']];
+  var FW = 320, FH = 200, FZ = 0.62, inFeed = false, mainK = 1, camVm = null, feedI = 0;
+  var feeds = CAMS.map(function (q) { var c2 = document.createElement('canvas'); c2.width = FW; c2.height = FH; return { name: q[0], x: q[1], y: q[2], spot: q[3], cv: c2, c: c2.getContext('2d'), n: 0, at: 0 }; });
+  SC.cams = { feeds: feeds, watch: 0 };
+  function renderFeed(f, fi) {
+    var sCtx = ctx, sCam = cam, sZ = Z, sVW = VW, sVH = VH, sDPR = DPR; mainK = Z * DPR;
+    inFeed = true; camVm = 0; ctx = f.c; Z = FZ; VW = FW; VH = FH; DPR = 1; cam = { x: f.x - FW / FZ / 2, y: f.y - FH / FZ / 2 };
+    try {
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = '#0c0a22'; ctx.fillRect(0, 0, FW, FH);
+      ctx.setTransform(FZ, 0, 0, FZ, -cam.x * FZ, -cam.y * FZ);
+      drawTiles();
+      var vx0 = cam.x - 160, vx1 = cam.x + FW / FZ + 160, vy0 = cam.y - 60, vy1 = cam.y + FH / FZ + 240, i, o, ents = [], seen = 0, id;
+      for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if (o.y < PUBH && o.layer === 'decal' && o.x > vx0 && o.x < vx1 && o.y > vy0 - o.ext && o.y < vy1 + o.ext) drawObj(o); }
+      for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if (o.y < PUBH && o.layer === 'wall' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) drawObj(o); }
+      for (i = 0; i < OBJ.length; i++) { o = OBJ[i]; if (o.y < PUBH && o.layer === 'ent' && o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1) ents.push(o); }
+      for (id in players) { var q = players[id]; if (q.y < PUBH && !q.leaving) ents.push(q); }
+      if (me.y < PUBH) ents.push(me);
+      ents.sort(function (a, b) { return a.y - b.y; });
+      for (i = 0; i < ents.length; i++) { var e = ents[i]; if (e.type) drawObj(e); else { drawPlayer(e); if (e.x > cam.x && e.x < cam.x + FW / FZ && e.y > cam.y && e.y < cam.y + FH / FZ) seen++; } }
+      f.n = seen; f.at = performance.now();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(10,60,40,.16)'; ctx.fillRect(0, 0, FW, FH);   // security-camera look
+      ctx.fillStyle = 'rgba(0,0,0,.14)'; for (var ly = 0; ly < FH; ly += 3) ctx.fillRect(0, ly, FW, 1);
+      var vg2 = ctx.createRadialGradient(FW / 2, FH / 2, FH * 0.35, FW / 2, FH / 2, FW * 0.7); vg2.addColorStop(0, 'rgba(0,0,0,0)'); vg2.addColorStop(1, 'rgba(0,0,0,.5)'); ctx.fillStyle = vg2; ctx.fillRect(0, 0, FW, FH);
+      ctx.font = '700 12px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(4, 4, ctx.measureText('CAM ' + (fi + 1) + '  ' + f.name).width + 14, 18);
+      ctx.fillStyle = '#9dffbf'; ctx.fillText('CAM ' + (fi + 1) + '  ' + f.name, 11, 13);
+      if (Math.floor(tnow * 1.6) % 2 === 0) { ctx.fillStyle = '#ff3b4e'; ctx.beginPath(); ctx.arc(FW - 14, 13, 4.5, 0, 7); ctx.fill(); }
+      ctx.fillStyle = '#9dffbf'; ctx.textAlign = 'right'; ctx.fillText('REC', FW - 24, 13);
+    } finally {
+      ctx = sCtx; cam = sCam; Z = sZ; VW = sVW; VH = sVH; DPR = sDPR; inFeed = false; camVm = null;
+    }
+  }
+  function tickFeeds() {
+    var n = 0;
+    if (SC.cams.watch) n = 2;
+    else if (me.own && me.y > PUBH && typeof cctvObj !== 'undefined' && Math.abs(cctvObj.x - me.x) < 760 && Math.abs(cctvObj.y - me.y) < 620) n = 1;
+    for (var k = 0; k < n; k++) { var fi = feedI++ % feeds.length; renderFeed(feeds[fi], fi); }
+  }
   function frame(now) {
     var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now; tnow += dt;
     update(dt); syncObjects(dt);
@@ -1080,6 +1119,7 @@
     drawFinder();
     animPreviews(tnow);
     if (now - mmLast > 250) { mmLast = now; drawMinimap(); }
+    tickFeeds();
     requestAnimationFrame(frame);
   }
   function drawObj(o) {
