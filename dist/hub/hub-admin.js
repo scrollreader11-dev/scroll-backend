@@ -101,6 +101,7 @@
     staff: ['staff', 'setowner'], moderation: ['ban', 'kick', 'mute', 'freeze', 'setslow', 'word', 'report', 'deletemsg'], chats: ['discord', 'dc.'], announce: ['announce', 'broadcast', 'sendall'],
     schedule: ['sched'], live: ['live'], events: ['boost'], fun: ['fun'], toolbox: ['takeover', 'command', 'code', 'game', 'gotd'], games: ['games'], economy: ['casino.cfg', 'store'],
     site: ['theme', 'tour', 'settings', 'casino.cfg'], brand: ['brand'], backup: ['backup'], audit: [] };
+  Hub.adminKit.ACT = ACT;
   function panelExtras(tab) {
     var list = h('div', { class: 'adm-audit' }, [loading()]);
     function loadAct() {

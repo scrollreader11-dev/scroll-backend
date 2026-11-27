@@ -66,6 +66,7 @@
     if (window.ShStealth && !window.ShStealth.inFrame()) items.splice(1, 0, { label: 'Hide this tab', icon: 'shield', fn: function () { window.ShStealth.cloak(); } });
     if (m.role) items.splice(1, 0, { label: 'Admin tools', icon: 'shield', fn: function () { location.hash = '#/admin'; } });
     if (m.owner) items.push({ label: 'Owner tools', icon: 'hammer', fn: function () { Hub.settingsModal('owner'); } });
+    if (Hub.menuExtras) Hub.menuExtras(items, m);
     items.push({ label: 'Settings', icon: 'settings', fn: function () { Hub.settingsModal('account'); } }, { label: 'Support', icon: 'life-buoy', fn: Hub.supportModal }, { label: 'Feedback', icon: 'message-square', fn: Hub.feedbackModal }, { sep: true });
     if (m.kind === 'user') items.push({ label: 'Sign out', icon: 'log-out', fn: signOut }); else items.push({ label: 'Sign in or switch account', icon: 'log-out', fn: signOut });
     Hub.menu(anchor, items, { align: window.innerWidth > 760 ? 'left' : 'left' });
@@ -170,6 +171,7 @@
       var coins = mine ? (Hub.wallet && Hub.wallet.profile ? Hub.wallet.profile.coins : null) : (u && u.coins);
       var head = h('div', { class: 'pf-head' }, [av, h('div', { class: 'nm' }, [h('h1', { text: who }), h('div', { class: 'sub', text: mine ? (Hub.me.kind === 'user' ? 'ScrollHub account' : 'Guest') : (u && u.online ? 'Online now' : 'Offline') })])]);
       if (mine) head.appendChild(h('div', { class: 'pf-edit' }, [Hub.me.kind === 'user' ? h('button', { class: 'btn sm', type: 'button', onclick: function () { pickImage('avatar'); } }, [icon('camera'), 'Change picture']) : null, h('button', { class: 'btn sm', type: 'button', onclick: function () { Hub.settingsModal('account'); } }, [icon('settings'), 'Edit profile'])]));
+      if (!mine && Hub.me.kind === 'user') head.appendChild(h('div', { class: 'pf-edit' }, h('button', { class: 'btn sm ghost', type: 'button', onclick: function () { Hub.reportModal && Hub.reportModal({ username: who }); } }, [icon('flag'), 'Report'])));
       host.appendChild(head);
       if (Hub.creatorChip) Hub.creatorChip(who, head.querySelector('.nm .sub'));
       var stats = h('div', { class: 'stats' }); function st(k, val) { stats.appendChild(h('div', { class: 'stat' }, [h('div', { class: 'k', text: k }), h('div', { class: 'v', text: val }) ])); }

@@ -11,6 +11,15 @@
   var KEY = 'sc_updates_seen', VER = LIST.length + ':' + LIST[0][0];
   var seen = ''; try { seen = localStorage.getItem(KEY) || ''; } catch (e) { }
   SC.updates = { list: LIST, unseen: seen !== VER, markSeen: function () { SC.updates.unseen = false; try { localStorage.setItem(KEY, VER); } catch (e) { } } };
+  // The same list the hub's What's New page shows. The built-in list above is only a fallback if the server cannot be reached.
+  try {
+    fetch('/api/news', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok || !d.news || !d.news.length) return;
+      var TAGN = { new: 'New', fix: 'Fixed', event: 'Event', info: 'Info' };
+      LIST.length = 0; d.news.slice(0, 8).forEach(function (n) { LIST.push([n.title, n.body || '', TAGN[n.tag] || 'Info']); });
+      VER = d.news[0].id + ':' + d.news[0].ts; SC.updates.unseen = seen !== VER;
+    }).catch(function () { });
+  } catch (e) { }
 
   if (SC.arc && SC.arc.section) {
     SC.arc.section('updates', '<div class="hint">What changed lately in Scrolls Casino and ScrollHub.</div><div id="upList" style="max-width:440px;margin:10px auto;text-align:left"></div>');
@@ -28,6 +37,7 @@
       var p = document.createElement('div'); p.style.cssText = 'font-size:13px;opacity:.8;margin-top:3px'; p.textContent = u[1];
       d.appendChild(t); d.appendChild(p); h.appendChild(d);
     });
+    var more = document.createElement('a'); more.href = '/hub/#/news'; more.target = '_blank'; more.rel = 'noopener'; more.textContent = 'See every update on ScrollHub'; more.style.cssText = 'display:block;text-align:center;margin:12px 0 4px;color:var(--gold,#ffd166)'; h.appendChild(more);
     SC.updates.markSeen();
   };
 })();

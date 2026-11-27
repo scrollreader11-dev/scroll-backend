@@ -28,6 +28,7 @@ import { worldIdentity, bwStats, hasProfile } from './casino.js';
 import { tableState, tableControl } from './casinotables.js';
 import { setChatCheck, setIpFn, recent as chatRecent } from './chatguard.js';
 import { likeCount, likedBy, likeToggle, setSubHook, setAutoHook, trustSet, trustList, isTrusted, questEvent, questsView, questClaim, surveyState, surveySubmit, surveyAdmin, surveySet, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
+import { createSiteOps } from './siteops.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
 import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
 await initCasino();
@@ -49,7 +50,7 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 const SERVE_HEADERS = (res, pathname) => {
   if (/^\/assets\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
   else if (/^\/storage\/images\//.test(pathname)) res.setHeader('cache-control', 'public, max-age=604800, immutable');
-  else if (/(\.html|\/)$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
+  else if (/(\.html|\/)$/.test(pathname) || /\/sw\.js$/.test(pathname)) res.setHeader('cache-control', 'no-cache');
   else if (/\.(png|jpe?g|webp|gif|avif|ico|mp4|webm|mp3|ogg|woff2?)$/i.test(pathname)) res.setHeader('cache-control', 'public, max-age=86400');
   if (/\.(png|jpe?g)$/i.test(pathname)) res.setHeader('vary', 'Accept');
 };
@@ -1350,6 +1351,7 @@ async function handleStaff(req, res) {
     }
     return sendJson(res, 200, { ok: true, note: notes[key] || null });
   }
+  if (/^(news|apps|errors)\./.test(action)) return sendJson(res, 200, await siteops.staff(action, body, who));
   if (action === 'audit.list') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, audit: admin.audit.slice(-200).reverse() }); }
 
   // ---- everything below is owner only ----
@@ -2518,6 +2520,8 @@ async function chatChannel(req, res) {
   return sendJson(res, 200, { ok: true, id });
 }
 
+const siteops = createSiteOps({ admin, saveState, resolveSession, sendJson, readBody, clientIp, audit, logEvent, durable: kvEnabled, onlineCount: () => { const now = Date.now(); let n = 0; for (const p of players.values()) if (now - p.lastSeen < PLAYER_TTL) n++; return n; } });
+
 const httpServer = createServer(async (req, res) => {
  try {
   const parsed = new URL(req.url || '/', 'http://localhost');
@@ -2534,6 +2538,10 @@ const httpServer = createServer(async (req, res) => {
     res.setHeader('Access-Control-Max-Age', '86400');
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   }
+
+  // Rate limits (sign-up, sign-in, chat, reports, applications) and the sitewide news, status and applications routes.
+  if (url.startsWith('/api/') && siteops.guard(req, res, url)) return;
+  if (url === '/api/news' || url === '/api/status' || url === '/api/client-error' || url === '/api/apply') { if (await siteops.handle(url, req, res)) return; }
 
   // Auth endpoints (signup/login/logout/me).
   if (url.startsWith('/api/auth/')) { if (await handleAuth(url, req, res)) return; }

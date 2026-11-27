@@ -63,7 +63,7 @@
   function skelCards(n) { var f = document.createDocumentFragment(); for (var i = 0; i < n; i++) f.appendChild(h('div', { class: 'card sk' }, [h('div', { class: 'art skel' }), h('div', { class: 'meta' }, [h('div', { class: 'skel', style: 'height:14px;width:80%' }), h('div', { class: 'skel', style: 'height:11px;width:50%;margin-top:6px' })])])); return f; }
   function row(title, games, o) {
     o = o || {}; if (!games.length) return null;
-    var scroller = h('div', { class: 'row', role: 'list' }); games.forEach(function (g) { var c = card(g); c.setAttribute('role', 'listitem'); scroller.appendChild(c); });
+    var scroller = h('div', { class: 'row' }); games.forEach(function (g) { scroller.appendChild(card(g)); });
     var l = h('button', { class: 'row-btn l', type: 'button', 'aria-label': 'Scroll left' }, icon('chevron-left')), r = h('button', { class: 'row-btn r', type: 'button', 'aria-label': 'Scroll right' }, icon('chevron-right'));
     function sync() { l.classList.toggle('show', scroller.scrollLeft > 8); r.classList.toggle('show', scroller.scrollLeft < scroller.scrollWidth - scroller.clientWidth - 8); }
     scroller.addEventListener('scroll', Hub.debounce(sync, 40), { passive: true }); setTimeout(sync, 80); window.addEventListener('resize', sync);
@@ -80,7 +80,7 @@
 
   // ---------- shell: sidebar / topbar / tabbar ----------
   var NAV = [['home', 'Home', 'house'], ['originals', 'Originals', 'crown'], ['library', 'My Library', 'library-big'], ['store', 'Store', 'shopping-bag'], ['discord', 'Discord', 'message-square'], ['friends', 'Friends', 'users'], ['hall', 'Hall of creations', 'sparkles'], ['trophies', 'Trophy room', 'trophy'], ['admin', 'Admin tools', 'shield']];
-  function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !((n[0] === 'hall' || n[0] === 'trophies') && tabbar) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
+  function navItems(tabbar) { return NAV.filter(function (n) { return !(n[0] === 'casino' && !Hub.canCasino()) && !(n[0] === 'store' && !Hub.canStore()) && !(n[0] === 'discord' && Hub.me.kind !== 'user') && !(n[0] === 'friends' && (Hub.me.kind !== 'user' || tabbar)) && !((n[0] === 'hall' || n[0] === 'trophies') && tabbar) && !(n[0] === 'news' && tabbar) && !(n[0] === 'admin' && (!Hub.me.role || tabbar)); }); }
   function curRoot() { var r = Hub.parse().name; return r === 'genre' || r === 'search' ? 'store' : (r === 'game' ? Hub.lastRoot || 'home' : r); }
   function avatarEl(cls, who) {
     var m = who || Hub.me, a = h('span', { class: 'avatar' + (cls ? ' ' + cls : '') });
@@ -96,8 +96,18 @@
     var gift = h('button', { class: 'iconbtn gift', type: 'button', 'aria-label': 'Daily reward' }, [icon('gift'), Hub.dailyReady() ? h('i', { class: 'dot plain' }) : null]); gift.addEventListener('click', function () { Hub.rewardsModal(); });
     var n = Hub.unreadCount(), bell = h('button', { class: 'iconbtn', type: 'button', id: 'bellBtn', 'aria-label': 'Notifications' + (n ? ', ' + n + ' unread' : ''), 'aria-haspopup': 'dialog' }, [icon('bell'), n ? h('i', { class: 'dot', text: n > 9 ? '9+' : String(n) }) : null]); bell.addEventListener('click', function () { Hub.notifFlyout(bell); });
     side.appendChild(h('div', { class: 'me' }, [who, gift, bell]));
-    var nav = h('nav', { class: 'nav', 'aria-label': 'Main' }); var grp = { home: 'Play', discord: 'Social', admin: 'Staff' }; navItems().forEach(function (it) { if (grp[it[0]]) nav.appendChild(h('div', { class: 'nav-g', text: grp[it[0]] })); nav.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] }), (it[0] === 'discord' && Hub.dcUnread) || (it[0] === 'friends' && Hub.friends.incoming.length) ? h('i', { class: 'dot plain nav-dot' }) : null])); });
+    var nav = h('nav', { class: 'nav', 'aria-label': 'Main' }), grp = { home: 'Play', discord: 'Social', admin: 'Staff' }, wide = window.innerWidth > 1100, coll = Hub.ls.get('sh_nav_coll', {}) || {}, curG = '';
+    function groupHead(name) {
+      var shut = !!coll[name] && wide, b = h('button', { class: 'nav-g' + (shut ? ' shut' : ''), type: 'button', 'aria-expanded': shut ? 'false' : 'true', title: shut ? 'Show ' + name : 'Hide ' + name }, [h('span', { text: name }), icon('chevron-down')]);
+      b.addEventListener('click', function () { coll[name] = !coll[name]; Hub.ls.set('sh_nav_coll', coll); renderSide(); }); return b;
+    }
+    navItems().forEach(function (it) {
+      if (grp[it[0]]) { curG = grp[it[0]]; nav.appendChild(groupHead(curG)); }
+      if (wide && coll[curG] && root !== it[0]) return;
+      nav.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] }), (it[0] === 'discord' && Hub.dcUnread) || (it[0] === 'friends' && Hub.friends.incoming.length) ? h('i', { class: 'dot plain nav-dot' }) : null]));
+    });
     side.appendChild(nav);
+    if (Hub.moreBlock) side.appendChild(Hub.moreBlock(root));
     var rec = Hub.recents(6);
     if (Hub.prefs.recents && rec.length) {
       side.appendChild(h('div', { class: 'sect', text: 'Most Recent' }));
@@ -114,6 +124,7 @@
   }
   function renderTabbar() {
     var bar = Hub.clear($('#tabbar')), root = curRoot(); navItems(true).forEach(function (it) { bar.appendChild(h('a', { href: '#/' + it[0], class: root === it[0] ? 'on' : '', 'aria-current': root === it[0] ? 'page' : null }, [icon(it[2]), h('span', { text: it[1] === 'My Library' ? 'Library' : it[1] })])); });
+    if (Hub.moreMenu) { var mb = h('button', { type: 'button', 'aria-label': 'More pages', 'aria-haspopup': 'menu', class: ['news', 'status', 'apply'].indexOf(root) >= 0 ? 'on' : '' }, [icon('ellipsis'), h('span', { text: 'More' }), Hub.newsUnseen ? h('i', { class: 'dot plain nav-dot' }) : null]); mb.addEventListener('click', function () { Hub.moreMenu(mb); }); bar.appendChild(mb); }
   }
   var DETAIL = { game: 1, search: 1, genre: 1, profile: 1 };
   function renderTop() {
@@ -139,6 +150,11 @@
       { t: 'Discord', s: 'Servers, DMs and voice', i: 'message-square', k: 'discord chat dm voice servers messages talk', go: function () { location.hash = '#/discord'; }, need: me.kind === 'user' },
       { t: 'Friends', s: 'Requests, online and offline friends', i: 'users', k: 'friends requests add online', go: function () { location.hash = '#/friends'; }, need: me.kind === 'user' },
       { t: 'Profile', s: 'Your picture, banner and achievements', i: 'user', k: 'profile picture avatar banner achievements me', go: function () { location.hash = '#/profile/' + encodeURIComponent(me.name || ''); }, need: me.kind === 'user' },
+      { t: "What's New", s: 'News and changes', i: 'megaphone', k: 'news whats new updates changes changelog', go: function () { location.hash = '#/news'; } },
+      { t: 'Site status', s: 'Is everything working?', i: 'gauge', k: 'status down outage working online uptime', go: function () { location.hash = '#/status'; } },
+      { t: 'Report a problem or player', s: 'Tell the moderators', i: 'flag', k: 'report bug problem player abuse cheat', go: function () { Hub.reportModal && Hub.reportModal(); } },
+      { t: 'Apply to be a mod', s: 'Join the team', i: 'user-plus', k: 'apply mod moderator staff application join team', go: function () { location.hash = '#/apply'; }, need: me.kind === 'user' && !me.role },
+      { t: 'Install app', s: 'Add ScrollHub to your device', i: 'download', k: 'install app pwa home screen offline', go: function () { Hub.installApp && Hub.installApp(); }, need: !!(Hub.canInstall && Hub.canInstall()) },
       { t: 'Settings', s: 'Account, notifications, display', i: 'settings', k: 'settings account notifications display options preferences', go: function () { Hub.settingsModal('account'); } },
       { t: 'Daily reward', s: 'Claim your Scrolls', i: 'gift', k: 'daily reward gift claim scrolls streak', go: function () { Hub.rewardsModal(); }, need: me.kind === 'user' },
       { t: 'Notifications', s: 'Your latest alerts', i: 'bell', k: 'notifications alerts bell', go: function () { var b = $('#bellBtn'); if (b) b.click(); } },
@@ -193,7 +209,7 @@
     var node; try { node = view(r.args); } catch (e) { if (window.console) console.error(e); node = emptyState('triangle-alert', 'Something went wrong', 'This page could not be shown. Try again.', h('a', { class: 'btn primary', href: '#/home', text: 'Back to Home' })); }
     host.appendChild(node); host.style.animation = 'none'; void host.offsetWidth; host.style.animation = ''; host.className = 'view';
     sc.scrollTop = keepScroll ? top : 0; renderTop(); renderSide(); renderTabbar();
-    var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search', discord: 'Discord', friends: 'Friends', hall: 'Hall of creations', trophies: 'Trophy room', admin: 'Admin tools' }[name];
+    var ttl = { home: 'Home', originals: 'Originals', library: 'My Library', casino: 'Casino', store: 'Store', profile: 'Profile', search: 'Search', discord: 'Discord', friends: 'Friends', hall: 'Hall of creations', trophies: 'Trophy room', admin: 'Admin tools', news: "What's New", status: 'Site status', apply: 'Apply to be a mod' }[name];
     if (!Hub.playing) document.title = (name === 'game' && Hub.byId[r.args[0]] ? Hub.byId[r.args[0]].title : (ttl || (Hub.siteName ? Hub.siteName() : 'ScrollHub'))) + ' - ' + (Hub.siteName ? Hub.siteName() : 'ScrollHub');
   };
   window.addEventListener('hashchange', function () { if (!firstRoute) Hub.hasPrev = true; firstRoute = false; if (!Hub.ready) return; Hub.render(false); });

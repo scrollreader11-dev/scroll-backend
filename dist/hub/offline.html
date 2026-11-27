@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#04070e">
+<title>You are offline - ScrollHub</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(1200px 600px at 50% -10%, #12306b 0%, #04070e 60%); color: #f2f6ff; font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  main { max-width: 420px; text-align: center; }
+  img { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 18px; }
+  h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -.01em; }
+  p { margin: 0 0 22px; color: #b9c6e4; line-height: 1.5; }
+  button { height: 46px; padding: 0 26px; border-radius: 12px; border: 1px solid rgba(147, 197, 253, .55); background: linear-gradient(180deg, #5aa0ff, #2358d4); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button:focus-visible { outline: 3px solid #bfdbfe; outline-offset: 3px; }
+  small { display: block; margin-top: 18px; color: #8294b8; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/hub/icon-192.png?v=3" alt="" width="72" height="72">
+  <h1>You are offline</h1>
+  <p>ScrollHub needs a connection to load games and chat. Check your Wi-Fi or data, then try again.</p>
+  <button type="button" id="retry">Try again</button>
+  <small id="s" role="status" aria-live="polite"></small>
+</main>
+<script>
+  var s = document.getElementById('s');
+  function go() { s.textContent = 'Checking...'; fetch('/api/status', { cache: 'no-store' }).then(function (r) { if (r.ok) location.href = '/hub/'; else s.textContent = 'Still cannot reach ScrollHub.'; }).catch(function () { s.textContent = 'Still offline.'; }); }
+  document.getElementById('retry').addEventListener('click', go);
+  window.addEventListener('online', go);
+</script>
+</body>
+</html>
