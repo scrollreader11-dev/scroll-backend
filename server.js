@@ -19,7 +19,7 @@ import { withCompression } from './staticzip.js';
 import { brotliCompressSync, gzipSync, constants as zconst } from 'node:zlib';
 import { server as wisp } from '@mercuryworkshop/wisp-js/server';
 import { handleSkribblUpgrade } from './skribbl.js';
-import { handleWorldUpgrade, worldOnline } from './casinoworld.js';
+import { handleWorldUpgrade, worldOnline, worldTouch } from './casinoworld.js';
 import './dist/arcade/bedwars/shared.js';
 import './dist/arcade/bedwars/mg.js';
 import * as GMS from './gamemaps.js';
@@ -29,8 +29,9 @@ import { tableState, tableControl } from './casinotables.js';
 import { setChatCheck, setIpFn, recent as chatRecent } from './chatguard.js';
 import { likeCount, likedBy, likeToggle, setSubHook, setAutoHook, trustSet, trustList, isTrusted, questEvent, questsView, questClaim, surveyState, surveySubmit, surveyAdmin, surveySet, subBlockSet, subBlockList, hallSprites, hallMapSubs, subPending, subLatest, subList, subGet, subDecide, tourAdmin, rigList, rigAdd, rigDelete, rigClear, rigToggle, casinoCfgGet, casinoCfgSet, adminPlayerOp, PLAYER_OPS, handleCasino, initCasino, getCosmetics, handleBattleUpgrade, grantCoins, buildAchievements, setGotdOverride, getGotdOverride, createEventCode, listEventCodes, deleteEventCode, grantEveryone, setTourPrizes, endTournamentNow, tournamentState, publicUserCard, coinRank, setProfileImage, setProfileMeta, getProfileMeta, adminStoreList, adminProfile, adminSetCoins, adminGiveItem, adminGiveAllItems, adminTakeItem, adminClearInventory, adminSetField, adminResetProfile, walletCoins } from './casino.js';
 import { createSiteOps } from './siteops.js';
+import { createPush } from './push.js';
 import { handleAuth, resolveSession, accountByName, roleForName, setRole, revokeSessions, searchNames, listStaff, isOwnerName, allAccounts, setAccountBan, accountBan } from './auth.js';
-import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete } from './discord.js';
+import { initDiscord, handleDiscord, serveDiscordFile, handleDiscordUpgrade, iceServers, discordGuildList, discordSetDefault, dcAdminOp, dcAdminState, monChannels, monMessages, monRecent, monSearch, monDelete, modHQAdd, modHQPost } from './discord.js';
 await initCasino();
 
 // Keep the server (and the Wisp proxy tunnels) alive no matter what: a single
@@ -232,7 +233,23 @@ try {
 // Durable copy wins over the ephemeral /tmp copy.
 try { const s = await kvGet('sh:state'); if (s) applyState(JSON.parse(s)); } catch (e) { console.log('kv state load failed:', e.message); }
 // ScrollHub Servers (Discord-style layer) — load its durable state now that KV is ready.
-try { await initDiscord({ getCosmetics, kvGet, kvSet }); } catch (e) { console.log('discord init failed:', e.message); }
+// Pop-ups for people who are not on the site (web push). Owners and mods also get staff alerts and a Mod HQ post.
+let push = { send() {}, handle: async () => false };
+try { push = await createPush({ admin, saveState, kvGet, kvSet, resolveSession, sendJson, readBody }); } catch (e) { console.log('push init failed:', e.message); }
+async function staffAlert(o) {
+  try {
+    if (o.channel && o.text) modHQPost(o.channel, o.text);
+    const hook = process.env.APPLICATIONS_WEBHOOK_URL || process.env.SUBMISSIONS_WEBHOOK_URL;
+    if (o.hook && hook && /^https:\/\//.test(hook)) { const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000); fetch(hook, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content: String(o.text).replace(/[@`]/g, '').slice(0, 400) }), signal: ctl.signal }).catch(() => {}).finally(() => clearTimeout(t)); }
+    const staff = await listStaff();
+    for (const st of staff) {
+      const a = await accountByName(st.username); if (!a) continue;
+      modHQAdd(a.id, a.username);
+      if (o.push && (!o.topOnly || st.role === 'owner' || st.role === 'coowner')) push.send(a.id, 'staff', { title: o.title, body: o.body, url: o.url || '/hub/#/admin', tag: 'staff-' + (o.channel || 'x') });
+    }
+  } catch (e) {}
+}
+try { await initDiscord({ getCosmetics, kvGet, kvSet, push: (uid, kind, p) => push.send(uid, kind, p) }); } catch (e) { console.log('discord init failed:', e.message); }
 async function saveState() {
   _stateDirty = true;
   try {
@@ -2127,10 +2144,12 @@ async function handleSocial(url, req, res) {
       f.incoming = f.incoming.filter((x) => x.id !== acct.id);
       g.outgoing = g.outgoing.filter((x) => x.id !== me);
       f.friends.push({ id: acct.id, name: acct.username }); g.friends.push({ id: me, name: myName });
+      push.send(acct.id, 'friend', { title: 'New friend', body: myName + ' is now your friend', url: '/hub/#/friends', tag: 'fr-' + me });
       socialSave(); return (sendJson(res, 200, { ok: true, accepted: true }), true);
     }
     if (hasId(f.outgoing, acct.id)) return (sendJson(res, 200, { error: 'pending', message: 'Request already sent.' }), true);
     f.outgoing.push({ id: acct.id, name: acct.username }); g.incoming.push({ id: me, name: myName });
+    push.send(acct.id, 'friend', { title: 'Friend request', body: myName + ' wants to be your friend', url: '/hub/#/friends', tag: 'fr-' + me });
     socialSave(); return (sendJson(res, 200, { ok: true, sent: true }), true);
   }
   if (path === '/api/friends/accept' && req.method === 'POST') {
@@ -2142,6 +2161,7 @@ async function handleSocial(url, req, res) {
     g.outgoing = g.outgoing.filter((x) => x.id !== me);
     if (!hasId(f.friends, oid)) f.friends.push({ id: oid, name });
     if (!hasId(g.friends, me)) g.friends.push({ id: me, name: myName });
+    push.send(oid, 'friend', { title: 'Request accepted', body: myName + ' accepted your friend request', url: '/hub/#/friends', tag: 'fr-' + me });
     socialSave(); return (sendJson(res, 200, { ok: true }), true);
   }
   if ((path === '/api/friends/decline' || path === '/api/friends/remove') && req.method === 'POST') {
@@ -2185,6 +2205,7 @@ async function handleSocial(url, req, res) {
     if (!tid) return (sendJson(res, 200, { error: 'no-account' }), true);
     reports.push({ id: 'r' + Date.now().toString(36), reporter: me, reporterName: myName, target: tid, targetName: tname || tid, reason, at: Date.now(), handled: false });
     if (reports.length > 300) reports.splice(0, reports.length - 300);
+    staffAlert({ channel: 'reports', hook: true, text: '🚩 ' + myName + ' reported ' + (tname || tid) + ': ' + reason.slice(0, 300), push: true, title: 'New player report', body: myName + ' reported ' + (tname || tid), url: '/hub/#/admin/moderation' });
     socialSave(); return (sendJson(res, 200, { ok: true }), true);
   }
 
@@ -2221,6 +2242,7 @@ async function handleSocial(url, req, res) {
     dms[key].push(msg);
     if (dms[key].length > 500) dms[key] = dms[key].slice(-500);
     markRead(me, key); // sending means you've seen the thread
+    push.send(to, 'dm', { title: myName, body: content.slice(0, 120), url: '/hub/#/friends', tag: 'fdm-' + me });
     socialSave(); return (sendJson(res, 200, { ok: true, message: msg }), true);
   }
   sendJson(res, 404, { error: 'unknown' }); return true;
@@ -2520,7 +2542,7 @@ async function chatChannel(req, res) {
   return sendJson(res, 200, { ok: true, id });
 }
 
-const siteops = createSiteOps({ admin, saveState, resolveSession, sendJson, readBody, clientIp, audit, logEvent, durable: kvEnabled, onlineCount: () => { const now = Date.now(); let n = 0; for (const p of players.values()) if (now - p.lastSeen < PLAYER_TTL) n++; return n; } });
+const siteops = createSiteOps({ staffAlert, admin, saveState, resolveSession, sendJson, readBody, clientIp, audit, logEvent, durable: kvEnabled, onlineCount: () => { const now = Date.now(); let n = 0; for (const p of players.values()) if (now - p.lastSeen < PLAYER_TTL) n++; return n; } });
 
 const httpServer = createServer(async (req, res) => {
  try {
@@ -2541,6 +2563,7 @@ const httpServer = createServer(async (req, res) => {
 
   // Rate limits (sign-up, sign-in, chat, reports, applications) and the sitewide news, status and applications routes.
   if (url.startsWith('/api/') && siteops.guard(req, res, url)) return;
+  if (url.startsWith('/api/push/')) { try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; } if (await push.handle(url, req, res)) return; }
   if (url === '/api/news' || url === '/api/status' || url === '/api/client-error' || url === '/api/apply') { if (await siteops.handle(url, req, res)) return; }
 
   // Auth endpoints (signup/login/logout/me).
@@ -2549,6 +2572,7 @@ const httpServer = createServer(async (req, res) => {
   // can read it synchronously (and can't be spoofed via client-set cookies).
   if (url.startsWith('/api/casino/') || url.startsWith('/api/arcade/') || url.startsWith('/api/chat/') || url === '/api/presence' || url === '/api/achievements' || url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) {
     try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; }
+    if (req.method === 'POST' && req._auth && url.startsWith('/api/casino/')) worldTouch(req._auth.id);
   }
   if (url.startsWith('/api/casino/') && req.method === 'POST' && admin.settings.gamesOff && admin.settings.gamesOff.casino && !(req._auth && req._auth.role)) return sendJson(res, 200, { error: 'off', message: 'The casino is switched off right now.' });
   if (url.startsWith('/api/friends') || url.startsWith('/api/dm') || url.startsWith('/api/social')) { if (await handleSocial(url, req, res)) return; }
@@ -2760,6 +2784,7 @@ const httpServer = createServer(async (req, res) => {
       const ck = parseCookies(req); let from = who ? who.username : 'Guest'; if (!who && ck.sh_nick) { try { from = decodeURIComponent(ck.sh_nick).slice(0, 24); } catch (e) {} }
       const kind = ['idea', 'bug', 'other'].includes(body.kind) ? body.kind : 'other';
       admin.settings.hubFeedback.unshift({ ts: now, from, kind, text }); admin.settings.hubFeedback = admin.settings.hubFeedback.slice(0, 200);
+      if (kind === 'bug') staffAlert({ channel: 'reports', text: '🐞 Problem report from ' + from + ': ' + text.slice(0, 300), push: false });
       try { await saveState(); } catch (e) {} return sendJson(res, 200, { ok: true });
     }
   }

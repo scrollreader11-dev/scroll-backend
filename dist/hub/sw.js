@@ -28,3 +28,20 @@ self.addEventListener('fetch', function (e) {
     });
   }));
 });
+
+// ---- pop-ups (web push). If ScrollHub is already open and in front, the page shows its own toast, so stay quiet. ----
+self.addEventListener('push', function (e) {
+  var d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: 'ScrollHub', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    var front = cs.some(function (c) { return c.visibilityState === 'visible' && c.focused; });
+    if (front && d.kind !== 'test' && d.tag !== 'test') { cs.forEach(function (c) { try { c.postMessage({ t: 'push', d: d }); } catch (x) {} }); return; }
+    return self.registration.showNotification(d.title || 'ScrollHub', { body: d.body || '', tag: d.tag || 'sh', renotify: true, icon: d.icon || '/hub/icon-192.png?v=3', badge: '/hub/icon-192.png?v=3', data: { url: d.url || '/hub/' } });
+  }));
+});
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close(); var url = (e.notification.data && e.notification.data.url) || '/hub/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    for (var i = 0; i < cs.length; i++) { var c = cs[i]; if (c.url.indexOf('/hub/') >= 0 && 'focus' in c) { c.postMessage({ t: 'go', url: url }); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
+});

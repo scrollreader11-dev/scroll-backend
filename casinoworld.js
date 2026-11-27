@@ -16,6 +16,7 @@ const TILE = 48, WORLD_W = 76 * TILE, WORLD_H = 124 * TILE;   // rows 0..43 are 
 const SPAWN = { x: 30 * TILE, y: 38 * TILE };
 const SPEED = 230;            // px/s walking (client sprint is not allowed)
 const MAX_PLAYERS = 150;
+const IDLE_MS = Number(process.env.WORLD_IDLE_MS) || 120000;   // no real activity for this long = removed from the world (owners excepted)
 const HEARTBEAT_MS = 15000;   // ping everyone; drop sockets that stop answering
 const RESUME_MS = 10 * 60 * 1000;
 const GAMES = new Set(['', 'slots', 'blackjack', 'roulette', 'dice', 'coinflip', 'duels', 'mines', 'plinko', 'wheel', 'crash', 'cases', 'battles', 'shop', 'wardrobe', 'atm', 'leaderboard', 'tournament', 'player', 'bar', 'piano', 'echo', 'aim', 'mathrush', 'trivia', 'colorclash', 'pattern', 'scramble', 'hiscores']);
@@ -33,6 +34,8 @@ const kickBlock = new Map();   // cid -> until: a removed player cannot walk str
 export function worldKick(cid, ms) { if (cid) kickBlock.set(cid, Date.now() + (ms || 60000)); for (const p of [...players.values()]) if (p.cid === cid) { send(p.ws, { t: 'error', code: 'kicked', msg: 'You were removed from the casino by staff.' }); try { p.ws.close(4003); } catch (e) {} removePlayer(p); } }
 
 const players = new Map(); // pid -> player
+// Called when an account does something real over HTTP (spins, bets, shop) so a player busy at a machine is not counted as away.
+export function worldTouch(cid) { if (!cid) return; const t = Date.now(); for (const p of players.values()) if (p.cid === cid) p.lastAct = t; }
 const lastPos = new Map(); // cid -> {x, y, ts}  (resume where you stood after a reconnect)
 let nextPid = 1;
 let dirty = new Set();
@@ -96,6 +99,17 @@ setInterval(() => {
   const cut = Date.now() - RESUME_MS;
   for (const [cid, v] of lastPos) if (v.ts < cut) lastPos.delete(cid);
 }, HEARTBEAT_MS);
+
+// Away too long (tab hidden, walked off, left it open): remove the avatar so nobody stands there forever.
+setInterval(() => {
+  const now = Date.now();
+  for (const p of [...players.values()]) {
+    if (p.own || now - (p.lastAct || 0) < IDLE_MS) continue;
+    send(p.ws, { t: 'error', code: 'idle', msg: 'You were away for a couple of minutes, so you were taken out of the casino. Walk back in whenever you like.' });
+    try { p.ws.close(4003, 'idle'); } catch (e) {}
+    removePlayer(p);
+  }
+}, 10000).unref();
 
 function removePlayer(p) {
   if (players.get(p.id) !== p) return;
@@ -222,7 +236,7 @@ export function handleWorldUpgrade(req, socket, head) {
       x: resume ? clamp(resume.x, 0, WORLD_W) : SPAWN.x + (Math.random() * 160 - 80),
       y: resume ? clamp(resume.y, 0, WORLD_H) : SPAWN.y + (Math.random() * 60 - 30),
       dir: 0, mv: false, look: worldLook(cid), cos: cosOf(cid), busy: '',
-      ip: ipOf(req), cst: {}, role: (req._auth && req._auth.role) || null, own: !!(req._auth && (req._auth.role === 'owner' || req._auth.role === 'coowner')), hammer: false, scale: 1, fast: false, frozen: 0, lastDrink: 0, tpUntil: 0, hidden: false, vTok: 12, vAt: Date.now(), lastMove: Date.now(), moveTokens: 30, gTokens: 20, lastG: Date.now(), lastEmote: 0, lastBusy: 0,
+      ip: ipOf(req), lastAct: Date.now(), cst: {}, role: (req._auth && req._auth.role) || null, own: !!(req._auth && (req._auth.role === 'owner' || req._auth.role === 'coowner')), hammer: false, scale: 1, fast: false, frozen: 0, lastDrink: 0, tpUntil: 0, hidden: false, vTok: 12, vAt: Date.now(), lastMove: Date.now(), moveTokens: 30, gTokens: 20, lastG: Date.now(), lastEmote: 0, lastBusy: 0,
     };
     me.hidden = me.own && me.y > VAULT.y0;
     players.set(me.id, me);
@@ -237,6 +251,9 @@ export function handleWorldUpgrade(req, socket, head) {
       if (isBinary) { voiceFrame(me, buf); return; }
       let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; }
       if (!m || typeof m.t !== 'string') return;
+      // Keep-alives and look refreshes do not prove anyone is there; everything else (moving, chatting, table moves, a real input) does.
+      if (m.t !== 'ping' && m.t !== 'look') me.lastAct = Date.now();
+      if (m.t === 'act') return;
       const now = Date.now();
       if (m.t === 'vc') { me.voice = !!m.on; send(ws, { t: 'vcstate', on: me.voice, range: VOICE_R }); return; }
 

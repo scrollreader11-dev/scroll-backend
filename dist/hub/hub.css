@@ -1138,3 +1138,8 @@ button.nav-g .ic { width: 14px; height: 14px; transition: transform .18s var(--e
 
 .nw-pill .nw-btn { flex: none; margin-left: auto; height: 32px; }
 @media (max-width: 520px) { .nw-pill.mod .nw-stretch span { display: block; } }
+
+.nw-pill.push { background: linear-gradient(180deg, rgba(52, 211, 153, .18), rgba(52, 211, 153, .06)); border-color: rgba(52, 211, 153, .45); }
+.nw-pill .iconbtn { width: 32px; height: 32px; flex: none; }
+.pu-box { margin-top: 22px; }
+.pu-box .switch { margin-top: 8px; }

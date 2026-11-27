@@ -33,6 +33,8 @@ const clean = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b
 
 export function createSiteOps(ctx) {
   const { admin, saveState, resolveSession, sendJson, readBody, clientIp, audit, logEvent } = ctx;
+  const alert = (o) => { try { ctx.staffAlert && ctx.staffAlert(o); } catch (e) {} };
+  let lastErrAlert = 0;
   const st = () => admin.settings;
 
   // ------------------------------------------------------------ rate limits
@@ -55,6 +57,8 @@ export function createSiteOps(ctx) {
     ['POST', '/api/friends/add', 'friend', 30, 600000, 'who', 'Too many friend requests. Try again in a few minutes.'],
     ['POST', '/api/apply', 'apply', 4, 3600000, 'who', 'You already sent an application a moment ago.'],
     ['POST', '/api/client-error', 'cerr', 20, 60000, 'ip', 'Slow down.'],
+    ['POST', '/api/push/subscribe', 'psub', 20, 3600000, 'who', 'Too many tries. Wait a little.'],
+    ['POST', '/api/push/test', 'ptest', 5, 600000, 'who', 'Wait a moment before sending another test.'],
   ];
   // Returns true (and answers 429) when this request is over its limit.
   function guard(req, res, url) {
@@ -84,6 +88,7 @@ export function createSiteOps(ctx) {
     const key = msg.slice(0, 120) + '|' + src + '|' + line, now = Date.now();
     let e = errs.get(key);
     if (!e) { if (errs.size >= 150) { const old = [...errs.entries()].sort((a, c) => a[1].last - c[1].last)[0]; if (old) errs.delete(old[0]); } e = { key, msg, src, line, col: parseInt(b.col, 10) || 0, stack: clean(b.stack, 900), page: clean(b.page, 120), count: 0, first: now, last: now, ips: new Set() }; errs.set(key, e); }
+    if (e.count === 0 && now - lastErrAlert > 300000) { lastErrAlert = now; alert({ channel: 'errors', text: '⚠️ New browser error: ' + msg.slice(0, 160) + (src ? ' (' + src + (line ? ':' + line : '') + ')' : '') + (e.page ? ' on ' + e.page : '') }); }
     e.count++; e.last = now; e.page = clean(b.page, 120) || e.page; if (e.ips.size < 200) e.ips.add(ip);
     return true;
   }
@@ -147,6 +152,7 @@ export function createSiteOps(ctx) {
       if (list.length > 300) { for (let i = list.length - 1; i >= 0 && list.length > 300; i--) if (list[i].status !== 'pending') list.splice(i, 1); }
       try { logEvent('apply', me.username, 'mod application'); } catch (e) {}
       ping('New mod application from ' + me.username + '. Read it in Admin tools > Mod applications.');
+      alert({ channel: 'applications', text: '📝 New mod application from ' + me.username + '. Review it in Admin tools, People, Mod applications.', push: true, topOnly: true, title: 'New mod application', body: me.username + ' wants to be a mod', url: '/hub/#/admin/apps' });
       await saveState().catch(() => {});
       sendJson(res, 200, { ok: true });
       return true;

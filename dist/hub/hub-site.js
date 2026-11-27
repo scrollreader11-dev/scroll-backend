@@ -50,6 +50,12 @@
       var cta = h('div', { class: 'nw-pill mod' }, [icon('user-plus'), h('a', { href: '#/apply', class: 'nw-stretch' }, [h('span', { text: 'Want to help run ScrollHub? ' }), h('b', { style: 'margin:0', text: 'Become a mod' })]), h('a', { href: '#/apply', class: 'btn sm primary nw-btn' }, ['Apply now', icon('chevron-right')]), h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Hide this', onclick: function () { Hub.ls.set('sh_modcta_off', true); cta.remove(); } }, icon('x'))]);
       node.insertBefore(cta, node.firstChild);
     }
+    if (node && node.insertBefore && Hub.me && Hub.me.kind === 'user' && !Hub.pushHas && !Hub.ls.get('sh_pushcta_off', false) && !(pushOK && Notification.permission === 'denied') && (pushOK || isIOS)) {
+      var pc = h('div', { class: 'nw-pill push' }, [icon('bell'), h('span', { class: 'nw-stretch', text: pushOK ? 'Get a pop-up when someone messages you, even when ScrollHub is closed.' : 'Add ScrollHub to your Home Screen to get pop-ups for messages.' }),
+        h('button', { class: 'btn sm primary nw-btn', type: 'button', onclick: function () { if (pushOK) Hub.pushEnable().then(function (r) { if (r && r.ok) { Hub.toast('Pop-ups are on', { icon: 'bell' }); pc.remove(); } else Hub.toast(r && r.error === 'denied' ? 'Pop-ups were blocked' : 'Could not turn them on', { bad: true }); }); else Hub.installApp(); } }, pushOK ? 'Turn on' : 'How'),
+        h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Hide this', onclick: function () { Hub.ls.set('sh_pushcta_off', true); pc.remove(); } }, icon('x'))]);
+      node.insertBefore(pc, node.firstChild);
+    }
     if (Hub.newsUnseen && node && node.insertBefore) node.insertBefore(h('a', { class: 'nw-pill', href: '#/news' }, [icon('megaphone'), h('span', { text: "There's news you haven't read" }), h('b', { text: 'Read it' })]), node.firstChild);
     return node;
   };
@@ -177,6 +183,68 @@
   window.addEventListener('offline', function () { offline(true); }); window.addEventListener('online', function () { offline(false); });
   if (navigator.onLine === false) offline(true);
 
+
+  // ---------------------------------------------------------------- pop-ups when ScrollHub is closed (web push)
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/i.test(navigator.userAgent));
+  var pushOK = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+  Hub.pushHas = false;
+  function key64(k) { var p = '='.repeat((4 - k.length % 4) % 4), b = (k + p).replace(/-/g, '+').replace(/_/g, '/'), r = atob(b), o = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
+  function reg() { return navigator.serviceWorker.getRegistration('/hub/').then(function (r) { return r || navigator.serviceWorker.register('/hub/sw.js', { scope: '/hub/' }); }).then(function (r) { return navigator.serviceWorker.ready.then(function () { return r; }); }); }
+  Hub.pushRefresh = function () {
+    if (!pushOK || !signedIn()) { Hub.pushHas = false; return Promise.resolve(false); }
+    return reg().then(function (r) { return r.pushManager.getSubscription(); }).then(function (s) { Hub.pushHas = !!s && Notification.permission === 'granted'; return Hub.pushHas; }).catch(function () { return false; });
+  };
+  Hub.pushEnable = function () {
+    if (!pushOK) return Promise.resolve({ error: 'unsupported' });
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') return { error: 'denied' };
+      return Promise.all([reg(), Hub.api('/api/push/key')]).then(function (a) {
+        if (!a[1] || !a[1].key) return { error: 'server' };
+        return a[0].pushManager.getSubscription().then(function (old) { return old || a[0].pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key64(a[1].key) }); });
+      }).then(function (sub) { if (sub && sub.error) return sub; return Hub.api('/api/push/subscribe', { body: { subscription: sub.toJSON() } }).then(function (r) { Hub.pushHas = !!(r && r.ok); return r && r.ok ? { ok: true } : { error: 'server', message: r && r.message }; }); });
+    }).catch(function () { return { error: 'failed' }; });
+  };
+  Hub.pushDisable = function () {
+    if (!pushOK) return Promise.resolve();
+    return reg().then(function (r) { return r.pushManager.getSubscription(); }).then(function (s) { if (!s) return; var ep = s.endpoint; return s.unsubscribe().then(function () { return Hub.api('/api/push/unsubscribe', { body: { endpoint: ep } }); }); }).then(function () { Hub.pushHas = false; }, function () { Hub.pushHas = false; });
+  };
+  Hub.pushSettings = function () {
+    var box = h('div', { class: 'pu-box' });
+    box.appendChild(h('h4', { text: 'Pop-ups when ScrollHub is closed' }));
+    box.appendChild(h('p', { class: 'hint', text: 'Get a pop-up on this device when someone messages you or sends a request, even if ScrollHub is not open.' }));
+    var body = h('div'); box.appendChild(body);
+    function paint() {
+      Hub.clear(body);
+      if (!signedIn()) { body.appendChild(h('p', { class: 'hint', text: 'Sign in to turn pop-ups on.' })); return; }
+      if (!pushOK) {
+        body.appendChild(h('div', { class: 'st-note' }, [icon('info'), h('span', { text: isIOS ? 'On iPhone and iPad, pop-ups only work after you add ScrollHub to your Home Screen. Install it, open it from your Home Screen, then come back here.' : 'This browser does not support pop-ups when a site is closed. Try Chrome, Edge or Firefox, or install ScrollHub.' })]));
+        if (Hub.canInstall()) body.appendChild(h('div', { style: 'margin-top:10px' }, h('button', { class: 'btn sm primary', type: 'button', onclick: Hub.installApp }, [icon('download'), 'How to install'])));
+        return;
+      }
+      if (Notification.permission === 'denied') { body.appendChild(h('div', { class: 'st-note bad' }, [icon('circle-alert'), h('span', { text: 'Pop-ups are blocked for this site. Allow notifications for ScrollHub in your browser settings, then reload.' })])); return; }
+      Hub.pushRefresh().then(function (on) {
+        Hub.clear(body);
+        body.appendChild(Hub.toggle('Pop-ups on this device', on ? 'On' : 'Off', on, function (v) {
+          if (v) Hub.pushEnable().then(function (r) { if (r && r.ok) Hub.toast('Pop-ups are on', { icon: 'bell' }); else Hub.toast(r && r.error === 'denied' ? 'Pop-ups were blocked' : (r && r.message) || 'Could not turn them on', { bad: true }); paint(); });
+          else Hub.pushDisable().then(function () { Hub.toast('Pop-ups are off'); paint(); });
+        }));
+        if (!on) return;
+        Hub.api('/api/push/state').then(function (st) {
+          if (!st || !st.ok || !body.isConnected) return; var p = st.prefs, rows = [['dm', 'Direct messages', 'Someone messages you.'], ['friend', 'Friend requests', 'A new request, or someone accepts yours.'], ['mention', 'Mentions', 'Someone @mentions you in a server.']];
+          if (st.staff) rows.push(['staff', 'Staff alerts', 'New mod applications and player reports.']);
+          rows.forEach(function (r) { body.appendChild(Hub.toggle(r[1], r[2], p[r[0]] !== false, function (v) { var o = {}; o[r[0]] = v; Hub.api('/api/push/prefs', { body: o }); })); });
+          body.appendChild(h('div', { style: 'margin-top:12px' }, h('button', { class: 'btn sm', type: 'button', onclick: function (e) { var b = e.currentTarget; b.disabled = true; Hub.api('/api/push/test', { body: {} }).then(function (r) { b.disabled = false; if (r && r.ok) Hub.toast('Test sent. Close this tab to see it.', { icon: 'bell' }); else Hub.toast((r && r.message) || 'Could not send a test', { bad: true }); }); } }, [icon('send'), 'Send a test pop-up'])));
+        });
+      });
+    }
+    paint(); return box;
+  };
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) {
+    var m = e.data || {};
+    if (m.t === 'go' && m.url) { var i = m.url.indexOf('#'); if (m.url.indexOf('/hub/') === 0 && i >= 0) location.hash = m.url.slice(i + 1).replace(/^\//, '#/').replace(/^#\/?/, '#/'); else location.href = m.url; }
+    if (m.t === 'push' && m.d && Hub.me && Hub.me.kind === 'user') Hub.toast((m.d.title ? m.d.title + ': ' : '') + (m.d.body || ''), { icon: 'bell', ms: 4500 });
+  });
+
   // ---------------------------------------------------------------- menus and support links
   Hub.menuExtras = function (items, me) {
     var at = items.length, extra = [{ label: "What's New", icon: 'megaphone', fn: function () { location.hash = '#/news'; }, right: Hub.newsUnseen ? 'New' : null }, { label: 'Site status', icon: 'gauge', fn: function () { location.hash = '#/status'; } }, { label: 'Report a problem', icon: 'flag', fn: function () { Hub.reportModal(); } }];
@@ -229,5 +297,5 @@
     }, 120);
   });
 
-  Hub.on('ready', function () { loadNews(true); setInterval(function () { if (!document.hidden) loadNews(true); }, 300000); });
+  Hub.on('ready', function () { Hub.pushRefresh && Hub.pushRefresh().then(function (on) { if (on && Hub.parse().name === 'home') Hub.render(true); }); loadNews(true); setInterval(function () { if (!document.hidden) loadNews(true); }, 300000); });
 })();

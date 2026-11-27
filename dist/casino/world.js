@@ -1307,6 +1307,10 @@
 
   // ================================================================ NETWORK
   var ws = null, wsOk = false, fatal = false, retry = 800, lastSent = { x: 0, y: 0, d: -1, m: false, at: 0 }, lastRecv = 0, lastPing = 0;
+  // Tell the server a real person is here. Only real input counts, and only while this tab is in front.
+  var lastAct = 0;
+  function sawInput() { var n = Date.now(); if (document.hidden || n - lastAct < 8000) return; lastAct = n; netSend({ t: 'act' }); }
+  ['keydown', 'pointerdown', 'mousedown', 'touchstart', 'wheel'].forEach(function (ev) { window.addEventListener(ev, sawInput, { passive: true, capture: true }); });
   function netSend(o) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); } catch (e) {} }
   SC.netSend = netSend;
   function netTick() {
@@ -1429,10 +1433,10 @@
         break;
       }
       case 'error':
-        if (m.code === 'login' || m.code === 'replaced' || m.code === 'full' || m.code === 'kicked') {
+        if (m.code === 'login' || m.code === 'replaced' || m.code === 'full' || m.code === 'kicked' || m.code === 'idle') {
           fatal = true; hideLoading();
-          $('gateTitle').textContent = m.code === 'login' ? 'Log in to play' : m.code === 'replaced' ? 'Opened somewhere else' : m.code === 'kicked' ? 'Removed from the casino' : 'Casino is packed';
-          $('gateMsg').textContent = m.msg || ''; $('gate').style.display = 'flex';
+          $('gateTitle').textContent = m.code === 'login' ? 'Log in to play' : m.code === 'replaced' ? 'Opened somewhere else' : m.code === 'kicked' ? 'Removed from the casino' : m.code === 'idle' ? 'Removed for being away' : 'Casino is packed';
+          $('gateMsg').textContent = m.msg || ''; $('gate').style.display = 'flex'; var ga = $('gateAgain'); if (ga) ga.style.display = m.code === 'idle' ? 'inline-flex' : 'none';
         }
         break;
     }

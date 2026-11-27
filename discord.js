@@ -14,6 +14,7 @@ import { resolveSession, accountByName, sessionFromToken, roleForName } from './
 let getCosmetics = () => ({ color: '', tag: '' });
 let kvGet = async () => null;
 let kvSet = async () => {};
+let pushTo = () => {};
 
 // ---- state ----
 const dc = {
@@ -46,6 +47,7 @@ export async function initDiscord(deps) {
   getCosmetics = deps.getCosmetics || getCosmetics;
   kvGet = deps.kvGet || kvGet;
   kvSet = deps.kvSet || kvSet;
+  pushTo = deps.push || pushTo;
   try {
     const raw = await kvGet('sh:discord');
     if (raw) {
@@ -58,6 +60,7 @@ export async function initDiscord(deps) {
     }
   } catch (e) { console.log('discord load failed:', e.message); }
   ensureGlobal();
+  ensureModHQ();
   ensureVoiceChannels();
   setInterval(flush, 12000);
 }
@@ -87,6 +90,38 @@ function ensureGlobal() {
   }
   return g;
 }
+// Mod HQ: a private server for owners and mods. Mod applications, player reports and browser errors post here by themselves.
+const MODHQ_ID = 'g_modhq';
+function ensureModHQ() {
+  let g = dc.guilds[MODHQ_ID];
+  if (!g) {
+    g = { id: MODHQ_ID, name: 'Mod HQ', icon: '🛡️', ownerId: 'system', createdAt: Date.now(), channels: [], memberIds: [], invites: {}, names: { system: 'ScrollHub Bot' } };
+    const mk = (nm, type, topic) => { const cid = MODHQ_ID + '_' + slug(nm); g.channels.push({ id: cid, name: slug(nm), type, topic: topic || '' }); dc.channelIndex[cid] = { guildId: MODHQ_ID, type }; if (type === 'text') { dc.messages[cid] = dc.messages[cid] || []; dc.rev[cid] = dc.rev[cid] || 1; } };
+    mk('applications', 'text', 'New mod applications show up here.'); mk('reports', 'text', 'Player reports and problem reports.'); mk('errors', 'text', 'Pages that broke in someone\'s browser.'); mk('mod-chat', 'text', 'Talk with the rest of the team.'); mk('Mod voice', 'voice');
+    dc.guilds[MODHQ_ID] = g;
+    dc.messages[MODHQ_ID + '_mod-chat'].push({ id: rid(14), uid: 'system', name: 'ScrollHub Bot', color: '', title: '', titleFx: '', avatarFx: '', avatar: '', role: 'owner', content: 'Welcome to Mod HQ. Only owners and mods can see this server. Applications and reports will appear in their own channels.', attachments: [], ts: Date.now(), edited: false });
+    markDirty();
+  }
+  return g;
+}
+// Staff are in Mod HQ; anyone who stops being staff is taken out.
+function syncModHQ(me) {
+  const g = ensureModHQ();
+  if (me.role) { if (!g.memberIds.includes(me.id) && !(g.left && g.left.includes(me.id))) { addMember(g, me.id); (g.names = g.names || {})[me.id] = me.username; } }
+  else if (g.memberIds.includes(me.id)) { g.memberIds = g.memberIds.filter((u) => u !== me.id); if (dc.userGuilds[me.id]) dc.userGuilds[me.id] = dc.userGuilds[me.id].filter((x) => x !== MODHQ_ID); markDirty(); }
+}
+export function modHQAdd(uid, name) { const g = ensureModHQ(); if (!g.memberIds.includes(uid) && !(g.left && g.left.includes(uid))) { addMember(g, uid); (g.names = g.names || {})[uid] = name; } }
+export function modHQPost(chanName, content) {
+  try {
+    const g = ensureModHQ(), ch = g.channels.find((c) => c.name === chanName && c.type === 'text'); if (!ch) return;
+    const msg = { id: rid(14), uid: 'system', name: 'ScrollHub Bot', color: '', title: '', titleFx: '', avatarFx: '', avatar: '', role: 'owner', content: clean(content, 1500), attachments: [], ts: Date.now(), edited: false };
+    (dc.messages[ch.id] = dc.messages[ch.id] || []).push(msg); if (dc.messages[ch.id].length > 500) dc.messages[ch.id] = dc.messages[ch.id].slice(-500);
+    bumpRev(ch.id); markDirty(); wsBroadcastChannel(ch.id, { t: 'msg', channel: ch.id, message: msg });
+    const out = JSON.stringify({ t: 'notify', channel: ch.id, from: 'ScrollHub Bot', avatar: '', where: 'Mod HQ · #' + ch.name, text: msg.content.slice(0, 140), dm: false, ts: msg.ts }), set = new Set(g.memberIds);
+    for (const c of conns) if (set.has(c.uid) && c.readyState === 1) { try { c.send(out); } catch {} }
+  } catch {}
+}
+
 // The server every account joins. Staff can pick it; until then, a server named like "ScrollHub Official" is used.
 function defaultGuild() {
   const id = dc.settings && dc.settings.defaultGuild;
@@ -302,6 +337,7 @@ export async function handleDiscord(url, req, res) {
     const gg = ensureGlobal();
     if (!gg.left || !gg.left.includes(me.id)) { if (!gg.memberIds.includes(me.id)) { addMember(gg, me.id); (gg.names = gg.names || {})[me.id] = me.username; } }
     autoJoin(defaultGuild(), me);
+    syncModHQ(me);
     const gids = dc.userGuilds[me.id] || [];
     const guilds = gids.map((id) => dc.guilds[id]).filter(Boolean).map(guildPublic);
     const dms = Object.values(dc.dms).filter((d) => d.userIds.includes(me.id)).map((d) => {
@@ -459,6 +495,13 @@ export async function handleDiscord(url, req, res) {
       const set = new Set(ids.filter((u) => u !== me.id));
       const out = JSON.stringify({ t: 'notify', channel: cid, from: me.username, avatar: cosFull(me.id).avatar, where, text: content.slice(0, 140) || '📎 sent a file', dm: cid.startsWith('dm:'), ts: msg.ts });
       if (set.size) for (const c of conns) if (set.has(c.uid) && c.readyState === 1) { try { c.send(out); } catch {} }
+      // Pop-ups for people who are not on the site: every DM, and @mentions in servers.
+      const txt = content.slice(0, 120) || 'Sent a file';
+      if (cid.startsWith('dm:')) { for (const u of set) pushTo(u, 'dm', { title: me.username, body: txt, url: '/hub/#/discord/open/' + encodeURIComponent(cid), tag: 'dc-' + cid }); }
+      else {
+        const ix = dc.channelIndex[cid], g = ix && dc.guilds[ix.guildId], low = content.toLowerCase();
+        if (g && g.id !== GLOBAL_ID && low.includes('@')) for (const u of set) { const nm = String((g.names || {})[u] || '').toLowerCase(); if (nm && low.includes('@' + nm)) pushTo(u, 'mention', { title: me.username + ' mentioned you', body: where + ': ' + txt, url: '/hub/#/discord/open/' + encodeURIComponent(cid), tag: 'dcm-' + cid }); }
+      }
     } catch {}
     return sendJson(res, 200, { ok: true, message: msg });
   }

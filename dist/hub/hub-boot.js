@@ -303,6 +303,7 @@
     notifications: function (b) {
       b.appendChild(h('h3', { text: 'Notifications' })); b.appendChild(h('p', { class: 'hint', text: 'Choose what shows up in the bell.' }));
       [['nUpd', 'Game updates', 'When an installed game has a new version.'], ['nDaily', 'Daily reward', 'When your reward is ready to claim.'], ['nFriends', 'Friend requests', 'When someone wants to be your friend.'], ['nDiscord', 'Discord pop-ups', 'Show a pop-up for direct messages and mentions while you are playing or browsing. Nothing pops up while Discord is open.'], ['nNews', 'Announcements', 'New versions pushed by ScrollHub.']].forEach(function (x) { b.appendChild(kv(x[1], x[2], Hub.toggle('', '', Hub.prefs[x[0]], function (v) { Hub.setPref(x[0], v); Hub.emit('notifs'); }))); });
+      if (Hub.pushSettings) b.appendChild(Hub.pushSettings());
     },
     storage: function (b, redo) {
       b.appendChild(h('h3', { text: 'Storage and updates' }));
