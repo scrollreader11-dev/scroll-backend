@@ -122,7 +122,7 @@ let _stateDirty = false, _chatDirty = false;
 async function kvFlush() {
   if (!kvEnabled) return;
   try {
-    if (_stateDirty) { _stateDirty = false; await kvSet('sh:state', JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners, audit: admin.audit })); }
+    if (_stateDirty) { _stateDirty = false; await kvSet('sh:state', JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners, audit: admin.audit, notes: admin.notes })); }
   } catch (e) { _stateDirty = true; }
   try {
     if (_chatDirty) { _chatDirty = false; const trimmed = {}; for (const k in chat.messages) trimmed[k] = (chat.messages[k] || []).slice(-800); await kvSet('sh:chat', JSON.stringify({ channels: chat.channels, messages: trimmed, rev: chat.rev, announcements: chat.announcements })); }
@@ -139,7 +139,8 @@ const admin = {
   frozen: {},     // clientId -> until (0 = indefinite)
   customGames: [],// admin-added games shown to everyone
   chatOwners: {}, // clientId -> true  (designated chat owners)
-  audit: []       // staff action log: {ts, by, role, action, target, detail}
+  audit: [],      // staff action log: {ts, by, role, action, target, detail}
+  notes: {}       // shared staff notes, one per admin panel: key -> {text, by, ts}
 };
 // ── Extended admin state ───────────────────────────────────────────────────
 const muted = {};        // ip -> { until (0=permanent), reason }
@@ -221,6 +222,7 @@ function applyState(saved) {
   if (Array.isArray(saved.customGames)) admin.customGames = saved.customGames;
   if (saved.chatOwners) admin.chatOwners = saved.chatOwners;
   if (Array.isArray(saved.audit)) admin.audit = saved.audit.slice(-400);
+  if (saved.notes && typeof saved.notes === 'object') admin.notes = saved.notes;
 }
 try {
   const fs = await import('node:fs');
@@ -234,7 +236,7 @@ async function saveState() {
   _stateDirty = true;
   try {
     const fs = await import('node:fs');
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners, audit: admin.audit }));
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ settings: admin.settings, bansByIp: admin.bansByIp, stats, customGames: admin.customGames, chatOwners: admin.chatOwners, audit: admin.audit, notes: admin.notes }));
   } catch {}
 }
 setInterval(saveState, 60000);
@@ -1327,6 +1329,26 @@ async function handleStaff(req, res) {
     const r = discordSetDefault(String(body.id || ''), everyone); if (r.error) return sendJson(res, 400, r);
     try { audit(who, 'discord.setdefault', r.name + (body.everyone ? ' (added ' + r.added + ' existing accounts)' : '')); } catch (e) {}
     return sendJson(res, 200, r);
+  }
+  // ---- the two things every admin panel shows at the bottom: recent activity for that panel, and shared team notes (any staff member)
+  if (action === 'panel.activity') {
+    const pre = (Array.isArray(body.prefixes) ? body.prefixes : []).map((x) => String(x).toLowerCase()).filter(Boolean).slice(0, 14);
+    const n = Math.max(1, Math.min(15, Number(body.limit) || 6));
+    const items = admin.audit.filter((e) => !pre.length || pre.some((p) => String(e.action).toLowerCase().includes(p))).slice(-n).reverse();
+    return sendJson(res, 200, { ok: true, items });
+  }
+  if (action === 'notes.get' || action === 'notes.set') {
+    const key = String(body.key || '').replace(/[^a-z0-9_.-]/gi, '').slice(0, 40);
+    if (!key) return sendJson(res, 400, { error: 'bad key', message: 'That panel has no notes' });
+    const notes = admin.notes || (admin.notes = {});
+    if (action === 'notes.set') {
+      const text = String(body.text || '').slice(0, 1500);
+      if (text.trim()) { if (!notes[key] && Object.keys(notes).length >= 80) return sendJson(res, 400, { error: 'full', message: 'Too many notes' }); notes[key] = { text, by: who.username, ts: Date.now() }; }
+      else delete notes[key];
+      audit(who, 'notes.set', key, text.slice(0, 60));
+      saveState().catch(() => {});
+    }
+    return sendJson(res, 200, { ok: true, note: notes[key] || null });
   }
   if (action === 'audit.list') { if (!owner) return needOwner(); return sendJson(res, 200, { ok: true, audit: admin.audit.slice(-200).reverse() }); }
 

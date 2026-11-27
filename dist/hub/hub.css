@@ -1063,3 +1063,8 @@ html.rm .tr-stage::before, html.rm .tr-svg { transition: none; }
 .fb-ends { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--text3); max-width: 280px; }
 .fb-err { min-height: 18px; margin: 14px 0 0; color: var(--bad); font-size: 13px; }
 .fb textarea.input { width: 100%; resize: vertical; }
+
+/* Panel footer: recent activity + team notes, on every admin panel */
+.adm-x { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
+.adm-x .adm-note { width: 100%; resize: vertical; min-height: 110px; line-height: 1.5; font-family: inherit; }
+@media (max-width: 900px) { .adm-x { grid-template-columns: 1fr; } }

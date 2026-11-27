@@ -53,6 +53,7 @@
       $('owPresets').appendChild(b);
     });
     tablesBuild();
+    if (SC.staffExtras) SC.staffExtras(host, 'casino-owner', ['casino']);
     $('owMode').onchange = sync; sync();
     $('owAdd').onclick = add;
     $('owClear').onclick = function () { if (!S.rules.length) return; staff({ action: 'casino.rig.clear' }).then(function (x) { if (x && x.ok) { take(x); SC.toast('All rigs deleted'); } else err(x); }); };

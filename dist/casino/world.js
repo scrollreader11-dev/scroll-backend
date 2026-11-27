@@ -762,6 +762,7 @@
 
   // ================================================================ TYPED CHAT
   var chatEl = $('chatdock'), chatLog = $('chatlog'), chatIn = $('chatin'), chatLines = [], chatHidden = false;
+  if (isTouch) chatIn.placeholder = 'Say something...';
   try { chatHidden = localStorage.getItem('sc_chat_hidden') === '1'; } catch (e) {}
   function chatAdd(nick, text, kind) {
     var row = document.createElement('div'); row.className = 'cl' + (kind ? ' ' + kind : ''); row.dataset.at = Date.now();

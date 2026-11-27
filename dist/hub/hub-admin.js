@@ -89,12 +89,39 @@
     try { localStorage.setItem('sh_adm_last_' + curGroup, tab); } catch (e) {}
     nav.appendChild(gRow); nav.appendChild(tRow);
     var host = h('div', { class: 'adm-main' });
-    v.appendChild(hero); v.appendChild(nav); v.appendChild(host);
+    v.appendChild(hero); v.appendChild(nav); v.appendChild(host); v.appendChild(panelExtras(tab));
     (PANES[tab] || PANES.overview)(host);
     return v;
   };
 
   var PANES = {}; Hub.adminKit.PANES = PANES;
+
+  // ---------- the two things every panel ends with: recent activity for that panel, and shared team notes ----------
+  var ACT = { subs: ['subs'], gamechat: ['gamechat', 'mute'], feedback: ['fb'], overview: [], players: ['player', 'coins', 'giveall', 'resetnicks', 'setnote'], insights: [], rooms: ['rooms'], logs: [],
+    staff: ['staff', 'setowner'], moderation: ['ban', 'kick', 'mute', 'freeze', 'setslow', 'word', 'report', 'deletemsg'], chats: ['discord', 'dc.'], announce: ['announce', 'broadcast', 'sendall'],
+    schedule: ['sched'], live: ['live'], events: ['boost'], fun: ['fun'], toolbox: ['takeover', 'command', 'code', 'game', 'gotd'], games: ['games'], economy: ['casino.cfg', 'store'],
+    site: ['theme', 'tour', 'settings', 'casino.cfg'], brand: ['brand'], backup: ['backup'], audit: [] };
+  function panelExtras(tab) {
+    var list = h('div', { class: 'adm-audit' }, [loading()]);
+    function loadAct() {
+      post({ action: 'panel.activity', prefixes: ACT[tab] || [], limit: 6 }).then(function (r) {
+        Hub.clear(list); var l = (r && r.items) || [];
+        if (!l.length) { list.appendChild(empty('Nothing on this panel has been changed yet.')); return; }
+        l.forEach(function (e) { list.appendChild(h('div', { class: 'au' }, [h('span', { class: 'at', text: Hub.ago(e.ts) }), badge(e.role), h('b', { text: e.by }), h('span', { class: 'ac', text: e.action }), e.target ? h('span', { class: 'ag', text: e.target }) : null, e.detail ? h('span', { class: 'ad', text: Hub.clean(e.detail) }) : null])); });
+      }, function () { Hub.clear(list); list.appendChild(empty('Could not load recent activity.')); });
+    }
+    var ta = h('textarea', { class: 'input adm-note', rows: 5, maxlength: '1500', placeholder: 'Leave a note for the other staff: what you changed, what to watch, what to do next.', 'aria-label': 'Team notes for this panel' }), meta = h('p', { class: 'hint', text: 'Loading notes...' });
+    function showNote(n) { ta.value = n ? n.text : ''; meta.textContent = n ? 'Last edited by ' + n.by + ' · ' + agoTxt(n.ts) : 'No notes yet. Anyone on staff can read and edit them.'; }
+    post({ action: 'notes.get', key: tab }).then(function (r) { showNote(r && r.note); }, function () { meta.textContent = 'Could not load notes.'; });
+    var save = btn('Save note', function () {
+      busy(save, post({ action: 'notes.set', key: tab, text: ta.value })).then(function (r) { if (r && r.ok) { Hub.toast(r.note ? 'Note saved' : 'Note cleared'); showNote(r.note); loadAct(); } else toastErr(r); });
+    }, { primary: true });
+    loadAct();
+    return h('div', { class: 'adm-x' }, [
+      card('Recent activity', 'The latest changes staff made on this panel.', [list, h('div', { class: 'adm-row', style: 'margin-top:10px' }, [btn('Refresh', loadAct, { ghost: true })])]),
+      card('Team notes', 'A shared notepad for this panel. Everyone on staff sees it.', [ta, h('div', { class: 'adm-row', style: 'margin-top:10px' }, [save]), meta]),
+    ]);
+  }
 
 
   // ---------- Discord monitor: every channel, live feed, search, delete ----------

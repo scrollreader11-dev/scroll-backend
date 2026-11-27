@@ -28,6 +28,32 @@
   function view(kind) { return document.querySelector('#panel .view[data-panel="' + kind + '"]'); }
   function visible(kind) { var v = view(kind); return !!(v && v.classList.contains('on')); }
 
+  // ================================================================ the two things every admin panel ends with
+  // Recent activity for that panel (from the staff audit log) and a notepad shared by all staff.
+  function agoT(ts) { var m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; }
+  SC.staffExtras = function (host, key, prefixes) {
+    if (!host || host.querySelector('.sx[data-k="' + key + '"]')) return;
+    var box = document.createElement('div'); box.className = 'sx'; box.dataset.k = key;
+    box.innerHTML =
+      '<div class="ow-card"><div class="ow-t">🕘 Recent activity</div><div class="ow-s">The latest changes staff made on this panel.</div><div class="sx-list"></div><div class="betrow"><button type="button" class="chip sx-r">Refresh</button></div></div>' +
+      '<div class="ow-card"><div class="ow-t">📝 Team notes</div><div class="ow-s">A notepad for this panel. Everyone on staff sees it.</div><textarea class="sx-ta" rows="4" maxlength="1500" placeholder="Leave a note for the other staff..." aria-label="Team notes"></textarea><div class="betrow"><button type="button" class="chip on sx-s">Save note</button></div><div class="ow-s sx-m">Loading notes...</div></div>';
+    host.appendChild(box);
+    var list = box.querySelector('.sx-list'), ta = box.querySelector('.sx-ta'), meta = box.querySelector('.sx-m');
+    noKeys(ta);
+    function loadAct() {
+      staff({ action: 'panel.activity', prefixes: prefixes || [], limit: 6 }).then(function (r) {
+        var l = (r && r.items) || []; list.innerHTML = '';
+        if (!l.length) { list.innerHTML = '<div class="ow-empty">Nothing on this panel has been changed yet.</div>'; return; }
+        l.forEach(function (e) { var d = document.createElement('div'); d.className = 'sx-it'; d.innerHTML = '<span class="sx-at">' + agoT(e.ts) + '</span><b>' + esc(e.by) + '</b><span class="sx-ac">' + esc(e.action) + '</span>' + (e.target ? '<span class="sx-tg">' + esc(e.target) + '</span>' : '') + (e.detail ? '<span class="sx-dt">' + esc(e.detail) + '</span>' : ''); list.appendChild(d); });
+      });
+    }
+    function showNote(n) { ta.value = n ? n.text : ''; meta.textContent = n ? 'Last edited by ' + n.by + ' · ' + agoT(n.ts) : 'No notes yet.'; }
+    staff({ action: 'notes.get', key: key }).then(function (r) { showNote(r && r.note); });
+    box.querySelector('.sx-r').onclick = loadAct;
+    box.querySelector('.sx-s').onclick = function () { staff({ action: 'notes.set', key: key, text: ta.value }).then(function (r) { if (r && r.ok) { SC.toast(r.note ? 'Note saved' : 'Note cleared'); showNote(r.note); loadAct(); } else SC.toast(say(r)); }); };
+    loadAct();
+  };
+
   // ================================================================ BAN HAMMER
   function buildHammer() {
     var host = view('hammer'); if (!host) return;
@@ -80,7 +106,7 @@
     };
     $('hmCarry').onclick = function () { hm.carry = !hm.carry; net({ op: 'hammer', on: hm.carry }); $('hmCarry').classList.toggle('on', hm.carry); $('hmCarry').textContent = hm.carry ? 'Put the hammer away' : 'Carry the hammer'; };
     $('hmSlam').onclick = function () { net({ op: 'slam' }); swing(); };
-    hmPeople(); hmBans();
+    hmPeople(); hmBans(); SC.staffExtras(host, 'casino-hammer', ['ban', 'unban']);
   }
   function swing() { var e = $('hmIco'); if (!e) return; e.classList.remove('swing'); void e.offsetWidth; e.classList.add('swing'); }
   function hmPeople() {
@@ -110,7 +136,7 @@
       [['players', '👥 Players'], ['casino', '🎪 Casino'], ['me', '🧍 Me']].forEach(function (t) { var b = document.createElement('button'); b.className = 'tab'; b.textContent = t[1]; b.dataset.k = t[0]; b.onclick = function () { md.tab = t[0]; mdPaint(); }; $('mdTabs').appendChild(b); });
     }
     var want = SC.vault && SC.vault.tab; if (want) { md.tab = want === 'cast' ? 'casino' : want; SC.vault.tab = ''; }
-    mdPaint(); clearInterval(md.timer);
+    mdPaint(); SC.staffExtras(host, 'casino-modmenu', ['player', 'fun', 'boost', 'casino']); clearInterval(md.timer);
     md.timer = setInterval(function () { if (!visible('modmenu')) { clearInterval(md.timer); return; } if (md.tab === 'players' && !document.activeElement.matches('input')) mdPlayers(); }, 1500);
   }
   function mdPaint() {

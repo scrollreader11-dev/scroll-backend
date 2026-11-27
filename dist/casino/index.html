@@ -190,6 +190,13 @@
 #vcBtn.vtalk{box-shadow:0 0 0 3px #120e2e,0 0 0 6px rgba(43,213,118,.6)}
 #vcBtn.vmute{background:#ff5c6c}
 @media (max-width:560px){
+    /* phone HUD: the right-hand buttons wrap into two tidy rows instead of running off the left edge and over the balance */
+    .hud.tl{top:10px;left:8px}.hud.tl .pill.brand{display:none}
+    .hud.tr{top:10px;right:8px;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 118px)}
+    .hbtn{height:38px;min-width:38px;padding:0 9px;font-size:15px;border-radius:12px}
+    #vcBtn{font-size:0}#vcBtn::before{content:'🎙️';font-size:16px}
+    #ownerBtn{font-size:13px;padding:0 10px}
+    #feed{top:104px}
     .reel{width:76px;height:76px;font-size:42px}
     .pill{font-size:13px;padding:6px 10px}
     .pill.brand .t{display:none}
@@ -273,6 +280,7 @@
   #qchat .foot{color:var(--mut);font-size:12px;text-align:center;margin-top:8px}
   #qcBtnM{position:fixed;right:35px;bottom:192px;width:58px;height:58px;border-radius:50%;z-index:9;border:3px solid var(--line);background:#3b2f8f;font-size:26px;box-shadow:0 5px 0 #0c0a22}
   #arrowTo{position:fixed;z-index:9;pointer-events:none;display:none;font-size:28px;filter:drop-shadow(0 3px 0 rgba(0,0,0,.5))}
+  @media (pointer:coarse) and (max-width:560px){#chatdock{top:104px}}
   @media (max-width:560px){.seats{grid-template-columns:repeat(3,1fr)}.qgrid{grid-template-columns:repeat(2,minmax(120px,1fr))}.rlc{height:30px;font-size:11px}.whb b{font-size:17px}}
 
   .scene{display:block;width:100%;border-radius:18px;border:4px solid #3d1f0e;box-shadow:0 6px 0 #0a0820;cursor:pointer;background:#16794a}
@@ -311,6 +319,10 @@
   .ow-b.on{background:rgba(43,213,118,.22);color:var(--green)}
   .ow-card{background:rgba(0,0,0,.22);border:3px solid var(--line);border-radius:14px;padding:10px 12px;margin:10px 0}
   .ow-card .ow-grid{margin:8px 0}
+  .sx{margin-top:14px;border-top:2px dashed var(--line);padding-top:4px}
+  .sx-it{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}
+  .sx-at{color:var(--dim,#9aa3c7);min-width:62px}.sx-ac{color:#bfdbfe;font-weight:600}.sx-tg{padding:1px 8px;border-radius:8px;background:rgba(255,255,255,.1)}.sx-dt{color:var(--dim,#9aa3c7)}
+  .sx-ta{width:100%;box-sizing:border-box;min-height:84px;margin-top:8px;padding:8px 10px;border-radius:10px;border:3px solid var(--line);background:rgba(0,0,0,.28);color:inherit;font:inherit;resize:vertical}
   .ow-empty{color:var(--mut);text-align:center;padding:14px}
   .chip.red{background:#b3364a}
   .ow-row.sel{border-color:#ff3b5c;background:rgba(255,59,92,.14)}
@@ -603,13 +615,13 @@
 <script src="/casino/more.js?v=3"></script>
 <script src="/casino/arcade.js?v=4"></script>
 <script src="/casino/arcade2.js?v=3"></script>
-<script src="/casino/owner.js?v=2"></script>
-<script src="/casino/vault.js?v=2"></script>
+<script src="/casino/owner.js?v=3"></script>
+<script src="/casino/vault.js?v=3"></script>
 <script src="/casino/scenes.js?v=2"></script>
 <script src="/casino/mp.js?v=3"></script>
 <script src="/arcade/bedwars/voice.js?v=2"></script>
 <script src="/music.js?v=4"></script>
-<script src="/casino/world.js?v=36"></script>
+<script src="/casino/world.js?v=37"></script>
 <script src="/dc-notify.js?v=1" defer></script>
 <script src="/hub/hub-back.js?v=1"></script>
 </body>
