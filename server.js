@@ -1226,7 +1226,7 @@ async function handleStaff(req, res) {
     const all = await allAccounts(!!body.refresh);
     const now = Date.now(); const live = new Map();
     for (const p of players.values()) if (p.account && now - p.lastSeen < PLAYER_TTL) live.set(p.id, p);
-    let list = all.map((a) => ({ username: a.username, id: a.id, createdAt: a.createdAt, lastSeen: Math.max(a.lastSeen || 0, (live.get(a.id) || {}).lastSeen || 0), role: a.role, banned: !!a.ban, online: live.has(a.id), activity: live.has(a.id) ? (live.get(a.id).activity || '') : '' }));
+    let list = all.map((a) => ({ username: a.username, id: a.id, createdAt: a.createdAt, lastSeen: Math.max(a.lastSeen || 0, (live.get(a.id) || {}).lastSeen || 0), role: a.role, banned: !!a.ban, ban: a.ban ? { until: a.ban.until || 0, reason: a.ban.reason || '', by: a.ban.by || '', ts: a.ban.ts || 0 } : null, online: live.has(a.id), activity: live.has(a.id) ? (live.get(a.id).activity || '') : '' }));
     if (owner) list.forEach((x) => { x.coins = walletCoins(x.id); });
     const counts = { all: list.length, online: list.filter((x) => x.online).length, staff: list.filter((x) => x.role).length, banned: list.filter((x) => x.banned).length };
     if (q) list = list.filter((x) => x.username.toLowerCase().includes(q));

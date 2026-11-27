@@ -89,7 +89,7 @@
     fxm: { box: [-30, -24, 30, 0], act: 'fx', label: 'Use it', ia: [0, 30], pr: -112, ar: 62, ownerOnly: 1 },
     vpad: { layer: 'decal', act: 'warp', label: 'Warp', ia: [0, 4], pr: -78, ar: 46, ownerOnly: 1 },
     radar: { box: [-70, -26, 70, 0], act: 'modmenu', label: 'Watch the casino live', ia: [0, 38], pr: -150, ar: 96, ownerOnly: 1 },
-    shame: { box: [-52, -14, 52, 0], act: 'hammer', label: 'Open the ban list', ia: [0, 34], pr: -172, ar: 80, ownerOnly: 1 },
+    shame: { box: [-60, -14, 60, 0], act: 'hammer', label: 'Open the ban list', ia: [0, 34], pr: -236, ar: 84, ownerOnly: 1 },
     cctv: { box: [-64, -14, 64, 0], act: 'cams', label: 'Watch the security cameras', ia: [0, 34], pr: -150, ar: 86, ownerOnly: 1 }, serverrack: { box: [-27, -14, 27, 0] }, rack: { box: [-50, -14, 50, 0] }, tcase: { box: [-38, -14, 38, 0] },
     obelisk: { box: [-18, -12, 18, 0] }, aquarium: { box: [-88, -20, 88, 0] }, fire: { box: [-60, -14, 60, 0] }, bookcase: { box: [-50, -14, 50, 0] },
     goldpile: { box: [-48, -18, 48, 0] }, lamp: { box: [-8, -6, 8, 0] }, vzone: { layer: 'decal' }, vcarpet: { layer: 'decal' }, vpool: { layer: 'decal' },
@@ -210,8 +210,8 @@
   add('wardrobe', 1400, 2715); add('atm', 1864, 2705);
   // --- command center
   var cctvObj = add('cctv', 1632, 2985); add('modterm', 1400, 3020, { title: 'MOD MENU' }); add('rigcon', 1864, 3020);
-  add('radar', 1632, 3230); add('serverrack', 1334, 3190); add('serverrack', 1930, 3190);
-  add('modterm', 1400, 3360, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' }); add('shame', 1864, 3380);
+  add('radar', 1632, 3230); add('serverrack', 1334, 3110); add('serverrack', 1930, 3110);
+  add('modterm', 1400, 3360, { title: 'POWERS & WARPS', tab: 'me', label: 'Powers and warp pads' }); add('shame', 1864, 3400, { tab: 'bans' });
   add('podium', 1632, 3480, { tab: 'cast' });
   // --- warp hub: eight pads, one for every spot in the casino
   [['lobby', 'Lobby', '🏠', '120,200,255'], ['slots', 'Slot Alley', '🎰', '255,110,199'], ['stakes', 'High Stakes', '💎', '92,242,255'], ['lounge', 'Lounge', '🛋️', '255,170,90'],

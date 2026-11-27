@@ -62,20 +62,30 @@
     glow(c, x, hy, 100, '92,242,255', 0.16);
     A.neon(c, 'LIVE CASINO', x, y - 140, '#5cf2ff', 13, t, 2);
   };
-  O.shame = function (c, o, t) {   // wanted posters; opens the ban list
-    var x = o.x, y = o.y;
-    shadow(c, x, y + 2, 56, 9);
-    rr(c, x - 50, y - 12, 100, 12, 4); fs(c, '#2a1a2a', OL, 3);
-    rr(c, x - 6, y - 38, 12, 28, 2); fs(c, '#3b2339', OL, 2.5);
-    rr(c, x - 54, y - 150, 108, 112, 8); fs(c, '#2a0f1a', OL, 3.5); rr(c, x - 48, y - 144, 96, 100, 5); fs(c, '#150810', 'rgba(212,166,58,.8)', 2);
-    c.fillStyle = '#ff3b5c'; c.font = '700 11px Fredoka, system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('WALL OF SHAME', x, y - 133);
-    for (var i = 0; i < 4; i++) {
-      var px = x - 38 + (i % 2) * 40, py = y - 120 + Math.floor(i / 2) * 36;
-      rr(c, px, py, 34, 30, 3); fs(c, '#d8c9a0', OL, 2); c.fillStyle = '#4a3b2a'; circ(c, px + 17, py + 11, 6); c.fill(); c.beginPath(); c.arc(px + 17, py + 30, 11, Math.PI, 0); c.fill();
-      c.save(); c.translate(px + 17, py + 15); c.rotate(-0.4); c.fillStyle = 'rgba(255,59,92,.92)'; c.fillRect(-16, -5, 32, 10); c.fillStyle = '#fff'; c.font = '700 8px Fredoka, system-ui, sans-serif'; c.fillText('BANNED', 0, 0.5); c.restore();
+  function dur(b) { if (!b.until) return 'FOREVER'; var m = Math.max(1, Math.round((b.until - Date.now()) / 60000)); return m >= 2880 ? Math.round(m / 1440) + ' DAYS' : m >= 120 ? Math.round(m / 60) + ' HRS' : m + ' MIN'; }
+  O.shame = function (c, o, t) {   // wanted posters for everyone who is really banned right now; opens the ban list
+    var x = o.x, y = o.y, S = SC.shame || { list: [], fresh: {} }, L = S.list, pages = Math.max(1, Math.ceil(L.length / 6)), pg = Math.floor(t / 7) % pages, now = performance.now();
+    shadow(c, x, y + 2, 70, 9);
+    rr(c, x - 60, y - 12, 120, 12, 4); fs(c, '#2a1a2a', OL, 3);
+    rr(c, x - 6, y - 40, 12, 30, 2); fs(c, '#3b2339', OL, 2.5);
+    rr(c, x - 66, y - 214, 132, 176, 8); fs(c, '#2a0f1a', OL, 3.5); rr(c, x - 60, y - 208, 120, 164, 5); fs(c, '#150810', 'rgba(212,166,58,.8)', 2);
+    c.fillStyle = '#ff3b5c'; c.font = '700 12px Fredoka, system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('WALL OF SHAME', x, y - 195);
+    c.fillStyle = 'rgba(255,209,102,.8)'; c.font = '600 9px Fredoka, system-ui, sans-serif'; c.fillText(L.length ? L.length + ' banned' + (pages > 1 ? '  ·  page ' + (pg + 1) + '/' + pages : '') : 'nobody is banned', x, y - 182);
+    for (var i = 0; i < 6; i++) {
+      var px = x - 54 + (i % 2) * 55, py = y - 172 + Math.floor(i / 3) * 0, row = Math.floor(i / 2); py = y - 172 + row * 44;
+      var e = L[pg * 6 + i];
+      if (!e) { c.strokeStyle = 'rgba(212,166,58,.18)'; c.lineWidth = 1.5; c.setLineDash([4, 4]); c.strokeRect(px + 0.5, py + 0.5, 50, 40); c.setLineDash([]); continue; }
+      var age = S.fresh && S.fresh[e.name] ? (now - S.fresh[e.name]) / 1000 : 9, hue = 0; for (var k = 0; k < e.name.length; k++) hue = (hue * 31 + e.name.charCodeAt(k)) % 360;
+      rr(c, px, py, 50, 40, 3); fs(c, '#d8c9a0', OL, 1.8);
+      c.fillStyle = 'hsl(' + hue + ',35%,32%)'; circ(c, px + 25, py + 8, 5); c.fill(); c.beginPath(); c.arc(px + 25, py + 21, 9, Math.PI, 0); c.fill();
+      c.fillStyle = '#2a1a0a'; c.font = '700 8px Fredoka, system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(e.name.length > 10 ? e.name.slice(0, 9) + '…' : e.name, px + 25, py + 28.5);
+      c.fillStyle = '#7a1630'; c.font = '700 6.5px Fredoka, system-ui, sans-serif'; c.fillText(dur(e), px + 25, py + 35.5);
+      var sc = age < 0.35 ? 2.2 - 1.2 * (age / 0.35) : 1;   // a fresh ban slams down
+      c.save(); c.translate(px + 25, py + 12); c.rotate(-0.4); c.scale(sc, sc); c.fillStyle = 'rgba(255,59,92,.92)'; c.fillRect(-23, -5.5, 46, 11); c.fillStyle = '#fff'; c.font = '700 8px Fredoka, system-ui, sans-serif'; c.fillText('BANNED', 0, 0.5); c.restore();
+      if (age < 1.2) glow(c, px + 25, py + 18, 50 - age * 20, '255,59,92', 0.5 * (1 - age / 1.2));
     }
-    glow(c, x, y - 90, 90, '255,59,92', 0.16 + 0.05 * Math.sin(t * 2));
-    A.label(c, '🔨', x, y - 160, { size: 18, stroke: false });
+    glow(c, x, y - 120, 100, '255,59,92', 0.14 + 0.05 * Math.sin(t * 2));
+    A.label(c, '🔨', x, y - 224, { size: 18, stroke: false });
   };
   O.cctv = function (c, o, t) {   // six security feeds
     var x = o.x, y = o.y;

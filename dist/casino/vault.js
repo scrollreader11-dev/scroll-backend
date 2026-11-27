@@ -54,6 +54,23 @@
     loadAct();
   };
 
+  // ================================================================ WALL OF SHAME
+  // The board in the Owner Vault shows who is really banned right now. world art reads SC.shame.
+  var shame = SC.shame = { list: [], at: 0, fresh: {}, busy: false };
+  function stillBanned(b) { return !!b && (!b.until || b.until > Date.now()); }
+  SC.shameRefresh = function () {
+    if (shame.busy || !allowed()) return; shame.busy = true;
+    staff({ action: 'players.list', filter: 'banned', sort: 'recent', limit: 24 }).then(function (r) {
+      shame.busy = false; if (!r || !r.ok) return;
+      var l = (r.players || []).filter(function (p) { return stillBanned(p.ban); }).map(function (p) { return { name: p.username, until: p.ban.until || 0, reason: p.ban.reason || '', by: p.ban.by || '', ts: p.ban.ts || 0 }; });
+      l.sort(function (a, b) { return b.ts - a.ts; });
+      var had = {}; shame.list.forEach(function (x) { had[x.name] = 1; });
+      if (shame.at) l.forEach(function (x) { if (!had[x.name]) shame.fresh[x.name] = performance.now(); });
+      shame.list = l; shame.at = performance.now();
+    }, function () { shame.busy = false; });
+  };
+  setInterval(function () { var w = W(); if (allowed() && w.me && w.me.y > 44 * 48 && (!shame.at || performance.now() - shame.at > 15000)) SC.shameRefresh(); }, 1000);
+
   // ================================================================ SECURITY CAMERAS
   var cm = { built: false, timer: 0 };
   function buildCams() {
@@ -119,7 +136,7 @@
         if (r && r.ok) {
           SC.toast('🔨 ' + name + ' banned (' + dur + ')'); swing();
           var p = find(name); if (p) net({ op: 'smite', id: p.id }); else net({ op: 'slam' });
-          who.value = ''; hmBans(); hmPeople();
+          who.value = ''; hmBans(); hmPeople(); SC.shameRefresh();
         } else SC.toast(say(r));
       });
     };
@@ -130,6 +147,7 @@
     $('hmCarry').onclick = function () { hm.carry = !hm.carry; net({ op: 'hammer', on: hm.carry }); $('hmCarry').classList.toggle('on', hm.carry); $('hmCarry').textContent = hm.carry ? 'Put the hammer away' : 'Carry the hammer'; };
     $('hmSlam').onclick = function () { net({ op: 'slam' }); swing(); };
     hmPeople(); hmBans(); SC.staffExtras(host, 'casino-hammer', ['ban', 'unban']);
+    if (SC.vault && SC.vault.tab === 'bans') { SC.vault.tab = ''; setTimeout(function () { var b = $('hmBans'); if (b && b.scrollIntoView) b.scrollIntoView({ block: 'start' }); }, 80); }
   }
   function swing() { var e = $('hmIco'); if (!e) return; e.classList.remove('swing'); void e.offsetWidth; e.classList.add('swing'); }
   function hmPeople() {
@@ -143,7 +161,7 @@
       var l = (r && r.players) || []; if (!l.length) { host.innerHTML = '<div class="ow-empty">Nobody is banned.</div>'; return; }
       l.forEach(function (p) {
         var row = document.createElement('div'); row.className = 'ow-row'; row.innerHTML = '<div class="ow-tx"><div class="ow-t">' + esc(p.username) + '</div></div>';
-        row.appendChild(chip('Lift ban', function () { staff({ action: 'player.unban', username: p.username }).then(function (x) { if (x && x.ok) { SC.toast('Ban lifted for ' + p.username); hmBans(); } else SC.toast(say(x)); }); }));
+        row.appendChild(chip('Lift ban', function () { staff({ action: 'player.unban', username: p.username }).then(function (x) { if (x && x.ok) { SC.toast('Ban lifted for ' + p.username); hmBans(); SC.shameRefresh(); } else SC.toast(say(x)); }); }));
         host.appendChild(row);
       });
     });
@@ -259,7 +277,7 @@
       x.onclick = function () {
         x.disabled = true;
         staff({ action: 'player.ban', username: p.nick, minutes: b[1], reason: sel.value }).then(function (r) {
-          if (r && r.ok) { net({ op: 'smite', id: p.id, ban: 1 }); SC.toast('🔨 ' + p.nick + ' banned (' + b[0].toLowerCase().replace('ban ', '') + ')'); }
+          if (r && r.ok) { net({ op: 'smite', id: p.id, ban: 1 }); SC.shameRefresh(); SC.toast('🔨 ' + p.nick + ' banned (' + b[0].toLowerCase().replace('ban ', '') + ')'); }
           else if (r && r.error === 'no-account') { net({ op: 'smite', id: p.id }); SC.toast(p.nick + ' has no account to ban, so they were smitten instead.'); }
           else SC.toast(say(r));
           done();
