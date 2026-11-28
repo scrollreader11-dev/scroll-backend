@@ -1562,5 +1562,5 @@
   fontsReady.then(boot, boot);
 
   // debug hook for testing
-  SC._world = { me: me, players: function () { return players; }, openPanel: openPanel, closePanel: closePanel, OBJ: OBJ, hits: hits, walkTo: walkTo, dropWs: function () { try { ws.close(); } catch (e) {} }, wsState: function () { return { ok: wsOk, lastRecv: performance.now() - lastRecv }; } };
+  SC._world = { me: me, screenOf: function (q) { return { x: (q.x - cam.x) * Z, y: (q.y - cam.y) * Z }; }, players: function () { return players; }, openPanel: openPanel, closePanel: closePanel, OBJ: OBJ, hits: hits, walkTo: walkTo, dropWs: function () { try { ws.close(); } catch (e) {} }, wsState: function () { return { ok: wsOk, lastRecv: performance.now() - lastRecv }; } };
 })();

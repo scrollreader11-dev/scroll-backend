@@ -55,6 +55,27 @@ const SERVE_HEADERS = (res, pathname) => {
   else if (/\.(png|jpe?g|webp|gif|avif|ico|mp4|webm|mp3|ogg|woff2?)$/i.test(pathname)) res.setHeader('cache-control', 'public, max-age=86400');
   if (/\.(png|jpe?g)$/i.test(pathname)) res.setHeader('vary', 'Accept');
 };
+// Link previews: the main pages carry a title, description and share picture so a pasted link shows a proper card.
+// The origin is filled in per request, so it is right on any domain.
+const PAGE_META = {
+  '/hub/': ['hub/index.html', 'ScrollHub: free games, a living casino, Discord and friends', 'Play hundreds of free games in one place, hang out in a live casino world, chat in servers and keep your friends close. No download needed.'],
+  '/casino/': ['casino/index.html', 'Scrolls Casino: walk around a live multiplayer casino', 'Walk a real casino floor with other players. Crash, roulette, blackjack, plinko, a bar, a lounge and a Duel Arena, all free in your browser.'],
+  '/skribbl/': ['skribbl/index.html', 'Draw and Guess with friends on ScrollHub', 'Draw, guess and laugh with friends in free multiplayer rounds. No account needed.'],
+  '/racing/': ['racing/index.html', 'Scroll Racing: free browser racing', 'Race in your browser, beat your best lap and climb the leaderboard. Free on ScrollHub.'],
+  '/newgames/': ['newgames/index.html', 'New games on ScrollHub', 'The newest free games added to ScrollHub this week.'],
+};
+const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+function sendPageWithMeta(req, res, path) {
+  const m = PAGE_META[path.replace(/index\.html$/, '')]; if (!m) return false;
+  let html; try { html = nfs.readFileSync(join(distDir, m[0]), 'utf8'); } catch (e) { return false; }
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim(), proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  const origin = host ? proto + '://' + host : '', url = origin + path.replace(/index\.html$/, '');
+  const tags = `<title>${esc(m[1])}</title>\n<meta name="description" content="${esc(m[2])}">\n<link rel="canonical" href="${esc(url)}">\n<meta property="og:type" content="website">\n<meta property="og:site_name" content="ScrollHub">\n<meta property="og:title" content="${esc(m[1])}">\n<meta property="og:description" content="${esc(m[2])}">\n<meta property="og:url" content="${esc(url)}">\n<meta property="og:image" content="${esc(origin + '/og-share.png')}">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n<meta name="twitter:card" content="summary_large_image">\n<meta name="twitter:title" content="${esc(m[1])}">\n<meta name="twitter:description" content="${esc(m[2])}">\n<meta name="twitter:image" content="${esc(origin + '/og-share.png')}">\n`;
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, '').replace(/<meta\s+name=["']description["'][^>]*>/i, '').replace(/<head([^>]*)>/i, (h) => h + '\n' + tags);
+  const body = Buffer.from(html);
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-length': body.length });
+  res.end(req.method === 'HEAD' ? undefined : body); return true;
+}
 const sirvServe = sirv(distDir, { dev: false, etag: true, setHeaders: SERVE_HEADERS });
 const serve = withCompression(sirvServe, distDir, SERVE_HEADERS);
 
@@ -2579,6 +2600,7 @@ const httpServer = createServer(async (req, res) => {
   // Rate limits (sign-up, sign-in, chat, reports, applications) and the sitewide news, status and applications routes.
   if (url.startsWith('/api/') && siteops.guard(req, res, url)) return;
   if (url.startsWith('/api/push/')) { try { req._auth = await resolveSession(req); } catch (e) { req._auth = null; } if (await push.handle(url, req, res)) return; }
+  if ((req.method === 'GET' || req.method === 'HEAD') && PAGE_META[url.split('?')[0].replace(/index\.html$/, '')] && sendPageWithMeta(req, res, url.split('?')[0])) return;
   if (url === '/api/news' || url === '/api/status' || url === '/api/client-error' || url === '/api/apply') { if (await siteops.handle(url, req, res)) return; }
 
   // Auth endpoints (signup/login/logout/me).
