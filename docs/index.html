@@ -143,12 +143,12 @@ footer a{color:var(--accent-hi)}
   var FALLBACK={updated:'',links:[{name:'Main',url:'https://scroll-hub.onrender.com'}]};
   var $=function(id){return document.getElementById(id)};
   function host(u){try{return new URL(u).host}catch(e){return u}}
-  function probe(u){
+  function probe(u,ms){
     return new Promise(function(res){
       var img=new Image(), done=false;
       function end(ok){ if(!done){done=true; res(ok);} }
       img.onload=function(){end(true)}; img.onerror=function(){end(false)};
-      setTimeout(function(){end(false)},7000);
+      setTimeout(function(){end(false)},ms);
       img.src=u.replace(/\/+$/,'')+'/logo.png?t='+Date.now();
     });
   }
@@ -156,9 +156,10 @@ footer a{color:var(--accent-hi)}
     var links=(data.links||[]).filter(function(l){return l&&l.url});
     if(!links.length) links=FALLBACK.links;
     $('upd').textContent=data.updated?('Links last updated '+data.updated):'';
-    $('go').href=links[0].url; $('goHost').textContent=host(links[0].url); $('frameHost').textContent=host(links[0].url);
+    function point(i){ $('go').href=links[i].url; $('goHost').textContent=host(links[i].url); $('frameHost').textContent=host(links[i].url); }
+    point(0);
     var ul=$('list'); ul.textContent='';
-    var dots=[];
+    var dots=[], res=[], settled=0, chosen=-1;
     links.forEach(function(l,i){
       var li=document.createElement('li');
       var d=document.createElement('i'); d.className='dot wait'; dots.push(d);
@@ -177,17 +178,26 @@ footer a{color:var(--accent-hi)}
       act.appendChild(open); act.appendChild(cp);
       li.appendChild(d); li.appendChild(mid); li.appendChild(act); ul.appendChild(li);
     });
-    Promise.all(links.map(function(l){return probe(l.url)})).then(function(r){
-      r.forEach(function(ok,i){ dots[i].className='dot '+(ok?'up':'down'); });
-      var first=r.indexOf(true);
-      if(first>=0){
-        $('go').href=links[first].url; $('goHost').textContent=host(links[first].url); $('frameHost').textContent=host(links[first].url);
-        $('dot').className='dot up';
-        $('stat').textContent=(first===0?'The main link is up on your network.':'The main link didn’t answer, so this button uses a backup that did.');
-      }else{
-        $('dot').className='dot down';
-        $('stat').textContent='None of the links answered from here. Try them one at a time below.';
-      }
+    // Free hosts sleep when nobody visits, and waking one can take up to a minute, so wait that long.
+    var slow=setTimeout(function(){ if(chosen<0) $('stat').textContent='Still checking. Free hosting can take up to a minute to wake up.'; },6000);
+    function settle(){
+      settled++;
+      if(settled<links.length) return;
+      clearTimeout(slow);
+      if(chosen<0){ $('dot').className='dot down'; $('stat').textContent='No link answered from here. The button still opens the main link; try the others below.'; }
+    }
+    links.forEach(function(l,i){
+      probe(l.url,60000).then(function(ok){
+        res[i]=ok; dots[i].className='dot '+(ok?'up':'down');
+        if(ok){
+          var best=-1; for(var k=0;k<links.length;k++){ if(res[k]){best=k;break;} }
+          if(best>=0 && (chosen<0 || best<chosen)){
+            chosen=best; point(best); $('dot').className='dot up';
+            $('stat').textContent=(best===0?'The main link is up on your network.':'The main link didn\u2019t answer, so this button uses a backup that did.');
+          }
+        }
+        settle();
+      });
     });
   }
   fetch('links.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(render).catch(function(){render(FALLBACK)});
