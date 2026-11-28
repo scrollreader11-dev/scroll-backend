@@ -2,8 +2,10 @@
 // Keys are made on first start and saved with the admin settings. Subscriptions are saved to durable storage when it is connected.
 import * as webpush from 'web-push';
 import * as nfs from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pathJoin } from 'node:path';
 
-const FILE = '/tmp/scrollhub-push.json';
+const FILE = pathJoin(tmpdir(), 'scrollhub-push.json');
 const KINDS = ['dm', 'friend', 'mention', 'staff'];
 
 export async function createPush(deps) {

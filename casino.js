@@ -5,12 +5,14 @@
 // Identity = sh_cid / sh_nick cookies (same as chat).
 // ============================================================
 import fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pathJoin } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { handleMore, liveSnap, liveRestore } from './casinomore.js';
 import { handleArcade } from './casinoarcade.js';
 import './dist/arcade/bannergen.js'; // sets globalThis.SHBanner (custom banners from the Sprite Studio)
 
-const CASINO_FILE = '/tmp/scrollhub-casino.json';
+const CASINO_FILE = pathJoin(tmpdir(), 'scrollhub-casino.json');
 const START_COINS = 1000;
 const DAILY_COINS = 750;
 const DAILY_MS = 20 * 3600 * 1000; // claimable every 20h

@@ -4,11 +4,13 @@
 // activity log. Kept in /tmp + Upstash KV like the casino, so it survives redeploys.
 // ============================================================
 import fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pathJoin } from 'node:path';
 import { kvGet, kvSet } from './casino.js';
 
 const MG = globalThis.MG, BW = globalThis.BW;
 const N = BW.W * BW.H;
-const FILE = '/tmp/scrollhub-gamemaps.json';
+const FILE = pathJoin(tmpdir(), 'scrollhub-gamemaps.json');
 const KEY = 'sh:gamemaps';
 const GAMES = ['bw', 'ctf', 'spleef', 'hide'];
 export const MAPPER = 'scrollreader11';           // the only account that can make maps

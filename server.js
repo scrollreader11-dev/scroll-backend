@@ -1,5 +1,6 @@
 import { randomBytes, createHash } from 'node:crypto';
 import * as nfs from 'node:fs';
+import { tmpdir } from 'node:os';
 // ============================================================
 // SCROLL UNBLOCKER — all-in-one server
 // Serves the website (dist/) + Wisp proxy (same-origin) and
@@ -41,7 +42,10 @@ process.on('unhandledRejection', (err) => { try { console.error('unhandledReject
 process.on('uncaughtException', (err) => { try { console.error('uncaughtException:', err && err.message ? err.message : err); } catch (e) {} });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const distDir = join(__dirname, 'dist');
+// When this file is bundled into a desktop executable (see tools/build-desktop.js), there is no
+// real __dirname to resolve from — the code runs out of a packed snapshot. The build places the
+// unpacked website files in a `dist/` folder next to the executable itself instead, so look there.
+const distDir = process.pkg ? join(dirname(process.execPath), 'dist') : join(__dirname, 'dist');
 const SERVER_STARTED = Date.now();
 const UPSTREAM = process.env.UPSTREAM_ORIGIN || 'https://petezahgames.com';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
@@ -108,7 +112,7 @@ function clientIp(req) {
 // the admin panel is disabled entirely (never a known/guessable password in a
 // public repo).
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-const STATE_FILE = '/tmp/scrollhub-admin-state.json';
+const STATE_FILE = join(tmpdir(), 'scrollhub-admin-state.json');
 const PLAYER_TTL = 35000; // ms since last heartbeat before "offline"
 
 // ------------------------------------------------------------
@@ -2072,7 +2076,7 @@ async function proxyUpstream(req, res) {
 // CHAT — one shared ScrollHub server with custom channels (tabs).
 // Identity comes from the nickname cookie the presence script sets.
 // ============================================================
-const CHAT_FILE = '/tmp/scrollhub-chat.json';
+const CHAT_FILE = join(tmpdir(), 'scrollhub-chat.json');
 const chat = {
   channels: [
     { id: 'general', name: 'general', description: 'Main chat', category: 'Text channels', slowmodeSeconds: 0, canSend: true },

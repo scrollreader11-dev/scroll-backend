@@ -1245,7 +1245,12 @@
   }
   var lastT = now(), T0 = now();
   function frame() {
-    var tn = now(), dt = Math.min(0.05, (tn - lastT) / 1000); lastT = tn;
+    var tn = now();
+    // Cap the draw rate to ~60fps regardless of the screen's real refresh rate (120Hz/ProMotion
+    // screens otherwise render this twice as often for an identical picture, which is most of
+    // what makes a game like this feel laggy and burn through battery on those devices).
+    if (tn - lastT < 15.5) { requestAnimationFrame(frame); return; }
+    var dt = Math.min(0.05, (tn - lastT) / 1000); lastT = tn;
     var t = (tn - T0) / 1000;
     try { update(dt, t); render(dt, t); } catch (err) { console.error(err); }
     if (S.screen === 'end') drawPodium(t, dt);

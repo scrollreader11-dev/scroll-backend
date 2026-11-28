@@ -1088,6 +1088,10 @@
     for (var k = 0; k < n; k++) { var fi = feedI++ % feeds.length; renderFeed(feeds[fi], fi); }
   }
   function frame(now) {
+    // Draw at ~60fps no matter the screen's real refresh rate. Without this gate, a 120Hz
+    // (ProMotion) iPad runs this whole loop twice as often as a normal screen for an identical
+    // picture, which is most of why the world feels laggy and burns battery fast on those devices.
+    if (now - lastFrame < 15.5) { requestAnimationFrame(frame); return; }
     var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now; tnow += dt;
     update(dt); syncObjects(dt);
     var k = Z * DPR;

@@ -578,6 +578,10 @@
   var last = 0, showHint = null;
   function frame(ts) {
     requestAnimationFrame(frame);
+    // Cap the draw rate to ~60fps regardless of the screen's real refresh rate (120Hz/ProMotion
+    // screens otherwise render this twice as often for an identical picture, which is most of
+    // what makes a game like this feel laggy and burn through battery on those devices).
+    if (ts - last < 15.5) return;
     var dt = Math.min(0.05, (ts - last) / 1000 || 0.016); last = ts;
     if (S.mode === 'boot' || !S.track) return;
     if (S.mode === 'paused' || S.mode === 'results' && false) { drawWorld(); drawHud(); return; }
