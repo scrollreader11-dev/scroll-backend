@@ -44,11 +44,28 @@
     var small = window.innerWidth < 900, key = clip || custom;
     if (wv && wvKey === key) { if (!document.hidden) { var pp = wv.play(); if (pp && pp.catch) pp.catch(function () {}); } return; }
     webStop(); wvKey = key;
-    var tries = custom ? [custom] : (small ? ['360'] : ['720', '360']).map(function (q) { return webSrc(clip, q); }), n = 0;
+    // Try both qualities on every screen size, not just the big one: a given clip sometimes has no
+    // small rendition (or vice versa), and a small screen used to get exactly one URL with nothing
+    // to fall back to if that one didn't exist — the single biggest reason a background would just
+    // never show on a phone or an iPad in portrait.
+    var tries = custom ? [custom] : (small ? ['360', '720'] : ['720', '360']).map(function (q) { return webSrc(clip, q); }), n = 0;
     wv = document.createElement('video'); wv.id = 'bgweb'; wv.muted = true; wv.defaultMuted = true; wv.loop = true; wv.autoplay = true; wv.playsInline = true; wv.preload = 'auto'; wv.setAttribute('playsinline', ''); wv.setAttribute('webkit-playsinline', ''); wv.setAttribute('aria-hidden', 'true'); wv.tabIndex = -1; wv.disablePictureInPicture = true; wv.referrerPolicy = 'no-referrer';
-    wv.addEventListener('error', function () { n++; if (n < tries.length) { wv.src = tries[n]; wv.load(); } else { document.documentElement.setAttribute('data-bgfail', '1'); try { if (!Hub.ls.raw('sh_bgfail_' + key)) { Hub.ls.set('sh_bgfail_' + key, 1); Hub.toast('That background could not load, so a plain one is showing. Try another.'); } } catch (e) {} } });
-    wv.addEventListener('loadeddata', function () { wv.classList.add('ready'); });
-    wv.src = tries[0];
+    var myWv = wv, stallTimer = null;
+    function clearStall() { if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; } }
+    function fail() {
+      clearStall(); if (wv !== myWv) return; // superseded by a newer pick before this one settled
+      n++;
+      if (n < tries.length) { wv.src = tries[n]; wv.load(); armStall(); }
+      else { document.documentElement.setAttribute('data-bgfail', '1'); try { if (!Hub.ls.raw('sh_bgfail_' + key)) { Hub.ls.set('sh_bgfail_' + key, 1); Hub.toast('That background could not load, so a plain one is showing. Try another.'); } } catch (e) {} }
+    }
+    // iOS Safari is the main case that matters here: a video it can't actually play often just sits
+    // forever at readyState 0 instead of firing `error`, so without a timeout the screen stays on
+    // the plain fallback with no visible sign anything is wrong, and it never recovers. Give each
+    // attempt a few seconds to prove it's actually going to play before moving on.
+    function armStall() { clearStall(); stallTimer = setTimeout(function () { if (wv === myWv && !myWv.classList.contains('ready')) fail(); }, 6000); }
+    wv.addEventListener('error', fail);
+    wv.addEventListener('loadeddata', function () { clearStall(); myWv.classList.add('ready'); });
+    wv.src = tries[0]; armStall();
     var bgv = document.getElementById('bgv'); if (bgv && bgv.parentNode) bgv.parentNode.insertBefore(wv, bgv.nextSibling); else document.body.insertBefore(wv, document.body.firstChild);
     var p = wv.play(); if (p && p.catch) p.catch(function () { var once = function () { if (wv) wv.play().catch(function () {}); document.removeEventListener('pointerdown', once); }; document.addEventListener('pointerdown', once, { once: true }); });
   }
