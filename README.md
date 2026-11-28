@@ -18,7 +18,7 @@
 
 *A fast, self-hosted unblocked-games platform with a Discord-style social layer, a walkable casino and real-time multiplayer, built to run on free hosting.*
 
-[**Play now**](https://scroll-hub.onrender.com) · [Features](#features) · [Deploy your own](#deploy-your-own) · [Tech](#tech-stack)
+[**Play now**](https://scroll-hub.onrender.com) · [Find the newest link](https://scrollreader11-dev.github.io/scroll-backend/) · [Features](#features) · [Deploy your own](#deploy-your-own) · [Tech](#tech-stack)
 
 </div>
 
@@ -29,6 +29,28 @@
 **ScrollHub** bundles an entire games portal into one Node.js service: a static front end, a game library that launches over a thousand web games, a live backend for accounts, chat and friends, a walkable casino with an in-site currency, and real-time multiplayer games. Fork it, add a couple of environment variables, and it runs.
 
 Because the front end and backend ship on the **same origin**, every real-time feature works out of the box with zero cross-domain wiring.
+
+---
+
+## Find the newest link
+
+Free hosts sometimes change your address. The `docs/` folder is a small links page that never moves: it lists your current ScrollHub links, checks which ones answer from the visitor's network, and points its big button at one that works.
+
+To use it:
+
+1. In your fork, open **Settings → Pages**, set the source to **Deploy from a branch**, pick `main` and the `/docs` folder, and save.
+2. Your page appears at `https://<you>.github.io/<repo>/`. Bookmark it and share that link.
+3. When your address changes, edit `docs/links.json` on GitHub (the pencil icon works on a phone) and commit. The page updates in a minute.
+
+```json
+{
+  "updated": "2026-11-27",
+  "links": [
+    { "name": "Main", "url": "https://your-service.onrender.com" },
+    { "name": "Backup", "url": "https://your-other-service.onrender.com" }
+  ]
+}
+```
 
 ---
 

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScrollHub links</title>
+<meta name="description" content="Bookmark this page. It always points to the newest ScrollHub link.">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#060a18; --panel:#0d1330; --panel-2:#121a3f; --line:#202d63;
+  --text:#e8ecff; --muted:#93a0d4; --accent:#4d8dff; --accent-hi:#8fb8ff;
+  --up:#3ddc97; --down:#ff6b7a; --idle:#5b678f;
+  --font:'Poppins',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){ :root{} }
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{
+  margin:0; min-height:100vh; font-family:var(--font); color:var(--text); background:var(--ink);
+  background-image:
+    radial-gradient(900px 520px at 78% -8%, rgba(77,141,255,.28), transparent 65%),
+    radial-gradient(700px 480px at -6% 60%, rgba(40,70,190,.22), transparent 60%);
+  background-repeat:no-repeat; line-height:1.55;
+}
+.wrap{max-width:1120px; margin:0 auto; padding:0 24px}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--accent-hi); outline-offset:3px; border-radius:10px}
+
+header{display:flex; align-items:center; gap:12px; padding:28px 0 0}
+header img{width:44px; height:44px}
+header b{font-size:20px; font-weight:800; letter-spacing:-.01em}
+
+.hero{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:56px; align-items:center; padding:64px 0 72px}
+h1{font-size:clamp(40px,6vw,68px); line-height:1.02; font-weight:800; letter-spacing:-.035em; margin:0 0 20px}
+.lede{font-size:18px; color:var(--muted); max-width:30em; margin:0 0 34px}
+
+.go{display:inline-flex; flex-direction:column; align-items:flex-start; gap:2px; text-decoration:none;
+  background:linear-gradient(180deg,#5d98ff,#3a73e8); color:#fff; padding:16px 30px 15px; border-radius:16px;
+  box-shadow:0 12px 34px rgba(58,115,232,.45), inset 0 1px 0 rgba(255,255,255,.35); transition:transform .15s, box-shadow .15s}
+.go:hover{transform:translateY(-2px); box-shadow:0 16px 40px rgba(58,115,232,.55), inset 0 1px 0 rgba(255,255,255,.35)}
+.go strong{font-size:22px; font-weight:800; letter-spacing:-.01em}
+.go span{font-family:var(--mono); font-size:13px; opacity:.85}
+.status{display:flex; align-items:center; gap:10px; margin-top:22px; font-size:14px; color:var(--muted)}
+.dot{width:10px; height:10px; border-radius:50%; background:var(--idle); flex:none}
+.dot.up{background:var(--up); box-shadow:0 0 0 4px rgba(61,220,151,.18)}
+.dot.down{background:var(--down)}
+.dot.wait{background:var(--idle); animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+.frame{margin:0; border:1px solid var(--line); border-radius:18px; background:var(--panel); overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.03); transform:rotate(1.6deg)}
+.frame .bar{display:flex; gap:7px; align-items:center; padding:11px 14px; background:var(--panel-2); border-bottom:1px solid var(--line)}
+.frame .bar i{width:10px; height:10px; border-radius:50%; background:#2a3875}
+.frame .bar em{margin-left:10px; font-style:normal; font-family:var(--mono); font-size:12px; color:var(--muted)}
+.frame img{display:block; width:100%; height:auto}
+
+section{padding:0 0 64px}
+h2{font-size:26px; font-weight:800; letter-spacing:-.02em; margin:0 0 6px}
+.sub{color:var(--muted); margin:0 0 24px; font-size:15px}
+
+.links{list-style:none; padding:0; margin:0; border:1px solid var(--line); border-radius:18px; background:var(--panel); overflow:hidden}
+.links li{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:16px; padding:18px 22px}
+.links li+li{border-top:1px solid var(--line)}
+.links .nm{font-weight:600}
+.links .host{font-family:var(--mono); font-size:14px; color:var(--muted); overflow-wrap:anywhere}
+.links .nm small{display:block; font-family:var(--font); font-weight:400; font-size:12px; color:var(--idle)}
+.row-actions{display:flex; gap:8px}
+.btn{font:inherit; font-size:14px; font-weight:600; color:var(--text); background:transparent; border:1px solid var(--line);
+  padding:9px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:background .15s, border-color .15s}
+.btn:hover{background:var(--panel-2); border-color:#3a4a8f}
+.btn.fill{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn.fill:hover{background:#6aa0ff}
+
+.facts{display:grid; grid-template-columns:repeat(3,1fr); gap:0}
+.facts div{padding:4px 28px; border-left:2px solid var(--line)}
+.facts div:first-child{padding-left:0; border-left:0}
+.facts b{display:block; font-size:17px; margin-bottom:4px}
+.facts p{margin:0; color:var(--muted); font-size:14.5px}
+
+footer{border-top:1px solid var(--line); padding:26px 0 44px; display:flex; flex-wrap:wrap; gap:12px 28px; justify-content:space-between; color:var(--muted); font-size:14px}
+footer a{color:var(--accent-hi)}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr; gap:40px; padding:40px 0 52px}
+  .frame{transform:none}
+  .facts{grid-template-columns:1fr; gap:22px}
+  .facts div{border-left:0; padding:0 0 0 18px; border-left:2px solid var(--line)}
+  .facts div:first-child{padding-left:18px; border-left:2px solid var(--line)}
+}
+@media (max-width:560px){
+  .wrap{padding:0 16px}
+  .links li{grid-template-columns:auto 1fr; }
+  .row-actions{grid-column:1 / -1}
+  .btn{flex:1; text-align:center}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="logo.png" alt=""><b>ScrollHub</b></header>
+
+  <div class="hero">
+    <div>
+      <h1>Find ScrollHub, every time.</h1>
+      <p class="lede">Bookmark this page. When the link changes, the button below changes with it.</p>
+      <a class="go" id="go" href="#"><strong>Open ScrollHub</strong><span id="goHost">checking links…</span></a>
+      <div class="status"><i class="dot wait" id="dot"></i><span id="stat">Checking which links work on your network…</span></div>
+    </div>
+    <figure class="frame">
+      <div class="bar"><i></i><i></i><i></i><em id="frameHost">scroll-hub.onrender.com</em></div>
+      <img src="preview.jpg" alt="ScrollHub home page with Scroll Royale, Scrolls Casino and the game store">
+    </figure>
+  </div>
+
+  <section>
+    <h2>All links</h2>
+    <p class="sub">If the first one doesn't load, try the next. A green dot means it answered from your network just now.</p>
+    <ul class="links" id="list"></ul>
+  </section>
+
+  <section>
+    <div class="facts">
+      <div><b>Thousands of free games</b><p>Play in the browser with nothing to install.</p></div>
+      <div><b>Chat and friends</b><p>Servers, voice rooms and direct messages.</p></div>
+      <div><b>Multiplayer and a casino</b><p>BedWars, Capture the Flag, racing, and the Scrolls casino.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <span id="upd">&nbsp;</span>
+    <a href="https://github.com/scrollreader11-dev/scroll-backend">Source code on GitHub</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var FALLBACK={updated:'',links:[{name:'Main',url:'https://scroll-hub.onrender.com'}]};
+  var $=function(id){return document.getElementById(id)};
+  function host(u){try{return new URL(u).host}catch(e){return u}}
+  function probe(u){
+    return new Promise(function(res){
+      var img=new Image(), done=false;
+      function end(ok){ if(!done){done=true; res(ok);} }
+      img.onload=function(){end(true)}; img.onerror=function(){end(false)};
+      setTimeout(function(){end(false)},7000);
+      img.src=u.replace(/\/+$/,'')+'/logo.png?t='+Date.now();
+    });
+  }
+  function render(data){
+    var links=(data.links||[]).filter(function(l){return l&&l.url});
+    if(!links.length) links=FALLBACK.links;
+    $('upd').textContent=data.updated?('Links last updated '+data.updated):'';
+    $('go').href=links[0].url; $('goHost').textContent=host(links[0].url); $('frameHost').textContent=host(links[0].url);
+    var ul=$('list'); ul.textContent='';
+    var dots=[];
+    links.forEach(function(l,i){
+      var li=document.createElement('li');
+      var d=document.createElement('i'); d.className='dot wait'; dots.push(d);
+      var mid=document.createElement('div');
+      var nm=document.createElement('div'); nm.className='nm'; nm.textContent=l.name||('Link '+(i+1));
+      var h=document.createElement('div'); h.className='host'; h.textContent=host(l.url);
+      mid.appendChild(nm); mid.appendChild(h);
+      var act=document.createElement('div'); act.className='row-actions';
+      var open=document.createElement('a'); open.className='btn fill'; open.href=l.url; open.textContent='Open';
+      var cp=document.createElement('button'); cp.className='btn'; cp.type='button'; cp.textContent='Copy';
+      cp.addEventListener('click',function(){
+        var done=function(){cp.textContent='Copied'; setTimeout(function(){cp.textContent='Copy'},1400)};
+        if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(l.url).then(done,function(){});
+        else done();
+      });
+      act.appendChild(open); act.appendChild(cp);
+      li.appendChild(d); li.appendChild(mid); li.appendChild(act); ul.appendChild(li);
+    });
+    Promise.all(links.map(function(l){return probe(l.url)})).then(function(r){
+      r.forEach(function(ok,i){ dots[i].className='dot '+(ok?'up':'down'); });
+      var first=r.indexOf(true);
+      if(first>=0){
+        $('go').href=links[first].url; $('goHost').textContent=host(links[first].url); $('frameHost').textContent=host(links[first].url);
+        $('dot').className='dot up';
+        $('stat').textContent=(first===0?'The main link is up on your network.':'The main link didn’t answer, so this button uses a backup that did.');
+      }else{
+        $('dot').className='dot down';
+        $('stat').textContent='None of the links answered from here. Try them one at a time below.';
+      }
+    });
+  }
+  fetch('links.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(render).catch(function(){render(FALLBACK)});
+})();
+</script>
+</body>
+</html>
